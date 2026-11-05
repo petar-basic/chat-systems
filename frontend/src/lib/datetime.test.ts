@@ -64,7 +64,7 @@ describe('timezoneChoices', () => {
       offset: 'GMT+1',
       minutes: 60,
     });
-    expect(find('America/Argentina/Buenos_Aires')?.region).toBe('America · Argentina');
+    expect(find('America/Argentina/La_Rioja')?.region).toBe('America · Argentina');
     expect(find('Asia/Kolkata')?.offset ?? find('Asia/Calcutta')?.offset).toBe('GMT+5:30');
   });
 
@@ -110,6 +110,6 @@ describe('matchesTimezone', () => {
   });
 
   it('finds a zone by its region', () => {
-    expect(found('argentina')).toContain('America/Argentina/Buenos_Aires');
+    expect(found('argentina')).toContain('America/Argentina/La_Rioja');
   });
 });

@@ -15,6 +15,7 @@ import { usePreferences, useUpdatePreferences } from './hooks/usePreferences';
 import { useAccount } from './hooks/useProfile';
 import { useUpdateTimezone } from './hooks/useTimezone';
 import LanguagePicker from './LanguagePicker';
+import { rememberAsked } from './timezoneQuestion';
 import SavedEverywhere from './SavedEverywhere';
 
 const EXAMPLE = new Date(2026, 0, 1, 14, 5);
@@ -57,7 +58,10 @@ export default function RegionPanel() {
           value={timezone}
           options={options}
           filter={filter}
-          onChange={(zone) => updateTimezone.mutate(zone)}
+          onChange={(zone) => {
+            rememberAsked(browserTimezone());
+            updateTimezone.mutate(zone);
+          }}
           placeholder="Find a city or an offset, e.g. Tokyo or GMT+9"
           emptyText="No time zone matches"
           disabled={!account}

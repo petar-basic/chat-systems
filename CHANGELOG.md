@@ -21,7 +21,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - The time zone in *Preferences → Language & region* is one field you type a city or an offset
   into, such as *Tokyo* or *GMT+9*, with a list of matching zones under it showing each one's
   offset and local time. The separate search field narrowed a long system list you could not
-  see, and the `Etc/GMT` zones, whose sign reads backwards, are gone from the list.
+  see, and the `Etc/GMT` zones, whose sign reads backwards, are gone from the list. Picking a
+  zone there no longer asks at once whether to use this device's instead.
 
 ## [4.2.0] — 2026-11-05
 

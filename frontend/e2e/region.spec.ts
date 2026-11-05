@@ -9,6 +9,7 @@ test('the time zone comes from the browser, and the 12-hour clock changes messag
   const channel = await createChannel(alice, workspace.id, 'clock');
   const content = `clock-${Date.now()}`;
   await alice.post(`${API}/channels/${channel.id}/messages`, { data: { content } });
+  const before = (await (await alice.get(`${API}/users/me`)).json()).timezone;
 
   try {
     await login(page, 'alice@dev.local');
@@ -45,7 +46,7 @@ test('the time zone comes from the browser, and the 12-hour clock changes messag
     await expect(time).toHaveText(/am|pm/i);
   } finally {
     await alice.patch(`${API}/users/me`, {
-      data: { timezone: await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone) },
+      data: { timezone: before ?? Intl.DateTimeFormat().resolvedOptions().timeZone },
     });
     await alice.patch(`${API}/users/me/preferences`, { data: { clock: 'h24' } });
     await alice.delete(`${API}/channels/${channel.id}`);
