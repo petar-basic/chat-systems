@@ -2524,3 +2524,73 @@ build's extra config, so an app built from source never replaces itself with a r
 builds the app on macOS and Windows for every PR that touches it; the first Windows build found
 an import used only on macOS. The app is not signed with an Apple Developer ID or a Windows
 certificate yet; the README says how to open it on each system until that decision is made.
+
+## Wave 30 — Make it yours ✅ shipped
+
+### [CS-111] A theme for each workspace ✅ shipped
+A theme is four colours kept on the member, in `workspace_members.theme`, so it follows the
+person to every browser and to the desktop app, and each workspace they are in has its own.
+*Preferences → Appearance* offers seven presets. The four colours become the full set of
+tokens for the rail and the channel sidebar, with the text colour picked for AA contrast, and
+only the chrome wrapper gets them: messages, dialogs and the workspace and You menus keep the
+light or dark mode, because a theme is about telling workspaces apart, not about reading.
+
+### [CS-112] Custom themes, shared themes, and a desktop window in the workspace's colours ✅ shipped
+*Custom* edits the four colours with the sidebar behind the dialog changing as you go, and
+*Cancel* drops the preview. A theme can be shared as one line of colours and imported back,
+and Slack's 8- or 10-colour line imports too, mapped onto sidebar, selected item, presence and
+badge. *Surprise me* picks colours whose text passes AA, and a colour that cannot reach AA is
+flagged. The desktop app takes the workspace in front's colours through a new `report_colours`
+command, granted to server pages like `report_theme`, and accepts only `#rrggbb`: the rail
+follows them, and so does the title bar, transparent over the window on macOS and through
+`DWMWA_CAPTION_COLOR` on Windows 11.
+
+### [CS-113] Preferences that follow you, and how messages look ✅ shipped
+`users.preferences` keeps an account's settings, behind `GET` and `PATCH /users/me/preferences`,
+which return every key at its default and refuse an unknown key or value with nothing saved.
+They have a route of their own rather than riding on the user, so no user query had to change.
+Light, dark or system moved there; a browser whose account has no mode yet uploads the one it
+has, once, so nobody's choice was lost on upgrade. *Messages & media* adds a compact layout and
+collapsed images and link previews. The ticket's display name or full name choice was left out:
+there is no full name to choose.
+
+### [CS-114] Enter to send or for a new line, and where a channel opens ✅ shipped
+With Enter set to start a new line, ⌘Enter or Ctrl+Enter sends, in the composer, threads and
+edits alike, since they share one `MessageInput`. One function decides each press: an open
+picker keeps Enter, and inside a list or a code block Enter adds an item or a line in both
+modes. That last part changed what people had: Enter in a list used to send. *Mark as read*
+can open every channel at its newest message, without the unread line.
+
+### [CS-115] Time zones and local time ✅ shipped
+`users.timezone` had defaulted to UTC with no way to set it, so UTC could not be told from
+unset. Migration 90 made unset `NULL`; the app now fills it from the browser at sign-in and asks
+once when they later differ. A time zone Postgres does not know is refused. A 12- or 24-hour
+clock is a preference, and every time on screen goes through `lib/datetime`. The hover card,
+which is the profile card, shows the person's local time, and a DM says when it is early or
+late for them.
+
+### [CS-116] Title and pronouns on the profile ✅ shipped
+Both are on the account and on each membership, like the name and photo: a workspace's own
+value wins, the account's is the default. They are trimmed and bounded in characters, not
+bytes. Searching people matches the title too, on the client, because the member directory is
+the member list the client already holds; the ticket's backend test for it became a frontend
+one. Erasing a person clears both everywhere.
+
+### [CS-117] Text size and typeface ✅ shipped
+The size is the root font size, so everything in `rem` follows it, and the arbitrary pixel
+classes that would not have followed became tokens on the scale. The typefaces ship with the
+app, because the CSP allows fonts only from the server itself, and each is its own CSS chunk,
+loaded only when picked. `boot.js` applies the last values from `localStorage` before React
+mounts, so a reload does not jump in size; the server's values win once preferences load.
+
+### [CS-117a] Conversations outlive a departure ✅ shipped
+A bug found on 2026-11-05. Leaving a workspace, or being removed from it, deleted the person's
+rows in every DM and group DM, so the other side kept a DM with nobody in it, and coming back
+started a new one. The rows now move to `conversation_departures` and come back when the person
+does, with their read position and a recounted unread, so `find_direct` finds the old DM.
+`channel_members` keeps meaning "in the conversation now", so fan-out, unread counts and every
+membership check stayed as they were. The list carries who left with their account's name and
+photo, which the ticket had as bare ids, since the client no longer has them among the members.
+A DM with somebody who left refuses new messages; a group DM carries on. Migration 93 rebuilt
+the participants lost before the fix from the messages they wrote, but in a group DM only those
+no longer in the workspace, since somebody still in it may have left the group on purpose.

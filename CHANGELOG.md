@@ -14,7 +14,21 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
-## [Unreleased]
+## [4.2.0] — 2026-11-05
+
+### Upgrading from 4.1.1
+
+- Set `VERSION=4.2.0`, pull both images and restart `api`, `realtime`, `worker` and `frontend`
+  together. There is no new setting. The desktop app updates itself to 4.2.0 within six hours,
+  or at its next start; its rail and title bar take a workspace's custom colours only from then
+  on.
+- Migration 88 adds `workspace_members.theme`; migration 89 adds `users.preferences`; migration
+  90 drops the `'UTC'` default of `users.timezone` and turns every `'UTC'` or empty value into
+  "not set", so each person gets their browser's time zone at their next sign-in; migration 91
+  adds `title` and `pronouns` to `users` and `workspace_members`; migration 92 turns mention
+  emails off by default for members who join from now on; migration 93 adds
+  `conversation_departures` and puts back the DM participants that a departure removed before
+  this release.
 
 ### Added
 
@@ -34,7 +48,6 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   or Ctrl+Enter send, in the message box, threads and edits. In both modes Enter keeps working in
   lists, code blocks and the mention and emoji pickers. *Preferences → Mark as read* can open
   every channel at its newest message instead of where you left off.
-
 - Time zones. Your time zone is set from your browser when you sign in, and if they later
   differ the app asks once whether to update it. *Preferences → Language & region* holds it, the
   language, and a 12-hour or 24-hour clock for every time shown. A profile card shows the

@@ -23,8 +23,7 @@ in 3.5.0. Wave 26, which fixes what the 2026-10-27 product survey found, shipped
 Wave 27, which fixes what the 2026-10-28 survey of 3.6.0 found, shipped in 3.7.0. Wave 28, the
 feedback on 3.7.0 and CS-037, shipped in 4.0.0.
 After it, releases are bug fixes only for a while. Wave 29, a desktop app, shipped in 4.1.0. Wave 30,
-themes per workspace and the preferences a team from Slack looks for, is open and goes out as
-4.2.0. Waves 31 (signing in, 4.3.0), 32 (analytics, 4.4.0) and 33 (mobile apps, 5.0.0) are
+themes per workspace and the preferences a team from Slack looks for, shipped in 4.2.0. Waves 31 (signing in, 4.3.0), 32 (analytics, 4.4.0) and 33 (mobile apps, 5.0.0) are
 planned.
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
