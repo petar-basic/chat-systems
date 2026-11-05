@@ -14,7 +14,13 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
-## [Unreleased]
+## [4.2.1] — 2026-11-05
+
+### Upgrading from 4.2.0
+
+- Set `VERSION=4.2.1`, pull both images and restart `api`, `realtime`, `worker` and `frontend`
+  together. There is no migration and no new setting; only the web app and the desktop app
+  changed. The desktop app updates itself to 4.2.1 within six hours, or at its next start.
 
 ### Fixed
 
@@ -25,6 +31,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   offset and local time. The separate search field narrowed a long system list you could not
   see, and the `Etc/GMT` zones, whose sign reads backwards, are gone from the list. Picking a
   zone there no longer asks at once whether to use this device's instead.
+- A value with braces in it, such as `{{name}}`, shows as it was typed in a translated
+  sentence. It used to be read as a placeholder and change the sentence around it; today that
+  is the address on the page that says a password reset link was sent.
 
 ## [4.2.0] — 2026-11-05
 
