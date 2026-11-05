@@ -38,7 +38,7 @@ export function PauseMenuItems({ onDone }: { onDone: () => void }) {
 
   return (
     <div data-qa="pause-menu">
-      <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-subtle" data-qa="pause-heading">
+      <div className="px-3 py-1 text-3xs uppercase tracking-wide text-subtle" data-qa="pause-heading">
         Pause notifications{where}
       </div>
       {PAUSE_PRESETS.map((preset) => (

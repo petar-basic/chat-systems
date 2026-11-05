@@ -84,7 +84,7 @@ export default function ChannelHeader({
               onClick={() => setDetails('integrations')}
               data-qa="channel-integration-indicator"
               title="An integration forwards messages from this channel to an external URL"
-              className="flex items-center gap-1 shrink-0 px-1.5 py-0.5 rounded bg-amber-500/10 text-warning text-[11px] cursor-pointer hover:bg-amber-500/20"
+              className="flex items-center gap-1 shrink-0 px-1.5 py-0.5 rounded bg-amber-500/10 text-warning text-2xs cursor-pointer hover:bg-amber-500/20"
             >
               <Plug className="w-3 h-3" />
               Integration

@@ -88,7 +88,7 @@ export function SidebarChannelRow({
             aria-hidden="true"
             data-qa="channel-mention-badge"
             data-channel-id={channel.id}
-            className="ml-auto min-w-5 h-5 px-1 bg-badge rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold text-badge-fg"
+            className="ml-auto min-w-5 h-5 px-1 bg-badge rounded-full shrink-0 flex items-center justify-center text-3xs font-bold text-badge-fg"
           >
             {mentionCount ? formatBadge(mentionCount) : '@'}
           </span>
@@ -99,7 +99,7 @@ export function SidebarChannelRow({
               aria-hidden="true"
               data-qa="channel-unread-badge"
               data-channel-id={channel.id}
-              className="ml-auto min-w-5 h-5 px-1 bg-elevated rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold text-fg"
+              className="ml-auto min-w-5 h-5 px-1 bg-elevated rounded-full shrink-0 flex items-center justify-center text-3xs font-bold text-fg"
             >
               {formatBadge(unreadCount)}
             </span>

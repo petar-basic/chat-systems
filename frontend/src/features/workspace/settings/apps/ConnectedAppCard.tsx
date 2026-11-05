@@ -44,7 +44,7 @@ export function ConnectedAppCard({
             <h3 className="font-semibold text-sm text-fg">{app.name}</h3>
             {badge && (
               <span
-                className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ${
+                className={`shrink-0 rounded px-1.5 py-0.5 text-2xs font-medium ${
                   app.connected_account ? 'bg-green-500/15 text-success' : 'bg-raised text-muted'
                 }`}
               >

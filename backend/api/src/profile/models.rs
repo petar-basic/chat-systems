@@ -138,6 +138,29 @@ pub enum Clock {
     H12,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub enum TextSize {
+    #[serde(rename = "90")]
+    Smaller,
+    #[default]
+    #[serde(rename = "100")]
+    Normal,
+    #[serde(rename = "112")]
+    Larger,
+    #[serde(rename = "125")]
+    Largest,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Typeface {
+    #[default]
+    System,
+    Inter,
+    AtkinsonHyperlegible,
+    OpenDyslexic,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, ToSchema)]
 #[serde(default)]
 pub struct Preferences {
@@ -148,6 +171,8 @@ pub struct Preferences {
     pub open_channel_at: OpenChannelAt,
     pub language: Language,
     pub clock: Clock,
+    pub text_size: TextSize,
+    pub typeface: Typeface,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -167,4 +192,8 @@ pub struct UpdatePreferences {
     pub language: Option<Language>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub clock: Option<Clock>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text_size: Option<TextSize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub typeface: Option<Typeface>,
 }

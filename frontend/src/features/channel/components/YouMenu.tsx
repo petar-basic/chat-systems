@@ -121,7 +121,7 @@ export function YouMenu({
       >
         <Bell className="w-4 h-4" />
         {unreadNotifCount > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-3.5 px-0.5 bg-badge text-badge-fg text-[9px] font-bold rounded-full flex items-center justify-center leading-none">
+          <span className="absolute -top-1.5 -right-1.5 min-w-3.5 h-3.5 px-0.5 bg-badge text-badge-fg text-4xs font-bold rounded-full flex items-center justify-center leading-none">
             {unreadNotifCount > 99 ? '99+' : unreadNotifCount}
           </span>
         )}

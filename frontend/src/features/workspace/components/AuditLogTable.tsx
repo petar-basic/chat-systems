@@ -116,7 +116,7 @@ export default function AuditLogTable({ entries, loading, showWorkspace = false 
 
   return (
     <div className="bg-surface rounded-xl border border-line overflow-x-auto" data-qa="audit-log-table">
-      <table className="w-full min-w-[720px]">
+      <table className="w-full min-w-180">
         <thead>
           <tr className="border-b border-line">
             <th className="text-left px-4 py-3 text-xs font-medium text-muted uppercase tracking-wider">

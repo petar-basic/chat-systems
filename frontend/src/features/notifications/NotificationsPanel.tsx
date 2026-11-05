@@ -165,7 +165,7 @@ export default function NotificationsPanel({ workspaceId, onClose, onOpenMessage
         icon={<Bell className="h-4 w-4 text-muted" />}
         badge={
           unreadCount > 0 && (
-            <span className="px-1.5 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full">
+            <span className="px-1.5 py-0.5 bg-red-500 text-white text-3xs font-bold rounded-full">
               {unreadCount > 99 ? '99+' : unreadCount}
             </span>
           )

@@ -12,7 +12,7 @@ export function HealthBadge({ health }: { health: AppHealth }) {
   if (!look) return null;
   return (
     <span
-      className={`shrink-0 rounded px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${look.tone}`}
+      className={`shrink-0 rounded px-1 py-0.5 text-3xs font-semibold uppercase tracking-wide ${look.tone}`}
       data-qa="app-health"
     >
       {look.label}

@@ -152,7 +152,7 @@ export default function ChannelBookmarksBar({
             Cancel
           </button>
           {error && (
-            <span className="text-[11px] text-danger" data-qa="channel-bookmark-error">
+            <span className="text-2xs text-danger" data-qa="channel-bookmark-error">
               {error}
             </span>
           )}

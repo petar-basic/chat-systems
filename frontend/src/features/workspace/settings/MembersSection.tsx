@@ -94,7 +94,7 @@ function MemberRow({
           {member.is_bot && (
             <span
               data-qa="member-app-tag"
-              className="ml-1.5 px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-raised text-fg-dim rounded"
+              className="ml-1.5 px-1 py-0.5 text-3xs font-semibold uppercase tracking-wide bg-raised text-fg-dim rounded"
             >
               App
             </span>

@@ -5138,6 +5138,10 @@ export interface components {
             open_channel_at: components["schemas"]["OpenChannelAt"];
             /** @default shown */
             previews: components["schemas"]["Previews"];
+            /** @default 100 */
+            text_size: components["schemas"]["TextSize"];
+            /** @default system */
+            typeface: components["schemas"]["Typeface"];
         };
         Presence: {
             away: boolean;
@@ -5478,6 +5482,8 @@ export interface components {
             auth: string;
             p256dh: string;
         };
+        /** @enum {string} */
+        TextSize: "90" | "100" | "112" | "125";
         Theme: {
             badge: string;
             presence: string;
@@ -5547,6 +5553,8 @@ export interface components {
             /** @enum {string} */
             type: "shortcut";
         };
+        /** @enum {string} */
+        Typeface: "system" | "inter" | "atkinson_hyperlegible" | "open_dyslexic";
         Unfurl: {
             description?: string | null;
             embed?: components["schemas"]["VideoEmbed"] | null;
@@ -5682,6 +5690,8 @@ export interface components {
             language?: components["schemas"]["Language"] | null;
             open_channel_at?: components["schemas"]["OpenChannelAt"] | null;
             previews?: components["schemas"]["Previews"] | null;
+            text_size?: components["schemas"]["TextSize"] | null;
+            typeface?: components["schemas"]["Typeface"] | null;
         };
         UpdateProfileRequest: {
             avatar_url?: string | null;

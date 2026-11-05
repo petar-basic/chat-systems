@@ -139,12 +139,12 @@ export function VideoTile({
       )}
 
       <div className="absolute bottom-1 left-1 right-1 flex items-center gap-1">
-        <span className="px-1.5 py-0.5 rounded bg-black/50 text-[11px] text-white truncate max-w-full">
+        <span className="px-1.5 py-0.5 rounded bg-black/50 text-2xs text-white truncate max-w-full">
           {isScreen ? `${name}'s screen` : name}
           {isSelf && !isScreen && ' (you)'}
         </span>
         {sharing && !isScreen && (
-          <span className="px-1 py-0.5 rounded bg-purple-600/80 text-[10px] text-fg">Sharing</span>
+          <span className="px-1 py-0.5 rounded bg-purple-600/80 text-3xs text-fg">Sharing</span>
         )}
         {muted && !isScreen && <MicOff className="w-3 h-3 text-danger shrink-0" />}
       </div>

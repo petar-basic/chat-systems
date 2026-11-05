@@ -688,7 +688,9 @@ async fn preferences_start_at_their_defaults_and_keep_what_is_set(pool: PgPool) 
             "enter_key": "send",
             "open_channel_at": "where_left",
             "language": "browser",
-            "clock": "h24"
+            "clock": "h24",
+            "text_size": "100",
+            "typeface": "system"
         })
     );
 
@@ -735,9 +737,23 @@ async fn preferences_start_at_their_defaults_and_keep_what_is_set(pool: PgPool) 
             "enter_key": "newline",
             "open_channel_at": "newest",
             "language": "browser",
-            "clock": "h24"
+            "clock": "h24",
+            "text_size": "100",
+            "typeface": "system"
         })
     );
+
+    let (status, prefs) = send(
+        &app,
+        "PATCH",
+        "/api/users/me/preferences",
+        Some(&token),
+        Some(json!({ "text_size": "125", "typeface": "open_dyslexic" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{prefs:?}");
+    assert_eq!(prefs["text_size"], "125");
+    assert_eq!(prefs["typeface"], "open_dyslexic");
 
     let (_, prefs) = send(&app, "GET", "/api/users/me/preferences", Some(&token), None).await;
     assert_eq!(prefs["colour_mode"], "dark", "kept on the server");
@@ -752,7 +768,9 @@ async fn preferences_start_at_their_defaults_and_keep_what_is_set(pool: PgPool) 
             "enter_key": "send",
             "open_channel_at": "where_left",
             "language": "browser",
-            "clock": "h24"
+            "clock": "h24",
+            "text_size": "100",
+            "typeface": "system"
         }),
         "each account has its own"
     );
@@ -769,6 +787,9 @@ async fn an_unknown_preference_or_value_is_refused(pool: PgPool) {
         json!({ "colour_mode": "sepia" }),
         json!({ "enter_key": "shift" }),
         json!({ "clock": "h25" }),
+        json!({ "text_size": "150" }),
+        json!({ "text_size": 125 }),
+        json!({ "typeface": "comic_sans" }),
         json!({ "open_channel_at": "oldest" }),
         json!({ "density": "compact", "extra": true }),
     ] {

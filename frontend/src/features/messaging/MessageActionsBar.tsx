@@ -158,7 +158,7 @@ export function MessageActionsBar({ message, actions: a, pickerOpen, onPickerCha
             )}
             {a.onRemind && (
               <div className="border-y border-line/60 py-1" data-qa="message-action-remind">
-                <div className="px-3 py-1 text-[11px] uppercase tracking-wide text-subtle">
+                <div className="px-3 py-1 text-2xs uppercase tracking-wide text-subtle">
                   Remind me about this
                 </div>
                 {REMIND_PRESETS.map((preset) => (

@@ -388,7 +388,7 @@ CS-116 stands alone.
 | CS-114 ✅ | Enter to send or for a new line, and where a channel opens | frontend |
 | CS-115 ✅ | Time zones and local time | backend · frontend |
 | CS-116 ✅ | Title and pronouns on the profile | backend · frontend |
-| CS-117 | Text size and typeface | frontend · backend |
+| CS-117 ✅ | Text size and typeface | frontend · backend |
 
 ### Wave 31 — Signing in
 

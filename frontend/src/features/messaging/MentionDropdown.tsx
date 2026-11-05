@@ -82,7 +82,7 @@ export const MentionDropdown = forwardRef<MentionDropdownHandle, Props>(({ items
           )}
           <span className="truncate">{item.label}</span>
           {(item.hint || item.title) && (
-            <span className="ml-auto text-[10px] text-subtle truncate">{item.hint || item.title}</span>
+            <span className="ml-auto text-3xs text-subtle truncate">{item.hint || item.title}</span>
           )}
         </button>
       ))}

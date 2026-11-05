@@ -154,7 +154,7 @@ function ScheduledRow({
             dataQa="scheduled-reschedule-input"
           />
           {error && (
-            <p className="mt-1 text-[11px] text-danger" data-qa="scheduled-reschedule-error">
+            <p className="mt-1 text-2xs text-danger" data-qa="scheduled-reschedule-error">
               {error}
             </p>
           )}

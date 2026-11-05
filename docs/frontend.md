@@ -602,6 +602,15 @@ rule). While it is open the draft goes to `useThemePreview`, which `useWorkspace
 over the saved theme, so the sidebar behind the dialog changes with every edit; *Save theme*
 saves it like a preset, and closing the editor drops the preview.
 
+Under the themes, `TextPicker` sets the text size (90, 100, 112 or 125 %) and the typeface
+(System, Inter, Atkinson Hyperlegible, OpenDyslexic), kept in `stores/text` and saved as
+`text_size` and `typeface`. The size is the root font size, so every `rem` follows; the few
+sizes below Tailwind's scale are the `text-2xs`, `text-3xs` and `text-4xs` tokens in
+`index.css`, never pixels. A typeface sets `data-typeface` on `<html>`, which swaps
+`--font-sans`, and loads its `@fontsource` files then and only then; code keeps its monospace.
+The last values are kept in `localStorage` and applied by `public/boot.js` before the app
+starts, so the page does not change size once the preferences arrive.
+
 ### `notifications/NotificationLevelMenu`
 `NotificationLevelButton` is the bell in the channel header, in a DM's header and on a sidebar
 row's hover. Its menu sets the caller's level for that channel — *Default (…)*, *All new

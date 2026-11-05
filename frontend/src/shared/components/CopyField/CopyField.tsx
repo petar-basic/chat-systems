@@ -23,7 +23,7 @@ export function CopyField({ label, value, valueQa, copyQa }: Props) {
 
   return (
     <div className="mt-2">
-      <div className="text-[11px] uppercase tracking-wider text-muted mb-1">{label}</div>
+      <div className="text-2xs uppercase tracking-wider text-muted mb-1">{label}</div>
       <div className="flex items-center gap-1.5">
         <code
           data-qa={valueQa}

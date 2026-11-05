@@ -40,12 +40,12 @@ export default function EditHistoryPanel({ messageId, currentContent, onClose }:
       ) : (
         <ol className="space-y-2">
           <li data-qa="edit-history-current">
-            <div className="text-[11px] uppercase tracking-wider text-subtle mb-0.5">Now</div>
+            <div className="text-2xs uppercase tracking-wider text-subtle mb-0.5">Now</div>
             <MessageContent content={currentContent} />
           </li>
           {edits.map((edit) => (
             <li key={edit.id} data-qa="edit-history-version" className="opacity-80">
-              <div className="text-[11px] uppercase tracking-wider text-subtle mb-0.5">
+              <div className="text-2xs uppercase tracking-wider text-subtle mb-0.5">
                 Before {formatDateTime(edit.edited_at)}
               </div>
               <MessageContent content={edit.previous_content} />

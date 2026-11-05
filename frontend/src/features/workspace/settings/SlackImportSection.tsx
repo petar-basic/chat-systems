@@ -51,7 +51,7 @@ function RunRow({ run, retrying, onRetry }: { run: SlackImportRun; retrying: boo
           {run.source}
         </span>
         {run.dry_run && (
-          <span className="px-1.5 py-0.5 rounded bg-raised text-[10px] uppercase tracking-wide text-fg-dim">
+          <span className="px-1.5 py-0.5 rounded bg-raised text-3xs uppercase tracking-wide text-fg-dim">
             dry run
           </span>
         )}
@@ -71,7 +71,7 @@ function RunRow({ run, retrying, onRetry }: { run: SlackImportRun; retrying: boo
       {notes.length > 0 && (
         <ul className="mt-1.5 space-y-0.5" data-qa="slack-import-notes">
           {notes.map((note, i) => (
-            <li key={i} className="text-[11px] text-muted">
+            <li key={i} className="text-2xs text-muted">
               {note}
             </li>
           ))}
@@ -104,7 +104,7 @@ function RunRow({ run, retrying, onRetry }: { run: SlackImportRun; retrying: boo
           </summary>
           <ul className="mt-1 space-y-0.5" data-qa="slack-import-skipped">
             {skipped.slice(0, 50).map((item, i) => (
-              <li key={i} className="text-[11px] text-muted">
+              <li key={i} className="text-2xs text-muted">
                 <span className="text-fg-dim">{item.what}</span> — {item.why}
               </li>
             ))}
@@ -201,7 +201,7 @@ export function SlackImportSection({ workspaceId, instanceUrl }: Props) {
         />
 
         {error && (
-          <p className="text-[11px] text-danger" data-qa="slack-import-form-error">
+          <p className="text-2xs text-danger" data-qa="slack-import-form-error">
             {error}
           </p>
         )}

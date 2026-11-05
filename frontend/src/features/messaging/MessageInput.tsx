@@ -532,7 +532,7 @@ export default function MessageInput({
                           className="w-full px-3 py-2 flex items-center justify-between gap-2 text-left text-sm text-fg-dim hover:bg-raised/60 transition cursor-pointer"
                         >
                           <span>{preset.label}</span>
-                          <span className="text-[11px] text-subtle">{formatScheduleHint(preset.at())}</span>
+                          <span className="text-2xs text-subtle">{formatScheduleHint(preset.at())}</span>
                         </button>
                       ))}
 
@@ -550,7 +550,7 @@ export default function MessageInput({
                           dataQa="schedule-custom-input"
                         />
                         {scheduleError && (
-                          <p className="mt-1 text-[11px] text-danger" data-qa="schedule-error">
+                          <p className="mt-1 text-2xs text-danger" data-qa="schedule-error">
                             {scheduleError}
                           </p>
                         )}

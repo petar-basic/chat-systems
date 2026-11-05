@@ -13,6 +13,7 @@ vi.mock('@/features/profile/WorkspaceThemePicker', () => ({
   default: () => <div data-qa="workspace-theme-panel" />,
 }));
 vi.mock('@/features/profile/RegionPanel', () => ({ default: () => <div data-qa="region-panel" /> }));
+vi.mock('@/features/profile/TextPicker', () => ({ default: () => <div data-qa="text-panel" /> }));
 vi.mock('@/features/notifications/NotifyDefaultPanel', () => ({
   NotifyDefaultPanel: () => <div data-qa="notify-default" />,
 }));

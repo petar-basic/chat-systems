@@ -16521,6 +16521,14 @@
           "previews": {
             "$ref": "#/components/schemas/Previews",
             "default": "shown"
+          },
+          "text_size": {
+            "$ref": "#/components/schemas/TextSize",
+            "default": "100"
+          },
+          "typeface": {
+            "$ref": "#/components/schemas/Typeface",
+            "default": "system"
           }
         }
       },
@@ -17738,6 +17746,15 @@
           }
         }
       },
+      "TextSize": {
+        "type": "string",
+        "enum": [
+          "90",
+          "100",
+          "112",
+          "125"
+        ]
+      },
       "Theme": {
         "type": "object",
         "required": [
@@ -18002,6 +18019,15 @@
               }
             }
           }
+        ]
+      },
+      "Typeface": {
+        "type": "string",
+        "enum": [
+          "system",
+          "inter",
+          "atkinson_hyperlegible",
+          "open_dyslexic"
         ]
       },
       "Unfurl": {
@@ -18622,6 +18648,26 @@
             "oneOf": [
               {
                 "$ref": "#/components/schemas/Previews"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "text_size": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/TextSize"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "typeface": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Typeface"
               },
               {
                 "type": "null"
