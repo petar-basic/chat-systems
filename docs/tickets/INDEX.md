@@ -378,7 +378,8 @@ comes next because everything else lives inside it.
 Raised on 2026-11-04 after 4.1.1, from a walk through the app beside Slack's *Preferences*.
 Themes come first because they are what was asked for; CS-113 comes before CS-114 and
 CS-115 because it adds the store their settings are kept in, and so before CS-117 too.
-CS-116 stands alone.
+CS-116 stands alone. CS-117a is a bug found on 2026-11-05: leaving a workspace, or being
+removed from it, emptied every DM with that person, and coming back started new ones.
 
 | # | Ticket | Area |
 |---|---|---|
@@ -389,6 +390,7 @@ CS-116 stands alone.
 | CS-115 ✅ | Time zones and local time | backend · frontend |
 | CS-116 ✅ | Title and pronouns on the profile | backend · frontend |
 | CS-117 | Text size and typeface | frontend · backend |
+| CS-117a | Conversations outlive a departure | backend · frontend |
 
 ### Wave 31 — Signing in
 
@@ -478,4 +480,5 @@ Tickets that touch the same files, and the order that avoids rework:
 | `/auth/oidc/exchange` and the deep link | CS-109 ✅ → CS-118 → CS-124 → CS-125 |
 | the Tauri project's mobile targets | CS-123 → CS-125 → CS-126 |
 | `MessageInput.tsx` key handling | CS-114 |
+| `membership::detach`, `remove_member_in` and the conversation list | CS-117a |
 | desktop `report_theme` | CS-112 |
