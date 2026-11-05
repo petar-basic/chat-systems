@@ -306,6 +306,10 @@ line up everywhere:
 - **Form** (`shared/components/Form`) — `TextInput` (`leading`, `trailing`, `counter`),
   `TextArea`, `Select`, `Checkbox` (with `description`) and `RadioCards`, all 36 px (`compact`
   32 px for rows and toolbars), each wired to its label, hint, error and counter by `Field`.
+  `Combobox` is a field you type in over a list of our own, for a choice too long for a
+  `Select`, whose open list is the system's: typing narrows it (by `filter`, the label and
+  detail by default), the arrow keys and Enter pick, and Escape closes the list without
+  closing the dialog around it.
   `labelHidden` keeps the label for screen readers only. `FilePicker` is a `<label>` styled
   as the button, around a visually hidden file input: the tap itself opens the picker. A
   `display: none` input opened with `ref.current.click()` is an untrusted click, and an iOS
@@ -571,8 +575,10 @@ where you left off, under the unread line, or at the newest message, with no lin
 channel marks it read either way.
 
 *Language & region* holds the language (`LanguagePicker`), the time zone and the clock. The
-time zone is the account's (`PATCH /users/me`), picked from the browser's IANA names with a
-field that narrows the list (`timezoneChoices`). `TimezonePrompt`, mounted by `WorkspacePage`,
+time zone is the account's (`PATCH /users/me`), picked in a `Combobox` from the browser's IANA
+names (`timezoneChoices`), less the `Etc/` zones, each shown by its city, region, offset and
+local time, ordered west to east, and found by city, region or offset (`matchesTimezone`, so
+*GMT+1* finds every zone an hour ahead). `TimezonePrompt`, mounted by `WorkspacePage`,
 gives an account with none the browser's zone without asking, and when the two differ asks
 once per browser zone (remembered in `localStorage`). The clock, 24-hour or 12-hour, is a
 preference in `stores/display`; every time on screen goes through `lib/datetime`

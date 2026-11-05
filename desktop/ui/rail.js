@@ -1,4 +1,4 @@
-import { colorFor, initials, label } from './labels.js';
+import { colorFor, initials, label, shortcutHint } from './labels.js';
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
@@ -46,7 +46,7 @@ function badge(count) {
 }
 
 function shortcut(index) {
-  return index < 9 ? ` (⌘${index + 1})` : '';
+  return shortcutHint(index, navigator.platform);
 }
 
 function workspaceItem(server, workspace, active, index) {

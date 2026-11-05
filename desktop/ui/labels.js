@@ -22,3 +22,8 @@ export function label(server, servers) {
   const shared = servers.filter((s) => s.name === server.name).length > 1;
   return shared ? hostWord(server.url).slice(0, 2).toUpperCase() : initials(server.name);
 }
+
+export function shortcutHint(index, platform) {
+  if (index >= 9) return '';
+  return /Mac/.test(platform) ? ` (⌘${index + 1})` : ` (Ctrl+${index + 1})`;
+}
