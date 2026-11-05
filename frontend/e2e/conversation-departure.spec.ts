@@ -54,7 +54,7 @@ test('a DM outlives the other side leaving and carries on when they come back', 
     ).toBe(403);
 
     const again = new URL(await inviteLink(admin, workspace.id, email)).pathname.split('/').pop();
-    expect((await leaver.post(`${API}/invites/${again}/accept`)).status(), 'they come back').toBe(200);
+    expect((await leaver.post(`${API}/auth/invites/${again}/accept`)).status(), 'they come back').toBe(200);
 
     await expect(page.getByTestId('conversation-departed')).toBeHidden();
     await expect(page.locator('.ProseMirror[contenteditable="true"]').last()).toBeVisible();
