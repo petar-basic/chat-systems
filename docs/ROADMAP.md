@@ -13,10 +13,12 @@ kept on the server instead of in one browser, Enter to send or for a new line, t
 local time on profiles, a title and pronouns on the profile, a text size and typeface of your
 own, and DMs that outlive somebody leaving the workspace.
 
+**Wave 31 — signing in** shipped in 4.3.0: CS-118 and CS-119, planned on 2026-11-04.
+Passkeys, in the browser and through the system browser in the desktop app, and a code sent
+by email in place of a password, both with the same second step after a password.
+
 Planned after it on 2026-11-04, one release each:
 
-- **Wave 31 — signing in**, 4.3.0 (CS-118, CS-119): passkeys, and a code sent by email in
-  place of a password.
 - **Wave 32 — what an admin can see**, 4.4.0 (CS-120, CS-121): workspace and channel
   analytics, and quiet channels to archive.
 - **Wave 33 — mobile apps**, 5.0.0 (CS-122 – CS-126): every route under `/api/v1`, a spike
@@ -98,6 +100,7 @@ was pencilled in for it was absorbed into 9 and 11.
 | [Wave 28 — What 4.0.0 needs](./history.md#wave-28--what-400-needs--shipped) | CS-098 – CS-105 |
 | [Wave 29 — A desktop app](./history.md#wave-29--a-desktop-app--shipped) | CS-106 – CS-110 |
 | [Wave 30 — Make it yours](./history.md#wave-30--make-it-yours--shipped) | CS-111 – CS-117a |
+| [Wave 31 — Signing in](./history.md#wave-31--signing-in--shipped) | CS-118 – CS-119 |
 
 ---
 
