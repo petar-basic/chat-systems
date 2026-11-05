@@ -1048,7 +1048,7 @@ async fn a_pause_a_schedule_and_mention_emails_belong_to_one_workspace(pool: PgP
         "PATCH",
         &format!("/api/workspaces/{here}/notifications/email"),
         Some(&token),
-        Some(json!({ "mention_emails": false })),
+        Some(json!({ "mention_emails": true })),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
@@ -1060,7 +1060,7 @@ async fn a_pause_a_schedule_and_mention_emails_belong_to_one_workspace(pool: PgP
         None,
     )
     .await;
-    assert_eq!(body["mention_emails"], json!(true));
+    assert_eq!(body["mention_emails"], json!(false));
 
     let (_, _, outsider) = seed_and_login(&app, &state, "per-ws-outsider", false).await;
     for (method, path) in [("GET", "notifications/dnd"), ("GET", "notifications/email")] {

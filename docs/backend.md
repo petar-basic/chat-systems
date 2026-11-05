@@ -601,7 +601,7 @@ In-app notifications for mentions, DMs, replies, reactions, calls, reminders, an
 | PATCH | `/workspaces/:ws_id/notifications/dnd` | `{ dnd_until: timestamp \| null }` | `{ dnd_until, schedule_paused_until }` — `null` during a scheduled pause also resumes until the next window opens |
 | GET | `/workspaces/:ws_id/notifications/schedule` | — | `{ enabled, days, start_minute, end_minute, timezone }` (weekdays 9:00–18:00, off, when never set) |
 | PUT | `/workspaces/:ws_id/notifications/schedule` | `{ enabled, days: 1–7 (ISO, Monday = 1), start_minute, end_minute }` | the schedule — minutes 0–1439, start ≠ end (422 otherwise); an end before the start crosses midnight |
-| GET | `/workspaces/:ws_id/notifications/email` | — | `{ mention_emails, available }` — `available` is false without SMTP |
+| GET | `/workspaces/:ws_id/notifications/email` | — | `{ mention_emails, available }` — `mention_emails` is false for a new member until they turn it on; `available` is false without SMTP |
 | PATCH | `/workspaces/:ws_id/notifications/email` | `{ mention_emails }` | `{ mention_emails, available }` |
 | PUT | `/channels/:ch_id/notify-level` | `{ level: "all" \| "mentions" \| "nothing" \| null }` | `{ notify_level, effective_notify_level }` — members only; `null` returns the channel to the default |
 | GET | `/workspaces/:ws_id/notify-default` | — | `{ notify_default }` |

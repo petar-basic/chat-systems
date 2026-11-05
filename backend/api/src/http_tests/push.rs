@@ -108,6 +108,14 @@ async fn queue_due(state: &AppState, user_id: Uuid, workspace_id: Uuid, direct: 
     message_id
 }
 
+async fn mention_emails_on(state: &AppState, workspace_id: Uuid, user_id: Uuid) {
+    state
+        .notification_repo
+        .set_mention_emails(workspace_id, user_id, true)
+        .await
+        .expect("turn mention emails on");
+}
+
 async fn pending_for(state: &AppState, user_id: Uuid) -> i64 {
     sqlx::query_scalar("SELECT COUNT(*) FROM pending_mention_emails WHERE user_id = $1")
         .bind(user_id)
@@ -534,6 +542,7 @@ async fn a_mention_that_reached_nobody_is_queued_for_email(pool: PgPool) {
     add_ws_member(&state, ws_id, target, "member").await;
     let ch_id = seed_channel(&state, ws_id, author, "quiet", false).await;
     join_channel(&state, ch_id, target).await;
+    mention_emails_on(&state, ws_id, target).await;
 
     let mut conn = state.redis.clone();
     let event = json!({
@@ -577,6 +586,7 @@ async fn a_push_does_not_cancel_the_email_and_a_redelivery_queues_it_once(pool: 
     add_ws_member(&state, ws_id, target, "member").await;
     let ch_id = seed_channel(&state, ws_id, author, "quiet", false).await;
     join_channel(&state, ch_id, target).await;
+    mention_emails_on(&state, ws_id, target).await;
 
     let service = fake_push_service(StatusCode::CREATED).await;
     subscribe(&state, target, &format!("{}/push/laptop", service.address)).await;
@@ -636,7 +646,7 @@ async fn a_push_does_not_cancel_the_email_and_a_redelivery_queues_it_once(pool: 
 }
 
 #[sqlx::test(migrations = "../migrations")]
-async fn somebody_who_turned_mention_emails_off_is_not_queued(pool: PgPool) {
+async fn mention_emails_are_off_until_somebody_turns_them_on(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (author, _, _) = seed_and_login(&app, &state, "mail-author", false).await;
     let (target, _, target_token) = seed_and_login(&app, &state, "mail-target", false).await;
@@ -654,17 +664,7 @@ async fn somebody_who_turned_mention_emails_off_is_not_queued(pool: PgPool) {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(body["mention_emails"], json!(true), "on by default");
-
-    let (status, _) = send(
-        &app,
-        "PATCH",
-        &format!("/api/workspaces/{ws_id}/notifications/email"),
-        Some(&target_token),
-        Some(json!({ "mention_emails": false })),
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["mention_emails"], json!(false), "off by default");
 
     let mut conn = state.redis.clone();
     notify_message(
@@ -808,6 +808,7 @@ async fn scene(pool: PgPool) -> Scene {
     add_ws_member(&state, ws_id, target, "member").await;
     let ch_id = seed_channel(&state, ws_id, author, "levels", false).await;
     join_channel(&state, ch_id, target).await;
+    mention_emails_on(&state, ws_id, target).await;
     let service = fake_push_service(StatusCode::CREATED).await;
     subscribe(&state, target, &format!("{}/push/phone", service.address)).await;
     Scene {
@@ -1386,6 +1387,7 @@ async fn a_mention_in_a_reply_sent_to_the_channel_is_read_with_the_channel(pool:
     add_ws_member(&state, ws_id, target, "member").await;
     let ch_id = seed_channel(&state, ws_id, author, "quiet", false).await;
     join_channel(&state, ch_id, target).await;
+    mention_emails_on(&state, ws_id, target).await;
 
     let (_, root) = send(
         &app,
