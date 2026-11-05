@@ -1,6 +1,9 @@
 pub mod models;
 pub mod oidc;
 pub mod oidc_routes;
+pub mod passkey;
+pub mod passkey_repo;
+pub mod passkey_routes;
 pub mod repo;
 pub mod routes;
 pub mod service;

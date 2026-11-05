@@ -40,7 +40,7 @@ fn code_from_the_previous_step(
         .to_string()
 }
 
-async fn enrol(
+pub(super) async fn enrol(
     app: &axum::Router,
     state: &crate::state::AppState,
     token: &str,

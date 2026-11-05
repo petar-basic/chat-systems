@@ -3,16 +3,19 @@ import { Button } from '@/shared/components/Button/Button';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { Link, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { KeyRound, ServerCrash, LogIn } from 'lucide-react';
+import { Fingerprint, KeyRound, ServerCrash, LogIn } from 'lucide-react';
 import { useInstanceStore } from '@/stores/instances';
 import { useInstanceInfo } from '@/features/instance/hooks/useInstanceInfo';
-import { isTotpRequired } from '@/lib/errors';
+import { acceptsPasskey, isPasskeyRequired, isTotpRequired } from '@/lib/errors';
+import { passkeysSupported } from '@/lib/webauthn';
 import { PENDING_INVITE_KEY, ROUTES } from '@/shared/constants';
 import { ssoStartUrl, startSsoInDesktop } from '@/features/instance/ssoStart';
 import { desktopShell } from '@/lib/desktopShell';
 
 /// A sign-in that started from an invite link owes the person the workspace
 /// they were invited to, not the generic app shell.
+const SECOND_FACTOR_ANSWERS = new Set(['totp_required', 'totp_or_passkey_required', 'passkey_required']);
+
 function afterSignIn(): string {
   const pending = sessionStorage.getItem(PENDING_INVITE_KEY);
   if (!pending) return '/app';
@@ -23,7 +26,8 @@ function afterSignIn(): string {
 export default function AddInstancePage() {
   const { t } = useTranslation('auth');
   const navigate = useNavigate();
-  const { addInstance, instances, hydrated, loading, error, clearError } = useInstanceStore();
+  const { addInstance, addInstanceWithPasskey, instances, hydrated, loading, error, clearError } =
+    useInstanceStore();
 
   const [url, setUrl] = useState(window.location.origin);
   const [wsUrl, setWsUrl] = useState('');
@@ -32,11 +36,14 @@ export default function AddInstancePage() {
   const [password, setPassword] = useState('');
   const [totpCode, setTotpCode] = useState('');
   const [needsTotp, setNeedsTotp] = useState(false);
+  const [passkeyAccepted, setPasskeyAccepted] = useState(false);
+  const [needsPasskey, setNeedsPasskey] = useState(false);
 
   const { data: instance } = useInstanceInfo(window.location.origin);
   const inDesktop = desktopShell() !== null;
 
   const sameOrigin = url.trim().replace(/\/$/, '') === window.location.origin;
+  const offerPasskeys = sameOrigin && !inDesktop && passkeysSupported();
 
   useEffect(() => {
     if (instance?.setup_required) navigate('/setup', { replace: true });
@@ -65,6 +72,18 @@ export default function AddInstancePage() {
       // form asks for the code instead of showing an error for something the
       // person did correctly.
       if (isTotpRequired(e)) setNeedsTotp(true);
+      if (isPasskeyRequired(e)) setNeedsPasskey(true);
+      setPasskeyAccepted(acceptsPasskey(e));
+    }
+  };
+
+  const signInWithPasskey = async (afterPassword: boolean) => {
+    clearError();
+    try {
+      await addInstanceWithPasskey(url.trim(), afterPassword ? { email: email.trim(), password } : undefined);
+      navigate(afterSignIn(), { replace: true });
+    } catch {
+      return;
     }
   };
 
@@ -95,9 +114,15 @@ export default function AddInstancePage() {
           onSubmit={handleSubmit}
           className="bg-surface/50 backdrop-blur-xl border border-line rounded-2xl p-8 shadow-2xl"
         >
-          {error && error !== 'totp_required' && (
+          {error && !SECOND_FACTOR_ANSWERS.has(error) && (
             <div className="bg-red-500/10 border border-red-500/30 text-danger px-4 py-3 rounded-lg mb-6 text-sm">
               {error}
+            </div>
+          )}
+
+          {needsPasskey && (
+            <div className="bg-purple-500/10 border border-purple-500/30 text-accent-soft px-4 py-3 rounded-lg mb-6 text-sm">
+              {t('signIn.passkeyPrompt')}
             </div>
           )}
 
@@ -191,6 +216,19 @@ export default function AddInstancePage() {
                 required
               />
             )}
+
+            {offerPasskeys && passkeyAccepted && (
+              <Button
+                variant="secondary"
+                fullWidth
+                onClick={() => void signInWithPasskey(true)}
+                disabled={loading}
+                icon={<Fingerprint className="h-4 w-4" />}
+                data-qa="login-passkey-instead"
+              >
+                {t('signIn.passkeyInstead')}
+              </Button>
+            )}
           </div>
 
           <Button
@@ -204,6 +242,20 @@ export default function AddInstancePage() {
           >
             {inDesktop ? t('signIn.desktopSubmit') : t('signIn.submit')}
           </Button>
+
+          {offerPasskeys && !needsTotp && !needsPasskey && (
+            <Button
+              variant="secondary"
+              fullWidth
+              onClick={() => void signInWithPasskey(false)}
+              disabled={loading}
+              icon={<Fingerprint className="h-4 w-4" />}
+              data-qa="login-passkey"
+              className="mt-3"
+            >
+              {t('signIn.passkey')}
+            </Button>
+          )}
 
           {instance?.sso_enabled && sameOrigin && (
             <>

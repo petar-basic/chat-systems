@@ -40,7 +40,23 @@ export function isSessionExpired(error: unknown): boolean {
 /// conflict rather than a rejection, so the form can ask for the second factor
 /// instead of telling somebody their password was wrong.
 export function isTotpRequired(error: unknown): boolean {
-  return error instanceof ApiError && error.status === 409 && error.message === 'totp_required';
+  return (
+    error instanceof ApiError &&
+    error.status === 409 &&
+    (error.message === 'totp_required' || error.message === 'totp_or_passkey_required')
+  );
+}
+
+export function acceptsPasskey(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    error.status === 409 &&
+    (error.message === 'totp_or_passkey_required' || error.message === 'passkey_required')
+  );
+}
+
+export function isPasskeyRequired(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 409 && error.message === 'passkey_required';
 }
 
 export function toUserMessage(error: unknown, fallback = GENERIC_ERROR_MESSAGE): string {

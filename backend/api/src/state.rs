@@ -43,6 +43,7 @@ pub struct AppState {
     pub retention_repo: crate::retention::repo::RetentionRepo,
     pub export_repo: crate::export::repo::ExportRepo,
     pub totp_repo: crate::auth::totp_repo::TotpRepo,
+    pub passkey_repo: crate::auth::passkey_repo::PasskeyRepo,
     pub scim_repo: crate::scim::repo::ScimRepo,
     pub setup_repo: crate::setup::repo::SetupRepo,
     pub push_repo: crate::push::repo::PushRepo,

@@ -4,6 +4,7 @@ mod emoji;
 mod export;
 mod groups;
 mod oidc;
+mod passkeys;
 mod push;
 mod rate_limits;
 mod retention;

@@ -45,31 +45,20 @@ async fn login(
     headers: HeaderMap,
     Json(req): Json<LoginRequest>,
 ) -> AppResult<(CookieJar, Json<AuthSession>)> {
-    let key = format!("rate_limit:login:{}", req.email.to_lowercase());
-    let window = state.config.login_attempts_window_secs;
-    check_rate_limit(&state, &key, state.config.login_attempts_per_email, window).await?;
-    if let Some(ip) = crate::net::client_ip(&headers, peer, &state.config.trusted_proxies) {
-        check_rate_limit(
-            &state,
-            &format!("rate_limit:login_ip:{ip}"),
-            state.config.login_attempts_per_ip,
-            window,
-        )
-        .await?;
-    }
-
-    let user = state
-        .auth_service
-        .verify_password_only(&req.email, &req.password)
-        .await?;
+    let ip = crate::net::client_ip(&headers, peer, &state.config.trusted_proxies);
+    let user = first_factor(&state, ip.as_deref(), &req.email, &req.password).await?;
 
     // The password is only the first half now. Tokens are minted after the
     // second factor, never before — a step-up that hands out a session first has
     // not stepped anything up.
     let enrolment = state.totp_repo.find(user.id).await?;
     let requires_totp = enrolment.as_ref().is_some_and(|e| e.is_active());
+    let has_passkeys = state.passkey_repo.count(user.id).await? > 0;
 
     if state.config.require_admin_totp && user.is_instance_admin && !requires_totp {
+        if has_passkeys {
+            return Err(AppError::Conflict("passkey_required".into()));
+        }
         return Err(AppError::Forbidden(
             "This instance requires admins to enrol a second factor before signing in".into(),
         ));
@@ -79,7 +68,12 @@ async fn login(
         let Some(code) = req.totp_code.as_deref().filter(|c| !c.is_empty()) else {
             // A distinct answer on purpose: the password was right, and the
             // client needs to know to ask for the code rather than for it again.
-            return Err(AppError::Conflict("totp_required".into()));
+            let answer = if has_passkeys {
+                "totp_or_passkey_required"
+            } else {
+                "totp_required"
+            };
+            return Err(AppError::Conflict(answer.into()));
         };
 
         let enrolment = enrolment.expect("checked above");
@@ -119,6 +113,31 @@ async fn login(
     let jar = set_auth_cookies(jar, &tokens, secure);
 
     Ok((jar, Json(tokens.into())))
+}
+
+pub(crate) async fn first_factor(
+    state: &AppState,
+    ip: Option<&str>,
+    email: &str,
+    password: &str,
+) -> AppResult<User> {
+    let key = format!("rate_limit:login:{}", email.to_lowercase());
+    let window = state.config.login_attempts_window_secs;
+    check_rate_limit(state, &key, state.config.login_attempts_per_email, window).await?;
+    if let Some(ip) = ip {
+        check_rate_limit(
+            state,
+            &format!("rate_limit:login_ip:{ip}"),
+            state.config.login_attempts_per_ip,
+            window,
+        )
+        .await?;
+    }
+
+    state
+        .auth_service
+        .verify_password_only(email, password)
+        .await
 }
 
 /// A recovery code stands in for the authenticator exactly once.
@@ -459,7 +478,7 @@ fn clear_auth_cookies(jar: CookieJar) -> CookieJar {
     jar.add(access).add(refresh)
 }
 
-async fn check_rate_limit(
+pub(crate) async fn check_rate_limit(
     state: &AppState,
     key: &str,
     max_attempts: u64,

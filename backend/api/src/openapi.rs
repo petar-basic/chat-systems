@@ -47,6 +47,7 @@ use crate::state::AppState;
         (name = "push", description = "Web Push subscriptions"),
         (name = "retention", description = "Retention policies"),
         (name = "totp", description = "Two-factor enrolment"),
+        (name = "passkeys", description = "Passkeys: adding them and signing in with one"),
         (name = "slack-import", description = "Importing a Slack export"),
         (name = "scim", description = "SCIM provisioning tokens"),
         (name = "bot-apps", description = "Apps with a bot user, made per workspace"),
@@ -139,6 +140,7 @@ pub fn typed_routes() -> OpenApiRouter<Arc<AppState>> {
         .merge(crate::push::routes::router())
         .merge(crate::retention::routes::router())
         .merge(crate::auth::totp_routes::router())
+        .merge(crate::auth::passkey_routes::router())
         .merge(crate::slack_import::routes::router())
         .merge(crate::workflows::routes::router())
         .merge(crate::bots::routes::router())
@@ -152,6 +154,7 @@ pub fn public_routes() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new()
         .merge(crate::auth::routes::public_router())
         .merge(crate::auth::oidc_routes::public_router())
+        .merge(crate::auth::passkey_routes::public_router())
         .merge(crate::setup::routes::public_router())
         .merge(crate::hooks::routes::public_router())
         .merge(crate::workflows::routes::public_router())

@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { ApiError, HttpError, isSessionExpired, isTotpRequired, refusalOr, toUserMessage } from './errors';
+import {
+  acceptsPasskey,
+  ApiError,
+  HttpError,
+  isPasskeyRequired,
+  isSessionExpired,
+  isTotpRequired,
+  refusalOr,
+  toUserMessage,
+} from './errors';
 
 describe('isTotpRequired', () => {
   it('separates an incomplete login from a wrong one', () => {
@@ -14,6 +23,23 @@ describe('isTotpRequired', () => {
     const error = new ApiError(409, 'totp_required');
     expect(isSessionExpired(error)).toBe(false);
     expect(toUserMessage(error)).toBe('totp_required');
+  });
+});
+
+describe('acceptsPasskey', () => {
+  it('knows when a passkey may stand in for the code, and when only a passkey will do', () => {
+    const either = new ApiError(409, 'totp_or_passkey_required');
+    const passkey = new ApiError(409, 'passkey_required');
+
+    expect(isTotpRequired(either)).toBe(true);
+    expect(acceptsPasskey(either)).toBe(true);
+    expect(isPasskeyRequired(either)).toBe(false);
+
+    expect(isTotpRequired(passkey)).toBe(false);
+    expect(acceptsPasskey(passkey)).toBe(true);
+    expect(isPasskeyRequired(passkey)).toBe(true);
+
+    expect(acceptsPasskey(new ApiError(409, 'totp_required'))).toBe(false);
   });
 });
 

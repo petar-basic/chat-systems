@@ -1,13 +1,20 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import type { DesktopShell } from '@/lib/desktopShell';
 import i18n from '@/lib/i18n';
+import { ApiError } from '@/lib/errors';
 import AddInstancePage from './AddInstancePage';
+
+const store = vi.hoisted(() => ({
+  addInstance: vi.fn(),
+  addInstanceWithPasskey: vi.fn(),
+}));
 
 vi.mock('@/stores/instances', () => ({
   useInstanceStore: () => ({
-    addInstance: vi.fn(),
+    addInstance: store.addInstance,
+    addInstanceWithPasskey: store.addInstanceWithPasskey,
     instances: [],
     hydrated: true,
     loading: false,
@@ -42,6 +49,9 @@ function renderPage() {
 describe('AddInstancePage', () => {
   afterEach(async () => {
     delete window.chatSystemsDesktop;
+    vi.unstubAllGlobals();
+    store.addInstance.mockReset();
+    store.addInstanceWithPasskey.mockReset();
     server.name = 'Northwind';
     await i18n.changeLanguage('en');
   });
@@ -76,5 +86,47 @@ describe('AddInstancePage', () => {
     expect(screen.getByRole('heading', { name: 'Welcome to Chat Systems' })).toBeInTheDocument();
     expect(screen.getByLabelText('Server URL')).toHaveValue(window.location.origin);
     expect(screen.getByRole('button', { name: 'Connect' })).toBeInTheDocument();
+  });
+
+  it('signs in with a passkey and no email when the browser can make one', async () => {
+    vi.stubGlobal('PublicKeyCredential', function PublicKeyCredential() {});
+    store.addInstanceWithPasskey.mockResolvedValue(undefined);
+    renderPage();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in with a passkey' }));
+
+    await waitFor(() =>
+      expect(store.addInstanceWithPasskey).toHaveBeenCalledWith(window.location.origin, undefined),
+    );
+  });
+
+  it('offers no passkey where the browser has none, or in the desktop app', () => {
+    renderPage();
+    expect(screen.queryByRole('button', { name: 'Sign in with a passkey' })).not.toBeInTheDocument();
+
+    vi.stubGlobal('PublicKeyCredential', function PublicKeyCredential() {});
+    openInDesktop();
+    renderPage();
+    expect(screen.queryByRole('button', { name: 'Sign in with a passkey' })).not.toBeInTheDocument();
+  });
+
+  it('after the password, lets a passkey stand in for the code', async () => {
+    vi.stubGlobal('PublicKeyCredential', function PublicKeyCredential() {});
+    store.addInstance.mockRejectedValue(new ApiError(409, 'totp_or_passkey_required'));
+    store.addInstanceWithPasskey.mockResolvedValue(undefined);
+    renderPage();
+
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ana@example.com' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'correct horse' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Use a passkey instead' }));
+
+    await waitFor(() =>
+      expect(store.addInstanceWithPasskey).toHaveBeenCalledWith(window.location.origin, {
+        email: 'ana@example.com',
+        password: 'correct horse',
+      }),
+    );
   });
 });
