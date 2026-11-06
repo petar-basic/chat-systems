@@ -191,6 +191,7 @@ function MemberRow({
             onClick={() => setConfirmRemove(true)}
             disabled={busy}
             aria-label={`Remove ${displayName}`}
+            title={`Remove ${displayName}`}
             data-qa="member-remove"
             className="p-1 text-muted hover:text-danger transition cursor-pointer disabled:opacity-50"
           >

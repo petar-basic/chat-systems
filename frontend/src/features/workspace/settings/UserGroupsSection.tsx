@@ -130,6 +130,7 @@ export function UserGroupsSection({ workspaceId, instanceUrl, members, isAdmin }
                       type="button"
                       onClick={() => deleteGroup.mutate(group.id)}
                       aria-label={`Delete @${group.handle}`}
+                      title={`Delete @${group.handle}`}
                       className="text-muted hover:text-danger transition cursor-pointer"
                     >
                       <Trash2 className="w-4 h-4" />

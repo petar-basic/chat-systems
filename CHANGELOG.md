@@ -25,6 +25,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - The bell beside your name shows when notifications are paused, by you or by your schedule:
   it is crossed out, and its tooltip says until when. It turns back on its own when the pause
   ends.
+- Every button that shows only an icon names itself on hover: the actions over a message
+  (the quick reactions, *Reply in thread*, *Add reaction*, *Save for later*, *More actions*),
+  closing and paging an image, *Insert emoji*, *Show formatting*, *Leave huddle* and the rest.
 
 ## [4.4.0] — 2026-11-06
 

@@ -449,6 +449,7 @@ export default function MessageInput({
               type="button"
               onClick={() => setShowFormatting((open) => !open)}
               aria-label={showFormatting ? 'Hide formatting' : 'Show formatting'}
+              title={showFormatting ? 'Hide formatting' : 'Show formatting'}
               aria-pressed={showFormatting}
               data-qa="composer-formatting-toggle"
               className="@md:hidden p-1 text-muted hover:text-fg-soft transition cursor-pointer rounded hover:bg-raised/60"
@@ -461,6 +462,7 @@ export default function MessageInput({
                 type="button"
                 onClick={() => setShowEmoji((v) => !v)}
                 aria-label="Insert emoji"
+                title="Insert emoji"
                 className="p-1 text-muted hover:text-fg-soft transition cursor-pointer rounded hover:bg-raised/60"
               >
                 <SmilePlus className="w-3.5 h-3.5" />
