@@ -1,4 +1,5 @@
 import { Phone } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useStartHuddle } from '@/features/huddle/hooks/useHuddle';
 import { useHuddleStore } from '@/stores/huddle';
 
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export function HuddleStartButton({ workspaceId, instanceUrl, partnerId, currentUserId }: Props) {
+  const { t } = useTranslation('huddle');
   const active = useHuddleStore((s) => s.active);
   const start = useStartHuddle(workspaceId, instanceUrl);
   const inHuddle = !!active;
@@ -31,8 +33,8 @@ export function HuddleStartButton({ workspaceId, instanceUrl, partnerId, current
     <button
       onClick={onClick}
       disabled={inHuddle || start.isPending}
-      aria-label="Start huddle"
-      data-tooltip="Start huddle"
+      aria-label={t('start')}
+      data-tooltip={t('start')}
       className="p-1.5 rounded-lg text-muted hover:text-fg hover:bg-raised/50 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
     >
       <Phone className="w-4 h-4" />

@@ -1,0 +1,19 @@
+{
+  "header": {
+    "openNavigation": "メニューを開く",
+    "integration": "連携",
+    "integrationHint": "このチャンネルからのメッセージは外部URL に転送されます",
+    "members": "チャンネルのメンバー",
+    "pins": "ピン留めしたメッセージ",
+    "files": "ファイル",
+    "search": "検索",
+    "more": "チャンネルのその他の操作"
+  },
+  "menu": {
+    "members": "メンバー",
+    "pins": "ピン留め",
+    "files": "ファイル",
+    "notifications": "通知設定",
+    "details": "チャンネル詳細"
+  }
+}

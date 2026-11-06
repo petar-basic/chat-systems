@@ -2,11 +2,15 @@ import i18n, { type InitOptions } from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { logger } from '@/lib/logger';
 import enAuth from '@/locales/en/auth.json';
+import enChannel from '@/locales/en/channel.json';
 import enCommon from '@/locales/en/common.json';
+import enHuddle from '@/locales/en/huddle.json';
 import enNotifications from '@/locales/en/notifications.json';
 import enProfile from '@/locales/en/profile.json';
 import jaAuth from '@/locales/ja/auth.json';
+import jaChannel from '@/locales/ja/channel.json';
 import jaCommon from '@/locales/ja/common.json';
+import jaHuddle from '@/locales/ja/huddle.json';
 import jaNotifications from '@/locales/ja/notifications.json';
 import jaProfile from '@/locales/ja/profile.json';
 
@@ -21,8 +25,22 @@ export const LANGUAGE_NAMES: Record<Language, string> = {
 };
 
 export const resources = {
-  en: { auth: enAuth, common: enCommon, notifications: enNotifications, profile: enProfile },
-  ja: { auth: jaAuth, common: jaCommon, notifications: jaNotifications, profile: jaProfile },
+  en: {
+    auth: enAuth,
+    channel: enChannel,
+    common: enCommon,
+    huddle: enHuddle,
+    notifications: enNotifications,
+    profile: enProfile,
+  },
+  ja: {
+    auth: jaAuth,
+    channel: jaChannel,
+    common: jaCommon,
+    huddle: jaHuddle,
+    notifications: jaNotifications,
+    profile: jaProfile,
+  },
 } as const;
 
 const ESCAPED: Record<string, string> = {
@@ -85,7 +103,7 @@ export const i18nOptions = {
   resources,
   fallbackLng: 'en',
   supportedLngs: LANGUAGES,
-  ns: ['auth', 'common', 'notifications', 'profile'],
+  ns: ['auth', 'channel', 'common', 'huddle', 'notifications', 'profile'],
   initAsync: false,
   interpolation: { escapeValue: false },
   react: { unescape: unescapeText },

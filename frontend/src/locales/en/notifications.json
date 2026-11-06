@@ -7,6 +7,14 @@
     "mentions": "Mentions",
     "nothing": "Nothing"
   },
+  "menu": {
+    "label": "Notification settings",
+    "heading": "Notify me about",
+    "default": "Default ({{level}})",
+    "mute": "Mute channel",
+    "unmute": "Unmute channel",
+    "saveFailed": "Couldn't change notifications. Try again."
+  },
   "default": {
     "label": "Notify me about, in {{name}}",
     "descriptions": {
