@@ -11690,6 +11690,7 @@
           "workspace_id",
           "kind",
           "last_message_at",
+          "unread_count",
           "participant_ids",
           "departed",
           "effective_notify_level"
@@ -11715,13 +11716,6 @@
             "type": "string",
             "format": "date-time"
           },
-          "last_read_at": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          },
           "notify_level": {
             "oneOf": [
               {
@@ -11738,6 +11732,10 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          "unread_count": {
+            "type": "integer",
+            "format": "int32"
           },
           "workspace_id": {
             "type": "string",
@@ -13058,6 +13056,7 @@
                 "workspace_id",
                 "kind",
                 "last_message_at",
+                "unread_count",
                 "participant_ids",
                 "departed",
                 "effective_notify_level"
@@ -13083,13 +13082,6 @@
                   "type": "string",
                   "format": "date-time"
                 },
-                "last_read_at": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
-                  "format": "date-time"
-                },
                 "notify_level": {
                   "oneOf": [
                     {
@@ -13106,6 +13098,10 @@
                     "type": "string",
                     "format": "uuid"
                   }
+                },
+                "unread_count": {
+                  "type": "integer",
+                  "format": "int32"
                 },
                 "workspace_id": {
                   "type": "string",

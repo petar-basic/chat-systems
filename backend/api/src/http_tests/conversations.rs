@@ -293,8 +293,8 @@ async fn sending_bumps_the_conversation_and_read_state_clears_it(pool: PgPool) {
         None,
     )
     .await;
-    assert!(
-        before["data"][0]["last_read_at"].is_null(),
+    assert_eq!(
+        before["data"][0]["unread_count"], 1,
         "unread until the reader says so: {before:?}"
     );
 
@@ -316,7 +316,36 @@ async fn sending_bumps_the_conversation_and_read_state_clears_it(pool: PgPool) {
         None,
     )
     .await;
-    assert!(!after["data"][0]["last_read_at"].is_null());
+    assert_eq!(after["data"][0]["unread_count"], 0);
+
+    send(
+        &app,
+        "POST",
+        &format!("/api/channels/{conv_id}/messages"),
+        Some(&second_token),
+        Some(json!({ "content": "my own" })),
+    )
+    .await;
+    send(
+        &app,
+        "POST",
+        &format!("/api/channels/{conv_id}/messages"),
+        Some(&owner_token),
+        Some(json!({ "content": "in a thread", "thread_parent_id": ping["id"] })),
+    )
+    .await;
+    let (_, mine) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws_id}/conversations"),
+        Some(&second_token),
+        None,
+    )
+    .await;
+    assert_eq!(
+        mine["data"][0]["unread_count"], 0,
+        "my own message and a thread reply leave the conversation read: {mine:?}"
+    );
 
     send(
         &app,

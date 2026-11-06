@@ -827,7 +827,7 @@ Token refresh is **not** a hook — `ApiClient` refreshes automatically on 401 /
 ### Conversations (`features/messaging/hooks/useConversations.ts`)
 | Hook | Call | Description |
 |------|------|-------------|
-| `useConversations(wsId, instanceUrl?)` | GET `/workspaces/{id}/conversations` | Direct and group conversations, newest message first, with participants and the caller's `last_read_at` |
+| `useConversations(wsId, instanceUrl?)` | GET `/workspaces/{id}/conversations` | Direct and group conversations, newest message first, with participants and the caller's `unread_count`, which alone decides whether a conversation shows as unread |
 | `useOpenConversation(wsId, instanceUrl?)` | POST `/workspaces/{id}/conversations` `{ participant_ids }` | Finds or creates one; the result's id is a channel id |
 | `useMarkConversationRead(wsId, instanceUrl?)` | POST `/channels/{id}/read` | Reads the conversation up to its newest loaded message, as a channel |
 

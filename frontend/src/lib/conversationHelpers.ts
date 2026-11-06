@@ -33,7 +33,3 @@ export function departureNote(conversation: Conversation): string | null {
   if (names.length === 1) return `${names[0]} is no longer in this workspace`;
   return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]} are no longer in this workspace`;
 }
-
-export function isUnread(conversation: Conversation): boolean {
-  return !conversation.last_read_at || conversation.last_message_at > conversation.last_read_at;
-}

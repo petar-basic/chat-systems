@@ -3918,10 +3918,10 @@ export interface components {
             kind: components["schemas"]["ConversationKind"];
             /** Format: date-time */
             last_message_at: string;
-            /** Format: date-time */
-            last_read_at?: string | null;
             notify_level?: components["schemas"]["NotifyLevel"] | null;
             participant_ids: string[];
+            /** Format: int32 */
+            unread_count: number;
             /** Format: uuid */
             workspace_id: string;
         };
@@ -4279,10 +4279,10 @@ export interface components {
                 kind: components["schemas"]["ConversationKind"];
                 /** Format: date-time */
                 last_message_at: string;
-                /** Format: date-time */
-                last_read_at?: string | null;
                 notify_level?: components["schemas"]["NotifyLevel"] | null;
                 participant_ids: string[];
+                /** Format: int32 */
+                unread_count: number;
                 /** Format: uuid */
                 workspace_id: string;
             }[];

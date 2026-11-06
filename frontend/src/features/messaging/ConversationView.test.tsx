@@ -31,7 +31,7 @@ function conversation(over: Partial<Conversation>): Conversation {
     workspace_id: 'ws-1',
     kind: 'direct',
     last_message_at: '2026-11-02T10:00:00Z',
-    last_read_at: null,
+    unread_count: 0,
     participant_ids: ['me'],
     notify_level: null,
     effective_notify_level: 'all',

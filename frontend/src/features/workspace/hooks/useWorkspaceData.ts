@@ -78,9 +78,7 @@ export function useWorkspaceData(workspaceId: string | undefined, currentUserId:
 
   useEffect(() => {
     const unread = conversations
-      .filter(
-        (c) => c.id !== currentConversationId && (!c.last_read_at || c.last_message_at > c.last_read_at),
-      )
+      .filter((c) => c.id !== currentConversationId && c.unread_count > 0)
       .map((c) => c.id);
     hydrateUnreadConversations(unread);
   }, [conversations, currentConversationId, hydrateUnreadConversations]);

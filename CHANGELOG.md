@@ -14,6 +14,15 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
+## [Unreleased]
+
+### Fixed
+
+- A direct message no longer shows as unread when nothing new came in. The sidebar compared
+  the last message with when the conversation was read, so your own last message or a reply
+  in a thread marked it unread, and *All unreads* counted it while showing nothing. It now
+  uses the same count as *All unreads*.
+
 ## [4.4.0] — 2026-11-06
 
 ### Upgrading from 4.3.0

@@ -223,17 +223,16 @@ export const useWebSocketQuerySync = () => {
         const conversations = queryClient.getQueryData<Conversation[]>(conversationsKey);
         const conversation = conversations?.find((c) => c.id === message.channel_id);
         if (conversation) {
+          const unseen = isIncoming && currentConversationId !== message.channel_id;
           queryClient.setQueryData<Conversation[]>(conversationsKey, (old = []) => [
             {
               ...conversation,
               last_message_at: message.created_at,
-              last_read_at: isIncoming ? conversation.last_read_at : message.created_at,
+              unread_count: conversation.unread_count + (unseen ? 1 : 0),
             },
             ...old.filter((c) => c.id !== conversation.id),
           ]);
-          if (isIncoming && currentConversationId !== message.channel_id) {
-            markConversationUnread(message.channel_id);
-          }
+          if (unseen) markConversationUnread(message.channel_id);
           return;
         }
 
