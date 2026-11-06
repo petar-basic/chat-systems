@@ -12,29 +12,36 @@ describe('emoticons', () => {
     expect(emoticonToEmoji(':nope:')).toBeUndefined();
   });
 
-  it('fires at the start of a line and after whitespace', () => {
-    expect(match('<3')?.[2]).toBe('<3');
-    expect(match('love this <3')?.[2]).toBe('<3');
-    expect(match('ha :D')?.[2]).toBe(':D');
+  it('fires once a space follows, at the start of a line and after whitespace', () => {
+    expect(match('<3 ')?.[2]).toBe('<3');
+    expect(match('love this <3 ')?.[2]).toBe('<3');
+    expect(match('ha :D ')?.[2]).toBe(':D');
+  });
+
+  it('waits while the emoticon may still grow into a shortcode', () => {
+    expect(match(':D')).toBeNull();
+    expect(match('ha :D')).toBeNull();
+    expect(match(':Dasd')).toBeNull();
+    expect(match(':Dasd: ')).toBeNull();
   });
 
   it('leaves emoticons glued to a word alone', () => {
-    expect(match('https://x.com:D')).toBeNull();
-    expect(match('a:D')).toBeNull();
-    expect(match('foo<3')).toBeNull();
+    expect(match('https://x.com:D ')).toBeNull();
+    expect(match('a:D ')).toBeNull();
+    expect(match('foo<3 ')).toBeNull();
   });
 
   it('only fires on the last thing typed', () => {
-    expect(match('<3 and more text')).toBeNull();
+    expect(match('<3 and more text ')).toBeNull();
   });
 
   it('prefers the longest emoticon when one contains another', () => {
-    expect(match('</3')?.[2]).toBe('</3');
-    expect(match(':-(')?.[2]).toBe(':-(');
+    expect(match('</3 ')?.[2]).toBe('</3');
+    expect(match(':-( ')?.[2]).toBe(':-(');
   });
 
-  it('keeps the whitespace that anchored the match', () => {
-    expect(match('ha :D')?.[1]).toBe(' ');
-    expect(match(':D')?.[1]).toBe('');
+  it('keeps the whitespace around the match', () => {
+    expect(match('ha :D ')?.slice(1)).toEqual([' ', ':D', ' ']);
+    expect(match(':D ')?.slice(1)).toEqual(['', ':D', ' ']);
   });
 });
