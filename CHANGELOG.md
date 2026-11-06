@@ -14,7 +14,20 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
-## [Unreleased]
+## [4.4.0] — 2026-11-06
+
+### Upgrading from 4.3.0
+
+- Set `VERSION=4.4.0`, pull both images and restart `api`, `realtime`, `worker` and `frontend`
+  together. There is no new setting.
+- Migration 96 adds the analytics rollup and migration 97 counts it per channel. Neither scans
+  `messages` while it runs: the first `worker` to start after the upgrade counts the history
+  once, in one transaction, and the numbers fill in when it finishes. On a large instance that
+  can take a few minutes; *Analytics* shows what has been counted meanwhile.
+- Who viewed a channel is counted from the upgrade on: the history does not say who read what.
+  Messages, the members who posted and reactions go back to the start.
+- `channel.read_state` is now a durable event, so the workspace streams in Redis carry one more
+  event each time somebody reads a conversation.
 
 ### Added
 
@@ -27,8 +40,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   anyone wrote, and the history from before the upgrade is counted once when the worker starts.
 - Channel analytics. *Analytics → Channels* lists every channel with the date it was created,
   its members and guests, messages, reactions, the members who posted and viewed it in the
-  period and its last message, sortable and exported as CSV. *Quiet channels* lists the channels with no message in 30, 60, 90 or 180 days and
-  archives one or a selection after asking once; each is archived and audited as from
+  period and its last message, sortable and exported as CSV. *Quiet channels* lists the
+  channels with no message in 30, 60, 90 or 180 days and archives one or a selection after
+  asking once; each is archived and audited as from
   *Channel settings*. A channel admin sees their channel's last 30 days in *Channel details →
   Activity*.
 
