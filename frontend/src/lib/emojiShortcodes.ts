@@ -64,7 +64,7 @@ export const EmojiShortcodes = Extension.create({
           if (isVerbatim(state, range.from)) return;
           const emoji = emoticonToEmoji(match[2]);
           if (emoji) {
-            state.tr.insertText(`${match[1]}${emoji}`, range.from, range.to);
+            state.tr.insertText(`${match[1]}${emoji}${match[3]}`, range.from, range.to);
           }
         },
       }),

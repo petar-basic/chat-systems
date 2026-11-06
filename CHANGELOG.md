@@ -20,6 +20,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 - The empty states in workspace Analytics keep a margin from their dashed border on narrow
   screens instead of running into it.
+- A typed emoticon such as `:D` turns into emoji only once a space follows it, so a custom
+  emoji shortcode that starts like one (`:Dasd:`) can be typed out.
 
 ## [4.4.1] — 2026-11-06
 
