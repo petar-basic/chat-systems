@@ -46,4 +46,17 @@ describe('applyReadState', () => {
     expect(s.unreadConversations.has('dm-1')).toBe(true);
     expect(s.unreadChannels.has('dm-1')).toBe(false);
   });
+
+  it('keeps the conversation list on the count, so a refetch does not bring a read DM back', () => {
+    queryClient.setQueryData(QUERY_KEYS.conversations('ws-1'), [
+      { id: 'dm-1', unread_count: 2 },
+      { id: 'dm-2', unread_count: 1 },
+    ]);
+    applyReadState(queryClient, { channel_id: 'dm-1', unread_count: 0, mention_count: 0 });
+    expect(queryClient.getQueryData(QUERY_KEYS.conversations('ws-1'))).toEqual([
+      { id: 'dm-1', unread_count: 0 },
+      { id: 'dm-2', unread_count: 1 },
+    ]);
+    expect(useWorkspaceStore.getState().unreadConversations.has('dm-1')).toBe(false);
+  });
 });

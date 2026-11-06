@@ -1,11 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  conversationTitle,
-  departedPartner,
-  departureNote,
-  otherParticipants,
-  isUnread,
-} from './conversationHelpers';
+import { conversationTitle, departedPartner, departureNote, otherParticipants } from './conversationHelpers';
 import type { Conversation } from '@/features/messaging/hooks/useConversations';
 
 const names: Record<string, string> = {
@@ -28,7 +22,7 @@ function conversation(over: Partial<Conversation>): Conversation {
     workspace_id: 'ws-1',
     kind: 'direct',
     last_message_at: '2026-01-02T10:00:00Z',
-    last_read_at: null,
+    unread_count: 0,
     participant_ids: ['me', 'a'],
     notify_level: null,
     effective_notify_level: 'all',
@@ -84,11 +78,5 @@ describe('conversationHelpers', () => {
   it('has nothing to say about a conversation everybody is still in', () => {
     expect(departedPartner(conversation({}), 'me')).toBeNull();
     expect(departureNote(conversation({}))).toBeNull();
-  });
-
-  it('marks a conversation unread until the read marker catches up', () => {
-    expect(isUnread(conversation({ last_read_at: null }))).toBe(true);
-    expect(isUnread(conversation({ last_read_at: '2026-01-02T09:00:00Z' }))).toBe(true);
-    expect(isUnread(conversation({ last_read_at: '2026-01-02T10:00:00Z' }))).toBe(false);
   });
 });

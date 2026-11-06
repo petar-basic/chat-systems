@@ -11,10 +11,12 @@ export interface ReadStateUpdate {
 
 export function applyReadState(queryClient: QueryClient, update: ReadStateUpdate) {
   const store = useWorkspaceStore.getState();
-  const conversations = queryClient.getQueryData<Conversation[]>(
-    QUERY_KEYS.conversations(store.currentWorkspace?.id ?? ''),
-  );
+  const conversationsKey = QUERY_KEYS.conversations(store.currentWorkspace?.id ?? '');
+  const conversations = queryClient.getQueryData<Conversation[]>(conversationsKey);
   if (conversations?.some((c) => c.id === update.channel_id)) {
+    queryClient.setQueryData<Conversation[]>(conversationsKey, (old) =>
+      old?.map((c) => (c.id === update.channel_id ? { ...c, unread_count: update.unread_count } : c)),
+    );
     if (update.unread_count > 0) store.markConversationUnread(update.channel_id);
     else store.markConversationRead(update.channel_id);
     return;

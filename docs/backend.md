@@ -321,7 +321,7 @@ position they left with and a recounted unread, and stages `channel.member_joine
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
-| GET | `/workspaces/:ws_id/conversations` | — | `{ data: ConversationSummary[] }` — newest message first, with `participant_ids`, `last_message_at`, the caller's `last_read_at`, and `departed`: who left the workspace, with the `display_name` and `avatar_url` of their account |
+| GET | `/workspaces/:ws_id/conversations` | — | `{ data: ConversationSummary[] }` — newest message first, with `participant_ids`, `last_message_at`, the caller's `unread_count` (the counter `/unreads` reads, so neither their own messages nor thread replies count), and `departed`: who left the workspace, with the `display_name` and `avatar_url` of their account |
 | POST | `/workspaces/:ws_id/conversations` | `{ participant_ids }` | `Conversation` — one other person returns the existing `direct` thread if there is one; more create a `group` |
 
 Creating one publishes `conversation.created`, which the gateway delivers to every participant
