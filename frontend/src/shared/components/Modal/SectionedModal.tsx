@@ -1,4 +1,4 @@
-import { useId, useRef, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { Modal, type ModalSize } from './Modal';
 
@@ -50,6 +50,10 @@ export function SectionedModal<K extends string>({
   };
 
   const section = sections.find((s) => s.key === active) ?? sections[0];
+
+  useEffect(() => {
+    tabs.current[section.key]?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [section.key]);
 
   return (
     <Modal title={title} onClose={onClose} size={size} dataQa={`${qaPrefix}-modal`}>

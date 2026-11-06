@@ -34,6 +34,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - Every button that shows only an icon names itself on hover: the actions over a message
   (the quick reactions, *Reply in thread*, *Add reaction*, *Save for later*, *More actions*),
   closing and paging an image, *Insert emoji*, *Show formatting*, *Leave huddle* and the rest.
+- On a phone, settings and preferences keep the section you are on in view in the row of
+  sections at the top, instead of leaving it scrolled off to the side.
 
 ## [4.4.0] — 2026-11-06
 
