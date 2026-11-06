@@ -12,7 +12,7 @@ use std::sync::Mutex;
 use std::time::Instant;
 
 use notify_rust::{Notification, NotificationResponse, Timeout};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::ipc::CapabilityBuilder;
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::TrayIconBuilder;
@@ -40,8 +40,10 @@ const TRAY: &str = "tray";
 const STARTED_HIDDEN: &str = "--hidden";
 const RAIL_WIDTH: f64 = 72.0;
 const NOTIFICATION_LINGERS_MS: u32 = 60 * 60 * 1000;
+const NUMBERED_SHORTCUTS: usize = 9;
 
 const BRIDGE: &str = include_str!("bridge.js");
+const MENU_KEYS: &str = include_str!("menu_keys.js");
 
 static VIEWERS: AtomicUsize = AtomicUsize::new(0);
 static GRANTS: AtomicUsize = AtomicUsize::new(0);
@@ -327,6 +329,14 @@ fn show_content<R: Runtime>(window: &Window<R>, label: &str) {
     let _ = window.set_focus();
 }
 
+fn with_menu_keys<R: Runtime>(builder: WebviewBuilder<R>) -> WebviewBuilder<R> {
+    if cfg!(windows) {
+        builder.initialization_script(MENU_KEYS)
+    } else {
+        builder
+    }
+}
+
 fn load_server<R: Runtime>(
     app: &AppHandle<R>,
     window: &Window<R>,
@@ -345,7 +355,8 @@ fn load_server<R: Runtime>(
                 .permission("allow-start-sso")
                 .permission("allow-start-passkey")
                 .permission("allow-report-theme")
-                .permission("allow-report-colours"),
+                .permission("allow-report-colours")
+                .permission("allow-press-menu-keys"),
         );
         let builder = WebviewBuilder::new(&label, WebviewUrl::External(origin.clone()))
             .initialization_script(BRIDGE)
@@ -355,7 +366,7 @@ fn load_server<R: Runtime>(
             .on_download(save_downloads);
         let (position, size) = content_bounds(window);
         let webview = window
-            .add_child(builder, position, size)
+            .add_child(with_menu_keys(builder), position, size)
             .map_err(|e| e.to_string())?;
         let _ = webview.hide();
     }
@@ -381,7 +392,10 @@ fn open_picker<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
         let (position, size) = content_bounds(&window);
         window
             .add_child(
-                WebviewBuilder::new(PICKER, WebviewUrl::App("index.html".into())),
+                with_menu_keys(WebviewBuilder::new(
+                    PICKER,
+                    WebviewUrl::App("index.html".into()),
+                )),
                 position,
                 size,
             )
@@ -446,12 +460,20 @@ fn shortcuts(servers: &[ServerView]) -> Vec<Shortcut> {
         .collect()
 }
 
+fn rail_entry(servers: &[ServerView], index: usize) -> Option<String> {
+    shortcuts(servers)
+        .into_iter()
+        .take(NUMBERED_SHORTCUTS)
+        .nth(index)
+        .map(|shortcut| shortcut.id)
+}
+
 fn build_menu<R: Runtime>(app: &AppHandle<R>, servers: &[ServerView]) -> tauri::Result<Menu<R>> {
     let menu = Menu::default(app)?;
     let submenu = Submenu::new(app, "Workspaces", true)?;
     let entries = shortcuts(servers);
     for (i, entry) in entries.iter().enumerate() {
-        let accelerator = (i < 9).then(|| format!("CmdOrCtrl+{}", i + 1));
+        let accelerator = (i < NUMBERED_SHORTCUTS).then(|| format!("CmdOrCtrl+{}", i + 1));
         submenu.append(&MenuItem::with_id(
             app,
             &entry.id,
@@ -930,8 +952,31 @@ fn toggle_open_at_login<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
     changed.map_err(|e| e.to_string())
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum MenuKeys {
+    Rail(usize),
+    AddServer,
+}
+
+#[tauri::command]
+fn press_menu_keys(app: AppHandle, keys: MenuKeys) -> Result<(), String> {
+    let id = match keys {
+        MenuKeys::AddServer => "add-server".to_owned(),
+        MenuKeys::Rail(index) => rail_entry(&overview(&app).servers, index)
+            .ok_or_else(|| format!("Nothing on the rail at {}", index + 1))?,
+    };
+    menu_action(&app, &id)
+}
+
 fn on_menu<R: Runtime>(app: &AppHandle<R>, id: &str) {
-    let result = match id.split_once(':') {
+    if let Err(e) = menu_action(app, id) {
+        eprintln!("{id}: {e}");
+    }
+}
+
+fn menu_action<R: Runtime>(app: &AppHandle<R>, id: &str) -> Result<(), String> {
+    match id.split_once(':') {
         None if id == "add-server" => open_picker(app),
         None if id == "show" => bring_back(app),
         None if id == "open-at-login" => toggle_open_at_login(app),
@@ -956,9 +1001,6 @@ fn on_menu<R: Runtime>(app: &AppHandle<R>, id: &str) {
             None => Ok(()),
         },
         _ => Ok(()),
-    };
-    if let Err(e) = result {
-        eprintln!("{id}: {e}");
     }
 }
 
@@ -991,7 +1033,8 @@ pub fn run() {
             add_menu,
             open_workspace,
             start_sso,
-            start_passkey
+            start_passkey,
+            press_menu_keys
         ])
         .setup(|app| {
             let dir = app.path().app_config_dir()?;
@@ -1025,7 +1068,10 @@ pub fn run() {
                 .inner_size()?
                 .to_logical::<f64>(window.scale_factor()?);
             window.add_child(
-                WebviewBuilder::new(RAIL, WebviewUrl::App("rail.html".into())),
+                with_menu_keys(WebviewBuilder::new(
+                    RAIL,
+                    WebviewUrl::App("rail.html".into()),
+                )),
                 LogicalPosition::new(0.0, 0.0),
                 LogicalSize::new(RAIL_WIDTH, size.height),
             )?;
@@ -1124,5 +1170,21 @@ mod tests {
                 "open:c1:https://c.example",
             ]
         );
+    }
+
+    #[test]
+    fn only_the_first_nine_rail_entries_have_keys() {
+        let servers: Vec<ServerView> = (1..=10)
+            .map(|n| server(&format!("https://{n}.example"), &n.to_string(), &[]))
+            .collect();
+        assert_eq!(
+            rail_entry(&servers, 0).as_deref(),
+            Some("server:https://1.example")
+        );
+        assert_eq!(
+            rail_entry(&servers, 8).as_deref(),
+            Some("server:https://9.example")
+        );
+        assert_eq!(rail_entry(&servers, 9), None);
     }
 }

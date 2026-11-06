@@ -11,6 +11,7 @@
     "allow-switch-server",
     "allow-rail-menu",
     "allow-open-workspace",
-    "allow-add-menu"
+    "allow-add-menu",
+    "allow-press-menu-keys"
   ]
 }
