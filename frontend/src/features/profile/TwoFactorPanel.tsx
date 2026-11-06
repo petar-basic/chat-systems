@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/shared/components/Button/Button';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ShieldCheck, ShieldOff, Copy, Check } from 'lucide-react';
@@ -12,6 +13,7 @@ import { TextInput } from '@/shared/components/Form/TextInput';
 type Enrolment = components['schemas']['TotpEnrolment'];
 
 export default function TwoFactorPanel() {
+  const { t } = useTranslation('profile');
   const queryClient = useQueryClient();
   const [enrolment, setEnrolment] = useState<Enrolment | null>(null);
   const [code, setCode] = useState('');
@@ -54,7 +56,7 @@ export default function TwoFactorPanel() {
       setError(null);
       setDisabling(false);
       setCode('');
-      toast.success('Two-factor authentication is off.');
+      toast.success(t('twoFactor.turnedOff'));
       void refresh();
     },
     onError: (e) => setError(toUserMessage(e)),
@@ -73,12 +75,12 @@ export default function TwoFactorPanel() {
         <div>
           <h3 className="text-sm font-medium text-fg flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-accent" />
-            Two-factor authentication
+            {t('twoFactor.title')}
           </h3>
           <p className="text-xs text-muted mt-1">
             {status?.enrolled
-              ? `On. ${status.recovery_codes_remaining} recovery codes left.`
-              : 'A stolen password alone is not enough to sign in as you.'}
+              ? t('twoFactor.on', { count: status.recovery_codes_remaining })
+              : t('twoFactor.off')}
           </p>
         </div>
         {status && !status.enrolled && !enrolment && (
@@ -89,7 +91,7 @@ export default function TwoFactorPanel() {
             disabled={start.isPending}
             data-qa="totp-start"
           >
-            Set up
+            {t('twoFactor.setUp')}
           </Button>
         )}
         {status?.enrolled && !disabling && (
@@ -97,12 +99,12 @@ export default function TwoFactorPanel() {
             type="button"
             onClick={() => setDisabling(true)}
             disabled={status.required}
-            data-tooltip={status.required ? 'This instance requires a second factor for admins' : undefined}
+            data-tooltip={status.required ? t('twoFactor.required') : undefined}
             data-qa="totp-disable"
             className="flex items-center gap-1.5 px-3 py-2 text-sm text-fg-dim hover:text-danger disabled:text-faint disabled:cursor-not-allowed transition cursor-pointer whitespace-nowrap"
           >
             <ShieldOff className="w-4 h-4" />
-            Turn off
+            {t('twoFactor.turnOff')}
           </button>
         )}
       </div>
@@ -115,12 +117,9 @@ export default function TwoFactorPanel() {
 
       {enrolment && (
         <div className="space-y-3">
-          <p className="text-xs text-muted">
-            Scan this with your authenticator app or add the setup key, then enter the code it shows. Nothing
-            changes until you do — an enrolment you never finished cannot lock you out.
-          </p>
+          <p className="text-xs text-muted">{t('twoFactor.scan')}</p>
           <div className="inline-block rounded-lg bg-white p-3" data-qa="totp-qr">
-            <QRCodeSVG value={enrolment.provisioning_uri} size={176} title="Setup QR code" />
+            <QRCodeSVG value={enrolment.provisioning_uri} size={176} title={t('twoFactor.qr')} />
           </div>
           <div className="flex items-center gap-2">
             <code className="flex-1 px-3 py-2 bg-app border border-line rounded-lg text-xs text-fg-soft break-all">
@@ -129,8 +128,8 @@ export default function TwoFactorPanel() {
             <button
               type="button"
               onClick={copySecret}
-              aria-label="Copy the setup key"
-              data-tooltip="Copy the setup key"
+              aria-label={t('twoFactor.copyKey')}
+              data-tooltip={t('twoFactor.copyKey')}
               className="p-2 text-muted hover:text-fg transition cursor-pointer"
             >
               {copied ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
@@ -140,11 +139,11 @@ export default function TwoFactorPanel() {
             href={enrolment.provisioning_uri}
             className="inline-block text-xs text-accent hover:text-accent-soft"
           >
-            Open in your authenticator app
+            {t('twoFactor.openInApp')}
           </a>
           <div className="flex gap-2">
             <TextInput
-              label="Authenticator code"
+              label={t('twoFactor.code')}
               labelHidden
               inputMode="numeric"
               autoComplete="one-time-code"
@@ -161,7 +160,7 @@ export default function TwoFactorPanel() {
               disabled={confirm.isPending || code.length < 6}
               data-qa="totp-confirm"
             >
-              Confirm
+              {t('twoFactor.confirm')}
             </Button>
           </div>
         </div>
@@ -169,10 +168,7 @@ export default function TwoFactorPanel() {
 
       {recoveryCodes && (
         <div className="mt-3 space-y-2" data-qa="totp-recovery-codes">
-          <p className="text-xs text-warning">
-            Save these somewhere safe. They are shown once, and each one works once — they are the way back in
-            if you lose the phone.
-          </p>
+          <p className="text-xs text-warning">{t('twoFactor.recovery')}</p>
           <div className="grid grid-cols-2 gap-2">
             {recoveryCodes.map((recoveryCode) => (
               <code
@@ -188,7 +184,7 @@ export default function TwoFactorPanel() {
             onClick={() => setRecoveryCodes(null)}
             className="text-xs text-muted hover:text-fg transition cursor-pointer"
           >
-            I have saved them
+            {t('twoFactor.savedThem')}
           </button>
         </div>
       )}
@@ -196,13 +192,13 @@ export default function TwoFactorPanel() {
       {disabling && (
         <div className="flex gap-2">
           <TextInput
-            label="Current authenticator code"
+            label={t('twoFactor.currentCode')}
             labelHidden
             inputMode="numeric"
             autoComplete="one-time-code"
             value={code}
             onChange={(e) => setCode(e.target.value.trim())}
-            placeholder="Current code"
+            placeholder={t('twoFactor.currentCodePlaceholder')}
             dataQa="totp-disable-code"
             className="flex-1"
           />
@@ -213,7 +209,7 @@ export default function TwoFactorPanel() {
             data-qa="totp-disable-confirm"
             className="px-4 py-2.5 bg-red-600 hover:bg-red-500 disabled:bg-red-600/50 text-white text-sm rounded-lg transition cursor-pointer disabled:cursor-not-allowed"
           >
-            Turn off
+            {t('twoFactor.turnOff')}
           </button>
           <button
             type="button"
@@ -223,7 +219,7 @@ export default function TwoFactorPanel() {
             }}
             className="px-3 py-2.5 text-sm text-muted hover:text-fg transition cursor-pointer"
           >
-            Cancel
+            {t('twoFactor.cancel')}
           </button>
         </div>
       )}

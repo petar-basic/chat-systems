@@ -1,4 +1,5 @@
 import { Camera } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { Button } from '@/shared/components/Button/Button';
 import { FilePicker } from '@/shared/components/Form/FilePicker';
@@ -26,12 +27,13 @@ export function ProfilePhotoField({
   onFile,
   onReset,
 }: Props) {
+  const { t } = useTranslation('profile');
   return (
     <div className="order-first flex flex-col items-center gap-2 sm:order-none sm:w-40">
-      <span className="self-start text-sm font-medium text-fg-dim max-sm:sr-only">Profile photo</span>
+      <span className="self-start text-sm font-medium text-fg-dim max-sm:sr-only">{t('photo.label')}</span>
       <Avatar userId={userId} name={name} avatarUrl={shown} size="2xl" />
       <FilePicker
-        label="Profile photo file"
+        label={t('photo.file')}
         accept="image/*"
         onFiles={([file]) => onFile(file)}
         disabled={uploading}
@@ -39,7 +41,7 @@ export function ProfilePhotoField({
         className={buttonStyles({ size: 'sm' })}
       >
         {uploading ? <Spinner size="sm" /> : <Camera className="h-3.5 w-3.5" />}
-        Upload photo
+        {t('photo.upload')}
       </FilePicker>
       {resetLabel && (
         <Button

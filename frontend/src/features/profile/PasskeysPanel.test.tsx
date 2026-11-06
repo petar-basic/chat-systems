@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import i18n from '@/lib/i18n';
 import PasskeysPanel from './PasskeysPanel';
 
 const get = vi.fn();
@@ -53,8 +54,26 @@ describe('PasskeysPanel', () => {
     vi.stubGlobal('PublicKeyCredential', function PublicKeyCredential() {});
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     vi.unstubAllGlobals();
+    await i18n.changeLanguage('en');
+  });
+
+  it('in Japanese names a passkey as text, whatever it is called', async () => {
+    const name = '<img src=x onerror="alert(1)"> {{name}}';
+    get.mockResolvedValue({ offered: true, data: [{ ...laptop, name }] });
+    await i18n.changeLanguage('ja');
+    renderPanel();
+
+    expect(await screen.findByText(name)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: `${name} の名前を変更` })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: `${name} を削除` }));
+
+    expect(screen.getByTestId('passkey-confirm')).toHaveTextContent(
+      `「${name}」を削除します。パスワードか認証アプリのコードで確認してください。`,
+    );
+    expect(screen.getByText(/に追加 · 未使用/)).toBeInTheDocument();
+    expect(document.querySelector('img')).toBeNull();
   });
 
   it('lists the passkeys with when each was last used', async () => {
