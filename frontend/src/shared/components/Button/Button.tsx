@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Spinner } from '../Spinner/Spinner';
 import { buttonStyles, type ButtonSize, type ButtonVariant } from './buttonStyles';
 
@@ -22,6 +23,7 @@ export function Button({
   children,
   ...rest
 }: ButtonProps) {
+  const { t } = useTranslation('common');
   return (
     <button
       type={type}
@@ -30,7 +32,7 @@ export function Button({
       className={`${buttonStyles({ variant, size, fullWidth })} ${className}`}
       {...rest}
     >
-      {loading ? <Spinner size="sm" label="Working" /> : icon}
+      {loading ? <Spinner size="sm" label={t('working')} /> : icon}
       {children}
     </button>
   );

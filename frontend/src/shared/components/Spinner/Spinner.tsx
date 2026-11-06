@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 interface SpinnerProps {
   size?: 'sm' | 'md' | 'lg';
   className?: string;
@@ -10,11 +12,12 @@ const SIZES = {
   lg: 'h-8 w-8',
 };
 
-export function Spinner({ size = 'md', className = '', label = 'Loading' }: SpinnerProps) {
+export function Spinner({ size = 'md', className = '', label }: SpinnerProps) {
+  const { t } = useTranslation('common');
   return (
     <span
       role="status"
-      aria-label={label}
+      aria-label={label ?? t('loading')}
       className={`inline-block shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent ${SIZES[size]} ${className}`}
     />
   );

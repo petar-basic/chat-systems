@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '../Button/Button';
 import { IconButton } from '../IconButton/IconButton';
 import { Overlay } from './Overlay';
@@ -85,6 +86,7 @@ function ModalLayout({
   footer: ReactNode;
   children: ReactNode;
 }) {
+  const { t } = useTranslation('common');
   const dismiss = useDismiss();
   const body = useRef<HTMLDivElement>(null);
   const [edges, setEdges] = useState({ above: false, below: false });
@@ -119,7 +121,7 @@ function ModalLayout({
         </div>
         <div className="-mr-1.5 -mt-0.5 flex shrink-0 items-center gap-2">
           {headerActions}
-          <IconButton label="Close" icon={<X className="h-4 w-4" />} onClick={dismiss} />
+          <IconButton label={t('close')} icon={<X className="h-4 w-4" />} onClick={dismiss} />
         </div>
       </header>
       <div
