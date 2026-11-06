@@ -14,7 +14,17 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
-## [Unreleased]
+## [4.4.1] — 2026-11-06
+
+### Upgrading from 4.4.0
+
+- Set `VERSION=4.4.1`, pull both images and restart `api`, `realtime`, `worker` and `frontend`
+  together. There is no migration and no new setting. The desktop app updates itself to 4.4.1
+  within six hours, or at its next start.
+
+### Added
+
+- Signing in with a passkey or an emailed code is in Japanese too.
 
 ### Changed
 
@@ -43,6 +53,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - In the desktop app on Windows, Ctrl+1 to Ctrl+9 open the first nine entries on the rail and
   Ctrl+Shift+N adds a server, as the *Workspaces* menu says. The page in the window kept the
   keys to itself, so the menu never saw them.
+- The Japanese line after asking for a password reset names the service the way the line
+  after asking for a sign-in code does.
 
 ## [4.4.0] — 2026-11-06
 
