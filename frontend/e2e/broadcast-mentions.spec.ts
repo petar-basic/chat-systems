@@ -42,11 +42,19 @@ test('@channel reaches a member who was never named', async ({ page }) => {
     }
     await expect(badge).toBeVisible();
 
-    const notifications = await (await bob.get(`${API}/workspaces/${workspace.id}/notifications`)).json();
-    const forThisChannel = notifications.data.filter(
-      (n: { data: { channel_id?: string } }) => n.data?.channel_id === channelId,
-    );
-    expect(forThisChannel.length, 'the broadcast left bob a notification he can open').toBe(1);
+    await expect
+      .poll(
+        async () => {
+          const notifications = await (
+            await bob.get(`${API}/workspaces/${workspace.id}/notifications`)
+          ).json();
+          return notifications.data.filter(
+            (n: { data: { channel_id?: string } }) => n.data?.channel_id === channelId,
+          ).length;
+        },
+        { message: 'the broadcast left bob a notification he can open', timeout: 15_000 },
+      )
+      .toBe(1);
   } finally {
     await admin.delete(`${API}/channels/${channelId}`);
     await admin.dispose();
