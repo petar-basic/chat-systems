@@ -22,6 +22,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   the last message with when the conversation was read, so your own last message or a reply
   in a thread marked it unread, and *All unreads* counted it while showing nothing. It now
   uses the same count as *All unreads*.
+- The bell beside your name shows when notifications are paused, by you or by your schedule:
+  it is crossed out, and its tooltip says until when. It turns back on its own when the pause
+  ends.
 
 ## [4.4.0] — 2026-11-06
 

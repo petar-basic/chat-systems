@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react';
-import { Bell, Bookmark, CircleDot, Clock, LogOut, SlidersHorizontal, User } from 'lucide-react';
+import { Bell, BellOff, Bookmark, CircleDot, Clock, LogOut, SlidersHorizontal, User } from 'lucide-react';
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { displayNameOf } from '@/lib/userHelpers';
-import { PauseMenuItems } from '@/features/notifications';
+import { PauseMenuItems, usePause } from '@/features/notifications';
+import { pauseLabel } from '@/lib/pause';
 import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
 import PresenceDot from '@/shared/components/PresenceDot';
 import { usePresenceStore } from '@/stores/presence';
@@ -43,6 +44,9 @@ export function YouMenu({
   const userId = user?.id ?? '';
   const away = usePresenceStore((s) => s.getStatus(userId) === 'away');
   const setAway = useSetAway(userId);
+  const pause = usePause();
+  const BellIcon = pause ? BellOff : Bell;
+  const bellLabel = pause ? `Notifications ${pauseLabel(pause).toLowerCase()}` : 'Notifications';
 
   const pick = (action: () => void) => () => {
     action();
@@ -116,10 +120,13 @@ export function YouMenu({
       </div>
       <button
         onClick={onOpenNotifications}
-        className="relative text-muted hover:text-fg transition cursor-pointer"
-        title="Notifications"
+        className={`relative transition cursor-pointer ${pause ? 'text-accent hover:text-accent-soft' : 'text-muted hover:text-fg'}`}
+        title={bellLabel}
+        aria-label={bellLabel}
+        data-qa="open-notifications"
+        data-paused={!!pause}
       >
-        <Bell className="w-4 h-4" />
+        <BellIcon className="w-4 h-4" />
         {unreadNotifCount > 0 && (
           <span className="absolute -top-1.5 -right-1.5 min-w-3.5 h-3.5 px-0.5 bg-badge text-badge-fg text-4xs font-bold rounded-full flex items-center justify-center leading-none">
             {unreadNotifCount > 99 ? '99+' : unreadNotifCount}

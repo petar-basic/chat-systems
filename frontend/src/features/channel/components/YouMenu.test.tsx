@@ -14,7 +14,9 @@ vi.mock('@/shared/hooks/useCurrentApi', async () => {
     useCurrentApi: () => typedApiMock({}),
   };
 });
-vi.mock('@/features/notifications', () => ({ PauseMenuItems: () => null }));
+let pause: { until: string; bySchedule: boolean } | null = null;
+
+vi.mock('@/features/notifications', () => ({ PauseMenuItems: () => null, usePause: () => pause }));
 
 const user = { id: 'user-1', display_name: 'Alice', email: 'alice@dev.local', avatar_url: null };
 
@@ -42,6 +44,7 @@ function renderMenu() {
 describe('YouMenu', () => {
   beforeEach(() => {
     put.mockReset();
+    pause = null;
     put.mockImplementation(async (_path: string, body: { away: boolean }) => body);
     usePresenceStore.setState({ statuses: { 'user-1': 'online' } });
     useWorkspaceStore.setState({ currentWorkspace: { id: 'ws-1', name: 'Acme' } as never });
@@ -71,5 +74,20 @@ describe('YouMenu', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Set yourself away' }));
 
     await waitFor(() => expect(usePresenceStore.getState().getStatus('user-1')).toBe('online'));
+  });
+
+  it('keeps the plain bell while notifications run', () => {
+    renderMenu();
+    expect(screen.getByTestId('open-notifications')).toHaveAttribute('title', 'Notifications');
+    expect(screen.getByTestId('open-notifications')).toHaveAttribute('data-paused', 'false');
+  });
+
+  it('names the pause and the schedule on the bell', () => {
+    pause = { until: new Date(Date.now() + 3600000).toISOString(), bySchedule: true };
+    renderMenu();
+    const bell = screen.getByTestId('open-notifications');
+    expect(bell).toHaveAttribute('data-paused', 'true');
+    expect(bell.getAttribute('title')).toMatch(/^Notifications paused by your schedule until /);
+    expect(screen.getByRole('button', { name: bell.getAttribute('title')! })).toBe(bell);
   });
 });

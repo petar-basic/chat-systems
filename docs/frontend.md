@@ -672,7 +672,9 @@ not (`lib/pause.ts` decides which); it names the workspace it pauses (*Pause not
 Acme*, *Resume notifications in Acme*). The pause, the schedule and the email switch are the
 current workspace's; *Preferences → Notifications* says which workspace that is. The profile
 hover card shows a member's pause in that workspace from `notifications_paused_until` in the
-member list.
+member list. `usePause` gives the pause in force and renders again when it runs out; the bell
+beside the *You* menu uses it to turn into `BellOff`, accented, titled *Notifications paused
+until 14:30* (or *paused by your schedule*), and back.
 
 ### `notifications/KeywordsPanel`
 *My keywords* in *Preferences → Notifications*: a field that adds a chip on Enter or a comma,
