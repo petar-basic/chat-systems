@@ -1,6 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useRef } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import i18n from '@/lib/i18n';
+import { toast } from '@/shared/components/Toast';
 import { NotificationLevelButton, NotificationLevelMenu } from './NotificationLevelMenu';
 
 const setLevel = vi.fn();
@@ -96,6 +98,52 @@ describe('NotificationLevelMenu', () => {
     expect(screen.getByRole('menuitemcheckbox', { name: 'Mute channel' })).toHaveFocus();
     fireEvent.keyDown(menu, { key: 'ArrowDown' });
     expect(screen.getByRole('menuitemradio', { name: 'Default (Mentions)' })).toHaveFocus();
+  });
+});
+
+describe('NotificationLevelMenu in Japanese', () => {
+  beforeEach(async () => {
+    setLevel.mockReset();
+    channel = { notify_level: null, effective_notify_level: 'mentions' };
+    muted = false;
+    await i18n.changeLanguage('ja');
+  });
+
+  afterEach(async () => {
+    vi.restoreAllMocks();
+    await i18n.changeLanguage('en');
+  });
+
+  it('names the levels, the default and muting', async () => {
+    const { unmount } = render(<Menu />);
+    expect(await screen.findByRole('menu', { name: '通知設定' })).toBeInTheDocument();
+    expect(screen.getByText('通知内容')).toBeInTheDocument();
+    expect(screen.getByRole('menuitemradio', { name: '標準(メンション)' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    expect(screen.getByRole('menuitemradio', { name: 'すべての新着メッセージ' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitemradio', { name: '通知しない' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitemcheckbox', { name: 'チャンネルをミュート' })).toBeInTheDocument();
+    unmount();
+
+    muted = true;
+    const { unmount: unmountMuted } = render(<Menu />);
+    expect(await screen.findByRole('menuitemcheckbox', { name: 'ミュートを解除' })).toBeInTheDocument();
+    unmountMuted();
+
+    render(<Menu direct channelId="dm-1" />);
+    expect(
+      await screen.findByRole('menuitemradio', { name: '標準(すべての新着メッセージ)' }),
+    ).toBeInTheDocument();
+  });
+
+  it('says so when the level could not be changed', async () => {
+    const error = vi.spyOn(toast, 'error');
+    setLevel.mockImplementation((_vars, options: { onError: () => void }) => options.onError());
+    render(<Menu />);
+    fireEvent.click(await screen.findByRole('menuitemradio', { name: '通知しない' }));
+    expect(error).toHaveBeenCalledWith('通知設定を変更できませんでした。もう一度お試しください。');
   });
 });
 

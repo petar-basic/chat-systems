@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import i18n from '@/lib/i18n';
 import ChannelHeader from './ChannelHeader';
 import type { Channel } from '@/stores/workspace';
 
@@ -32,10 +33,10 @@ const channel = {
   topic: null,
 } as unknown as Channel;
 
-function renderHeader(onToggleChannelMembers = vi.fn()) {
+function renderHeader(onToggleChannelMembers = vi.fn(), shown: Channel = channel) {
   return render(
     <ChannelHeader
-      channel={channel}
+      channel={shown}
       showSearch={false}
       showPins={false}
       showFiles={false}
@@ -52,6 +53,10 @@ describe('ChannelHeader', () => {
   beforeEach(() => {
     moderation.canModerate = false;
     hooked = new Set();
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
   });
 
   it('has one members control, showing the count', () => {
@@ -87,5 +92,31 @@ describe('ChannelHeader', () => {
     renderHeader();
     fireEvent.click(screen.getByTestId('channel-integration-indicator'));
     expect(screen.getByTestId('channel-details')).toHaveAttribute('data-tab', 'integrations');
+  });
+
+  it('in Japanese names its controls, and shows the channel name and topic as text', async () => {
+    const name = '<img src=x onerror="alert(1)"> {{name}}';
+    const topic = '<img src=x onerror="alert(1)"> {{topic}}';
+    hooked = new Set(['ch-1']);
+    await i18n.changeLanguage('ja');
+    renderHeader(vi.fn(), { ...channel, name, topic });
+
+    expect(screen.getByTestId('channel-header-name')).toHaveTextContent(name);
+    expect(screen.getByText(`— ${topic}`)).toBeInTheDocument();
+    expect(document.querySelector('img')).toBeNull();
+
+    const indicator = screen.getByTestId('channel-integration-indicator');
+    expect(indicator).toHaveTextContent('連携');
+    expect(indicator).toHaveAttribute(
+      'data-tooltip',
+      'このチャンネルからのメッセージは外部URL に転送されます',
+    );
+    expect(screen.getByRole('button', { name: 'チャンネルのメンバー' })).toHaveTextContent('3');
+    expect(screen.getByRole('button', { name: 'ピン留めしたメッセージ' })).toHaveTextContent('2');
+
+    fireEvent.click(screen.getByRole('button', { name: 'チャンネルのその他の操作' }));
+    expect(screen.getByRole('button', { name: '通知設定' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'チャンネル詳細' }));
+    expect(screen.getByTestId('channel-details')).toHaveAttribute('data-tab', 'about');
   });
 });
