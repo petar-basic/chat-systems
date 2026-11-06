@@ -37,9 +37,7 @@ describe('ResetPasswordPage in Japanese', () => {
     fireEvent.click(screen.getByRole('button', { name: '再設定用のリンクを送信' }));
 
     const sent = await screen.findByTestId('forgot-password-sent');
-    expect(sent).toHaveTextContent(
-      'alice@example.com が Chat Systems に登録されているメールアドレスであれば',
-    );
+    expect(sent).toHaveTextContent('alice@example.com が当サービスに登録されているメールアドレスであれば');
     expect(screen.getByText('alice@example.com')).toHaveClass('font-medium');
   });
 
