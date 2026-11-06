@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '../Button/Button';
 import { Modal } from '../Modal/Modal';
 
@@ -25,6 +26,7 @@ export function ConfirmDialog({
   dataQa,
   children,
 }: ConfirmDialogProps) {
+  const { t } = useTranslation('common');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,7 +49,7 @@ export function ConfirmDialog({
       onClose={onClose}
       size="sm"
       dataQa={dataQa}
-      dismissLabel="Cancel"
+      dismissLabel={t('cancel')}
       actions={
         <Button
           variant={tone}

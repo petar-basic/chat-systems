@@ -29,6 +29,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   emoji shortcode that starts like one (`:Dasd:`) can be typed out.
 - Images in messages and link previews that were already shown no longer flash an empty box
   when you switch back to their workspace or channel.
+- With `REQUIRE_ADMIN_TOTP` on, members who are not instance admins can turn two-factor
+  authentication off again, and an admin who also has a passkey can turn TOTP off and keep the
+  passkey as their second factor.
 
 ## [4.4.1] — 2026-11-06
 

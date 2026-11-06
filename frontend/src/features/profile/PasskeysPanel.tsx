@@ -34,6 +34,10 @@ export default function PasskeysPanel() {
   });
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['passkeys'] });
+  const refreshFactors = () => {
+    void refresh();
+    void queryClient.invalidateQueries({ queryKey: ['totp-status'] });
+  };
   const close = () => {
     setPending(null);
     setProof('');
@@ -57,7 +61,7 @@ export default function PasskeysPanel() {
       close();
       setName(deviceName());
       toast.success(t('passkeys.added'));
-      void refresh();
+      refreshFactors();
     },
     onError: failed,
   });
@@ -70,7 +74,7 @@ export default function PasskeysPanel() {
     onSuccess: () => {
       close();
       toast.success(t('passkeys.removed'));
-      void refresh();
+      refreshFactors();
     },
     onError: failed,
   });

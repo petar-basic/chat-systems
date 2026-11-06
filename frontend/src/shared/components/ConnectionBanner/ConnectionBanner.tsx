@@ -1,13 +1,14 @@
 import { useInstanceStore } from '@/stores/instances';
 import { useWsStatusStore } from '@/stores/wsStatus';
 import { instanceManager } from '@/lib/instances';
-import { ConnectionLabels } from '@/shared/constants';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   instanceUrl?: string;
 }
 
 export function ConnectionBanner({ instanceUrl }: Props) {
+  const { t } = useTranslation('common');
   const activeUrl = useInstanceStore((s) => s.activeInstanceUrl);
   const statuses = useWsStatusStore((s) => s.statuses);
 
@@ -29,7 +30,7 @@ export function ConnectionBanner({ instanceUrl }: Props) {
       }`}
     >
       <span className={`w-1.5 h-1.5 rounded-full ${offline ? 'bg-red-400' : 'bg-amber-400'} animate-pulse`} />
-      {offline ? ConnectionLabels.Offline : ConnectionLabels.Connecting}
+      {offline ? t('connection.offline') : t('connection.connecting')}
     </div>
   );
 }

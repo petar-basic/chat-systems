@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 
 interface Props {
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export function ActionSheet({ title, onClose, children, dataQa }: Props) {
+  const { t } = useTranslation('common');
   const [shown, setShown] = useState(false);
   useEscapeToClose(onClose);
 
@@ -28,7 +30,7 @@ export function ActionSheet({ title, onClose, children, dataQa }: Props) {
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={title ?? 'Actions'}
+        aria-label={title ?? t('actions')}
         data-qa={dataQa}
         className={`relative w-full max-h-[80dvh] overflow-y-auto bg-surface border-t border-line rounded-t-2xl shadow-2xl pb-[max(0.75rem,env(safe-area-inset-bottom))] transition-transform duration-200 ${
           shown ? 'translate-y-0' : 'translate-y-full'

@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { ImagePlus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { transferFiles } from '@/lib/fileUploads';
 
 interface Props {
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export function FileDropZone({ onFiles, disabled = false, className = '', children }: Props) {
+  const { t } = useTranslation('common');
   const [dragging, setDragging] = useState(false);
   const depth = useRef(0);
 
@@ -53,7 +55,7 @@ export function FileDropZone({ onFiles, disabled = false, className = '', childr
           className="absolute inset-2 z-30 flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-purple-500/70 bg-app/85 text-sm text-fg-dim pointer-events-none"
         >
           <ImagePlus className="w-6 h-6 text-purple-400" />
-          Drop to upload
+          {t('dropToUpload')}
         </div>
       )}
     </div>

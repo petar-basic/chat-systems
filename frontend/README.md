@@ -53,7 +53,8 @@ icon via the Badging API; nothing extra to build or sign.
 ## Translations
 
 Strings live in `src/locales/<lang>/<namespace>.json`, one namespace per feature, and
-components read them with `useTranslation('<namespace>')`. English is the source: add a new
+components read them with `useTranslation('<namespace>')`. The shared components in
+`src/shared/components` read from `common`. English is the source: add a new
 string to `en` only. A string missing from another language shows in English, so a feature
 never waits on a translation.
 
