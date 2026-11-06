@@ -3,6 +3,7 @@ use serde_json::json;
 use sqlx::PgPool;
 
 use super::common::*;
+use super::passkeys::{add_passkey, device};
 use crate::auth::totp;
 use crate::config::AppConfig;
 use crate::sealed::{reseal, Keyring};
@@ -68,6 +69,28 @@ pub(super) async fn enrol(
         .collect();
     std::mem::forget(secret.clone());
     codes
+}
+
+async fn enrol_keeping_secret(
+    app: &axum::Router,
+    state: &crate::state::AppState,
+    token: &str,
+    email: &str,
+) -> String {
+    let (status, body) = send(app, "POST", "/api/auth/totp/enrol", Some(token), None).await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    let secret = body["secret"].as_str().expect("secret").to_string();
+
+    let (status, confirmed) = send(
+        app,
+        "POST",
+        "/api/auth/totp/confirm",
+        Some(token),
+        Some(json!({ "code": code_for(state, &secret, email) })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{confirmed:?}");
+    secret
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
@@ -323,6 +346,80 @@ async fn an_instance_that_requires_it_refuses_an_admin_without_one(pool: PgPool)
     )
     .await;
     assert_eq!(status, StatusCode::OK, "everyone else is unaffected");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn the_admin_requirement_leaves_members_free_to_turn_the_factor_off(pool: PgPool) {
+    let config = AppConfig {
+        require_admin_totp: true,
+        ..test_config()
+    };
+    let (app, state) = app_and_state_with(pool, config).await;
+    let (_id, email, token) = seed_and_login(&app, &state, "totp-member", false).await;
+    let secret = enrol_keeping_secret(&app, &state, &token, &email).await;
+
+    let (_, totp_status) = send(&app, "GET", "/api/auth/totp", Some(&token), None).await;
+    assert_eq!(
+        totp_status["required"], false,
+        "the requirement is for admins: {totp_status:?}"
+    );
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        "/api/auth/totp/disable",
+        Some(&token),
+        Some(json!({ "code": code_for(&state, &secret, &email) })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_admin_keeps_totp_until_a_passkey_can_take_its_place(pool: PgPool) {
+    let (open_app, open_state) = app_and_state(pool.clone()).await;
+    let (_id, email, token) = seed_and_login(&open_app, &open_state, "totp-admin", true).await;
+    let secret = enrol_keeping_secret(&open_app, &open_state, &token, &email).await;
+
+    let config = AppConfig {
+        require_admin_totp: true,
+        ..test_config()
+    };
+    let (app, state) = app_and_state_with(pool, config).await;
+
+    let (_, totp_status) = send(&app, "GET", "/api/auth/totp", Some(&token), None).await;
+    assert_eq!(totp_status["required"], true, "{totp_status:?}");
+    let (status, _) = send(
+        &app,
+        "POST",
+        "/api/auth/totp/disable",
+        Some(&token),
+        Some(json!({ "code": code_for(&state, &secret, &email) })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "TOTP is the admin's only second factor"
+    );
+
+    add_passkey(&app, &token, &mut device()).await;
+
+    let (_, totp_status) = send(&app, "GET", "/api/auth/totp", Some(&token), None).await;
+    assert_eq!(totp_status["required"], false, "{totp_status:?}");
+    let (status, body) = send(
+        &app,
+        "POST",
+        "/api/auth/totp/disable",
+        Some(&token),
+        Some(json!({ "code": code_for(&state, &secret, &email) })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "the passkey stays behind as the second factor: {body:?}"
+    );
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
