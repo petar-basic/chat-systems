@@ -65,7 +65,8 @@ export function TooltipLayer() {
     middleware: [offset(GAP), flip({ padding: MARGIN }), shift({ padding: MARGIN })],
     whileElementsMounted: (reference, floating, update) =>
       autoUpdate(reference, floating, () => {
-        if ((reference as Element).isConnected) update();
+        if (reference instanceof Element && reference.isConnected && reference.checkVisibility?.() !== false)
+          update();
         else hide();
       }),
   });
