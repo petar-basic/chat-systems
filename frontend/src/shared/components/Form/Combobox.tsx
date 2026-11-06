@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { autoUpdate, flip, offset, size, useFloating } from '@floating-ui/react-dom';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 import { Field, type FieldProps } from './Field';
@@ -41,10 +42,11 @@ export function Combobox({
   onChange,
   filter = matchesText,
   placeholder,
-  emptyText = 'Nothing matches',
+  emptyText,
   disabled = false,
   dataQa,
 }: ComboboxProps) {
+  const { t } = useTranslation('common');
   const listId = useId();
   const list = useRef<HTMLUListElement | null>(null);
   const [open, setOpen] = useState(false);
@@ -183,7 +185,7 @@ export function Combobox({
               >
                 {shown.length === 0 ? (
                   <li role="presentation" className="px-3 py-2 text-sm text-muted">
-                    {emptyText}
+                    {emptyText ?? t('nothingMatches')}
                   </li>
                 ) : (
                   shown.map((option, index) => (

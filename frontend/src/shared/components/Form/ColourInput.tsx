@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Field, type FieldProps } from './Field';
 import { fieldStyles } from './fieldStyles';
 
@@ -20,6 +21,7 @@ export function ColourInput({
   onChange,
   dataQa,
 }: ColourInputProps) {
+  const { t } = useTranslation('common');
   const [draft, setDraft] = useState<string | null>(null);
   const [seen, setSeen] = useState(value);
   if (seen !== value) {
@@ -36,7 +38,7 @@ export function ColourInput({
       optional={optional}
       hint={hint}
       className={className}
-      error={invalid ? 'Use a hex colour like #1164a3.' : null}
+      error={invalid ? t('hexColour') : null}
     >
       {(control) => (
         <div className="relative">

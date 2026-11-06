@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { AlertCircle } from 'lucide-react';
-import { ActionLabels, GENERIC_ERROR_MESSAGE } from '@/shared/constants';
+import { useTranslation } from 'react-i18next';
+import { GENERIC_ERROR_MESSAGE } from '@/shared/constants';
 
 interface QueryStateProps {
   isLoading: boolean;
@@ -24,6 +25,7 @@ export function QueryState({
   empty,
   children,
 }: QueryStateProps) {
+  const { t } = useTranslation('common');
   if (isLoading) {
     return (
       <div className={centered} data-qa="query-loading">
@@ -43,7 +45,7 @@ export function QueryState({
             data-qa="query-retry"
             className="mt-3 px-3 py-1.5 text-xs bg-raised hover:bg-elevated text-fg-soft rounded-lg transition"
           >
-            {ActionLabels.Retry}
+            {t('retry')}
           </button>
         )}
       </div>

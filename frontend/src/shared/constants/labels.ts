@@ -50,14 +50,7 @@ export const EmptyLabels = {
   DmBeginning: (name: string) => `This is the beginning of your conversation with ${name}.`,
 } as const;
 
-export const ConnectionLabels = {
-  Connecting: 'Connecting…',
-  Offline: "You're offline — reconnecting…",
-  Reconnect: 'Reconnect',
-} as const;
-
 export const ActionLabels = {
-  Retry: 'Retry',
   Cancel: 'Cancel',
   MarkAllRead: 'Mark all read',
   MarkedAllRead: 'Everything is marked read',
