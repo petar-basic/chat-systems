@@ -1,6 +1,7 @@
 import type { Editor } from '@tiptap/react';
 import { useEditorState } from '@tiptap/react';
 import { Bold, Italic, Underline, Strikethrough, Code, Code2, List, ListOrdered, Quote } from 'lucide-react';
+import { isApplePlatform, shortcutLabel } from '@/features/navigation';
 
 interface Props {
   editor: Editor | null;
@@ -37,6 +38,7 @@ function Divider() {
 }
 
 export default function FormattingToolbar({ editor }: Props) {
+  const apple = isApplePlatform();
   const activeMarks = useEditorState({
     editor,
     selector: (ctx) => ({
@@ -54,21 +56,21 @@ export default function FormattingToolbar({ editor }: Props) {
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleBold().run()}
         active={activeMarks?.bold}
-        label="Bold (Ctrl+B)"
+        label={`Bold (${shortcutLabel(['mod', 'B'], apple)})`}
       >
         <Bold className="w-3.5 h-3.5" />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleItalic().run()}
         active={activeMarks?.italic}
-        label="Italic (Ctrl+I)"
+        label={`Italic (${shortcutLabel(['mod', 'I'], apple)})`}
       >
         <Italic className="w-3.5 h-3.5" />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleUnderline().run()}
         active={activeMarks?.underline}
-        label="Underline (Ctrl+U)"
+        label={`Underline (${shortcutLabel(['mod', 'U'], apple)})`}
       >
         <Underline className="w-3.5 h-3.5" />
       </ToolbarButton>
