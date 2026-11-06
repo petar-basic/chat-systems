@@ -38,7 +38,7 @@ export function IconButton({
     <button
       type={type}
       aria-label={label}
-      title={label}
+      data-tooltip={label}
       aria-pressed={pressed}
       className={`inline-flex shrink-0 items-center justify-center rounded-md transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:cursor-not-allowed disabled:opacity-50 ${TONES[tone]} ${SIZES[size]} ${className}`}
       {...rest}

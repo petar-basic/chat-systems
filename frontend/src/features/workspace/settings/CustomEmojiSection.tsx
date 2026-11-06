@@ -128,7 +128,7 @@ export function CustomEmojiSection({ workspaceId, instanceUrl }: Props) {
                   type="button"
                   onClick={() => handleDelete(emoji.id)}
                   aria-label={`Remove :${emoji.name}:`}
-                  title={`Remove :${emoji.name}:`}
+                  data-tooltip={`Remove :${emoji.name}:`}
                   className="text-muted hover:text-danger transition cursor-pointer"
                 >
                   <Trash2 className="w-4 h-4" />

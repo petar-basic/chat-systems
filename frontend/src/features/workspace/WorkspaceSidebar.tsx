@@ -95,7 +95,8 @@ export default function WorkspaceSidebar({
 
               <div
                 className="w-full flex flex-col items-center gap-1"
-                title={instanceLabel(group.instance.url)}
+                data-tooltip={instanceLabel(group.instance.url)}
+                data-tooltip-side="right"
               >
                 {(() => {
                   const status = wsStatuses[group.instance.url];
@@ -116,14 +117,18 @@ export default function WorkspaceSidebar({
                   return (
                     <div className="flex items-center gap-1 py-0.5">
                       <div
+                        role="img"
+                        aria-label={`${instanceLabel(group.instance.url)}: ${statusLabel}`}
                         className={`w-1.5 h-1.5 rounded-full ${dotColor}`}
-                        title={`${instanceLabel(group.instance.url)}: ${statusLabel}`}
+                        data-tooltip={`${instanceLabel(group.instance.url)}: ${statusLabel}`}
+                        data-tooltip-side="right"
                       />
                       {(status === 'disconnected' || (!status && instances.length > 0)) && (
                         <button
                           onClick={() => instanceManager.get(group.instance.url).ws.connect()}
                           className="text-muted hover:text-fg-dim transition cursor-pointer"
-                          title="Retry connection"
+                          data-tooltip="Retry connection"
+                          data-tooltip-side="right"
                           aria-label="Retry connection"
                         >
                           <RefreshCw className="w-2.5 h-2.5" />
@@ -147,7 +152,8 @@ export default function WorkspaceSidebar({
                             ? 'ring-2 ring-purple-400 ring-offset-2 ring-offset-rail'
                             : 'opacity-80 hover:opacity-100'
                         }`}
-                        title={`${ws.name} · ${instanceLabel(group.instance.url)}${showBadge ? ` · ${unread} unread` : ''}`}
+                        data-tooltip={`${ws.name} · ${instanceLabel(group.instance.url)}${showBadge ? ` · ${unread} unread` : ''}`}
+                        data-tooltip-side="right"
                       >
                         <WorkspaceIcon
                           workspace={ws}
@@ -175,7 +181,9 @@ export default function WorkspaceSidebar({
                     key={ws.id}
                     onClick={() => onSelectWorkspace(ws)}
                     className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold transition cursor-pointer opacity-40 hover:opacity-70 bg-raised text-muted relative"
-                    title={`${ws.name} (deleted) · ${instanceLabel(group.instance.url)}`}
+                    aria-label={`${ws.name} (deleted) · ${instanceLabel(group.instance.url)}`}
+                    data-tooltip={`${ws.name} (deleted) · ${instanceLabel(group.instance.url)}`}
+                    data-tooltip-side="right"
                   >
                     <span className="line-through">{workspaceInitials(ws.name)}</span>
                   </button>
@@ -184,7 +192,8 @@ export default function WorkspaceSidebar({
                 <button
                   onClick={() => openCreateModal(group.instance.url)}
                   className="w-10 h-10 rounded-xl flex items-center justify-center bg-surface text-muted hover:bg-raised hover:text-fg transition cursor-pointer"
-                  title={`Create workspace on ${instanceLabel(group.instance.url)}`}
+                  data-tooltip={`Create workspace on ${instanceLabel(group.instance.url)}`}
+                  data-tooltip-side="right"
                   aria-label={`Create workspace on ${instanceLabel(group.instance.url)}`}
                 >
                   <Plus className="w-4 h-4" />
@@ -198,7 +207,8 @@ export default function WorkspaceSidebar({
           <button
             onClick={onAddInstance}
             className="w-10 h-10 rounded-xl flex items-center justify-center bg-surface text-muted hover:bg-raised hover:text-fg transition cursor-pointer"
-            title="Add instance"
+            data-tooltip="Add instance"
+            data-tooltip-side="right"
             aria-label="Add instance"
           >
             <ServerCrash className="w-4 h-4" />

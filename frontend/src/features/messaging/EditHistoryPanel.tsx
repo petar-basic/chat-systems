@@ -25,7 +25,7 @@ export default function EditHistoryPanel({ messageId, currentContent, onClose }:
         <button
           onClick={onClose}
           aria-label="Close edit history"
-          title="Close edit history"
+          data-tooltip="Close edit history"
           className="ml-auto text-muted hover:text-fg transition cursor-pointer"
         >
           <X className="w-3.5 h-3.5" />

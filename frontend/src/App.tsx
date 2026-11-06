@@ -8,6 +8,7 @@ import { useWebSocketQuerySync } from '@/lib/wsQuerySync';
 import { useInstanceStore } from '@/stores/instances';
 import { ErrorBoundary } from '@/shared/components/ErrorBoundary';
 import { Toaster } from '@/shared/components/Toast';
+import { TooltipLayer } from '@/shared/components/Tooltip';
 import { NotificationStream } from '@/features/notifications';
 import { HuddleController } from '@/features/huddle';
 import { logger } from '@/lib/logger';
@@ -201,6 +202,7 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <AppContent />
         <Toaster />
+        <TooltipLayer />
         <ReactQueryDevtools initialIsOpen={false} />
       </QueryClientProvider>
     </ErrorBoundary>

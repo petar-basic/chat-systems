@@ -428,7 +428,7 @@ export default function MessageInput({
                 type="button"
                 onClick={() => setShowPoll(true)}
                 aria-label="Create a poll"
-                title="Create a poll"
+                data-tooltip="Create a poll"
                 data-qa="composer-poll"
                 className="p-1 text-muted hover:text-fg-soft transition cursor-pointer rounded hover:bg-raised/60"
               >
@@ -449,7 +449,7 @@ export default function MessageInput({
               type="button"
               onClick={() => setShowFormatting((open) => !open)}
               aria-label={showFormatting ? 'Hide formatting' : 'Show formatting'}
-              title={showFormatting ? 'Hide formatting' : 'Show formatting'}
+              data-tooltip={showFormatting ? 'Hide formatting' : 'Show formatting'}
               aria-pressed={showFormatting}
               data-qa="composer-formatting-toggle"
               className="@md:hidden p-1 text-muted hover:text-fg-soft transition cursor-pointer rounded hover:bg-raised/60"
@@ -462,7 +462,7 @@ export default function MessageInput({
                 type="button"
                 onClick={() => setShowEmoji((v) => !v)}
                 aria-label="Insert emoji"
-                title="Insert emoji"
+                data-tooltip="Insert emoji"
                 className="p-1 text-muted hover:text-fg-soft transition cursor-pointer rounded hover:bg-raised/60"
               >
                 <SmilePlus className="w-3.5 h-3.5" />
@@ -515,7 +515,7 @@ export default function MessageInput({
                     aria-expanded={showSchedule}
                     data-qa="schedule-open"
                     className="p-1 text-muted hover:text-fg disabled:text-faint transition cursor-pointer disabled:cursor-not-allowed rounded hover:bg-raised/60"
-                    title="Send later"
+                    data-tooltip="Send later"
                   >
                     <Clock className="w-3.5 h-3.5" />
                   </button>
@@ -588,7 +588,7 @@ export default function MessageInput({
                 disabled={sendBlocked}
                 data-qa="composer-send"
                 className="p-1 text-accent hover:text-accent-soft disabled:text-faint transition cursor-pointer disabled:cursor-not-allowed rounded hover:bg-raised/60"
-                title={`Send (${sendLabel})`}
+                data-tooltip={`Send (${sendLabel})`}
                 aria-label="Send"
               >
                 <Send className="w-3.5 h-3.5" />

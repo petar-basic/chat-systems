@@ -81,7 +81,7 @@ export default function InstanceAdminPage() {
         <button
           onClick={() => navigate('/app')}
           aria-label="Back to the app"
-          title="Back to the app"
+          data-tooltip="Back to the app"
           className="p-2 text-muted hover:text-fg hover:bg-surface rounded-lg transition cursor-pointer"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -205,7 +205,7 @@ export default function InstanceAdminPage() {
                               onClick={() => handleToggleStatus(user)}
                               disabled={isSelf || statusBusy(user) || user.status === 'pending'}
                               className="flex items-center gap-1 px-2 py-1.5 rounded text-xs transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed text-muted hover:text-danger hover:bg-raised"
-                              title={user.status === 'active' ? 'Suspend user' : 'Activate user'}
+                              data-tooltip={user.status === 'active' ? 'Suspend user' : 'Activate user'}
                             >
                               {statusBusy(user) ? (
                                 <Spinner size="sm" />

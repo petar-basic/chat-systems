@@ -107,7 +107,7 @@ test('the thread composer keeps its controls inside the panel', async ({ page })
     const panel = page.locator('[data-qa="thread-panel"]');
     await expect(panel).toBeVisible();
 
-    const send = panel.locator('button[title="Send (Enter)"]');
+    const send = panel.locator('button[data-tooltip="Send (Enter)"]');
     await expect(send).toBeVisible();
 
     const panelBox = await panel.boundingBox();

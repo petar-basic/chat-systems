@@ -60,7 +60,7 @@ export function ImageGallery({ items, index, onIndexChange, onClose }: Props) {
           />
         )}
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium text-white" title={attachment.filename}>
+          <div className="truncate text-sm font-medium text-white" data-tooltip={attachment.filename}>
             {attachment.filename}
           </div>
           <div className="truncate text-xs text-white/60" data-qa="gallery-meta">
@@ -82,7 +82,7 @@ export function ImageGallery({ items, index, onIndexChange, onClose }: Props) {
           target="_blank"
           rel="noopener noreferrer"
           aria-label="Open original"
-          title="Open original"
+          data-tooltip="Open original"
           className={control}
         >
           <ExternalLink className="w-4 h-4" />
@@ -101,7 +101,7 @@ export function ImageGallery({ items, index, onIndexChange, onClose }: Props) {
           onClick={onClose}
           data-qa="lightbox-close"
           aria-label="Close preview"
-          title="Close preview"
+          data-tooltip="Close preview"
           className={control}
         >
           <X className="w-4 h-4" />
@@ -140,7 +140,7 @@ export function ImageGallery({ items, index, onIndexChange, onClose }: Props) {
             type="button"
             onClick={() => onIndexChange(index - 1)}
             aria-label="Previous image"
-            title="Previous image"
+            data-tooltip="Previous image"
             data-qa="gallery-previous"
             className={`${step} left-2`}
           >
@@ -152,7 +152,7 @@ export function ImageGallery({ items, index, onIndexChange, onClose }: Props) {
             type="button"
             onClick={() => onIndexChange(index + 1)}
             aria-label="Next image"
-            title="Next image"
+            data-tooltip="Next image"
             data-qa="gallery-next"
             className={`${step} right-2`}
           >

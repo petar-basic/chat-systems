@@ -16,6 +16,12 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ## [Unreleased]
 
+### Changed
+
+- Tooltips are the app's own: they match the theme, come up quicker than the browser's, open
+  at once on the next button while one is showing, and show on keyboard focus too. Touch
+  screens never get them.
+
 ### Fixed
 
 - A direct message no longer shows as unread when nothing new came in. The sidebar compared

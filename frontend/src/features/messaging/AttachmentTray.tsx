@@ -49,7 +49,7 @@ function TrayItem({
       data-qa="attachment-tray-item"
       data-status={item.status}
       className="group/tray relative flex h-16 shrink-0 items-center gap-2 overflow-hidden rounded-lg border border-line bg-raised/40"
-      title={item.name}
+      data-tooltip={item.name}
     >
       {item.previewUrl ? (
         <img src={item.previewUrl} alt="" className="h-16 w-16 object-cover" />
@@ -84,7 +84,7 @@ function TrayItem({
           type="button"
           onClick={onRetry}
           aria-label={`Retry uploading ${item.name}`}
-          title={item.error ?? 'Upload failed'}
+          data-tooltip={item.error ?? 'Upload failed'}
           data-qa="attachment-tray-retry"
           className="group/retry absolute inset-0 flex items-center justify-center bg-black/60 text-danger hover:text-white"
         >
@@ -96,7 +96,7 @@ function TrayItem({
         type="button"
         onClick={onRemove}
         aria-label={`Remove ${item.name}`}
-        title={`Remove ${item.name}`}
+        data-tooltip={`Remove ${item.name}`}
         data-qa="attachment-tray-remove"
         className="absolute right-1 top-1 rounded-full bg-black/70 p-0.5 text-white opacity-80 transition hover:opacity-100"
       >

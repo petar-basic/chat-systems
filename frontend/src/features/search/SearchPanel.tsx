@@ -265,7 +265,7 @@ export default function SearchPanel({ members, onClose, onOpenMessage }: Props) 
             if (e.key === 'Enter') apply(query, true);
           }}
           placeholder={`Search ${noun}...`}
-          title={`Narrow with from:@name in:#channel ${tab === 'files' ? 'type:pdf' : 'has:file'} before:2026-10-01 after: on:`}
+          data-tooltip={`Narrow with from:@name in:#channel ${tab === 'files' ? 'type:pdf' : 'has:file'} before:2026-10-01 after: on:`}
           leading={<Search className="w-4 h-4" />}
           trailing={
             query && (

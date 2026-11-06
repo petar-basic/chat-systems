@@ -121,9 +121,9 @@ describe('SearchPanel', () => {
     fireEvent.click(screen.getByTestId('search-tab-files'));
     typeAndSubmit('budget');
     await waitFor(() => expect(screen.getAllByTestId('file-hit')).toHaveLength(2));
-    fireEvent.click(screen.getByTitle('Show in conversation'));
+    fireEvent.click(document.querySelector('[data-tooltip="Show in conversation"]')!);
     expect(onOpenMessage).toHaveBeenCalledWith('m-1');
-    fireEvent.click(screen.getByTitle('Open in the gallery'));
+    fireEvent.click(document.querySelector('[data-tooltip="Open in the gallery"]')!);
     expect(screen.getByTestId('image-lightbox')).toBeInTheDocument();
   });
 

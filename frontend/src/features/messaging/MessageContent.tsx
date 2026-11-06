@@ -49,7 +49,7 @@ function renderPlain(text: string, ctx: RenderContext, key: string): ReactNode {
         key={`${key}-e${i}`}
         src={span.emoji.url}
         alt={span.text}
-        title={span.text}
+        data-tooltip={span.text}
         data-qa="custom-emoji"
         className="custom-emoji inline-block align-text-bottom"
       />

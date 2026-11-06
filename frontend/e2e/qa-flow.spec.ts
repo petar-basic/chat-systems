@@ -149,7 +149,7 @@ test('6. @mention produces a notification for the mentioned user', async () => {
   await expect(bob.getByText(new RegExp(`please review ${stamp}`))).toBeVisible({ timeout: 10_000 });
   await bob.screenshot({ path: `${SHOTS}/06-mention-in-channel.png` });
 
-  await bob.getByTitle('Notifications').click();
+  await bob.getByTestId('open-notifications').click();
   await expect(bob.locator('[data-qa="notifications-panel"]')).toBeVisible();
   await expect(bob.locator('[data-qa="notification-row"]').first()).toBeVisible({ timeout: 10_000 });
   await bob.screenshot({ path: `${SHOTS}/06-notification-panel.png` });
@@ -210,7 +210,7 @@ test('8. unread indicator appears on a channel the user is not viewing', async (
 });
 
 test('9. direct message is delivered live', async () => {
-  await admin.getByTitle('New direct message').click();
+  await admin.locator('[data-tooltip="New direct message"]').click();
   await admin.getByLabel('Search people').fill('Bob');
   await admin.locator('[data-qa="new-dm-modal"]').getByText('Bob Smith').first().click();
   await admin.locator('[data-qa="new-dm-start"]').click();
@@ -226,7 +226,7 @@ test('9. direct message is delivered live', async () => {
   await admin.screenshot({ path: `${SHOTS}/09-dm-admin.png` });
 
   await bob.screenshot({ path: `${SHOTS}/09-dm-bob-sidebar-before-open.png` });
-  await bob.getByTitle('Message Admin').first().click();
+  await bob.locator('[data-tooltip^="Message Admin"]').first().click();
   await expect(bob.locator('[data-qa="message-row"]').last()).toContainText(dmText, {
     timeout: 10_000,
   });

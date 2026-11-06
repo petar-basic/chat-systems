@@ -11,7 +11,7 @@ function ChannelLabel({ channel }: { channel: ChannelActivity }) {
   return (
     <span className={`inline-flex items-center gap-1.5 ${channel.is_archived ? 'text-muted' : ''}`}>
       <Icon className="h-3.5 w-3.5 shrink-0 text-muted" aria-label={kind || undefined} />
-      <span className="max-w-32 truncate" title={channel.name ?? undefined}>
+      <span className="max-w-32 truncate" data-tooltip={channel.name ?? undefined}>
         {channel.name ?? 'channel'}
       </span>
     </span>

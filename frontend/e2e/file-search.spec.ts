@@ -37,7 +37,7 @@ test('a file posted without a caption is found by a fragment of its name', async
     await expect(hit.locator('[data-qa="file-hit-match"]')).toHaveText('budg');
     await expect(hit.locator('[data-qa="file-hit-kind-spreadsheet"]')).toBeVisible();
 
-    await hit.getByTitle('Show in conversation').click();
+    await hit.locator('[data-tooltip="Show in conversation"]').click();
     await expect(page.locator('[data-qa="channel-header-name"]')).toHaveText(channel.name);
   } finally {
     await alice.delete(`${API}/channels/${channel.id}`);

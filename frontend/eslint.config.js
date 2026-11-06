@@ -69,8 +69,14 @@ export default defineConfig([
         },
         {
           selector:
-            "JSXOpeningElement[name.name='button']:has(> JSXAttribute[name.name='aria-label']):not(:has(> JSXAttribute[name.name='title'])):not(JSXElement[openingElement.name.name='HoverCard'] *)",
-          message: 'A labelled button shows its label on hover too: use IconButton, or give it the same title.',
+            "JSXOpeningElement[name.name='button']:has(> JSXAttribute[name.name='aria-label']):not(:has(> JSXAttribute[name.name='data-tooltip'])):not(JSXElement[openingElement.name.name='HoverCard'] *)",
+          message:
+            'A labelled button shows its label on hover too: use IconButton, or give it the same data-tooltip.',
+        },
+        {
+          selector:
+            "JSXOpeningElement[name.name=/^(?!iframe$)[a-z]/] > JSXAttribute[name.name='title'], JSXOpeningElement[name.name=/^(Button|TextInput)$/] > JSXAttribute[name.name='title']",
+          message: 'The app draws its own tooltips: use data-tooltip instead of title.',
         },
         {
           selector: "CallExpression[callee.property.name='click'][callee.object.property.name='current']",

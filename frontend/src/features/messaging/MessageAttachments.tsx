@@ -100,7 +100,7 @@ function ImageGrid({ images, onOpen }: { images: Attachment[]; onOpen: (image: A
         onClick={() => onOpen(image)}
         data-qa="attachment-image"
         className="block w-fit max-w-full cursor-zoom-in"
-        title={image.filename}
+        data-tooltip={image.filename}
       >
         <img
           src={previewOf(image)}
@@ -125,7 +125,7 @@ function ImageGrid({ images, onOpen }: { images: Attachment[]; onOpen: (image: A
           type="button"
           onClick={() => onOpen(image)}
           data-qa="attachment-image"
-          title={image.filename}
+          data-tooltip={image.filename}
           className={`relative aspect-square cursor-zoom-in overflow-hidden rounded-lg border border-line/60 ${
             shown.length === 3 && index === 0 ? 'row-span-2 aspect-auto' : ''
           }`}
@@ -153,7 +153,7 @@ function ImageGrid({ images, onOpen }: { images: Attachment[]; onOpen: (image: A
 function MediaPlayer({ attachment, kind }: { attachment: Attachment; kind: 'video' | 'audio' }) {
   const caption = (
     <div className="flex items-center gap-2 text-xs text-muted">
-      <span className="truncate text-fg-dim" title={attachment.filename}>
+      <span className="truncate text-fg-dim" data-tooltip={attachment.filename}>
         {attachment.filename}
       </span>
       <span className="shrink-0">· {formatBytes(attachment.size_bytes)}</span>
@@ -219,7 +219,7 @@ function FileCard({ attachment, onRemove }: { attachment: Attachment; onRemove?:
           type="button"
           onClick={onRemove}
           aria-label={`Remove ${attachment.filename}`}
-          title={`Remove ${attachment.filename}`}
+          data-tooltip={`Remove ${attachment.filename}`}
           className="shrink-0 rounded p-1 text-muted hover:bg-raised hover:text-danger"
         >
           <X className="h-4 w-4" />

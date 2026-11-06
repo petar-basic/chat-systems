@@ -78,7 +78,7 @@ export function HuddleControlBar({ controls, active }: { controls: HuddleControl
       <button
         onClick={controls.leave}
         aria-label="Leave huddle"
-        title="Leave huddle"
+        data-tooltip="Leave huddle"
         className="p-2.5 rounded-full bg-red-600 text-white hover:bg-red-500 transition"
       >
         <PhoneOff className="w-4 h-4" />
@@ -107,7 +107,7 @@ function ControlButton({ active, onClick, on, off, label, danger, highlight }: C
     <button
       onClick={onClick}
       aria-label={label}
-      title={label}
+      data-tooltip={label}
       aria-pressed={active}
       className={`p-2.5 rounded-full transition ${tone}`}
     >
@@ -123,7 +123,7 @@ function ReactionPicker({ onPick }: { onPick: (emoji: string) => void }) {
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label="Send reaction"
-        title="Send reaction"
+        data-tooltip="Send reaction"
         aria-expanded={open}
         className="p-2.5 rounded-full bg-raised text-fg hover:bg-elevated transition"
       >
@@ -163,7 +163,7 @@ function InvitePicker({ active }: { active: ActiveHuddle }) {
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label="Invite to huddle"
-        title="Invite to huddle"
+        data-tooltip="Invite to huddle"
         aria-expanded={open}
         className="p-2.5 rounded-full bg-raised text-fg hover:bg-elevated transition"
       >
@@ -206,7 +206,7 @@ function DevicePicker({ controls }: { controls: HuddleControls }) {
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label="Devices"
-        title="Devices"
+        data-tooltip="Devices"
         aria-expanded={open}
         className="p-2.5 rounded-full bg-raised text-fg hover:bg-elevated transition"
       >
