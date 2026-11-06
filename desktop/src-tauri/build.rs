@@ -10,6 +10,7 @@ fn main() {
             "report_colours",
             "notify",
             "rail_menu",
+            "rail_hint",
             "add_menu",
             "open_workspace",
             "start_sso",
