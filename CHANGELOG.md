@@ -14,6 +14,13 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
+## [Unreleased]
+
+### Fixed
+
+- The empty states in workspace Analytics keep a margin from their dashed border on narrow
+  screens instead of running into it.
+
 ## [4.4.1] — 2026-11-06
 
 ### Upgrading from 4.4.0
