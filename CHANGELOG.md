@@ -36,6 +36,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   closing and paging an image, *Insert emoji*, *Show formatting*, *Leave huddle* and the rest.
 - On a phone, settings and preferences keep the section you are on in view in the row of
   sections at the top, instead of leaving it scrolled off to the side.
+- The newest message no longer slips under the composer when someone starts typing or the
+  note that it is late for them appears. *Is typing* now has a line of its own that is always
+  there, and the list stays at the bottom when the space for it shrinks, so a longer draft or
+  an attachment does not hide the last message either.
 - In the desktop app on Windows, Ctrl+1 to Ctrl+9 open the first nine entries on the rail and
   Ctrl+Shift+N adds a server, as the *Workspaces* menu says. The page in the window kept the
   keys to itself, so the menu never saw them.

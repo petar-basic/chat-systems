@@ -4,6 +4,7 @@ import VirtualMessageList, { type VirtualRow } from './VirtualMessageList';
 
 const ROW_HEIGHT = 40;
 const VIEWPORT_HEIGHT = 400;
+let viewportHeight = VIEWPORT_HEIGHT;
 
 /** The scroll container's content height, which jsdom will not compute. */
 let totalHeight = VIEWPORT_HEIGHT;
@@ -26,7 +27,7 @@ beforeAll(() => {
   Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
     configurable: true,
     get(this: HTMLElement) {
-      return this.dataset.index === undefined ? VIEWPORT_HEIGHT : ROW_HEIGHT;
+      return this.dataset.index === undefined ? viewportHeight : ROW_HEIGHT;
     },
   });
   Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
@@ -123,6 +124,39 @@ describe('VirtualMessageList scroll anchoring', () => {
 
     expect(isAtBottom(scroller)).toBe(true);
     expect(screen.queryByTestId('jump-to-latest')).toBeNull();
+  });
+
+  it('stays at the bottom when the space for the list shrinks, and not when scrolled up', () => {
+    let resized = () => {};
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(private callback: () => void) {}
+        observe(target: Element) {
+          if ((target as HTMLElement).dataset.qa === 'list') resized = this.callback;
+        }
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+    const rows = Array.from({ length: 40 }, (_, i) => row(`m${i}`));
+    const { scroller, unmount } = renderList(rows);
+
+    scrollTo(scroller, 40 * ROW_HEIGHT - VIEWPORT_HEIGHT);
+    viewportHeight = VIEWPORT_HEIGHT - 24;
+    act(() => resized());
+    expect(isAtBottom(scroller)).toBe(true);
+
+    viewportHeight = VIEWPORT_HEIGHT;
+    act(() => resized());
+    scrollTo(scroller, 400);
+    viewportHeight = VIEWPORT_HEIGHT - 24;
+    act(() => resized());
+    expect(scroller.scrollTop).toBe(400);
+
+    unmount();
+    viewportHeight = VIEWPORT_HEIGHT;
+    vi.unstubAllGlobals();
   });
 
   it('offers a jump instead of yanking the viewport when scrolled up', () => {
