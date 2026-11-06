@@ -1,6 +1,7 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { useState } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
+import i18n from '@/lib/i18n';
 import { TextInput } from './TextInput';
 import { TextArea } from './TextArea';
 import { Select } from './Select';
@@ -70,6 +71,16 @@ describe('TextArea and Select', () => {
     );
     expect(screen.getByRole('textbox', { name: 'Description (optional)' })).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'Clear after' })).toBeInTheDocument();
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('mark an optional field in the language of the page', async () => {
+    await i18n.changeLanguage('ja');
+    render(<TextArea label="説明" optional value="" onChange={() => {}} />);
+    expect(screen.getByRole('textbox', { name: '説明 (任意)' })).toBeInTheDocument();
   });
 });
 

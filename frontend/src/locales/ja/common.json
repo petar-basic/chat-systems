@@ -1,0 +1,29 @@
+{
+  "optional": "(任意)",
+  "nothingMatches": "一致するものがありません",
+  "hexColour": "#1164a3 のような16進数のカラーコードを入力してください。",
+  "presence": {
+    "online": "オンライン",
+    "away": "離席中",
+    "offline": "オフライン",
+    "status": "状態: {{status}}"
+  },
+  "working": "処理中",
+  "loading": "読み込み中",
+  "dismissToast": "お知らせを閉じる",
+  "crashed": {
+    "title": "問題が発生しました",
+    "reload": "再読み込み"
+  },
+  "dropToUpload": "ここにドロップしてアップロード",
+  "actions": "操作",
+  "cancel": "キャンセル",
+  "close": "閉じる",
+  "closeNamed": "{{name}}を閉じる",
+  "copyNamed": "{{name}}をコピー",
+  "connection": {
+    "connecting": "接続しています…",
+    "offline": "オフラインです。再接続しています…"
+  },
+  "retry": "再試行"
+}

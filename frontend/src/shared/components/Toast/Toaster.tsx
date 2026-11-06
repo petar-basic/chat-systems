@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 import { ToastKind } from '@/shared/models/enums';
 import { useToastStore, type IToast } from './toast-store';
@@ -19,6 +20,7 @@ const KIND_STYLES: Record<ToastKind, { ring: string; icon: React.ReactNode }> = 
 };
 
 function ToastRow({ toast }: { toast: IToast }) {
+  const { t } = useTranslation('common');
   const dismiss = useToastStore((s) => s.dismiss);
 
   useEffect(() => {
@@ -50,7 +52,7 @@ function ToastRow({ toast }: { toast: IToast }) {
       )}
       <button
         onClick={() => dismiss(toast.id)}
-        aria-label="Dismiss notification"
+        aria-label={t('dismissToast')}
         className="shrink-0 text-muted hover:text-fg-soft"
       >
         <X className="w-3.5 h-3.5" />

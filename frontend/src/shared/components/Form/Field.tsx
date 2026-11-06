@@ -1,4 +1,5 @@
 import { useId, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 export interface FieldProps {
   label: string;
@@ -26,6 +27,7 @@ export function Field({
   className = '',
   children,
 }: FieldProps & { children: (control: FieldControl) => ReactNode }) {
+  const { t } = useTranslation('common');
   const id = useId();
   const hintId = `${id}-hint`;
   const errorId = `${id}-error`;
@@ -40,7 +42,7 @@ export function Field({
           {optional && (
             <>
               {' '}
-              <span className="font-normal text-muted">(optional)</span>
+              <span className="font-normal text-muted">{t('optional')}</span>
             </>
           )}
         </label>

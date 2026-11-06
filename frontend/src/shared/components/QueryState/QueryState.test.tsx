@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import i18n from '@/lib/i18n';
 import { QueryState } from './QueryState';
 
 describe('QueryState', () => {
@@ -11,6 +12,20 @@ describe('QueryState', () => {
     );
     expect(screen.getByTestId('query-loading')).toBeInTheDocument();
     expect(screen.queryByText('child')).not.toBeInTheDocument();
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('offers to retry in the language of the page', async () => {
+    await i18n.changeLanguage('ja');
+    render(
+      <QueryState isLoading={false} isError onRetry={vi.fn()}>
+        <p>content</p>
+      </QueryState>,
+    );
+    expect(screen.getByRole('button', { name: '再試行' })).toBeInTheDocument();
   });
 
   it('shows an error with a working retry button', () => {
