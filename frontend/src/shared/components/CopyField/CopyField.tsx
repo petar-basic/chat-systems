@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Check, Copy } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   label: string;
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export function CopyField({ label, value, valueQa, copyQa }: Props) {
+  const { t } = useTranslation('common');
   const [copied, setCopied] = useState(false);
 
   const copy = async () => {
@@ -33,7 +35,7 @@ export function CopyField({ label, value, valueQa, copyQa }: Props) {
         </code>
         <button
           onClick={copy}
-          aria-label={`Copy ${label}`}
+          aria-label={t('copyNamed', { name: label })}
           data-qa={copyQa}
           className="p-1.5 rounded text-muted hover:text-fg hover:bg-raised transition cursor-pointer"
         >

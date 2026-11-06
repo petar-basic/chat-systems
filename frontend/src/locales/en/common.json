@@ -1,0 +1,29 @@
+{
+  "optional": "(optional)",
+  "nothingMatches": "Nothing matches",
+  "hexColour": "Use a hex colour like #1164a3.",
+  "presence": {
+    "online": "Online",
+    "away": "Away",
+    "offline": "Offline",
+    "status": "Status: {{status}}"
+  },
+  "working": "Working",
+  "loading": "Loading",
+  "dismissToast": "Dismiss notification",
+  "crashed": {
+    "title": "Something went wrong",
+    "reload": "Reload"
+  },
+  "dropToUpload": "Drop to upload",
+  "actions": "Actions",
+  "cancel": "Cancel",
+  "close": "Close",
+  "closeNamed": "Close {{name}}",
+  "copyNamed": "Copy {{name}}",
+  "connection": {
+    "connecting": "Connecting…",
+    "offline": "You're offline — reconnecting…"
+  },
+  "retry": "Retry"
+}
