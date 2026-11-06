@@ -95,7 +95,7 @@ export function PollCard({ message, poll, currentUserId, keyVoteRef }: Props) {
                 disabled={locked}
                 onClick={() => choose(option.id)}
                 data-qa="poll-option"
-                title={locked ? undefined : `${index + 1} on the keyboard`}
+                data-tooltip={locked ? undefined : `${index + 1} on the keyboard`}
                 className={`relative flex w-full items-center gap-2 overflow-hidden rounded-lg border px-3 py-2 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:cursor-default ${
                   chosen
                     ? 'border-purple-500 text-fg'

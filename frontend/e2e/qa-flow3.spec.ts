@@ -113,7 +113,7 @@ test('I. notification badge + mark-all-read while viewing another channel', asyn
     data: { content: `@[Bob Smith](${bobId}) badge probe` },
   });
 
-  await page.getByTitle('Notifications').click();
+  await page.getByTestId('open-notifications').click();
   const panel = page.locator('[data-qa="notifications-panel"]');
   await expect(panel).toBeVisible();
   // The mention becomes a notification through the event consumer, so wait for
@@ -129,7 +129,7 @@ test('I. notification badge + mark-all-read while viewing another channel', asyn
   await page.reload();
   await expect(page.locator('.ProseMirror[contenteditable="true"]')).toBeVisible({ timeout: 20_000 });
   await page.screenshot({ path: `${SHOTS}/I3-after-reload.png` });
-  await page.getByTitle('Notifications').click();
+  await page.getByTestId('open-notifications').click();
   await expect(page.getByRole('button', { name: /Mark all read/i })).toHaveCount(0);
   await page.screenshot({ path: `${SHOTS}/I3-notifications-after-reload.png` });
 });

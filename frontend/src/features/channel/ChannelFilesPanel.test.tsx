@@ -57,7 +57,7 @@ describe('ChannelFilesPanel', () => {
     const row = screen.getByTestId('channel-file-row');
     expect(row).toHaveTextContent('plan.pdf');
     expect(row).toHaveTextContent('2 KB');
-    fireEvent.click(screen.getByTitle('Show in conversation'));
+    fireEvent.click(document.querySelector('[data-tooltip="Show in conversation"]')!);
     expect(onNavigate).toHaveBeenCalledWith('m-2');
   });
 
@@ -65,7 +65,7 @@ describe('ChannelFilesPanel', () => {
     render(<ChannelFilesPanel channelId="ch" onClose={vi.fn()} onNavigate={vi.fn()} />);
     fireEvent.click(screen.getByTestId('channel-files-tab-document'));
     expect(kinds.at(-1)).toBe('document');
-    fireEvent.click(screen.getByTitle('shot.png'));
+    fireEvent.click(screen.getByRole('button', { name: 'shot.png' }));
     expect(screen.getByTestId('image-lightbox')).toBeInTheDocument();
   });
 
@@ -74,10 +74,10 @@ describe('ChannelFilesPanel', () => {
     fireEvent.change(screen.getByLabelText('Filter files by name'), { target: { value: ' budg ' } });
     await waitFor(() => expect(names.at(-1)).toBe('budg'));
     expect(screen.getByTestId('channel-file-row')).toHaveTextContent('Q3 budget.xlsx');
-    expect(screen.getByTitle('budget-chart.png')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'budget-chart.png' })).toBeInTheDocument();
     expect(screen.queryByText('plan.pdf')).toBeNull();
     fireEvent.click(screen.getByTestId('channel-files-tab-document'));
-    expect(screen.queryByTitle('budget-chart.png')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'budget-chart.png' })).toBeNull();
     expect(screen.getByTestId('channel-file-row')).toHaveTextContent('Q3 budget.xlsx');
   });
 });

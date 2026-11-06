@@ -291,8 +291,15 @@ line up everywhere:
   must look like a button uses `buttonStyles()` from the same folder.
 - **`IconButton`** — a 28 or 32 px target around a 16 px icon; `label` is required and becomes
   the accessible name and the tooltip; `pressed` for toggles; `tone="inverse"` on dark overlays.
-  Lint refuses a `<button>` with an `aria-label` and no `title`, so a label is always shown on
-  hover too, except on a `HoverCard` trigger, which has a tooltip of its own.
+  Lint refuses a `<button>` with an `aria-label` and no `data-tooltip`, so a label is always
+  shown on hover too, except on a `HoverCard` trigger, which has a tooltip of its own.
+- **Tooltips** — any element with `data-tooltip` gets one from `TooltipLayer`, mounted once in
+  `App`: 400 ms on a mouse hover, at once while another is showing or just closed, at once on
+  keyboard focus, never on touch; Escape, a press, a scroll or leaving the window hides it.
+  `data-tooltip-side` picks the side (`top` by default, `right` on the workspace rail). The
+  bubble is `role="tooltip"` and describes its element when the text is not already its
+  `aria-label`. Lint refuses `title` on DOM elements, `Button` and `TextInput` (an `iframe`
+  keeps its required `title`), and tooltips under a `HoverCard` trigger stay hidden.
 - **`Spinner`** — `sm` · `md` · `lg`, in the current text colour.
 - **`PanelHeader`** — every right panel's 56 px header: icon, title, optional badge and
   actions, and a close button labelled *Close {title}*.

@@ -181,7 +181,7 @@ function UserCardBody({
           <button
             onClick={() => void onHuddle()}
             disabled={busy || inHuddle}
-            title={inHuddle ? 'Already in a huddle' : 'Start huddle'}
+            data-tooltip={inHuddle ? 'Already in a huddle' : 'Start huddle'}
             data-qa="hover-card-huddle"
             className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg bg-raised hover:bg-elevated text-fg text-xs font-medium transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >

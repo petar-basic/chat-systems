@@ -100,7 +100,11 @@ function MemberRow({
             </span>
           )}
           {member.status_emoji && (
-            <span className="ml-1.5" data-qa="member-status-emoji" title={member.status_text ?? undefined}>
+            <span
+              className="ml-1.5"
+              data-qa="member-status-emoji"
+              data-tooltip={member.status_text ?? undefined}
+            >
               <ReactionEmoji emoji={member.status_emoji} />
             </span>
           )}
@@ -140,7 +144,7 @@ function MemberRow({
             onClick={() => onExport(member.user_id)}
             disabled={busy}
             aria-label={`Export ${displayName}'s data`}
-            title="Export their data"
+            data-tooltip="Export their data"
             data-qa="member-export"
             className="p-1 text-muted hover:text-fg transition cursor-pointer disabled:opacity-50"
           >
@@ -150,7 +154,7 @@ function MemberRow({
             onClick={() => setConfirmErase(true)}
             disabled={busy}
             aria-label={`Erase ${displayName}'s data`}
-            title="Erase their data"
+            data-tooltip="Erase their data"
             data-qa="member-erase"
             className="p-1 text-muted hover:text-danger transition cursor-pointer disabled:opacity-50"
           >
@@ -191,7 +195,7 @@ function MemberRow({
             onClick={() => setConfirmRemove(true)}
             disabled={busy}
             aria-label={`Remove ${displayName}`}
-            title={`Remove ${displayName}`}
+            data-tooltip={`Remove ${displayName}`}
             data-qa="member-remove"
             className="p-1 text-muted hover:text-danger transition cursor-pointer disabled:opacity-50"
           >

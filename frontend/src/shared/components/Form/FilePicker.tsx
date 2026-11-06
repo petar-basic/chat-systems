@@ -25,7 +25,7 @@ export function FilePicker({
 }: Props) {
   return (
     <label
-      title={title}
+      data-tooltip={title}
       data-qa={dataQa}
       aria-disabled={disabled || undefined}
       className={`relative has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-purple-500 ${

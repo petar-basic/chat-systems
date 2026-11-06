@@ -82,7 +82,7 @@ export function SidebarCustomSection({
             type="button"
             onClick={() => setMenuOpen((open) => !open)}
             aria-label={`Options for ${name}`}
-            title={`Options for ${name}`}
+            data-tooltip={`Options for ${name}`}
             aria-expanded={menuOpen}
             data-qa="sidebar-section-menu"
             className="p-0.5 rounded text-muted opacity-0 group-hover/section:opacity-100 focus-visible:opacity-100 hover:text-fg hover:bg-raised"

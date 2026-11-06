@@ -329,7 +329,7 @@ export default function WorkspacePage() {
                     type="button"
                     onClick={c.dismissEphemeral}
                     aria-label="Dismiss"
-                    title="Dismiss"
+                    data-tooltip="Dismiss"
                     className="text-subtle hover:text-fg transition cursor-pointer"
                   >
                     ×

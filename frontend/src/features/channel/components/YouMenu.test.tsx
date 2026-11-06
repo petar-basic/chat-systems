@@ -78,7 +78,7 @@ describe('YouMenu', () => {
 
   it('keeps the plain bell while notifications run', () => {
     renderMenu();
-    expect(screen.getByTestId('open-notifications')).toHaveAttribute('title', 'Notifications');
+    expect(screen.getByTestId('open-notifications')).toHaveAttribute('data-tooltip', 'Notifications');
     expect(screen.getByTestId('open-notifications')).toHaveAttribute('data-paused', 'false');
   });
 
@@ -87,7 +87,7 @@ describe('YouMenu', () => {
     renderMenu();
     const bell = screen.getByTestId('open-notifications');
     expect(bell).toHaveAttribute('data-paused', 'true');
-    expect(bell.getAttribute('title')).toMatch(/^Notifications paused by your schedule until /);
-    expect(screen.getByRole('button', { name: bell.getAttribute('title')! })).toBe(bell);
+    expect(bell.getAttribute('data-tooltip')).toMatch(/^Notifications paused by your schedule until /);
+    expect(screen.getByRole('button', { name: bell.getAttribute('data-tooltip')! })).toBe(bell);
   });
 });

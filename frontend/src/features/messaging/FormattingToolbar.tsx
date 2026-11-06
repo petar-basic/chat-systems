@@ -9,11 +9,11 @@ interface Props {
 interface ToolbarButtonProps {
   onClick: () => void;
   active?: boolean;
-  title: string;
+  label: string;
   children: React.ReactNode;
 }
 
-function ToolbarButton({ onClick, active, title, children }: ToolbarButtonProps) {
+function ToolbarButton({ onClick, active, label, children }: ToolbarButtonProps) {
   return (
     <button
       type="button"
@@ -21,7 +21,8 @@ function ToolbarButton({ onClick, active, title, children }: ToolbarButtonProps)
         e.preventDefault();
         onClick();
       }}
-      title={title}
+      aria-label={label}
+      data-tooltip={label}
       className={`p-1 rounded transition cursor-pointer ${
         active ? 'text-accent bg-purple-500/15' : 'text-muted hover:text-fg-soft hover:bg-raised/60'
       }`}
@@ -53,46 +54,46 @@ export default function FormattingToolbar({ editor }: Props) {
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleBold().run()}
         active={activeMarks?.bold}
-        title="Bold (Ctrl+B)"
+        label="Bold (Ctrl+B)"
       >
         <Bold className="w-3.5 h-3.5" />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleItalic().run()}
         active={activeMarks?.italic}
-        title="Italic (Ctrl+I)"
+        label="Italic (Ctrl+I)"
       >
         <Italic className="w-3.5 h-3.5" />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleUnderline().run()}
         active={activeMarks?.underline}
-        title="Underline (Ctrl+U)"
+        label="Underline (Ctrl+U)"
       >
         <Underline className="w-3.5 h-3.5" />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleStrike().run()}
         active={activeMarks?.strike}
-        title="Strikethrough"
+        label="Strikethrough"
       >
         <Strikethrough className="w-3.5 h-3.5" />
       </ToolbarButton>
       <Divider />
-      <ToolbarButton onClick={() => editor.chain().focus().toggleCode().run()} title="Inline code">
+      <ToolbarButton onClick={() => editor.chain().focus().toggleCode().run()} label="Inline code">
         <Code className="w-3.5 h-3.5" />
       </ToolbarButton>
-      <ToolbarButton onClick={() => editor.chain().focus().toggleCodeBlock().run()} title="Code block">
+      <ToolbarButton onClick={() => editor.chain().focus().toggleCodeBlock().run()} label="Code block">
         <Code2 className="w-3.5 h-3.5" />
       </ToolbarButton>
       <Divider />
-      <ToolbarButton onClick={() => editor.chain().focus().toggleBulletList().run()} title="Bullet list">
+      <ToolbarButton onClick={() => editor.chain().focus().toggleBulletList().run()} label="Bullet list">
         <List className="w-3.5 h-3.5" />
       </ToolbarButton>
-      <ToolbarButton onClick={() => editor.chain().focus().toggleOrderedList().run()} title="Ordered list">
+      <ToolbarButton onClick={() => editor.chain().focus().toggleOrderedList().run()} label="Ordered list">
         <ListOrdered className="w-3.5 h-3.5" />
       </ToolbarButton>
-      <ToolbarButton onClick={() => editor.chain().focus().toggleBlockquote().run()} title="Quote">
+      <ToolbarButton onClick={() => editor.chain().focus().toggleBlockquote().run()} label="Quote">
         <Quote className="w-3.5 h-3.5" />
       </ToolbarButton>
     </div>

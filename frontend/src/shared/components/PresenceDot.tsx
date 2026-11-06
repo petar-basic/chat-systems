@@ -19,7 +19,7 @@ export default function PresenceDot({ userId, className = '' }: Props) {
     <span
       role="img"
       aria-label={`Status: ${label}`}
-      title={label}
+      data-tooltip={label}
       className={`inline-block w-2.5 h-2.5 rounded-full ${cls} ${className}`}
     />
   );

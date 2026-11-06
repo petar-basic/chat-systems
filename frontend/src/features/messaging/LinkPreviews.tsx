@@ -139,7 +139,7 @@ function AppCard({
             type="button"
             onClick={onRefresh}
             aria-label="Refresh preview"
-            title="Refresh"
+            data-tooltip="Refresh"
             data-qa="app-preview-refresh"
             className="rounded p-0.5 hover:bg-raised hover:text-fg-dim"
           >
@@ -152,7 +152,7 @@ function AppCard({
           type="button"
           onClick={onHide}
           aria-label="Remove preview"
-          title="Remove preview"
+          data-tooltip="Remove preview"
           className="absolute right-1 top-1 rounded p-0.5 text-muted opacity-0 transition hover:bg-raised hover:text-fg-dim focus-visible:opacity-100 group-hover/preview:opacity-100"
         >
           <X className="h-3.5 w-3.5" />
@@ -203,7 +203,7 @@ function VideoCard({ unfurl, onHide }: { unfurl: Unfurl; onHide?: () => void }) 
               src ? setPlaying(true) : window.open(unfurl.url, '_blank', 'noopener,noreferrer')
             }
             aria-label={`Play ${unfurl.title}`}
-            title={`Play ${unfurl.title}`}
+            data-tooltip={`Play ${unfurl.title}`}
             data-qa="video-play"
             className="relative mt-1 block aspect-video w-full overflow-hidden rounded-md border border-line/60 bg-black"
           >
@@ -230,7 +230,7 @@ function VideoCard({ unfurl, onHide }: { unfurl: Unfurl; onHide?: () => void }) 
           type="button"
           onClick={onHide}
           aria-label="Remove preview"
-          title="Remove preview"
+          data-tooltip="Remove preview"
           className="absolute right-1 top-1 rounded p-0.5 text-muted opacity-0 transition hover:bg-raised hover:text-fg-dim focus-visible:opacity-100 group-hover/preview:opacity-100"
         >
           <X className="h-3.5 w-3.5" />
@@ -273,7 +273,7 @@ function LinkPreviewCard({ unfurl, onHide }: { unfurl: Unfurl; onHide?: () => vo
           type="button"
           onClick={onHide}
           aria-label="Remove preview"
-          title="Remove preview"
+          data-tooltip="Remove preview"
           data-qa="link-preview-remove"
           className="absolute right-1 top-1 rounded p-0.5 text-muted opacity-0 transition hover:bg-raised hover:text-fg-dim focus-visible:opacity-100 group-hover/preview:opacity-100"
         >

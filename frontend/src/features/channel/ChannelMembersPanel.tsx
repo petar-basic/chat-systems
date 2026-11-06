@@ -71,7 +71,7 @@ function MemberRow({
           aria-label={
             isAdmin ? `Remove channel admin from ${displayName}` : `Make ${displayName} a channel admin`
           }
-          title={isAdmin ? 'Remove channel admin' : 'Make channel admin'}
+          data-tooltip={isAdmin ? 'Remove channel admin' : 'Make channel admin'}
           data-qa={isAdmin ? 'channel-member-demote' : 'channel-member-promote'}
           className={`p-1 rounded transition cursor-pointer disabled:opacity-50 ${
             isAdmin ? 'text-info hover:text-fg-dim' : 'text-muted hover:text-info'
@@ -85,7 +85,7 @@ function MemberRow({
           onClick={() => onRemove(member.user_id)}
           disabled={busy}
           aria-label={isSelf ? 'Leave channel' : `Remove ${displayName} from channel`}
-          title={isSelf ? 'Leave channel' : 'Remove from channel'}
+          data-tooltip={isSelf ? 'Leave channel' : 'Remove from channel'}
           data-qa="channel-member-remove"
           className="text-muted hover:text-danger transition cursor-pointer p-1 disabled:opacity-50"
         >
@@ -209,7 +209,7 @@ export default function ChannelMembersPanel({
                   className="text-muted hover:text-fg transition cursor-pointer"
                   aria-label="Add member"
                   data-qa="channel-members-add-toggle"
-                  title="Add member"
+                  data-tooltip="Add member"
                 >
                   <UserPlus className="w-4 h-4" />
                 </button>

@@ -94,6 +94,7 @@ export function HoverCard({
     <>
       <span
         ref={triggerRef}
+        data-hover-card=""
         className={triggerClassName}
         onPointerEnter={(e) => {
           if (e.pointerType === 'mouse') schedule(true, openDelay);

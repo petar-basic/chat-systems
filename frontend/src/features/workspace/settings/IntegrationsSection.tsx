@@ -115,7 +115,7 @@ function HookRow({
           onClick={onReveal}
           disabled={busy}
           aria-label={`Reveal credentials for ${hook.name}`}
-          title="Reveal"
+          data-tooltip="Reveal"
           data-qa="hook-reveal"
           className="p-1.5 rounded text-muted hover:text-fg hover:bg-raised transition cursor-pointer disabled:opacity-50"
         >
@@ -125,7 +125,7 @@ function HookRow({
           onClick={onRotate}
           disabled={busy}
           aria-label={`Rotate credentials for ${hook.name}`}
-          title="Rotate — the old value stops working immediately"
+          data-tooltip="Rotate — the old value stops working immediately"
           data-qa="hook-rotate"
           className="p-1.5 rounded text-muted hover:text-warning hover:bg-raised transition cursor-pointer disabled:opacity-50"
         >
@@ -135,7 +135,7 @@ function HookRow({
           onClick={() => setConfirmDelete(true)}
           disabled={busy}
           aria-label={`Delete ${hook.name}`}
-          title="Delete"
+          data-tooltip="Delete"
           data-qa="hook-delete"
           className="p-1.5 rounded text-muted hover:text-danger hover:bg-raised transition cursor-pointer disabled:opacity-50"
         >

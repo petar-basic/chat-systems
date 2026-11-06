@@ -263,7 +263,7 @@ export function ListBoard({
                 onClick={() => onAddItem(lane.choice?.id ?? null)}
                 disabled={!canAdd}
                 aria-label={`New item in ${laneName}`}
-                title={`New item in ${laneName}`}
+                data-tooltip={`New item in ${laneName}`}
                 data-qa="list-lane-add"
                 className="mx-2 mb-2 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-muted transition hover:bg-raised/50 hover:text-fg disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
               >

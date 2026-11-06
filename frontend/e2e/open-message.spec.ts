@@ -29,7 +29,7 @@ test('Activity opens a direct message on the message', async ({ page }) => {
 
     await login(page, 'alice@dev.local');
     await page.goto(`/app/${workspace.id}`);
-    await page.getByTitle('Notifications').click();
+    await page.getByTestId('open-notifications').click();
     await page.locator('[data-qa="notification-row"]').filter({ hasText: text }).click();
 
     await expect(page).toHaveURL(new RegExp(`/c/${conversation.id}/${message.id}$`));

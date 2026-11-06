@@ -106,7 +106,7 @@ function ScheduledRow({
             }}
             disabled={busy}
             aria-label={`Reschedule message for ${target}`}
-            title="Reschedule"
+            data-tooltip="Reschedule"
             data-qa="scheduled-reschedule"
             className="p-1.5 rounded text-muted hover:text-fg hover:bg-raised transition cursor-pointer disabled:opacity-50"
           >
@@ -117,7 +117,7 @@ function ScheduledRow({
           onClick={onCancel}
           disabled={busy}
           aria-label={`${scheduled.failure ? 'Remove' : 'Cancel'} message for ${target}`}
-          title={scheduled.failure ? 'Remove' : 'Cancel'}
+          data-tooltip={scheduled.failure ? 'Remove' : 'Cancel'}
           data-qa="scheduled-cancel"
           className="p-1.5 rounded text-muted hover:text-danger hover:bg-raised transition cursor-pointer disabled:opacity-50"
         >

@@ -181,7 +181,7 @@ test('comments, an assignment and a due date reach the person the item is for', 
   try {
     await login(ben, 'bob@dev.local');
     await ben.goto(`/app/${workspace.id}/${channel.id}`);
-    await ben.getByTitle('Notifications').click();
+    await ben.getByTestId('open-notifications').click();
     const assigned = ben.locator('[data-qa="notification-row"]', { hasText: `assigned you to ${title}` });
     await expect(assigned).toBeVisible({ timeout: 15_000 });
     await assigned.click();
@@ -205,7 +205,7 @@ test('comments, an assignment and a due date reach the person the item is for', 
     });
     await expect(ben.getByTestId('list-row-comments')).toHaveText('1');
     if (!(await ben.getByTestId('notifications-panel').isVisible())) {
-      await ben.getByTitle('Notifications').click();
+      await ben.getByTestId('open-notifications').click();
     }
     await expect(
       ben.locator('[data-qa="notification-row"]', { hasText: `mentioned you on ${title}` }),

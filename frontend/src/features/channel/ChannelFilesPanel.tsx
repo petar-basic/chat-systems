@@ -119,7 +119,7 @@ export default function ChannelFilesPanel({ channelId, onClose, onNavigate }: Pr
                 key={image.id}
                 type="button"
                 onClick={() => setViewing(index)}
-                title={image.filename}
+                data-tooltip={image.filename}
                 className="aspect-square overflow-hidden rounded-md border border-line/60 bg-raised/40"
               >
                 <img
@@ -181,7 +181,7 @@ function FileRow({ file, onNavigate }: { file: ChannelFile; onNavigate: (message
         type="button"
         onClick={() => onNavigate(file.message_id)}
         className="min-w-0 flex-1 text-left"
-        title="Show in conversation"
+        data-tooltip="Show in conversation"
       >
         <span className="block truncate text-sm text-fg-soft">{file.filename}</span>
         <span className="block truncate text-xs text-muted">

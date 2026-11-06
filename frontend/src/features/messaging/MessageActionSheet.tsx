@@ -44,7 +44,7 @@ export default function MessageActionSheet({
               type="button"
               onClick={() => react(emoji)}
               aria-label={`React with ${emoji}`}
-              title={`React with ${emoji}`}
+              data-tooltip={`React with ${emoji}`}
               data-qa="sheet-quick-reaction"
               className="w-11 h-11 rounded-full bg-raised/60 hover:bg-raised text-xl flex items-center justify-center transition"
             >
@@ -56,7 +56,7 @@ export default function MessageActionSheet({
             type="button"
             onClick={() => setShowPicker((open) => !open)}
             aria-label="More reactions"
-            title="More reactions"
+            data-tooltip="More reactions"
             aria-expanded={showPicker}
             data-qa="sheet-more-reactions"
             className="w-11 h-11 rounded-full bg-raised/60 hover:bg-raised text-muted flex items-center justify-center transition"

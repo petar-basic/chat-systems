@@ -60,7 +60,7 @@ export function YouMenu({
         aria-label="Edit profile"
         data-qa="sidebar-profile-avatar"
         className="relative rounded-full shrink-0 hover:ring-2 hover:ring-purple-400 transition cursor-pointer"
-        title="Edit profile"
+        data-tooltip="Edit profile"
       >
         <Avatar
           userId={user?.id ?? ''}
@@ -74,7 +74,7 @@ export function YouMenu({
           onClick={() => setOpen((current) => !current)}
           data-qa="open-you-menu"
           className="w-full min-w-0 text-left hover:bg-raised/30 rounded px-1 -mx-1 transition cursor-pointer"
-          title="You"
+          data-tooltip="You"
         >
           <div className="text-sm font-medium truncate">
             {user?.display_name}
@@ -121,7 +121,7 @@ export function YouMenu({
       <button
         onClick={onOpenNotifications}
         className={`relative transition cursor-pointer ${pause ? 'text-accent hover:text-accent-soft' : 'text-muted hover:text-fg'}`}
-        title={bellLabel}
+        data-tooltip={bellLabel}
         aria-label={bellLabel}
         data-qa="open-notifications"
         data-paused={!!pause}
@@ -136,7 +136,7 @@ export function YouMenu({
       <button
         onClick={onLogout}
         className="text-muted hover:text-danger transition cursor-pointer"
-        title="Sign out"
+        data-tooltip="Sign out"
         aria-label="Sign out"
       >
         <LogOut className="w-4 h-4" />

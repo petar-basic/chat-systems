@@ -214,7 +214,7 @@ export default function PasskeysPanel() {
                     type="button"
                     onClick={() => setRenaming({ id: passkey.id, name: passkey.name })}
                     aria-label={`Rename ${passkey.name}`}
-                    title={`Rename ${passkey.name}`}
+                    data-tooltip={`Rename ${passkey.name}`}
                     className="p-2 text-muted hover:text-fg transition cursor-pointer"
                   >
                     <Pencil className="w-4 h-4" />
@@ -226,7 +226,7 @@ export default function PasskeysPanel() {
                       setPending({ kind: 'remove', id: passkey.id, name: passkey.name });
                     }}
                     aria-label={`Remove ${passkey.name}`}
-                    title={`Remove ${passkey.name}`}
+                    data-tooltip={`Remove ${passkey.name}`}
                     data-qa="passkey-remove"
                     className="p-2 text-muted hover:text-danger transition cursor-pointer"
                   >
