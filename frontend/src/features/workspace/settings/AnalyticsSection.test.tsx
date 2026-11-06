@@ -231,9 +231,11 @@ describe('AnalyticsSection', () => {
     renderSection();
     fireEvent.click(screen.getByRole('tab', { name: 'Channels' }));
 
-    await waitFor(() => expect(channelNames()).toEqual(['secret', 'general', 'oldarchived']));
+    await waitFor(() => expect(channelNames()).toEqual(['secret', 'general', 'old']));
     fireEvent.click(screen.getByRole('button', { name: 'Read' }));
-    expect(channelNames()).toEqual(['general', 'secret', 'oldarchived']);
+    expect(channelNames()).toEqual(['general', 'secret', 'old']);
+    expect(screen.getByLabelText('Archived')).toBeInTheDocument();
+    expect(screen.getByLabelText('Private')).toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId('analytics-channels-csv'));
     expect(downloadCsv).toHaveBeenCalledWith('dev-team-channels-30-days.csv', [

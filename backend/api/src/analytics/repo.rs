@@ -373,7 +373,8 @@ impl AnalyticsRepo {
                       COALESCE(a.posters, 0) AS "posters!",
                       COALESCE(a.readers, 0) AS "readers!",
                       (SELECT MAX(m.created_at) FROM messages m
-                        WHERE m.channel_id = c.id AND m.deleted_at IS NULL) AS last_message_at
+                        WHERE m.channel_id = c.id AND m.deleted_at IS NULL
+                          AND m.metadata->>'kind' IS NULL) AS last_message_at
                  FROM channels c
                  LEFT JOIN LATERAL (
                      SELECT SUM(x.messages) AS messages,
@@ -414,7 +415,8 @@ impl AnalyticsRepo {
                                JOIN users u ON u.id = cm.user_id
                               WHERE cm.channel_id = c.id AND NOT u.is_bot) AS members,
                             (SELECT MAX(m.created_at) FROM messages m
-                              WHERE m.channel_id = c.id AND m.deleted_at IS NULL) AS last_message_at
+                              WHERE m.channel_id = c.id AND m.deleted_at IS NULL
+                                AND m.metadata->>'kind' IS NULL) AS last_message_at
                        FROM channels c
                       WHERE c.workspace_id = $1
                         AND c.channel_type IN ('public', 'private')

@@ -463,6 +463,15 @@ async fn a_channel_is_quiet_after_its_last_message_ages_past_the_threshold(pool:
     age_channel(&team.state, old, 45).await;
     age_channel(&team.state, older, 100).await;
     age_channel(&team.state, team.private, 200).await;
+    sqlx::query(
+        "INSERT INTO messages (channel_id, user_id, content, metadata)
+         VALUES ($1, $2, 'joined', '{\"kind\": \"channel_join\"}')",
+    )
+    .bind(older)
+    .bind(owner)
+    .execute(&team.state.pool)
+    .await
+    .expect("system message");
 
     let (status, month) = quiet(&team, owner_token, 30).await;
     assert_eq!(status, StatusCode::OK, "{month:?}");

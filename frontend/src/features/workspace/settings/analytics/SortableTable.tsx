@@ -57,7 +57,7 @@ export function SortableTable<T>({ rows, columns, rowKey, initialSort, qa, rowQa
                   key={c.key}
                   scope="col"
                   aria-sort={active ? (sort.descending ? 'descending' : 'ascending') : 'none'}
-                  className={`px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted ${c.numeric ? 'text-right' : 'text-left'}`}
+                  className={`whitespace-nowrap px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted ${c.numeric ? 'text-right' : 'text-left'}`}
                 >
                   <button
                     type="button"
@@ -79,7 +79,7 @@ export function SortableTable<T>({ rows, columns, rowKey, initialSort, qa, rowQa
               {columns.map((c) => (
                 <td
                   key={c.key}
-                  className={`px-4 py-2 text-sm ${c.numeric ? 'text-right tabular-nums text-fg-soft' : 'text-fg'}`}
+                  className={`whitespace-nowrap px-3 py-2 text-sm ${c.numeric ? 'text-right tabular-nums text-fg-soft' : 'text-fg'}`}
                 >
                   {c.render ? c.render(row) : shown(c.value(row))}
                 </td>
