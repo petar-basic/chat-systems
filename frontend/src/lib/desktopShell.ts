@@ -24,11 +24,18 @@ export interface DesktopColours {
   badge_fg: string;
 }
 
+export interface DesktopRailHint {
+  text: string;
+  y: number;
+  animate: boolean;
+}
+
 export type DesktopCommand =
   | { kind: 'open-workspace'; workspaceId: string }
   | { kind: 'leave-workspace'; workspaceId: string }
   | { kind: 'create-workspace' }
-  | { kind: 'open-notification'; key: string };
+  | { kind: 'open-notification'; key: string }
+  | { kind: 'rail-hint'; hint: DesktopRailHint | null };
 
 export interface DesktopShell {
   version: number;

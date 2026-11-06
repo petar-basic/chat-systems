@@ -695,11 +695,43 @@ fn rail_menu(
 }
 
 fn dispatch<R: Runtime>(app: &AppHandle<R>, url: &str, command: serde_json::Value) {
-    if let Some(webview) = app.get_webview(&webview_label(url)) {
+    dispatch_to(app, &webview_label(url), command);
+}
+
+fn dispatch_to<R: Runtime>(app: &AppHandle<R>, label: &str, command: serde_json::Value) {
+    if let Some(webview) = app.get_webview(label) {
         let _ = webview.eval(format!(
             "window.chatSystemsDesktop && window.chatSystemsDesktop.dispatch({command})"
         ));
     }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+struct RailHint {
+    text: String,
+    y: f64,
+    animate: bool,
+}
+
+#[tauri::command]
+fn rail_hint(app: AppHandle, hint: Option<RailHint>) -> Result<(), String> {
+    let showing = app
+        .state::<Showing>()
+        .0
+        .lock()
+        .map_err(|e| e.to_string())?
+        .clone();
+    if showing == PICKER {
+        return app
+            .emit_to(PICKER, "rail-hint", hint)
+            .map_err(|e| e.to_string());
+    }
+    dispatch_to(
+        &app,
+        &showing,
+        serde_json::json!({ "kind": "rail-hint", "hint": hint }),
+    );
+    Ok(())
 }
 
 fn server_of<R: Runtime>(app: &AppHandle<R>, webview: &Webview<R>) -> Result<Server, String> {
@@ -1030,6 +1062,7 @@ pub fn run() {
             report_colours,
             notify,
             rail_menu,
+            rail_hint,
             add_menu,
             open_workspace,
             start_sso,

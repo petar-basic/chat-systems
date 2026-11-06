@@ -5,16 +5,61 @@ const { listen } = window.__TAURI__.event;
 
 const list = document.getElementById('servers');
 
+const OPEN_DELAY_MS = 400;
+const WARM_FOR_MS = 300;
+let hinted = null;
+let pending = null;
+let hiddenAt = 0;
+
+function sendHint(hint) {
+  invoke('rail_hint', { hint }).catch(() => {});
+}
+
+function showHint(button, animate) {
+  clearTimeout(pending);
+  pending = null;
+  hinted = button;
+  const rect = button.getBoundingClientRect();
+  sendHint({ text: button.getAttribute('aria-label'), y: rect.top + rect.height / 2, animate });
+}
+
+function hideHint() {
+  clearTimeout(pending);
+  pending = null;
+  if (!hinted) return;
+  hinted = null;
+  hiddenAt = Date.now();
+  sendHint(null);
+}
+
+function hintOn(button) {
+  button.addEventListener('pointerenter', (event) => {
+    if (event.pointerType !== 'mouse') return;
+    if (hinted || Date.now() - hiddenAt < WARM_FOR_MS) {
+      showHint(button, false);
+      return;
+    }
+    clearTimeout(pending);
+    pending = setTimeout(() => showHint(button, true), OPEN_DELAY_MS);
+  });
+  button.addEventListener('pointerleave', hideHint);
+  button.addEventListener('pointerdown', hideHint);
+  button.addEventListener('focus', () => {
+    if (button.matches(':focus-visible')) showHint(button, !hinted);
+  });
+  button.addEventListener('blur', hideHint);
+}
+
 function host(url) {
   return new URL(url).host;
 }
 
-function tile({ title, current, onClick, onMenu, image, text, color, className }) {
+function tile({ name, current, onClick, onMenu, image, text, color, className }) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = `server ${className ?? ''}`.trim();
-  button.title = title;
-  button.setAttribute('aria-label', title);
+  button.setAttribute('aria-label', name);
+  hintOn(button);
   button.setAttribute('aria-current', String(current));
   const fallback = () => {
     if (color) button.style.setProperty('--tile', color);
@@ -54,7 +99,7 @@ function workspaceItem(server, workspace, active, index) {
   const current = active && server.current === workspace.id;
   item.append(
     tile({
-      title: `${workspace.name}${workspace.deleted ? ' (deleted)' : ''} · ${server.name}${shortcut(index)}`,
+      name: `${workspace.name}${workspace.deleted ? ' (deleted)' : ''}${shortcut(index)}`,
       current,
       image: workspace.icon,
       text: initials(workspace.name),
@@ -72,7 +117,7 @@ function serverItem(server, index, servers, active) {
   const item = document.createElement('li');
   item.append(
     tile({
-      title: `${server.name} · ${host(server.url)}${shortcut(index)}`,
+      name: `${server.name} · ${host(server.url)}${shortcut(index)}`,
       current: server.url === active,
       image: server.icon,
       text: label(server, servers),
@@ -118,8 +163,19 @@ function render({ servers, active, theme, colours }) {
         : serverItem(server, index, servers, active),
     ),
   );
+  clearTimeout(pending);
+  pending = null;
+  if (!hinted) return;
+  const name = hinted.getAttribute('aria-label');
+  const same = [...list.querySelectorAll('button')].find((button) => button.getAttribute('aria-label') === name);
+  if (same) hinted = same;
+  else hideHint();
 }
 
-document.getElementById('add').addEventListener('click', () => invoke('add_menu'));
+const add = document.getElementById('add');
+add.addEventListener('click', () => invoke('add_menu'));
+hintOn(add);
+document.querySelector('nav').addEventListener('scroll', hideHint);
+window.addEventListener('blur', hideHint);
 listen('servers-changed', (event) => render(event.payload));
 invoke('list_servers').then(render);
