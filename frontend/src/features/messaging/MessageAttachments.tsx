@@ -6,6 +6,7 @@ import { ImageGallery } from './ImageGallery';
 import { useGallery } from './galleryContext';
 import { fileKind, isRenderableImage, playableMedia } from '@/lib/fileKinds';
 import { CollapsedPreview } from './CollapsedPreview';
+import { CachedImage } from '@/shared/components/Image/CachedImage';
 
 type Attachment = components['schemas']['Attachment'];
 
@@ -100,12 +101,12 @@ function ImageGrid({ images, onOpen }: { images: Attachment[]; onOpen: (image: A
         onClick={() => onOpen(image)}
         data-qa="attachment-image"
         className="block w-fit max-w-full cursor-zoom-in"
+        aria-label={image.filename}
         data-tooltip={image.filename}
       >
-        <img
+        <CachedImage
           src={previewOf(image)}
           alt={image.filename}
-          loading="lazy"
           width={size?.width}
           height={size?.height}
           style={size ? { width: size.width, aspectRatio: `${size.width} / ${size.height}` } : undefined}
@@ -130,12 +131,7 @@ function ImageGrid({ images, onOpen }: { images: Attachment[]; onOpen: (image: A
             shown.length === 3 && index === 0 ? 'row-span-2 aspect-auto' : ''
           }`}
         >
-          <img
-            src={previewOf(image)}
-            alt={image.filename}
-            loading="lazy"
-            className="h-full w-full object-cover"
-          />
+          <CachedImage src={previewOf(image)} alt={image.filename} className="h-full w-full object-cover" />
           {hidden > 0 && index === shown.length - 1 && (
             <span
               data-qa="attachment-grid-more"
