@@ -7,6 +7,7 @@ import InstallAppBanner from '@/features/instance/InstallAppBanner';
 import NewVersionBanner from '@/features/instance/NewVersionBanner';
 import { QuickSwitcher, KeyboardShortcutsDialog } from '@/features/navigation';
 import {
+  DesktopTopBar,
   WorkspaceSidebar,
   WorkspaceRightPanels,
   WorkspaceSettingsModal,
@@ -48,6 +49,7 @@ import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 import { useActiveHuddlesSync } from '@/features/huddle';
 import { FileDropZone } from '@/shared/components/FileDropZone';
 import type { Workspace } from '@/stores/workspace';
+import { desktopShell } from '@/lib/desktopShell';
 
 export default function WorkspacePage() {
   const c = useWorkspaceController();
@@ -74,6 +76,7 @@ export default function WorkspacePage() {
   const [creatingChannel, setCreatingChannel] = useState(false);
   const [leaving, setLeaving] = useState<Workspace | null>(null);
 
+  const inDesktop = desktopShell() !== null;
   const inviteToWorkspace = () => settings.open('members', true);
   const aloneInWorkspace = c.workspaceMembers.length < 2;
   const addPeople = !currentChannel
@@ -91,6 +94,14 @@ export default function WorkspacePage() {
 
   return (
     <div className="h-dvh flex flex-col bg-app text-fg">
+      {inDesktop && (
+        <DesktopTopBar
+          workspaceName={currentWorkspace?.name}
+          searching={panel.active?.kind === 'search'}
+          onSearch={() => panel.open('search')}
+          style={themeStyle(theme)}
+        />
+      )}
       <NewVersionBanner />
       <InstallAppBanner />
       <div className="flex-1 flex min-h-0 relative">
@@ -253,7 +264,7 @@ export default function WorkspacePage() {
                 showPins={panel.active?.kind === 'pins'}
                 showFiles={panel.active?.kind === 'files'}
                 showChannelMembers={panel.active?.kind === 'channelMembers'}
-                onToggleSearch={() => panel.toggle('search')}
+                onToggleSearch={inDesktop ? undefined : () => panel.toggle('search')}
                 onTogglePins={() => panel.toggle('pins')}
                 onToggleFiles={() => panel.toggle('files')}
                 onToggleChannelMembers={() => panel.toggle('channelMembers')}

@@ -16,6 +16,15 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ## [Unreleased]
 
+### Changed
+
+- The desktop app has a top bar across the window, like the rail's colour: back and forward
+  through where you have been, and a search box for the workspace you are in. The search icon
+  in the channel header is gone there, since the bar has it. On a Mac the window buttons sit in
+  the bar and the bar moves the window; double-clicking it zooms. The window title is always
+  *Chat Systems*, never the server's name. This needs the desktop app and the server both on
+  this release.
+
 ### Fixed
 
 - On a Mac, the tooltips of *All unreads* and of *Bold*, *Italic* and *Underline* name the keys
