@@ -4,6 +4,7 @@ export { NotifyDefaultPanel } from './NotifyDefaultPanel';
 export { KeywordsPanel } from './KeywordsPanel';
 export { ScheduleEditor } from './ScheduleEditor';
 export { PauseMenuItems } from './PauseMenuItems';
+export { usePause } from './hooks/usePause';
 export { default as EmailNotificationsPanel } from './EmailNotificationsPanel';
 export { default as DesktopNotificationsPanel } from './DesktopNotificationsPanel';
 export { default as NotificationsPanel } from './NotificationsPanel';
