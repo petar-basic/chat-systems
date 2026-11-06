@@ -28,6 +28,9 @@
   --color-presence: var(--presence);
   --color-badge: var(--badge);
   --color-badge-fg: var(--badge-fg);
+  --color-tooltip: var(--tooltip);
+  --color-tooltip-fg: var(--tooltip-fg);
+  --color-tooltip-line: var(--tooltip-line);
 }
 
 @theme {
@@ -80,6 +83,9 @@
   --link: #60a5fa;
   --mention-self-bg: rgba(245, 158, 11, 0.2);
   --mention-self-fg: #fbbf24;
+  --tooltip: #020617;
+  --tooltip-fg: #f8fafc;
+  --tooltip-line: #475569;
 }
 
 :root[data-theme='light'],
@@ -113,6 +119,9 @@
   --link: #1d4ed8;
   --mention-self-bg: rgba(245, 158, 11, 0.18);
   --mention-self-fg: #b45309;
+  --tooltip: #0b1220;
+  --tooltip-fg: #ffffff;
+  --tooltip-line: #0b1220;
 }
 
 :root,
@@ -405,6 +414,33 @@
     opacity: 0;
     transform: translateY(24px);
   }
+}
+
+@keyframes tooltip-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+.tooltip-enter {
+  animation: tooltip-in 120ms ease-out;
+}
+
+.tooltip-enter[data-side='top'] {
+  transform-origin: bottom center;
+}
+
+.tooltip-enter[data-side='bottom'] {
+  transform-origin: top center;
+}
+
+.tooltip-enter[data-side='left'] {
+  transform-origin: center right;
+}
+
+.tooltip-enter[data-side='right'] {
+  transform-origin: center left;
 }
 
 @keyframes backdrop-in {

@@ -26,7 +26,7 @@ export function SidebarSectionHeader({ section, label, collapsed, onToggle, acti
         <button
           onClick={action.onClick}
           aria-label={action.label}
-          title={action.label}
+          data-tooltip={action.label}
           className="text-muted hover:text-fg transition cursor-pointer"
         >
           <Plus className="w-4 h-4" />

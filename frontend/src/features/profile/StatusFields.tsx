@@ -43,7 +43,7 @@ export function StatusFields({ value, onChange, clearsAt }: Props) {
           type="button"
           onClick={() => setPicking((open) => !open)}
           aria-label={value.emoji ? `Status emoji ${value.emoji}` : 'Choose a status emoji'}
-          title={value.emoji ? `Status emoji ${value.emoji}` : 'Choose a status emoji'}
+          data-tooltip={value.emoji ? `Status emoji ${value.emoji}` : 'Choose a status emoji'}
           aria-expanded={picking}
           data-qa="status-emoji"
           className="flex h-9 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-line bg-raised/50 text-lg leading-none transition hover:bg-raised"

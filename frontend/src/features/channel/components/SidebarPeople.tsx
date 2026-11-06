@@ -93,12 +93,16 @@ export function MemberRow({ userId, onOpenDm }: { userId: string; onOpenDm: (id:
     <button
       onClick={() => onOpenDm(userId)}
       className="w-full px-3 py-1 flex items-center gap-2 text-sm text-muted hover:bg-raised/30 hover:text-fg-soft transition cursor-pointer"
-      title={cached?.status_text ? `Message ${name} — ${cached.status_text}` : `Message ${name}`}
+      data-tooltip={cached?.status_text ? `Message ${name} — ${cached.status_text}` : `Message ${name}`}
     >
       <UserAvatarWithPresence userId={userId} name={name} avatarUrl={cached?.avatar_url} />
       <span className="truncate">{name}</span>
       {cached?.status_emoji && (
-        <span className="shrink-0" data-qa="member-status-emoji" title={cached.status_text ?? undefined}>
+        <span
+          className="shrink-0"
+          data-qa="member-status-emoji"
+          data-tooltip={cached.status_text ?? undefined}
+        >
           <ReactionEmoji emoji={cached.status_emoji} />
         </span>
       )}

@@ -66,7 +66,7 @@ export function FileHit({ hit, query, context, onOpen }: Props) {
         type="button"
         onClick={onOpen}
         disabled={!onOpen}
-        title={preview ? 'Open in the gallery' : 'Show in conversation'}
+        data-tooltip={preview ? 'Open in the gallery' : 'Show in conversation'}
         className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left disabled:cursor-default"
       >
         {preview ? (

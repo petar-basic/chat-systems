@@ -54,7 +54,7 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
           <button
             onClick={() => setLayout((l) => (l === 'grid' ? 'focus' : 'grid'))}
             aria-label={layout === 'grid' ? 'Focus view' : 'Grid view'}
-            title={layout === 'grid' ? 'Focus view' : 'Grid view'}
+            data-tooltip={layout === 'grid' ? 'Focus view' : 'Grid view'}
             className="p-1.5 rounded-lg text-muted hover:text-fg hover:bg-raised/50 transition"
           >
             {layout === 'grid' ? <Maximize2 className="w-4 h-4" /> : <LayoutGrid className="w-4 h-4" />}
@@ -62,7 +62,7 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
           <button
             onClick={() => setExpanded((v) => !v)}
             aria-label={expanded ? 'Collapse huddle' : 'Expand huddle'}
-            title={expanded ? 'Collapse' : 'Full screen'}
+            data-tooltip={expanded ? 'Collapse' : 'Full screen'}
             className="p-1.5 rounded-lg text-muted hover:text-fg hover:bg-raised/50 transition"
           >
             {expanded ? <Shrink className="w-4 h-4" /> : <Expand className="w-4 h-4" />}

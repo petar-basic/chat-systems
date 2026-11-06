@@ -61,7 +61,7 @@ export default function ChannelHeader({
         <button
           onClick={onOpenNav}
           aria-label="Open navigation"
-          title="Open navigation"
+          data-tooltip="Open navigation"
           data-qa="mobile-nav-toggle"
           className="lg:hidden p-1.5 -ml-1 rounded-lg text-muted hover:text-fg hover:bg-raised/50"
         >
@@ -84,7 +84,7 @@ export default function ChannelHeader({
               type="button"
               onClick={() => setDetails('integrations')}
               data-qa="channel-integration-indicator"
-              title="An integration forwards messages from this channel to an external URL"
+              data-tooltip="An integration forwards messages from this channel to an external URL"
               className="flex items-center gap-1 shrink-0 px-1.5 py-0.5 rounded bg-amber-500/10 text-warning text-2xs cursor-pointer hover:bg-amber-500/20"
             >
               <Plug className="w-3 h-3" />
@@ -236,7 +236,7 @@ function HeaderToggle({
       type="button"
       onClick={onClick}
       aria-label={label}
-      title={label}
+      data-tooltip={label}
       aria-pressed={pressed}
       data-qa={dataQa}
       className="max-sm:hidden inline-flex h-8 min-w-8 shrink-0 items-center justify-center gap-1 rounded-md px-1.5 text-xs text-muted transition cursor-pointer hover:text-fg hover:bg-raised/60 aria-pressed:bg-raised aria-pressed:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"

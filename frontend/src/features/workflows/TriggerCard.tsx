@@ -262,7 +262,7 @@ function WebhookFields({
               onClick={onRotate}
               loading={rotating}
               disabled={rotating}
-              title="The old URL stops working at once"
+              data-tooltip="The old URL stops working at once"
               data-qa="workflow-rotate"
             >
               New URL

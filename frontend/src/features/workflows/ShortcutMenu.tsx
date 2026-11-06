@@ -37,7 +37,7 @@ export function ShortcutMenu({ channelId, instanceUrl }: Props) {
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label="Run a workflow"
-        title="Run a workflow"
+        data-tooltip="Run a workflow"
         aria-haspopup="menu"
         aria-expanded={open}
         data-qa="composer-workflows"

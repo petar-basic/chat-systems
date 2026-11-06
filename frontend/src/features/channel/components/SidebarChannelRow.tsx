@@ -112,7 +112,7 @@ export function SidebarChannelRow({
           onClick={() => setMoveOpen((open) => !open)}
           aria-label={`Move ${channel.name} to a section`}
           aria-expanded={moveOpen}
-          title="Move to…"
+          data-tooltip="Move to…"
           data-qa="sidebar-channel-move"
           className="absolute right-7 hidden group-hover:flex focus-visible:flex p-1 rounded text-muted hover:text-fg hover:bg-raised"
         >

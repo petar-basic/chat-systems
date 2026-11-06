@@ -20,7 +20,7 @@ export function ReactionEmoji({ emoji }: { emoji: string }) {
             key={i}
             src={span.emoji.url}
             alt={span.text}
-            title={span.text}
+            data-tooltip={span.text}
             data-qa="custom-emoji"
             className="inline-block w-4 h-4 align-text-bottom"
           />

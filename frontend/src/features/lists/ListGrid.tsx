@@ -442,7 +442,7 @@ export function ListGrid({
                       aria-label={`Open row ${virtual.index + 1}, ${item.comment_count} ${
                         item.comment_count === 1 ? 'comment' : 'comments'
                       }`}
-                      title={`Open row ${virtual.index + 1}, ${item.comment_count} ${
+                      data-tooltip={`Open row ${virtual.index + 1}, ${item.comment_count} ${
                         item.comment_count === 1 ? 'comment' : 'comments'
                       }`}
                       onClick={() => onOpenItem(item.id)}

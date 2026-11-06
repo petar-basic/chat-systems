@@ -60,7 +60,7 @@ export function ConnectedAppCard({
         <div className="mt-3 space-y-2 text-sm">
           {app.connected_account ? (
             <div className="flex items-center justify-between gap-2">
-              <span className="text-fg-dim truncate" title={app.connected_account}>
+              <span className="text-fg-dim truncate" data-tooltip={app.connected_account}>
                 {app.connected_account}
               </span>
               <button

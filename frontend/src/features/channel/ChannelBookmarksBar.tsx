@@ -89,7 +89,7 @@ export default function ChannelBookmarksBar({
             <button
               onClick={() => deleteBookmark.mutate(bookmark.id)}
               aria-label={`Remove bookmark ${bookmark.label}`}
-              title={`Remove bookmark ${bookmark.label}`}
+              data-tooltip={`Remove bookmark ${bookmark.label}`}
               data-qa="channel-bookmark-remove"
               className="p-0.5 rounded text-subtle hover:text-danger transition cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100"
             >

@@ -133,7 +133,7 @@ export function VideoTile({
         ))}
 
       {handRaised && (
-        <div className="absolute top-1 left-1 text-lg" aria-label="Hand raised" title="Hand raised">
+        <div className="absolute top-1 left-1 text-lg" aria-label="Hand raised" data-tooltip="Hand raised">
           ✋
         </div>
       )}
@@ -153,7 +153,7 @@ export function VideoTile({
         <button
           onClick={() => useHuddleStore.getState().setPinned(pinned ? null : userId)}
           aria-label={pinned ? 'Unpin' : 'Pin'}
-          title={pinned ? 'Unpin' : 'Pin'}
+          data-tooltip={pinned ? 'Unpin' : 'Pin'}
           className={`absolute top-1 right-1 p-1 rounded-md transition ${
             pinned ? 'bg-purple-600 text-white' : 'bg-black/40 text-slate-200'
           }`}

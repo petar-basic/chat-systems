@@ -279,7 +279,7 @@ function MessageItem({
         </button>
       </UserHoverCard>
       {senderStatusEmoji && (
-        <span data-qa="message-status-emoji" title={senderStatusText ?? undefined}>
+        <span data-qa="message-status-emoji" data-tooltip={senderStatusText ?? undefined}>
           <ReactionEmoji emoji={senderStatusEmoji} />
         </span>
       )}

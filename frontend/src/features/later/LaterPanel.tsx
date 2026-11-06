@@ -231,7 +231,7 @@ function LaterRow({
         role="checkbox"
         aria-checked={completed}
         aria-label={completed ? 'Mark as not done' : 'Mark as done'}
-        title={completed ? 'Mark as not done' : 'Mark as done'}
+        data-tooltip={completed ? 'Mark as not done' : 'Mark as done'}
         data-qa="later-complete"
         onClick={onComplete}
         className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition ${

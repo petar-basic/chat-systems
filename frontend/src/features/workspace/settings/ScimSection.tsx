@@ -56,7 +56,7 @@ function TokenRow({
             onClick={onRotate}
             disabled={busy}
             aria-label={`Rotate ${name}`}
-            title="Rotate"
+            data-tooltip="Rotate"
             data-qa="scim-token-rotate"
             className="p-1.5 rounded text-muted hover:text-fg hover:bg-raised transition cursor-pointer disabled:opacity-50"
           >
@@ -66,7 +66,7 @@ function TokenRow({
             onClick={() => setConfirmRevoke(true)}
             disabled={busy}
             aria-label={`Revoke ${name}`}
-            title="Revoke"
+            data-tooltip="Revoke"
             data-qa="scim-token-revoke"
             className="p-1.5 rounded text-muted hover:text-danger hover:bg-raised transition cursor-pointer disabled:opacity-50"
           >

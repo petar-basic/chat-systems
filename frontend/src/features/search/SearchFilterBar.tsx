@@ -75,7 +75,7 @@ function Chip({
           type="button"
           onClick={onClear}
           aria-label={`Remove the ${label.toLowerCase()} filter`}
-          title={`Remove the ${label.toLowerCase()} filter`}
+          data-tooltip={`Remove the ${label.toLowerCase()} filter`}
           className="-ml-1 mr-1 rounded-full p-0.5 text-muted hover:bg-raised hover:text-fg cursor-pointer"
         >
           <X className="h-3 w-3" />

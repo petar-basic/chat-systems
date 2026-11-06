@@ -238,7 +238,7 @@ export function ListView({
                 onClick={() => canEdit && setRenaming(list.title)}
                 disabled={!canEdit}
                 data-qa="list-title"
-                title={canEdit ? 'Rename the list' : undefined}
+                data-tooltip={canEdit ? 'Rename the list' : undefined}
                 className="max-w-full truncate rounded px-1 font-semibold text-fg enabled:cursor-text enabled:hover:bg-raised/50"
               >
                 {list.title}
@@ -249,7 +249,7 @@ export function ListView({
             <button
               onClick={() => onOpenChannel(channel.id)}
               aria-label={`Open ${channel.name}`}
-              title={`Open ${channel.name}`}
+              data-tooltip={`Open ${channel.name}`}
               data-qa="list-channel"
               className="max-sm:hidden shrink-0 flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs text-muted hover:text-fg hover:bg-raised/50 cursor-pointer"
             >

@@ -97,7 +97,7 @@ export default function TwoFactorPanel() {
             type="button"
             onClick={() => setDisabling(true)}
             disabled={status.required}
-            title={status.required ? 'This instance requires a second factor for admins' : undefined}
+            data-tooltip={status.required ? 'This instance requires a second factor for admins' : undefined}
             data-qa="totp-disable"
             className="flex items-center gap-1.5 px-3 py-2 text-sm text-fg-dim hover:text-danger disabled:text-faint disabled:cursor-not-allowed transition cursor-pointer whitespace-nowrap"
           >
@@ -130,7 +130,7 @@ export default function TwoFactorPanel() {
               type="button"
               onClick={copySecret}
               aria-label="Copy the setup key"
-              title="Copy the setup key"
+              data-tooltip="Copy the setup key"
               className="p-2 text-muted hover:text-fg transition cursor-pointer"
             >
               {copied ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
