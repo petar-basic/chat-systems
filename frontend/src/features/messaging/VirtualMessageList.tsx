@@ -131,6 +131,19 @@ export default function VirtualMessageList<R extends VirtualRow>({
 
   const totalSize = virtualizer.getTotalSize();
 
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    let height = el.clientHeight;
+    const observer = new ResizeObserver(() => {
+      const fromBottom = el.scrollHeight - el.scrollTop - height;
+      height = el.clientHeight;
+      if (fromBottom < BOTTOM_THRESHOLD_PX) el.scrollTop = el.scrollHeight;
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   // Runs on every measurement pass, not only when the rows change: react-virtual
   // re-measures after mount, and each pass moves the anchor row again until the
   // heights settle. It stops re-applying once the offset it wants is the offset

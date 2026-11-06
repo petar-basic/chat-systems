@@ -59,7 +59,7 @@ export default function TypingIndicator({ channelId, currentUserId }: Props) {
     };
   }, [channelId]);
 
-  if (typingUsers.length === 0) return null;
+  if (typingUsers.length === 0) return <div className="h-6 shrink-0" data-qa="typing-strip" />;
 
   const names = typingUsers.map((t) => getUser(t.userId)?.display_name || UNKNOWN_USER).slice(0, 3);
 
@@ -73,7 +73,7 @@ export default function TypingIndicator({ channelId, currentUserId }: Props) {
   }
 
   return (
-    <div className="px-4 py-1 text-xs text-muted flex items-center gap-2">
+    <div className="h-6 shrink-0 px-4 text-xs text-muted flex items-center gap-2" data-qa="typing-strip">
       <div className="flex gap-0.5">
         <span
           className="w-1.5 h-1.5 bg-subtle rounded-full animate-bounce"
