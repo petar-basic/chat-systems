@@ -442,6 +442,9 @@ export function ListGrid({
                       aria-label={`Open row ${virtual.index + 1}, ${item.comment_count} ${
                         item.comment_count === 1 ? 'comment' : 'comments'
                       }`}
+                      title={`Open row ${virtual.index + 1}, ${item.comment_count} ${
+                        item.comment_count === 1 ? 'comment' : 'comments'
+                      }`}
                       onClick={() => onOpenItem(item.id)}
                       data-qa="list-row-comments"
                       className="flex h-7 w-7 items-center justify-center gap-0.5 rounded text-2xs tabular-nums text-muted hover:bg-raised/60 hover:text-fg cursor-pointer"

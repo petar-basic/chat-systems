@@ -45,6 +45,7 @@ export default function InstallAppBanner() {
         type="button"
         onClick={dismiss}
         aria-label="Dismiss install prompt"
+        title="Dismiss install prompt"
         data-qa="install-banner-dismiss"
         className="p-1 text-muted hover:text-fg transition cursor-pointer shrink-0"
       >

@@ -39,7 +39,6 @@ export function HuddleBar({ channelId }: { channelId: string }) {
       <button
         onClick={() => !busy && enter(channelHuddle.huddleId)}
         disabled={busy}
-        aria-label="Join huddle"
         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-green-600/20 text-success hover:bg-green-600/30 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <Users className="w-4 h-4" />

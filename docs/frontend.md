@@ -291,6 +291,8 @@ line up everywhere:
   must look like a button uses `buttonStyles()` from the same folder.
 - **`IconButton`** — a 28 or 32 px target around a 16 px icon; `label` is required and becomes
   the accessible name and the tooltip; `pressed` for toggles; `tone="inverse"` on dark overlays.
+  Lint refuses a `<button>` with an `aria-label` and no `title`, so a label is always shown on
+  hover too, except on a `HoverCard` trigger, which has a tooltip of its own.
 - **`Spinner`** — `sm` · `md` · `lg`, in the current text colour.
 - **`PanelHeader`** — every right panel's 56 px header: icon, title, optional badge and
   actions, and a close button labelled *Close {title}*.

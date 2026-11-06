@@ -101,6 +101,7 @@ export function ImageGallery({ items, index, onIndexChange, onClose }: Props) {
           onClick={onClose}
           data-qa="lightbox-close"
           aria-label="Close preview"
+          title="Close preview"
           className={control}
         >
           <X className="w-4 h-4" />
@@ -139,6 +140,7 @@ export function ImageGallery({ items, index, onIndexChange, onClose }: Props) {
             type="button"
             onClick={() => onIndexChange(index - 1)}
             aria-label="Previous image"
+            title="Previous image"
             data-qa="gallery-previous"
             className={`${step} left-2`}
           >
@@ -150,6 +152,7 @@ export function ImageGallery({ items, index, onIndexChange, onClose }: Props) {
             type="button"
             onClick={() => onIndexChange(index + 1)}
             aria-label="Next image"
+            title="Next image"
             data-qa="gallery-next"
             className={`${step} right-2`}
           >

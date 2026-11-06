@@ -219,6 +219,7 @@ function FileCard({ attachment, onRemove }: { attachment: Attachment; onRemove?:
           type="button"
           onClick={onRemove}
           aria-label={`Remove ${attachment.filename}`}
+          title={`Remove ${attachment.filename}`}
           className="shrink-0 rounded p-1 text-muted hover:bg-raised hover:text-danger"
         >
           <X className="h-4 w-4" />

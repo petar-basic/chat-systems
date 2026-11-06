@@ -81,6 +81,7 @@ export default function InstanceAdminPage() {
         <button
           onClick={() => navigate('/app')}
           aria-label="Back to the app"
+          title="Back to the app"
           className="p-2 text-muted hover:text-fg hover:bg-surface rounded-lg transition cursor-pointer"
         >
           <ArrowLeft className="w-5 h-5" />

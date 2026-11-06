@@ -46,6 +46,7 @@ export function MessageActionsBar({ message, actions: a, pickerOpen, onPickerCha
               key={emoji}
               onClick={() => onReact(emoji)}
               aria-label={`React with ${emoji}`}
+              title={`React with ${emoji}`}
               data-qa="message-quick-reaction"
               className="px-1 py-0.5 text-sm leading-none hover:bg-raised rounded transition"
             >
@@ -59,6 +60,7 @@ export function MessageActionsBar({ message, actions: a, pickerOpen, onPickerCha
         <button
           onClick={a.onThread}
           aria-label="Reply in thread"
+          title="Reply in thread"
           data-qa="message-action-thread"
           className="p-1 text-muted hover:text-fg hover:bg-raised rounded transition"
         >
@@ -71,6 +73,7 @@ export function MessageActionsBar({ message, actions: a, pickerOpen, onPickerCha
             ref={reactBtnRef}
             onClick={() => onPickerChange(!pickerOpen)}
             aria-label="Add reaction"
+            title="Add reaction"
             data-qa="message-action-react"
             className="p-1 text-muted hover:text-fg hover:bg-raised rounded transition"
           >
@@ -92,6 +95,7 @@ export function MessageActionsBar({ message, actions: a, pickerOpen, onPickerCha
         <button
           onClick={a.onToggleSave}
           aria-label={a.saved ? 'Remove from Later' : 'Save for later'}
+          title={a.saved ? 'Remove from Later' : 'Save for later'}
           aria-pressed={a.saved}
           data-qa="message-action-save"
           className={`p-1 hover:bg-raised rounded transition ${a.saved ? 'text-accent' : 'text-muted hover:text-accent-soft'}`}
@@ -107,6 +111,7 @@ export function MessageActionsBar({ message, actions: a, pickerOpen, onPickerCha
           ref={overflowAnchorRef}
           onClick={() => setShowOverflow((open) => !open)}
           aria-label="More actions"
+          title="More actions"
           aria-expanded={showOverflow}
           data-qa="message-action-more"
           className="p-1 text-muted hover:text-fg hover:bg-raised rounded transition"

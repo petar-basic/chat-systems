@@ -61,6 +61,7 @@ export default function ChannelHeader({
         <button
           onClick={onOpenNav}
           aria-label="Open navigation"
+          title="Open navigation"
           data-qa="mobile-nav-toggle"
           className="lg:hidden p-1.5 -ml-1 rounded-lg text-muted hover:text-fg hover:bg-raised/50"
         >

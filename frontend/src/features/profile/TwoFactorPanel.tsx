@@ -130,6 +130,7 @@ export default function TwoFactorPanel() {
               type="button"
               onClick={copySecret}
               aria-label="Copy the setup key"
+              title="Copy the setup key"
               className="p-2 text-muted hover:text-fg transition cursor-pointer"
             >
               {copied ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
