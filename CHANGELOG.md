@@ -16,6 +16,11 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ## [Unreleased]
 
+### Changed
+
+- Each workspace remembers the channel, conversation or view you left it on, and switching back
+  opens it there. The app also starts in the workspace and place you were last in.
+
 ### Fixed
 
 - The empty states in workspace Analytics keep a margin from their dashed border on narrow
