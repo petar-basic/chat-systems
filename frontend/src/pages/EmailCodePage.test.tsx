@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import i18n from '@/lib/i18n';
 import { ApiError } from '@/lib/errors';
 import EmailCodePage from './EmailCodePage';
 
@@ -29,9 +30,9 @@ vi.mock('@/features/instance/hooks/useInstanceInfo', () => ({
   useInstanceInfo: () => ({ data: { name: 'Northwind', email_code_sign_in: server.emailCode } }),
 }));
 
-function renderPage() {
+function renderPage(email = 'ana@example.com') {
   render(
-    <MemoryRouter initialEntries={[{ pathname: '/sign-in/code', state: { email: 'ana@example.com' } }]}>
+    <MemoryRouter initialEntries={[{ pathname: '/sign-in/code', state: { email } }]}>
       <EmailCodePage />
     </MemoryRouter>,
   );
@@ -46,12 +47,13 @@ async function askForACode() {
 }
 
 describe('EmailCodePage', () => {
-  afterEach(() => {
+  afterEach(async () => {
     vi.unstubAllGlobals();
     typed.mockReset();
     store.addInstanceWithEmailCode.mockReset();
     store.addInstanceWithPasskey.mockReset();
     server.emailCode = true;
+    await i18n.changeLanguage('en');
   });
 
   it('emails a code to the address from the sign-in page and signs in with it', async () => {
@@ -113,6 +115,21 @@ describe('EmailCodePage', () => {
         email_code: '123456',
       }),
     );
+  });
+
+  it('in Japanese shows the address the code went to as text, whatever was typed', async () => {
+    const email = "{{email}}&#39'/{{name}}@example.com";
+    typed.mockResolvedValue({ status: 'sent' });
+    await i18n.changeLanguage('ja');
+    renderPage(email);
+    fireEvent.click(screen.getByRole('button', { name: 'コードをメールで受け取る' }));
+
+    await screen.findByRole('heading', { name: 'メールをご確認ください' });
+    expect(screen.getByText(email)).toBeInTheDocument();
+    expect(screen.getByText(email).parentElement).toHaveTextContent(
+      `${email} が当サービスに登録されているメールアドレスであれば、サインイン用のコードがメールで届きます。10分以内に入力してください。`,
+    );
+    expect(screen.getByLabelText('サインインコード')).toBeInTheDocument();
   });
 
   it('says so when the server does not send codes', () => {
