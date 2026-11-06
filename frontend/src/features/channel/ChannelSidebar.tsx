@@ -25,6 +25,7 @@ import { SectionNameInput } from './components/SectionNameInput';
 import { creatableChannelKinds } from '@/lib/channelPermissions';
 import { useSidebarLayout, useSidebarActions } from '@/features/channel/hooks/useSidebarLayout';
 import { EmptyLabels } from '@/shared/constants';
+import { isApplePlatform, shortcutLabel } from '@/features/navigation';
 
 interface Props {
   currentWorkspace: Workspace | null;
@@ -184,7 +185,7 @@ export default function ChannelSidebar({
             type="button"
             onClick={onOpenUnreads}
             aria-current={unreadsActive ? 'page' : undefined}
-            data-tooltip="All unreads (Shift+Alt+A)"
+            data-tooltip={`All unreads (${shortcutLabel(['alt', 'shift', 'A'], isApplePlatform())})`}
             data-qa="all-unreads-open"
             className={`w-full px-3 py-1.5 mb-2 flex items-center gap-2 text-sm transition cursor-pointer ${
               unreadsActive

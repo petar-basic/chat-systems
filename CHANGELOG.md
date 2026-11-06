@@ -14,6 +14,13 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
+## [Unreleased]
+
+### Fixed
+
+- On a Mac, the tooltips of *All unreads* and of *Bold*, *Italic* and *Underline* name the keys
+  a Mac has (⌥⇧A, ⌘B, ⌘I, ⌘U) instead of Alt, Shift and Ctrl.
+
 ## [4.4.2] — 2026-11-06
 
 ### Upgrading from 4.4.1
