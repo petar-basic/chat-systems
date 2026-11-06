@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { components } from '@/api/schema';
 import { useInstanceStore } from '@/stores/instances';
 import { useWorkspaceStore } from '@/stores/workspace';
@@ -62,20 +62,20 @@ export const useWorkspace = (workspaceId: string | null) => {
   });
 };
 
-export const useWorkspaceMembers = (workspaceId: string | null, instanceUrl?: string) => {
-  return useQuery({
-    queryKey: QUERY_KEYS.workspaceMembers(workspaceId ?? ''),
+export const workspaceMembersQuery = (workspaceId: string, instanceUrl?: string) =>
+  queryOptions({
+    queryKey: QUERY_KEYS.workspaceMembers(workspaceId),
     queryFn: async () => {
-      if (!workspaceId) throw new Error('No workspace ID');
       const response = await getApiForInstance(instanceUrl).typed((c) =>
         c.GET('/workspaces/{ws_id}/members', { params: { path: { ws_id: workspaceId } } }),
       );
       return response.data;
     },
-    enabled: !!workspaceId,
     staleTime: 1000 * 60 * 2,
   });
-};
+
+export const useWorkspaceMembers = (workspaceId: string | null, instanceUrl?: string) =>
+  useQuery({ ...workspaceMembersQuery(workspaceId ?? '', instanceUrl), enabled: !!workspaceId });
 
 export const useWorkspaceInvites = (workspaceId: string | null, instanceUrl?: string, enabled = true) => {
   return useQuery({
@@ -126,20 +126,23 @@ export const useRevokeInvite = (workspaceId: string, instanceUrl?: string) => {
   });
 };
 
-export const useWorkspaceChannels = (workspaceId: string | null, instanceUrl?: string) => {
-  return useQuery({
-    queryKey: QUERY_KEYS.workspaceChannels(workspaceId ?? ''),
+export const workspaceChannelsQuery = (workspaceId: string, instanceUrl?: string) =>
+  queryOptions({
+    queryKey: QUERY_KEYS.workspaceChannels(workspaceId),
     queryFn: async (): Promise<Channel[]> => {
-      if (!workspaceId) throw new Error('No workspace ID');
       const response = await getApiForInstance(instanceUrl).typed((c) =>
         c.GET('/workspaces/{ws_id}/channels', { params: { path: { ws_id: workspaceId } } }),
       );
       return response.data;
     },
-    enabled: !!workspaceId && !!instanceUrl,
     staleTime: 1000 * 60 * 2,
   });
-};
+
+export const useWorkspaceChannels = (workspaceId: string | null, instanceUrl?: string) =>
+  useQuery({
+    ...workspaceChannelsQuery(workspaceId ?? '', instanceUrl),
+    enabled: !!workspaceId && !!instanceUrl,
+  });
 
 export const useDeletedWorkspaces = () => {
   const instances = useInstanceStore((s) => s.instances);

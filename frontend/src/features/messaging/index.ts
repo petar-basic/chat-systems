@@ -8,9 +8,14 @@ export { GalleryProvider } from './GalleryProvider';
 export { ImageGallery } from './ImageGallery';
 export { default as RichTextDisplay } from './RichTextDisplay';
 export { default as ScheduledMessagesPanel } from './ScheduledMessagesPanel';
-export { useConversations, useMarkConversationRead, useOpenConversation } from './hooks/useConversations';
+export {
+  conversationsQuery,
+  useConversations,
+  useMarkConversationRead,
+  useOpenConversation,
+} from './hooks/useConversations';
 export type { Conversation } from './hooks/useConversations';
-export { useSendMessage } from './hooks/useMessages';
+export { prefetchMessages, useSendMessage } from './hooks/useMessages';
 export type { MessagesInfiniteData, OutgoingMessage } from './hooks/useMessages';
 export { REMIND_PRESETS, formatScheduleHint, toLocalInputValue } from './schedulePresets';
 export { asAttachments, useComposerAttachments } from './useComposerAttachments';

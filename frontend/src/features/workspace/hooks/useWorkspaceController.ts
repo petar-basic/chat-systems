@@ -13,6 +13,7 @@ import { newestSentIn } from '@/lib/readOnScreen';
 import { useRightPanel } from './useRightPanel';
 import { useWorkspaceData } from './useWorkspaceData';
 import { useWorkspaceRouting } from './useWorkspaceRouting';
+import { usePrefetchWorkspaces } from './usePrefetchWorkspaces';
 import { placeIn } from '../lastPlace';
 import { useComposer } from './useComposer';
 import { useWorkspaceShortcuts } from './useWorkspaceShortcuts';
@@ -70,6 +71,7 @@ export function useWorkspaceController() {
     markConversationReadServer: data.markConversationReadServer,
     panel,
   });
+  usePrefetchWorkspaces(data.workspaces, workspaceId, !data.channelsPending);
 
   const unreadsWorkspaceId = workspaceId ?? currentWorkspace?.id;
   const handleOpenUnreads = useCallback(() => {

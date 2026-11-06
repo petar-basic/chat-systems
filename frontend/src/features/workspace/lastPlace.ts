@@ -37,3 +37,15 @@ export function placeIn(workspaceId: string): string {
   const path = read().places[workspaceId];
   return path?.startsWith(`${ROUTES.workspace(workspaceId)}/`) ? path : ROUTES.workspace(workspaceId);
 }
+
+export function rememberedTarget(
+  workspaceId: string,
+): { conversationId: string } | { channelId: string } | null {
+  const rest = placeIn(workspaceId)
+    .slice(ROUTES.workspace(workspaceId).length + 1)
+    .split('/');
+  if (rest[0] === 'c' && rest[1]) return { conversationId: rest[1] };
+  if (rest.length === 1 && rest[0] && !['unreads', 'threads'].includes(rest[0]))
+    return { channelId: rest[0] };
+  return null;
+}

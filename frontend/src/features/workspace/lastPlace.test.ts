@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { lastWorkspaceId, placeIn, rememberPlace } from './lastPlace';
+import { lastWorkspaceId, placeIn, rememberPlace, rememberedTarget } from './lastPlace';
 
 describe('lastPlace', () => {
   beforeEach(() => {
@@ -32,5 +32,17 @@ describe('lastPlace', () => {
     expect(placeIn('w1')).toBe('/app/w1');
     rememberPlace('w1', '/app/w1/threads');
     expect(placeIn('w1')).toBe('/app/w1/threads');
+  });
+
+  it('names the channel or conversation a workspace will open on', () => {
+    expect(rememberedTarget('w1')).toBeNull();
+    rememberPlace('w1', '/app/w1/c/dm1');
+    expect(rememberedTarget('w1')).toEqual({ conversationId: 'dm1' });
+    rememberPlace('w1', '/app/w1/ch1');
+    expect(rememberedTarget('w1')).toEqual({ channelId: 'ch1' });
+    rememberPlace('w1', '/app/w1/unreads');
+    expect(rememberedTarget('w1')).toBeNull();
+    rememberPlace('w1', '/app/w1/lists/l1');
+    expect(rememberedTarget('w1')).toBeNull();
   });
 });

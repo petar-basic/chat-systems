@@ -20,6 +20,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 - Each workspace remembers the channel, conversation or view you left it on, and switching back
   opens it there. The app also starts in the workspace and place you were last in.
+- The first switch to another workspace after the app starts shows its channels and messages at
+  once: once the current workspace is ready, the app loads up to ten others in the background.
 
 ### Fixed
 

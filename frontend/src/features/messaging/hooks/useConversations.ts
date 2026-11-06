@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { components } from '@/api/schema';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { logger } from '@/lib/logger';
@@ -7,20 +7,23 @@ import { QUERY_KEYS } from '@/shared/constants';
 
 export type Conversation = components['schemas']['ConversationSummary'];
 
-export const useConversations = (workspaceId: string | null, instanceUrl?: string) => {
-  return useQuery({
-    queryKey: QUERY_KEYS.conversations(workspaceId ?? ''),
+export const conversationsQuery = (workspaceId: string, instanceUrl?: string) =>
+  queryOptions({
+    queryKey: QUERY_KEYS.conversations(workspaceId),
     queryFn: async () => {
-      if (!workspaceId) throw new Error('No workspace selected');
       const res = await getApiForInstance(instanceUrl).typed((c) =>
         c.GET('/workspaces/{ws_id}/conversations', { params: { path: { ws_id: workspaceId } } }),
       );
       return [...res.data].sort((a, b) => b.last_message_at.localeCompare(a.last_message_at));
     },
-    enabled: !!workspaceId && !!instanceUrl,
     staleTime: 1000 * 60,
   });
-};
+
+export const useConversations = (workspaceId: string | null, instanceUrl?: string) =>
+  useQuery({
+    ...conversationsQuery(workspaceId ?? '', instanceUrl),
+    enabled: !!workspaceId && !!instanceUrl,
+  });
 
 export const useOpenConversation = (workspaceId: string, instanceUrl?: string) => {
   const queryClient = useQueryClient();
