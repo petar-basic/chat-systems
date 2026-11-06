@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/shared/components/Button/Button';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { TextArea } from '@/shared/components/Form/TextArea';
@@ -17,6 +18,7 @@ import { ProfilePhotoField } from './ProfilePhotoField';
 type Account = components['schemas']['UserPublic'];
 
 export default function AccountPanel() {
+  const { t } = useTranslation('profile');
   const queryClient = useQueryClient();
   const instanceUrl = useInstanceStore((s) => s.activeInstanceUrl) ?? undefined;
   const updateInstanceUser = useInstanceStore((s) => s.updateInstanceUser);
@@ -59,7 +61,7 @@ export default function AccountPanel() {
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
     if (!displayName.trim()) {
-      setError('Enter a display name.');
+      setError(t('account.nameMissing'));
       return;
     }
     setSaving(true);
@@ -77,9 +79,9 @@ export default function AccountPanel() {
         }),
       );
       await applyAccount(updated);
-      toast.success('Account saved.');
+      toast.success(t('account.saved'));
     } catch (err) {
-      setError(toUserMessage(err, 'Could not save your account.'));
+      setError(toUserMessage(err, t('account.saveFailed')));
     } finally {
       setSaving(false);
     }
@@ -94,9 +96,9 @@ export default function AccountPanel() {
       const updated = await getApiForInstance(instanceUrl).upload<Account>('/users/me/avatar', formData);
       setAvatarUrl(updated.avatar_url ?? '');
       await applyAccount(updated);
-      toast.success('Photo updated.');
+      toast.success(t('account.photoUpdated'));
     } catch (err) {
-      setError(toUserMessage(err, 'Could not upload that photo.'));
+      setError(toUserMessage(err, t('account.uploadFailed')));
     } finally {
       setUploading(false);
     }
@@ -104,13 +106,11 @@ export default function AccountPanel() {
 
   return (
     <form onSubmit={(e) => void handleSave(e)} data-qa="account-panel">
-      <p className="mb-4 text-sm text-muted">
-        Your name, title, pronouns, photo and bio in every workspace where you have not set your own.
-      </p>
+      <p className="mb-4 text-sm text-muted">{t('account.intro')}</p>
       <div className="grid gap-6 sm:grid-cols-[1fr_auto]">
         <div className="space-y-5">
           <TextInput
-            label="Display name"
+            label={t('account.displayName')}
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             maxLength={100}
@@ -120,27 +120,27 @@ export default function AccountPanel() {
           />
           <div className="grid gap-5 sm:grid-cols-[1fr_10rem]">
             <TextInput
-              label="Title"
+              label={t('account.title')}
               optional
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="What you do, e.g. Head of Finance"
+              placeholder={t('account.titlePlaceholder')}
               maxLength={100}
               autoComplete="organization-title"
               dataQa="account-title"
             />
             <TextInput
-              label="Pronouns"
+              label={t('account.pronouns')}
               optional
               value={pronouns}
               onChange={(e) => setPronouns(e.target.value)}
-              placeholder="e.g. they/them"
+              placeholder={t('account.pronounsPlaceholder')}
               maxLength={30}
               dataQa="account-pronouns"
             />
           </div>
           <TextArea
-            label="Bio"
+            label={t('account.bio')}
             optional
             rows={4}
             value={bio}
@@ -161,7 +161,7 @@ export default function AccountPanel() {
             disabled={!loaded || uploading}
             data-qa="account-save"
           >
-            Save account
+            {t('account.save')}
           </Button>
         </div>
         <ProfilePhotoField
@@ -169,7 +169,7 @@ export default function AccountPanel() {
           name={displayNameOf(displayName || user?.email)}
           shown={avatarUrl || null}
           uploading={uploading}
-          resetLabel={avatarUrl ? 'Remove photo' : null}
+          resetLabel={avatarUrl ? t('account.removePhoto') : null}
           qaPrefix="account"
           onFile={(file) => void handlePhoto(file)}
           onReset={() => setAvatarUrl('')}

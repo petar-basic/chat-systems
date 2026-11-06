@@ -1,11 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import i18n from '@/lib/i18n';
 import AccountPanel from './AccountPanel';
 
 const patch = vi.fn();
 const upload = vi.fn();
 const updateInstanceUser = vi.fn();
+const account = vi.hoisted(() => ({
+  current: { display_name: 'Alice', title: '', bio: null as string | null, avatar_url: null },
+}));
 
 vi.mock('@/shared/hooks/useCurrentApi', async () => {
   const { typedApiMock } = await import('@/test/typedApiMock');
@@ -20,7 +24,7 @@ vi.mock('@/features/instance/hooks/useAuth', () => ({
   useCurrentUser: () => ({ data: { id: 'user-1', email: 'alice@dev.local', display_name: 'Alice' } }),
 }));
 vi.mock('@/features/profile/hooks/useProfile', () => ({
-  useAccount: () => ({ data: { display_name: 'Alice', bio: null, avatar_url: null } }),
+  useAccount: () => ({ data: account.current }),
 }));
 vi.mock('@/stores/instances', () => ({
   useInstanceStore: (select: (state: unknown) => unknown) =>
@@ -41,6 +45,25 @@ describe('AccountPanel', () => {
     patch.mockReset().mockResolvedValue({ display_name: 'Alice Jones', avatar_url: null, bio: 'Hi' });
     updateInstanceUser.mockReset();
     upload.mockReset();
+  });
+
+  afterEach(async () => {
+    account.current = { display_name: 'Alice', title: '', bio: null, avatar_url: null };
+    await i18n.changeLanguage('en');
+  });
+
+  it('in Japanese shows the name and title as they were written', async () => {
+    const hostile = '<img src=x onerror="alert(1)"> {{name}}';
+    account.current = { display_name: hostile, title: hostile, bio: hostile, avatar_url: null };
+    await i18n.changeLanguage('ja');
+    renderPanel();
+
+    expect(screen.getByRole('textbox', { name: '表示名' })).toHaveValue(hostile);
+    expect(screen.getByRole('textbox', { name: /^肩書き/ })).toHaveValue(hostile);
+    expect(screen.getByRole('textbox', { name: /^自己紹介/ })).toHaveValue(hostile);
+    expect(screen.getByText('プロフィール写真')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'アカウントを保存' })).toBeInTheDocument();
+    expect(document.querySelector('img')).toBeNull();
   });
 
   it('puts a new photo on the account itself, not in the open workspace', async () => {

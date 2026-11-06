@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import i18n from '@/lib/i18n';
 import TwoFactorPanel from './TwoFactorPanel';
 
 const get = vi.fn();
@@ -30,6 +31,30 @@ describe('TwoFactorPanel', () => {
   beforeEach(() => {
     get.mockReset();
     post.mockReset();
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('counts the recovery codes left, one or many', async () => {
+    get.mockResolvedValue({ enrolled: true, recovery_codes_remaining: 1, required: false });
+    renderPanel();
+    expect(await screen.findByText('On. 1 recovery code left.')).toBeInTheDocument();
+  });
+
+  it('says how many recovery codes are left when there are several', async () => {
+    get.mockResolvedValue({ enrolled: true, recovery_codes_remaining: 3, required: false });
+    renderPanel();
+    expect(await screen.findByText('On. 3 recovery codes left.')).toBeInTheDocument();
+  });
+
+  it('in Japanese counts the recovery codes left', async () => {
+    get.mockResolvedValue({ enrolled: true, recovery_codes_remaining: 1, required: false });
+    await i18n.changeLanguage('ja');
+    renderPanel();
+    expect(await screen.findByText('オン。リカバリーコードは残り 1 個です。')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '2段階認証' })).toBeInTheDocument();
   });
 
   it('does not treat an unfinished enrolment as protection', async () => {

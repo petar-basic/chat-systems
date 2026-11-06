@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Fingerprint, Pencil, Trash2 } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -19,6 +20,7 @@ function proofOf(value: string) {
 }
 
 export default function PasskeysPanel() {
+  const { t } = useTranslation('profile');
   const queryClient = useQueryClient();
   const [pending, setPending] = useState<Pending | null>(null);
   const [proof, setProof] = useState('');
@@ -54,7 +56,7 @@ export default function PasskeysPanel() {
     onSuccess: () => {
       close();
       setName(deviceName());
-      toast.success('Passkey added.');
+      toast.success(t('passkeys.added'));
       void refresh();
     },
     onError: failed,
@@ -67,7 +69,7 @@ export default function PasskeysPanel() {
       ),
     onSuccess: () => {
       close();
-      toast.success('Passkey removed.');
+      toast.success(t('passkeys.removed'));
       void refresh();
     },
     onError: failed,
@@ -91,9 +93,7 @@ export default function PasskeysPanel() {
     return (
       <div data-qa="passkeys" className="mt-8">
         <PanelHeading />
-        <p className="text-xs text-muted mt-1">
-          Your account signs in through single sign-on, so your identity provider is where a passkey belongs.
-        </p>
+        <p className="text-xs text-muted mt-1">{t('passkeys.sso')}</p>
       </div>
     );
   }
@@ -107,15 +107,11 @@ export default function PasskeysPanel() {
       <div className="flex items-start justify-between gap-4 mb-3">
         <div>
           <PanelHeading />
-          <p className="text-xs text-muted mt-1">
-            {inDesktop
-              ? 'Add a passkey from the browser. The ones you have are listed here.'
-              : 'Sign in with your fingerprint, face or device PIN instead of a password and code.'}
-          </p>
+          <p className="text-xs text-muted mt-1">{inDesktop ? t('passkeys.desktop') : t('passkeys.intro')}</p>
         </div>
         {canAdd && !pending && (
           <Button variant="primary" onClick={() => setPending({ kind: 'add' })} data-qa="passkey-add">
-            Add a passkey
+            {t('passkeys.add')}
           </Button>
         )}
       </div>
@@ -130,12 +126,12 @@ export default function PasskeysPanel() {
         <div className="space-y-3 mb-4 rounded-lg border border-line p-3" data-qa="passkey-confirm">
           <p className="text-xs text-muted">
             {pending.kind === 'add'
-              ? 'Confirm it is you with your password or a code from your authenticator app.'
-              : `Removing “${pending.name}”. Confirm with your password or a code from your authenticator app.`}
+              ? t('passkeys.confirmAdd')
+              : t('passkeys.confirmRemove', { name: pending.name })}
           </p>
           {pending.kind === 'add' && (
             <TextInput
-              label="Name"
+              label={t('passkeys.name')}
               value={name}
               onChange={(e) => setName(e.target.value)}
               maxLength={64}
@@ -143,7 +139,7 @@ export default function PasskeysPanel() {
             />
           )}
           <TextInput
-            label="Password or code"
+            label={t('passkeys.proof')}
             type="password"
             autoComplete="current-password"
             value={proof}
@@ -158,10 +154,10 @@ export default function PasskeysPanel() {
               loading={busy}
               data-qa="passkey-confirm-submit"
             >
-              {pending.kind === 'add' ? 'Continue' : 'Remove'}
+              {pending.kind === 'add' ? t('passkeys.continue') : t('passkeys.remove')}
             </Button>
             <Button variant="ghost" onClick={close}>
-              Cancel
+              {t('passkeys.cancel')}
             </Button>
           </div>
         </div>
@@ -169,7 +165,7 @@ export default function PasskeysPanel() {
 
       {data.data.length === 0 ? (
         <p className="text-sm text-muted" data-qa="passkeys-empty">
-          No passkeys yet.
+          {t('passkeys.none')}
         </p>
       ) : (
         <ul className="divide-y divide-line rounded-lg border border-line" data-qa="passkey-list">
@@ -178,7 +174,7 @@ export default function PasskeysPanel() {
               {renaming?.id === passkey.id ? (
                 <div className="flex flex-1 gap-2">
                   <TextInput
-                    label="Passkey name"
+                    label={t('passkeys.rename')}
                     labelHidden
                     value={renaming.name}
                     onChange={(e) => setRenaming({ id: passkey.id, name: e.target.value })}
@@ -193,10 +189,10 @@ export default function PasskeysPanel() {
                     disabled={rename.isPending || !renaming.name.trim()}
                     data-qa="passkey-rename-save"
                   >
-                    Save
+                    {t('passkeys.save')}
                   </Button>
                   <Button variant="ghost" onClick={() => setRenaming(null)}>
-                    Cancel
+                    {t('passkeys.cancel')}
                   </Button>
                 </div>
               ) : (
@@ -204,17 +200,19 @@ export default function PasskeysPanel() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm text-fg">{passkey.name}</p>
                     <p className="text-xs text-muted">
-                      Added {formatDateTime(passkey.created_at)} ·{' '}
                       {passkey.last_used_at
-                        ? `last used ${formatDateTime(passkey.last_used_at)}`
-                        : 'never used'}
+                        ? t('passkeys.used', {
+                            added: formatDateTime(passkey.created_at),
+                            used: formatDateTime(passkey.last_used_at),
+                          })
+                        : t('passkeys.neverUsed', { added: formatDateTime(passkey.created_at) })}
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setRenaming({ id: passkey.id, name: passkey.name })}
-                    aria-label={`Rename ${passkey.name}`}
-                    data-tooltip={`Rename ${passkey.name}`}
+                    aria-label={t('passkeys.renameNamed', { name: passkey.name })}
+                    data-tooltip={t('passkeys.renameNamed', { name: passkey.name })}
                     className="p-2 text-muted hover:text-fg transition cursor-pointer"
                   >
                     <Pencil className="w-4 h-4" />
@@ -225,8 +223,8 @@ export default function PasskeysPanel() {
                       setError(null);
                       setPending({ kind: 'remove', id: passkey.id, name: passkey.name });
                     }}
-                    aria-label={`Remove ${passkey.name}`}
-                    data-tooltip={`Remove ${passkey.name}`}
+                    aria-label={t('passkeys.removeNamed', { name: passkey.name })}
+                    data-tooltip={t('passkeys.removeNamed', { name: passkey.name })}
                     data-qa="passkey-remove"
                     className="p-2 text-muted hover:text-danger transition cursor-pointer"
                   >
@@ -243,10 +241,11 @@ export default function PasskeysPanel() {
 }
 
 function PanelHeading() {
+  const { t } = useTranslation('profile');
   return (
     <h3 className="text-sm font-medium text-fg flex items-center gap-2">
       <Fingerprint className="w-4 h-4 text-accent" />
-      Passkeys
+      {t('passkeys.title')}
     </h3>
   );
 }
