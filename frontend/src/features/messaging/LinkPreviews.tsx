@@ -6,6 +6,7 @@ import { AppIcon } from '@/shared/components/AppIcon/AppIcon';
 import { embedSrc } from '@/lib/videoEmbed';
 import { CollapsedPreview } from './CollapsedPreview';
 import { DAY_AND_TIME, formatClock } from '@/lib/datetime';
+import { CachedImage } from '@/shared/components/Image/CachedImage';
 
 type Unfurl = components['schemas']['Unfurl'];
 type UnfurlField = components['schemas']['UnfurlField'];
@@ -113,10 +114,9 @@ function AppCard({
       )}
       {image && (
         <a href={unfurl.url} target="_blank" rel="noopener noreferrer nofollow" className="mt-2 block">
-          <img
+          <CachedImage
             src={image}
             alt=""
-            loading="lazy"
             referrerPolicy="no-referrer"
             onError={() => setImageFailed(true)}
             data-qa="app-preview-image"
@@ -208,10 +208,9 @@ function VideoCard({ unfurl, onHide }: { unfurl: Unfurl; onHide?: () => void }) 
             className="relative mt-1 block aspect-video w-full overflow-hidden rounded-md border border-line/60 bg-black"
           >
             {image && (
-              <img
+              <CachedImage
                 src={image}
                 alt=""
-                loading="lazy"
                 referrerPolicy="no-referrer"
                 onError={() => setImageFailed(true)}
                 className="h-full w-full object-cover"
@@ -260,10 +259,9 @@ function LinkPreviewCard({ unfurl, onHide }: { unfurl: Unfurl; onHide?: () => vo
         {unfurl.description && <p className="text-xs text-muted line-clamp-2">{unfurl.description}</p>}
       </div>
       {image && (
-        <img
+        <CachedImage
           src={image}
           alt=""
-          loading="lazy"
           referrerPolicy="no-referrer"
           className="h-16 w-16 shrink-0 rounded-md border border-line/60 object-cover"
         />
