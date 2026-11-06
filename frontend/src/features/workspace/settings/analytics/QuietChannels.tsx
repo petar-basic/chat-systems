@@ -90,7 +90,7 @@ export function QuietChannels({ workspaceId, instanceUrl }: Props) {
         onRetry={() => void quiet.refetch()}
         isEmpty={channels.length === 0}
         empty={
-          <p className="rounded-lg border border-dashed border-line py-8 text-center text-sm text-muted">
+          <p className="rounded-lg border border-dashed border-line px-4 py-8 text-center text-sm text-muted">
             Every channel has had a message in the last {days} days.
           </p>
         }

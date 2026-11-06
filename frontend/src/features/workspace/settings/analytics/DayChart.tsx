@@ -41,7 +41,7 @@ export function DayChart({ title, days, series, ceiling, qa }: Props) {
         )}
       </figcaption>
       {busiest === 0 ? (
-        <p className="rounded-lg border border-dashed border-line py-8 text-center text-sm text-muted">
+        <p className="rounded-lg border border-dashed border-line px-4 py-8 text-center text-sm text-muted">
           Nothing in these days yet.
         </p>
       ) : (
