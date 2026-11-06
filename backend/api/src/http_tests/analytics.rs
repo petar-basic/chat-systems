@@ -550,7 +550,7 @@ async fn a_channel_admin_sees_their_own_channel_and_no_other(pool: PgPool) {
     team.state
         .workspace_service
         .repo
-        .add_channel_member(team.public, member.0, &ChannelRole::Admin)
+        .update_channel_member_role(team.public, member.0, &ChannelRole::Admin)
         .await
         .expect("make channel admin");
     post(&team.app, owner_token, team.public, "hello").await;
