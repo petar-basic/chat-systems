@@ -249,6 +249,7 @@ export function ListView({
             <button
               onClick={() => onOpenChannel(channel.id)}
               aria-label={`Open ${channel.name}`}
+              title={`Open ${channel.name}`}
               data-qa="list-channel"
               className="max-sm:hidden shrink-0 flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs text-muted hover:text-fg hover:bg-raised/50 cursor-pointer"
             >

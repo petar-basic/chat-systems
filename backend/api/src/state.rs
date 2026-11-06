@@ -46,6 +46,7 @@ pub struct AppState {
     pub passkey_repo: crate::auth::passkey_repo::PasskeyRepo,
     pub email_code_repo: crate::auth::email_code_repo::EmailCodeRepo,
     pub instance_settings_repo: crate::admin::settings_repo::InstanceSettingsRepo,
+    pub analytics_repo: crate::analytics::repo::AnalyticsRepo,
     pub scim_repo: crate::scim::repo::ScimRepo,
     pub setup_repo: crate::setup::repo::SetupRepo,
     pub push_repo: crate::push::repo::PushRepo,

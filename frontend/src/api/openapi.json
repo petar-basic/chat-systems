@@ -1721,6 +1721,36 @@
         }
       }
     },
+    "/channels/{ch_id}/analytics": {
+      "get": {
+        "tags": [
+          "analytics"
+        ],
+        "operationId": "channel_analytics",
+        "parameters": [
+          {
+            "name": "ch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelAnalytics"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/channels/{ch_id}/bookmarks": {
       "get": {
         "tags": [
@@ -6169,6 +6199,226 @@
         }
       }
     },
+    "/workspaces/{ws_id}/analytics": {
+      "get": {
+        "tags": [
+          "analytics"
+        ],
+        "operationId": "workspace_analytics",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "guests",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceAnalytics"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/analytics/channels": {
+      "get": {
+        "tags": [
+          "analytics"
+        ],
+        "operationId": "channel_list_analytics",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "guests",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_ChannelActivity"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/analytics/members": {
+      "get": {
+        "tags": [
+          "analytics"
+        ],
+        "operationId": "member_analytics",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "guests",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_MemberActivity"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/analytics/quiet-channels": {
+      "get": {
+        "tags": [
+          "analytics"
+        ],
+        "operationId": "quiet_channels",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_QuietChannel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/analytics/quiet-channels/archive": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "operationId": "archive_quiet_channels",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArchiveChannelsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchivedChannels"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workspaces/{ws_id}/app-directory": {
       "get": {
         "tags": [
@@ -9964,6 +10214,36 @@
           }
         }
       },
+      "ArchiveChannelsRequest": {
+        "type": "object",
+        "required": [
+          "channel_ids"
+        ],
+        "properties": {
+          "channel_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "ArchivedChannels": {
+        "type": "object",
+        "required": [
+          "archived"
+        ],
+        "properties": {
+          "archived": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
       "Attachment": {
         "type": "object",
         "required": [
@@ -10450,6 +10730,95 @@
           "workspace_id": {
             "type": "string",
             "format": "uuid"
+          }
+        }
+      },
+      "ChannelActivity": {
+        "type": "object",
+        "required": [
+          "channel_id",
+          "channel_type",
+          "is_archived",
+          "created_at",
+          "members",
+          "guests",
+          "messages",
+          "posters",
+          "viewers",
+          "reactions"
+        ],
+        "properties": {
+          "channel_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "channel_type": {
+            "$ref": "#/components/schemas/ChannelType"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "guests": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "is_archived": {
+            "type": "boolean"
+          },
+          "last_message_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "members": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "messages": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "posters": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "reactions": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "viewers": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "ChannelAnalytics": {
+        "type": "object",
+        "required": [
+          "from",
+          "to",
+          "channel"
+        ],
+        "properties": {
+          "channel": {
+            "$ref": "#/components/schemas/ChannelActivity"
+          },
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
           }
         }
       },
@@ -11321,6 +11690,7 @@
           "workspace_id",
           "kind",
           "last_message_at",
+          "unread_count",
           "participant_ids",
           "departed",
           "effective_notify_level"
@@ -11346,13 +11716,6 @@
             "type": "string",
             "format": "date-time"
           },
-          "last_read_at": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          },
           "notify_level": {
             "oneOf": [
               {
@@ -11369,6 +11732,10 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          "unread_count": {
+            "type": "integer",
+            "format": "int32"
           },
           "workspace_id": {
             "type": "string",
@@ -11857,6 +12224,58 @@
           }
         ]
       },
+      "DailyActivity": {
+        "type": "object",
+        "required": [
+          "day",
+          "members",
+          "active_members",
+          "joined",
+          "public_messages",
+          "private_messages",
+          "direct_messages",
+          "files",
+          "reactions"
+        ],
+        "properties": {
+          "active_members": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "day": {
+            "type": "string",
+            "format": "date"
+          },
+          "direct_messages": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "files": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "joined": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "members": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "private_messages": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "public_messages": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "reactions": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
       "DataItem_ImportRun": {
         "type": "object",
         "required": [
@@ -12314,6 +12733,85 @@
           }
         }
       },
+      "DataList_ChannelActivity": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "channel_id",
+                "channel_type",
+                "is_archived",
+                "created_at",
+                "members",
+                "guests",
+                "messages",
+                "posters",
+                "viewers",
+                "reactions"
+              ],
+              "properties": {
+                "channel_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "channel_type": {
+                  "$ref": "#/components/schemas/ChannelType"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "guests": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "is_archived": {
+                  "type": "boolean"
+                },
+                "last_message_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "members": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "messages": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "posters": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "reactions": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "viewers": {
+                  "type": "integer",
+                  "format": "int64"
+                }
+              }
+            }
+          }
+        }
+      },
       "DataList_ChannelBookmark": {
         "type": "object",
         "required": [
@@ -12558,6 +13056,7 @@
                 "workspace_id",
                 "kind",
                 "last_message_at",
+                "unread_count",
                 "participant_ids",
                 "departed",
                 "effective_notify_level"
@@ -12583,13 +13082,6 @@
                   "type": "string",
                   "format": "date-time"
                 },
-                "last_read_at": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
-                  "format": "date-time"
-                },
                 "notify_level": {
                   "oneOf": [
                     {
@@ -12606,6 +13098,10 @@
                     "type": "string",
                     "format": "uuid"
                   }
+                },
+                "unread_count": {
+                  "type": "integer",
+                  "format": "int32"
                 },
                 "workspace_id": {
                   "type": "string",
@@ -13365,6 +13861,50 @@
           }
         }
       },
+      "DataList_MemberActivity": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "user_id",
+                "role",
+                "days_active",
+                "messages"
+              ],
+              "properties": {
+                "days_active": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "last_active": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date"
+                },
+                "messages": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "role": {
+                  "$ref": "#/components/schemas/WorkspaceRole"
+                },
+                "user_id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          }
+        }
+      },
       "DataList_MemberWithUser": {
         "type": "object",
         "required": [
@@ -13740,6 +14280,56 @@
                   "format": "date-time"
                 },
                 "user_agent": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "DataList_QuietChannel": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "channel_id",
+                "channel_type",
+                "members",
+                "created_at"
+              ],
+              "properties": {
+                "channel_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "channel_type": {
+                  "$ref": "#/components/schemas/ChannelType"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "last_message_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "members": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "name": {
                   "type": [
                     "string",
                     "null"
@@ -16218,6 +16808,39 @@
           }
         }
       },
+      "MemberActivity": {
+        "type": "object",
+        "required": [
+          "user_id",
+          "role",
+          "days_active",
+          "messages"
+        ],
+        "properties": {
+          "days_active": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "last_active": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "messages": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "role": {
+            "$ref": "#/components/schemas/WorkspaceRole"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
       "MemberRequest": {
         "type": "object",
         "required": [
@@ -17247,6 +17870,45 @@
             "format": "date-time"
           },
           "user_agent": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "QuietChannel": {
+        "type": "object",
+        "required": [
+          "channel_id",
+          "channel_type",
+          "members",
+          "created_at"
+        ],
+        "properties": {
+          "channel_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "channel_type": {
+            "$ref": "#/components/schemas/ChannelType"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_message_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "members": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
             "type": [
               "string",
               "null"
@@ -19887,6 +20549,23 @@
           "sun"
         ]
       },
+      "WeeklyActivity": {
+        "type": "object",
+        "required": [
+          "week",
+          "active_members"
+        ],
+        "properties": {
+          "active_members": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "week": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
       "WhoMay": {
         "type": "string",
         "enum": [
@@ -20079,6 +20758,47 @@
           "updated_at": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "WorkspaceAnalytics": {
+        "type": "object",
+        "required": [
+          "from",
+          "to",
+          "members",
+          "active_members",
+          "daily",
+          "weekly"
+        ],
+        "properties": {
+          "active_members": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "daily": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DailyActivity"
+            }
+          },
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "members": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "weekly": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WeeklyActivity"
+            }
           }
         }
       },

@@ -2619,3 +2619,29 @@ not cost it. A passkey after the code takes the code in place of the password. A
 the same for every address, and a pending or SSO account gets its invitation or an SSO
 reminder instead of a code. The switch is the first row of a new `instance_settings` table,
 not an environment variable, because the ticket wanted the instance admin to turn it off.
+
+## Wave 32 — What an admin can see ✅ shipped
+
+### [CS-120] Workspace analytics ✅ shipped
+The ticket had a table of daily workspace totals beside the member rows; there is only
+`member_daily_activity`, one row per member per UTC day they were active, and a day's totals
+are sums of it, so leaving guests out works for messages too and nothing has to agree with
+anything else. The `analytics` consumer group in `chat-worker` counts from the workspace
+stream, which delivers at least once, so the event's id goes into `analytics_counted_events`
+in the same statement as the increment and a second delivery adds nothing. To make reading a
+conversation count, `channel.read_state` became a durable event. `analytics_backfill.counted_from`
+splits the history: the backfill counts what came before it once, under `SKIP LOCKED` so two
+workers cannot both do it, and the consumer what came after. System messages, bots and webhooks
+are left out, so the numbers are about people.
+
+### [CS-121] Channel analytics and quiet channels ✅ shipped
+`channel_member_activity` is written in the same statement as the member row, by chained
+data-modifying CTEs, which is what lets the test check that the channels add up to the
+workspace. Migration 97 emptied the rollup and moved `counted_from` so the backfill counts both
+tables from the start; 4.4.0 was not out yet, so nobody lost numbers. A quiet channel is one
+with no message from a person in the period: at first a join or an archive notice counted, and
+archiving a channel and bringing it back took it off the list. Archiving a selection checks
+every id before archiving any, then archives each through the same function as *Channel
+settings*, so each has its audit row and system message. The table took the columns of Slack's
+*Channels* tab when it was reviewed against it, *Viewed* among them; Slack has no list of
+quiet channels, only an Enterprise API that archives up to a hundred at once.

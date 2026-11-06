@@ -224,8 +224,9 @@ sits in the ⋯ menu for everyone in the channel; below `sm` the toggles fold in
 ### `channel/details/ChannelDetailsModal`
 A `SectionedModal` with *About* (name, topic, description and archive for a moderator, the
 topic and description as text for everyone else), *Settings* (announcement channel, whether
-`@channel`, `@here` and `@everyone` work there, and message retention, moderators only) and
-*Integrations*. *Integrations* reads
+`@channel`, `@here` and `@everyone` work there, and message retention, moderators only), *Activity* (moderators only:
+`GET /channels/:id/analytics`, the messages, the members who posted and viewed in the last 30
+days, and the last message's day) and *Integrations*. *Integrations* reads
 `GET /channels/:id/integrations`: the incoming webhooks bound to the channel, the outgoing
 webhooks and slash commands scoped to it, and the workflows that start from it or post into
 it. When the server says `can_add_webhook`, the viewer adds an incoming webhook, makes a new
@@ -290,6 +291,8 @@ line up everywhere:
   must look like a button uses `buttonStyles()` from the same folder.
 - **`IconButton`** — a 28 or 32 px target around a 16 px icon; `label` is required and becomes
   the accessible name and the tooltip; `pressed` for toggles; `tone="inverse"` on dark overlays.
+  Lint refuses a `<button>` with an `aria-label` and no `title`, so a label is always shown on
+  hover too, except on a `HoverCard` trigger, which has a tooltip of its own.
 - **`Spinner`** — `sm` · `md` · `lg`, in the current text colour.
 - **`PanelHeader`** — every right panel's 56 px header: icon, title, optional badge and
   actions, and a close button labelled *Close {title}*.
@@ -514,13 +517,29 @@ Shows members of the current channel with add/remove actions.
 ### `workspace/settings/WorkspaceSettingsModal`
 Everything about the workspace in one `SectionedModal`, opened from the workspace menu's
 *Workspace settings* (or *Invite people*, which opens *Members* with the invite form). An admin
-sees *General*, *Members*, *User groups*, *Custom emoji*, *Apps*, *Integrations*, *Slack
-import* and *Audit log*; a member sees the four they can use (`sections.ts`). *Slack import*
+sees *General*, *Members*, *User groups*, *Custom emoji*, *Apps*, *Integrations*, *Analytics*,
+*Exports*, *Slack import* and *Audit log*; a member sees the four they can use (`sections.ts`). *Slack import*
 lists the last runs with their counts (guests, people who left Slack and archived channels
 among them) and *Start again* under a failed run whose export is still stored
 (`retryable`), which calls `POST /workspaces/{id}/slack-imports/{run}/retry`. Each section is
 the former right panel's content (`MembersSection`, `IntegrationsSection`, …). `?settings=<section>`
 in the address opens it at that section and is then removed (`useSettingsDialog`).
+
+*Analytics* (`AnalyticsSection`) reads GET `/workspaces/{id}/analytics` and
+`/analytics/members` for the last 7, 30 or 90 days, with or without guests. Four totals sit
+above two charts drawn as plain SVG by `analytics/DayChart` (active members per day against
+the member count, then messages per day stacked by public, private and direct), with active
+members per week between them; an empty window says so instead of drawing. `MemberTable`
+sorts by any column, with `aria-sort` on the header, and takes names from the members the
+modal already holds. *Export CSV* above each table writes it with `lib/csv`, which quotes
+commas, quotes and line breaks and keeps a cell that starts like a formula as text. Tabs split
+it into *Overview* (the above), *Channels* and *Quiet channels*. *Channels* reads
+`/analytics/channels` for the same period into `ChannelTable`, which like `MemberTable` is an
+`analytics/SortableTable` (the first column stays put while it scrolls sideways); its *Guests*
+column is there only while guests are counted. *Quiet channels* (`QuietChannels`) lists the channels with no
+message in 30, 60, 90 or 180 days, each with a checkbox and *Archive*; one `ConfirmDialog`
+asks for one channel or for the selection, lists the selection, and keeps a refusal on screen.
+`useArchiveQuietChannels` posts the ids and runs `applyChannelArchived` for each one archived.
 
 *General* saves as you change it, like *Preferences*: a name or description when the field is
 left, the icon on upload (`POST /workspaces/{id}/icon`, which stores and sets it), the switches at once, each PATCH carrying only that field; a status
@@ -655,7 +674,9 @@ not (`lib/pause.ts` decides which); it names the workspace it pauses (*Pause not
 Acme*, *Resume notifications in Acme*). The pause, the schedule and the email switch are the
 current workspace's; *Preferences → Notifications* says which workspace that is. The profile
 hover card shows a member's pause in that workspace from `notifications_paused_until` in the
-member list.
+member list. `usePause` gives the pause in force and renders again when it runs out; the bell
+beside the *You* menu uses it to turn into `BellOff`, accented, titled *Notifications paused
+until 14:30* (or *paused by your schedule*), and back.
 
 ### `notifications/KeywordsPanel`
 *My keywords* in *Preferences → Notifications*: a field that adds a chip on Enter or a comma,
@@ -810,7 +831,7 @@ Token refresh is **not** a hook — `ApiClient` refreshes automatically on 401 /
 ### Conversations (`features/messaging/hooks/useConversations.ts`)
 | Hook | Call | Description |
 |------|------|-------------|
-| `useConversations(wsId, instanceUrl?)` | GET `/workspaces/{id}/conversations` | Direct and group conversations, newest message first, with participants and the caller's `last_read_at` |
+| `useConversations(wsId, instanceUrl?)` | GET `/workspaces/{id}/conversations` | Direct and group conversations, newest message first, with participants and the caller's `unread_count`, which alone decides whether a conversation shows as unread |
 | `useOpenConversation(wsId, instanceUrl?)` | POST `/workspaces/{id}/conversations` `{ participant_ids }` | Finds or creates one; the result's id is a channel id |
 | `useMarkConversationRead(wsId, instanceUrl?)` | POST `/channels/{id}/read` | Reads the conversation up to its newest loaded message, as a channel |
 

@@ -53,7 +53,7 @@ export const useMarkConversationRead = (workspaceId: string, instanceUrl?: strin
     },
     onMutate: (conversationId) => {
       queryClient.setQueryData<Conversation[]>(QUERY_KEYS.conversations(workspaceId), (old) =>
-        old?.map((c) => (c.id === conversationId ? { ...c, last_read_at: new Date().toISOString() } : c)),
+        old?.map((c) => (c.id === conversationId ? { ...c, unread_count: 0 } : c)),
       );
     },
     onError: (err) => logger.error('useMarkConversationRead', 'mutationFn', err),

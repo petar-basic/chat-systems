@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM analytics_counted_events WHERE counted_at < NOW() - make_interval(days => $1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "005d0dc2e924151b76f10c658b2ff2711e3c94f5a8c182b372bf134ee89ff8ff"
+}

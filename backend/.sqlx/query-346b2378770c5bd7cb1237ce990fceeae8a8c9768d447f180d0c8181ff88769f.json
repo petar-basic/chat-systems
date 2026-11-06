@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE analytics_backfill SET finished_at = NOW()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "346b2378770c5bd7cb1237ce990fceeae8a8c9768d447f180d0c8181ff88769f"
+}

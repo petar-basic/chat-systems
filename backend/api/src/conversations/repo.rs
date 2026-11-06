@@ -38,7 +38,7 @@ struct SummaryRow {
     workspace_id: Uuid,
     channel_type: ChannelType,
     last_message_at: DateTime<Utc>,
-    last_read_at: Option<DateTime<Utc>>,
+    unread_count: i32,
     participant_ids: Vec<Uuid>,
     departed: Json<Vec<DepartedParticipant>>,
     notify_level: Option<NotifyLevel>,
@@ -164,7 +164,7 @@ impl ConversationRepo {
                    c.workspace_id,
                    c.channel_type AS "channel_type: ChannelType",
                    COALESCE((SELECT MAX(m.created_at) FROM messages m WHERE m.channel_id = c.id AND m.deleted_at IS NULL), c.created_at) AS "last_message_at!",
-                   mine.last_read_at,
+                   mine.unread_count,
                    ARRAY(
                        SELECT p.user_id FROM channel_members p
                        WHERE p.channel_id = c.id
@@ -203,7 +203,7 @@ impl ConversationRepo {
                     workspace_id: r.workspace_id,
                     kind: ConversationKind::of(&r.channel_type)?,
                     last_message_at: r.last_message_at,
-                    last_read_at: r.last_read_at,
+                    unread_count: r.unread_count,
                     participant_ids: r.participant_ids,
                     departed: r.departed.0,
                     notify_level: r.notify_level,

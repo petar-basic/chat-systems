@@ -68,6 +68,11 @@ export default defineConfig([
           message: 'Use TextInput, TextArea, Select, Checkbox or RadioCards from shared/components/Form.',
         },
         {
+          selector:
+            "JSXOpeningElement[name.name='button']:has(> JSXAttribute[name.name='aria-label']):not(:has(> JSXAttribute[name.name='title'])):not(JSXElement[openingElement.name.name='HoverCard'] *)",
+          message: 'A labelled button shows its label on hover too: use IconButton, or give it the same title.',
+        },
+        {
           selector: "CallExpression[callee.property.name='click'][callee.object.property.name='current']",
           message:
             'A hidden file input opened with .click() does nothing in an iOS home-screen app; use FilePicker from shared/components/Form.',

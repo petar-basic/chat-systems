@@ -80,6 +80,7 @@ export default function ConversationView({
             <button
               onClick={onOpenNav}
               aria-label="Open navigation"
+              title="Open navigation"
               className="lg:hidden p-1.5 -ml-1 rounded-lg text-muted hover:text-fg hover:bg-raised/50"
             >
               <Menu className="w-5 h-5" />
@@ -88,6 +89,7 @@ export default function ConversationView({
           <button
             onClick={onClose}
             aria-label="Back to channels"
+            title="Back to channels"
             className="text-muted hover:text-fg transition cursor-pointer mr-1"
           >
             <ArrowLeft className="w-4 h-4" />

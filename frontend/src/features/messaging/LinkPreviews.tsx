@@ -203,6 +203,7 @@ function VideoCard({ unfurl, onHide }: { unfurl: Unfurl; onHide?: () => void }) 
               src ? setPlaying(true) : window.open(unfurl.url, '_blank', 'noopener,noreferrer')
             }
             aria-label={`Play ${unfurl.title}`}
+            title={`Play ${unfurl.title}`}
             data-qa="video-play"
             className="relative mt-1 block aspect-video w-full overflow-hidden rounded-md border border-line/60 bg-black"
           >

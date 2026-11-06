@@ -139,6 +139,7 @@ pub fn typed_routes() -> OpenApiRouter<Arc<AppState>> {
         .merge(crate::export::routes::router())
         .merge(crate::push::routes::router())
         .merge(crate::retention::routes::router())
+        .merge(crate::analytics::routes::router())
         .merge(crate::auth::totp_routes::router())
         .merge(crate::auth::passkey_routes::router())
         .merge(crate::slack_import::routes::router())

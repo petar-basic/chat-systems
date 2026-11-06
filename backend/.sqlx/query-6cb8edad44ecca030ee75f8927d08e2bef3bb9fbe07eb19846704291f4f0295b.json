@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO member_daily_activity (workspace_id, user_id, day, reactions)\n               SELECT c.workspace_id, r.user_id, (r.created_at AT TIME ZONE 'UTC')::date, COUNT(*)::int\n                 FROM reactions r\n                 JOIN messages m ON m.id = r.message_id\n                 JOIN channels c ON c.id = m.channel_id\n                 JOIN users u ON u.id = r.user_id\n                WHERE r.created_at < $1 AND NOT u.is_bot\n                GROUP BY 1, 2, 3\n               ON CONFLICT (workspace_id, user_id, day) DO UPDATE SET\n                   reactions = member_daily_activity.reactions + EXCLUDED.reactions",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6cb8edad44ecca030ee75f8927d08e2bef3bb9fbe07eb19846704291f4f0295b"
+}

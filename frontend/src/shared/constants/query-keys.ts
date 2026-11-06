@@ -70,6 +70,14 @@ export const QUERY_KEYS = {
   hookedChannels: (workspaceId: string) => ['hooks', workspaceId, 'channels'] as const,
 
   auditLog: (workspaceId: string) => ['audit-log', workspaceId] as const,
+  analytics: (workspaceId: string, days: number, guests: boolean) =>
+    ['analytics', workspaceId, days, guests] as const,
+  analyticsMembers: (workspaceId: string, days: number, guests: boolean) =>
+    ['analytics', workspaceId, days, guests, 'members'] as const,
+  analyticsChannels: (workspaceId: string, days: number, guests: boolean) =>
+    ['analytics', workspaceId, days, guests, 'channels'] as const,
+  quietChannels: (workspaceId: string, days: number) => ['analytics', workspaceId, 'quiet', days] as const,
+  channelAnalytics: (channelId: string) => ['channels', channelId, 'analytics'] as const,
   retention: (workspaceId: string) => ['retention', workspaceId] as const,
   retentionPreview: (
     workspaceId: string,

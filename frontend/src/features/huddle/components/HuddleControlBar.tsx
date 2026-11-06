@@ -78,6 +78,7 @@ export function HuddleControlBar({ controls, active }: { controls: HuddleControl
       <button
         onClick={controls.leave}
         aria-label="Leave huddle"
+        title="Leave huddle"
         className="p-2.5 rounded-full bg-red-600 text-white hover:bg-red-500 transition"
       >
         <PhoneOff className="w-4 h-4" />

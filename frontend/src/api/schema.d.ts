@@ -771,6 +771,22 @@ export interface paths {
         patch: operations["update_channel"];
         trace?: never;
     };
+    "/channels/{ch_id}/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["channel_analytics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/channels/{ch_id}/bookmarks": {
         parameters: {
             query?: never;
@@ -2269,6 +2285,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{ws_id}/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["workspace_analytics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/analytics/channels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["channel_list_analytics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/analytics/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["member_analytics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/analytics/quiet-channels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["quiet_channels"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/analytics/quiet-channels/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["archive_quiet_channels"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{ws_id}/app-directory": {
         parameters: {
             query?: never;
@@ -3419,6 +3515,12 @@ export interface components {
             app_id: string;
             app_token: string;
         };
+        ArchiveChannelsRequest: {
+            channel_ids: string[];
+        };
+        ArchivedChannels: {
+            archived: string[];
+        };
         Attachment: {
             filename: string;
             /** Format: int32 */
@@ -3549,6 +3651,36 @@ export interface components {
             updated_at: string;
             /** Format: uuid */
             workspace_id: string;
+        };
+        ChannelActivity: {
+            /** Format: uuid */
+            channel_id: string;
+            channel_type: components["schemas"]["ChannelType"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: int64 */
+            guests: number;
+            is_archived: boolean;
+            /** Format: date-time */
+            last_message_at?: string | null;
+            /** Format: int64 */
+            members: number;
+            /** Format: int64 */
+            messages: number;
+            name?: string | null;
+            /** Format: int64 */
+            posters: number;
+            /** Format: int64 */
+            reactions: number;
+            /** Format: int64 */
+            viewers: number;
+        };
+        ChannelAnalytics: {
+            channel: components["schemas"]["ChannelActivity"];
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
         };
         ChannelBookmark: {
             /** Format: uuid */
@@ -3786,10 +3918,10 @@ export interface components {
             kind: components["schemas"]["ConversationKind"];
             /** Format: date-time */
             last_message_at: string;
-            /** Format: date-time */
-            last_read_at?: string | null;
             notify_level?: components["schemas"]["NotifyLevel"] | null;
             participant_ids: string[];
+            /** Format: int32 */
+            unread_count: number;
             /** Format: uuid */
             workspace_id: string;
         };
@@ -3912,6 +4044,26 @@ export interface components {
         CreatedInvite: components["schemas"]["WorkspaceInvite"] & {
             email_status?: components["schemas"]["InviteEmailStatus"] | null;
             invite_url?: string | null;
+        };
+        DailyActivity: {
+            /** Format: int64 */
+            active_members: number;
+            /** Format: date */
+            day: string;
+            /** Format: int64 */
+            direct_messages: number;
+            /** Format: int64 */
+            files: number;
+            /** Format: int64 */
+            joined: number;
+            /** Format: int64 */
+            members: number;
+            /** Format: int64 */
+            private_messages: number;
+            /** Format: int64 */
+            public_messages: number;
+            /** Format: int64 */
+            reactions: number;
         };
         DataItem_ImportRun: {
             data: {
@@ -4036,6 +4188,31 @@ export interface components {
                 workspace_id: string;
             }[];
         };
+        DataList_ChannelActivity: {
+            data: {
+                /** Format: uuid */
+                channel_id: string;
+                channel_type: components["schemas"]["ChannelType"];
+                /** Format: date-time */
+                created_at: string;
+                /** Format: int64 */
+                guests: number;
+                is_archived: boolean;
+                /** Format: date-time */
+                last_message_at?: string | null;
+                /** Format: int64 */
+                members: number;
+                /** Format: int64 */
+                messages: number;
+                name?: string | null;
+                /** Format: int64 */
+                posters: number;
+                /** Format: int64 */
+                reactions: number;
+                /** Format: int64 */
+                viewers: number;
+            }[];
+        };
         DataList_ChannelBookmark: {
             data: {
                 /** Format: uuid */
@@ -4102,10 +4279,10 @@ export interface components {
                 kind: components["schemas"]["ConversationKind"];
                 /** Format: date-time */
                 last_message_at: string;
-                /** Format: date-time */
-                last_read_at?: string | null;
                 notify_level?: components["schemas"]["NotifyLevel"] | null;
                 participant_ids: string[];
+                /** Format: int32 */
+                unread_count: number;
                 /** Format: uuid */
                 workspace_id: string;
             }[];
@@ -4323,6 +4500,19 @@ export interface components {
                 updated_at: string;
             }[];
         };
+        DataList_MemberActivity: {
+            data: {
+                /** Format: int64 */
+                days_active: number;
+                /** Format: date */
+                last_active?: string | null;
+                /** Format: int64 */
+                messages: number;
+                role: components["schemas"]["WorkspaceRole"];
+                /** Format: uuid */
+                user_id: string;
+            }[];
+        };
         DataList_MemberWithUser: {
             data: {
                 avatar_url?: string | null;
@@ -4422,6 +4612,20 @@ export interface components {
                 /** Format: date-time */
                 last_used_at?: string | null;
                 user_agent?: string | null;
+            }[];
+        };
+        DataList_QuietChannel: {
+            data: {
+                /** Format: uuid */
+                channel_id: string;
+                channel_type: components["schemas"]["ChannelType"];
+                /** Format: date-time */
+                created_at: string;
+                /** Format: date-time */
+                last_message_at?: string | null;
+                /** Format: int64 */
+                members: number;
+                name?: string | null;
             }[];
         };
         DataList_Reaction: {
@@ -5134,6 +5338,17 @@ export interface components {
             /** Format: uuid */
             message_id: string;
         };
+        MemberActivity: {
+            /** Format: int64 */
+            days_active: number;
+            /** Format: date */
+            last_active?: string | null;
+            /** Format: int64 */
+            messages: number;
+            role: components["schemas"]["WorkspaceRole"];
+            /** Format: uuid */
+            user_id: string;
+        };
         MemberRequest: {
             /** Format: uuid */
             user_id: string;
@@ -5419,6 +5634,18 @@ export interface components {
             /** Format: date-time */
             last_used_at?: string | null;
             user_agent?: string | null;
+        };
+        QuietChannel: {
+            /** Format: uuid */
+            channel_id: string;
+            channel_type: components["schemas"]["ChannelType"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            last_message_at?: string | null;
+            /** Format: int64 */
+            members: number;
+            name?: string | null;
         };
         Reaction: {
             /** Format: date-time */
@@ -6084,6 +6311,12 @@ export interface components {
         };
         /** @enum {string} */
         Weekday: "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+        WeeklyActivity: {
+            /** Format: int64 */
+            active_members: number;
+            /** Format: date */
+            week: string;
+        };
         /** @enum {string} */
         WhoMay: "members" | "admins";
         Workflow: {
@@ -6139,6 +6372,18 @@ export interface components {
             slug: string;
             /** Format: date-time */
             updated_at: string;
+        };
+        WorkspaceAnalytics: {
+            /** Format: int64 */
+            active_members: number;
+            daily: components["schemas"]["DailyActivity"][];
+            /** Format: date */
+            from: string;
+            /** Format: int64 */
+            members: number;
+            /** Format: date */
+            to: string;
+            weekly: components["schemas"]["WeeklyActivity"][];
         };
         WorkspaceInvite: {
             /** Format: date-time */
@@ -7391,6 +7636,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Channel"];
+                };
+            };
+        };
+    };
+    channel_analytics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelAnalytics"];
                 };
             };
         };
@@ -10179,6 +10445,126 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DataList_ActiveHuddle"];
+                };
+            };
+        };
+    };
+    workspace_analytics: {
+        parameters: {
+            query: {
+                days: number;
+                guests?: boolean;
+            };
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceAnalytics"];
+                };
+            };
+        };
+    };
+    channel_list_analytics: {
+        parameters: {
+            query: {
+                days: number;
+                guests?: boolean;
+            };
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_ChannelActivity"];
+                };
+            };
+        };
+    };
+    member_analytics: {
+        parameters: {
+            query: {
+                days: number;
+                guests?: boolean;
+            };
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_MemberActivity"];
+                };
+            };
+        };
+    };
+    quiet_channels: {
+        parameters: {
+            query: {
+                days: number;
+            };
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_QuietChannel"];
+                };
+            };
+        };
+    };
+    archive_quiet_channels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArchiveChannelsRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArchivedChannels"];
                 };
             };
         };

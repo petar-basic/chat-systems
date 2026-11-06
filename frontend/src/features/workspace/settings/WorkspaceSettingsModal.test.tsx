@@ -15,6 +15,7 @@ vi.mock('./SlackImportSection', () => ({ SlackImportSection: () => <p>import bod
 vi.mock('./AuditLogSection', () => ({ AuditLogSection: () => <p>audit body</p> }));
 vi.mock('./RetentionSection', () => ({ RetentionSection: () => <p>retention body</p> }));
 vi.mock('./ExportsSection', () => ({ ExportsSection: () => <p>exports body</p> }));
+vi.mock('./AnalyticsSection', () => ({ AnalyticsSection: () => <p>analytics body</p> }));
 vi.mock('./ScimSection', () => ({ ScimSection: () => <p>scim body</p> }));
 
 const workspace = { id: 'ws-1', name: 'Dev Team', instanceUrl: 'http://localhost:8080' } as Workspace;
@@ -48,6 +49,7 @@ describe('WorkspaceSettingsModal', () => {
       'Custom emoji',
       'Apps',
       'Integrations',
+      'Analytics',
       'Exports',
       'Slack import',
       'Audit log',

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH fresh AS (\n                   INSERT INTO analytics_counted_events (event_id) VALUES ($1)\n                   ON CONFLICT DO NOTHING\n                   RETURNING event_id\n               ),\n               posted AS (\n                   SELECT c.workspace_id, m.channel_id, m.user_id,\n                          (m.created_at AT TIME ZONE 'UTC')::date AS day,\n                          c.channel_type::text AS kind,\n                          (SELECT COUNT(*) FROM files f WHERE f.message_id = m.id)::int AS files\n                     FROM messages m\n                     JOIN channels c ON c.id = m.channel_id\n                     JOIN users u ON u.id = m.user_id\n                    WHERE m.id = $2\n                      AND m.created_at >= (SELECT counted_from FROM analytics_backfill)\n                      AND m.metadata->>'kind' IS NULL\n                      AND NOT (m.metadata ? 'bot')\n                      AND NOT u.is_bot\n                      AND EXISTS (SELECT 1 FROM fresh)\n               ),\n               by_member AS (\n                   INSERT INTO member_daily_activity\n                       (workspace_id, user_id, day, public_messages, private_messages, direct_messages, files)\n                   SELECT workspace_id, user_id, day,\n                          (kind = 'public')::int, (kind = 'private')::int,\n                          (kind IN ('dm', 'group_dm'))::int, files\n                     FROM posted\n                   ON CONFLICT (workspace_id, user_id, day) DO UPDATE SET\n                       public_messages = member_daily_activity.public_messages + EXCLUDED.public_messages,\n                       private_messages = member_daily_activity.private_messages + EXCLUDED.private_messages,\n                       direct_messages = member_daily_activity.direct_messages + EXCLUDED.direct_messages,\n                       files = member_daily_activity.files + EXCLUDED.files\n               )\n               INSERT INTO channel_member_activity (channel_id, user_id, day, messages)\n               SELECT channel_id, user_id, day, 1 FROM posted WHERE kind IN ('public', 'private')\n               ON CONFLICT (channel_id, user_id, day) DO UPDATE SET\n                   messages = channel_member_activity.messages + 1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "70f3f7306d2f094e03ff42983067d890b97cb6772de48b0f56f0a867216e6680"
+}

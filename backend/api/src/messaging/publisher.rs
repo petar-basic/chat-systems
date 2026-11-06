@@ -30,6 +30,7 @@ fn is_durable(event_type: &str) -> bool {
             | "huddle.member_left"
             | "huddle.ring"
             | "channel.member_joined"
+            | "channel.read_state"
             | "channel.created"
             | "channel.updated"
     ) {
@@ -259,8 +260,9 @@ impl EventPublisher {
         workspace_id: Uuid,
         state: &ReadState,
     ) -> AppResult<()> {
-        self.publish(
+        self.publish_scoped(
             "channel.read_state",
+            workspace_id,
             serde_json::json!({
                 "user_id": user_id,
                 "workspace_id": workspace_id,

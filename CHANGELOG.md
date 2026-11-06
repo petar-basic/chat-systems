@@ -14,6 +14,53 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
+## [Unreleased]
+
+### Fixed
+
+- A direct message no longer shows as unread when nothing new came in. The sidebar compared
+  the last message with when the conversation was read, so your own last message or a reply
+  in a thread marked it unread, and *All unreads* counted it while showing nothing. It now
+  uses the same count as *All unreads*.
+- The bell beside your name shows when notifications are paused, by you or by your schedule:
+  it is crossed out, and its tooltip says until when. It turns back on its own when the pause
+  ends.
+- Every button that shows only an icon names itself on hover: the actions over a message
+  (the quick reactions, *Reply in thread*, *Add reaction*, *Save for later*, *More actions*),
+  closing and paging an image, *Insert emoji*, *Show formatting*, *Leave huddle* and the rest.
+
+## [4.4.0] — 2026-11-06
+
+### Upgrading from 4.3.0
+
+- Set `VERSION=4.4.0`, pull both images and restart `api`, `realtime`, `worker` and `frontend`
+  together. There is no new setting.
+- Migration 96 adds the analytics rollup and migration 97 counts it per channel. Neither scans
+  `messages` while it runs: the first `worker` to start after the upgrade counts the history
+  once, in one transaction, and the numbers fill in when it finishes. On a large instance that
+  can take a few minutes; *Analytics* shows what has been counted meanwhile.
+- Who viewed a channel is counted from the upgrade on: the history does not say who read what.
+  Messages, the members who posted and reactions go back to the start.
+- `channel.read_state` is now a durable event, so the workspace streams in Redis carry one more
+  event each time somebody reads a conversation.
+
+### Added
+
+- Workspace analytics. *Workspace settings → Analytics*, for admins, shows the last 7, 30 or 90
+  days: members active each day and each week against the total, who joined, and messages each
+  day in public channels, private channels and direct messages. A table lists every member
+  with the days they were active, the messages they posted and the last day they were active,
+  sorted by any column. A member is active on a day they post, react or read a conversation.
+  Guests can be left out, and each table exports as CSV. Only counts are kept, never what
+  anyone wrote, and the history from before the upgrade is counted once when the worker starts.
+- Channel analytics. *Analytics → Channels* lists every channel with the date it was created,
+  its members and guests, messages, reactions, the members who posted and viewed it in the
+  period and its last message, sortable and exported as CSV. *Quiet channels* lists the
+  channels with no message in 30, 60, 90 or 180 days and archives one or a selection after
+  asking once; each is archived and audited as from
+  *Channel settings*. A channel admin sees their channel's last 30 days in *Channel details →
+  Activity*.
+
 ## [4.3.0] — 2026-11-05
 
 ### Upgrading from 4.2.1

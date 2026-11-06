@@ -96,6 +96,7 @@ function TrayItem({
         type="button"
         onClick={onRemove}
         aria-label={`Remove ${item.name}`}
+        title={`Remove ${item.name}`}
         data-qa="attachment-tray-remove"
         className="absolute right-1 top-1 rounded-full bg-black/70 p-0.5 text-white opacity-80 transition hover:opacity-100"
       >

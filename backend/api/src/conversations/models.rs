@@ -48,7 +48,7 @@ pub struct ConversationSummary {
     pub workspace_id: Uuid,
     pub kind: ConversationKind,
     pub last_message_at: DateTime<Utc>,
-    pub last_read_at: Option<DateTime<Utc>>,
+    pub unread_count: i32,
     pub participant_ids: Vec<Uuid>,
     pub departed: Vec<DepartedParticipant>,
     pub notify_level: Option<NotifyLevel>,

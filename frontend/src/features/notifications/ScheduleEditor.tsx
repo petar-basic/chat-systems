@@ -60,6 +60,7 @@ export function ScheduleEditor() {
                   type="button"
                   aria-pressed={on}
                   aria-label={t(`days.${name}.long`)}
+                  title={t(`days.${name}.long`)}
                   disabled={on && schedule.days.length === 1}
                   onClick={() => toggleDay(day)}
                   data-qa={`schedule-day-${day}`}

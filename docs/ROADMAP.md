@@ -17,10 +17,12 @@ own, and DMs that outlive somebody leaving the workspace.
 Passkeys, in the browser and through the system browser in the desktop app, and a code sent
 by email in place of a password, both with the same second step after a password.
 
-Planned after it on 2026-11-04, one release each:
+**Wave 32 — what an admin can see** shipped in 4.4.0: CS-120 and CS-121, planned on
+2026-11-04. Workspace analytics per day and week, a table of members, the channels with
+Slack's columns, quiet channels to archive at once, and a channel's own numbers for its admin.
 
-- **Wave 32 — what an admin can see**, 4.4.0 (CS-120, CS-121): workspace and channel
-  analytics, and quiet channels to archive.
+Planned after it on 2026-11-04:
+
 - **Wave 33 — mobile apps**, 5.0.0 (CS-122 – CS-126): every route under `/api/v1`, a spike
   for Tauri 2 on iOS and Android, signing in from a bundled client, the apps, and a push
   relay. The major version is for `/api/v1`, which changes every pasted webhook URL.
@@ -101,6 +103,7 @@ was pencilled in for it was absorbed into 9 and 11.
 | [Wave 29 — A desktop app](./history.md#wave-29--a-desktop-app--shipped) | CS-106 – CS-110 |
 | [Wave 30 — Make it yours](./history.md#wave-30--make-it-yours--shipped) | CS-111 – CS-117a |
 | [Wave 31 — Signing in](./history.md#wave-31--signing-in--shipped) | CS-118 – CS-119 |
+| [Wave 32 — What an admin can see](./history.md#wave-32--what-an-admin-can-see--shipped) | CS-120 – CS-121 |
 
 ---
 

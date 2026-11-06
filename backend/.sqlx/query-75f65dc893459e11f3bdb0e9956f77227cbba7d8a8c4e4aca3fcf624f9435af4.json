@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT wm.user_id, wm.role AS \"role: WorkspaceRole\",\n                      COUNT(a.day) AS \"days_active!\",\n                      COALESCE(SUM(a.public_messages + a.private_messages + a.direct_messages), 0)::bigint\n                          AS \"messages!\",\n                      (SELECT MAX(x.day) FROM member_daily_activity x\n                        WHERE x.workspace_id = wm.workspace_id AND x.user_id = wm.user_id) AS last_active\n                 FROM workspace_members wm\n                 JOIN users u ON u.id = wm.user_id\n                 LEFT JOIN member_daily_activity a\n                   ON a.workspace_id = wm.workspace_id AND a.user_id = wm.user_id\n                  AND a.day BETWEEN $2 AND $3\n                WHERE wm.workspace_id = $1 AND NOT u.is_bot AND ($4 OR wm.role <> 'guest')\n                GROUP BY wm.workspace_id, wm.user_id, wm.role\n                ORDER BY 3 DESC, wm.user_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "workspace_members",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "role: WorkspaceRole",
+        "type_info": {
+          "Custom": {
+            "name": "workspace_role",
+            "kind": {
+              "Enum": [
+                "guest",
+                "member",
+                "admin",
+                "owner"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "workspace_members",
+            "name": "role"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "days_active!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "messages!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "last_active",
+        "type_info": "Date",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date",
+        "Date",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "75f65dc893459e11f3bdb0e9956f77227cbba7d8a8c4e4aca3fcf624f9435af4"
+}

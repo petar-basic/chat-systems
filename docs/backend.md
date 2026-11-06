@@ -6,7 +6,7 @@ the crates under `shared/`:
 | Process | Port | Role | Replicas |
 |---|---|---|---|
 | **`chat-api`** | 3000 | Stateless REST API. Owns the migrations, applied at startup. | scale freely |
-| **`chat-worker`** | 3005 | Background consumers: outgoing webhooks, reminders, notifications, huddle history, call ringing, scheduled messages, email delivery, event outbox relay, text extraction from files. Serves only `/livez`, `/readyz`, `/metrics`. | scale freely |
+| **`chat-worker`** | 3005 | Background consumers: outgoing webhooks, reminders, notifications, huddle history, call ringing, analytics rollup, scheduled messages, email delivery, event outbox relay, text extraction from files. Serves only `/livez`, `/readyz`, `/metrics`. | scale freely |
 | **`chat-realtime`** | 3004 | WebSocket gateway. | scale freely |
 
 `chat-api` serves an OpenAPI document at `/api/openapi.json`, generated from the handlers
@@ -62,7 +62,7 @@ make a duplicate mention or call notification impossible, and outgoing webhooks 
 ### Feature-modular layering
 
 Every feature under `api/src/` (`auth`, `workspace`, `conversations`, `messaging`, `files`,
-`hooks`, `notifications`, `scheduled`, `later`, `groups`, `emoji`, `retention`, `export`,
+`hooks`, `notifications`, `scheduled`, `later`, `groups`, `emoji`, `retention`, `export`, `analytics`,
 `slack_import`, `scim`, `push`, `commands`, `huddle`, `admin`) follows the same shape, with
 files added only where warranted:
 
@@ -321,7 +321,7 @@ position they left with and a recounted unread, and stages `channel.member_joine
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
-| GET | `/workspaces/:ws_id/conversations` | — | `{ data: ConversationSummary[] }` — newest message first, with `participant_ids`, `last_message_at`, the caller's `last_read_at`, and `departed`: who left the workspace, with the `display_name` and `avatar_url` of their account |
+| GET | `/workspaces/:ws_id/conversations` | — | `{ data: ConversationSummary[] }` — newest message first, with `participant_ids`, `last_message_at`, the caller's `unread_count` (the counter `/unreads` reads, so neither their own messages nor thread replies count), and `departed`: who left the workspace, with the `display_name` and `avatar_url` of their account |
 | POST | `/workspaces/:ws_id/conversations` | `{ participant_ids }` | `Conversation` — one other person returns the existing `direct` thread if there is one; more create a `group` |
 
 Creating one publishes `conversation.created`, which the gateway delivers to every participant
@@ -1304,6 +1304,33 @@ keep the workspace's period.
 
 ---
 
+### analytics
+
+| Method | Route | Who | Output |
+|--------|-------|-----|--------|
+| GET | `/workspaces/:ws_id/analytics` | admin | Query `days` (7, 30 or 90), `guests?` (default true) → `{ from, to, members, active_members, daily, weekly }`: for each UTC day the members who had joined by then, those active, those who joined, messages in public channels, private channels and DMs, files and reactions; `weekly` counts distinct active members per ISO week |
+| GET | `/workspaces/:ws_id/analytics/members` | admin | Same query → `{ data: { user_id, role, days_active, messages, last_active }[] }` for every current member, bots left out; `last_active` is the last day ever, not only in the window |
+| GET | `/workspaces/:ws_id/analytics/channels` | admin | Same query → `{ data: { channel_id, name, channel_type, is_archived, created_at, members, guests, messages, posters, viewers, reactions, last_message_at }[] }` for every public and private channel, archived ones too, busiest first, the columns of Slack's *Channels* tab; `members` leaves guests out with `guests=false` while `guests` always counts them, `posters` and `viewers` are the members who posted in or viewed the channel in the window, `reactions` those added to its messages, `last_message_at` the last message ever |
+| GET | `/workspaces/:ws_id/analytics/quiet-channels` | admin | Query `days` (30, 60, 90 or 180) → `{ data: { channel_id, name, channel_type, members, last_message_at, created_at }[] }`: the channels not archived and not default with no message in that many days (a channel never posted in counts from its creation; a system message such as a join or an archive is not a message here, nor in `last_message_at` above), the longest quiet first |
+| POST | `/workspaces/:ws_id/analytics/quiet-channels/archive` | admin | `{ channel_ids }` (1 to 200) → `{ archived }`. Every id is checked first: one outside the workspace or a DM is 404, a default channel 400, and then nothing is archived. Each is archived as *Channel settings* would: a `channel.archived` audit row, the system message and `channel.updated`. One already archived is left out of `archived` |
+| GET | `/channels/:ch_id/analytics` | channel moderator | → `{ from, to, channel }`, the same row as above for the last 30 days, guests counted |
+
+`chat-worker`'s `analytics` consumer keeps `member_daily_activity`, one row per member per UTC
+day they were active, from the workspace stream: `message.created` adds a message by its
+channel's type and the files on it, `reaction.added` a reaction, and `channel.read_state`, now
+durable, marks the reader active. Only people count: a system message (`metadata.kind`), a bot
+or a webhook's message is left out. The daily totals are sums of these rows, so leaving guests
+out applies to messages too, and nothing scans `messages`. Delivery is at least once, so each
+counted event's id goes into `analytics_counted_events` first and a second delivery adds
+nothing; ids older than a week are forgotten. `analytics_backfill.counted_from`, the time
+migration 97 ran, splits the history: the worker's backfill counts every message and reaction
+before it, once, and the consumer only what came after. `channel_member_activity` keeps one row
+per member per channel per day they posted in it (`messages`), reacted in it (`reactions`) or read it (`read`), in the same
+statement as the member row, so a channel's numbers add up to the workspace's. Migration 97
+emptied the rollup and moved `counted_from` so the backfill counts both tables from the start.
+
+---
+
 ### huddle
 
 Live voice/video rooms (Slack-style huddles) over mesh WebRTC. Live membership and media signaling run over `chat-realtime`; this REST surface covers what the browser needs from the API.
@@ -1409,7 +1436,7 @@ A join is authorised against the huddle's own `huddle_sessions` row, never again
 | `events:huddle` | `huddle.started`, `huddle.ended`, `huddle.ring`, `huddle.member_joined`, `huddle.member_left` — lifecycle; also consumed by the API for history + call notifications |
 | `events:list` | `list.upserted`, `list.deleted`, `list.columns_changed`, `list.item_upserted`, `list.item_deleted` — to the list's channel, or to the owner of a personal list |
 | `events:thread` | `thread.read_state` — sent only to the user whose thread state changed (a reply, `/read`, follow or unfollow), with its `following` and `unread_count` |
-| `events:channel` | `channel.read_state` — sent only to the user whose read position moved (by `/read` or `/unread`), so their other tabs and devices update their badges; `channel.member_removed` becomes `channel.access_revoked` for the removed user; `channel.updated` (`is_archived`) goes to everyone in the channel when it is archived or unarchived |
+| `events:channel` | `channel.read_state` — sent only to the user whose read position moved (by `/read` or `/unread`), so their other tabs and devices update their badges; it is durable, for the analytics rollup, so a reconnect replays it to that user; `channel.member_removed` becomes `channel.access_revoked` for the removed user; `channel.updated` (`is_archived`) goes to everyone in the channel when it is archived or unarchived |
 | `events:huddle-signal` | `huddle.offer`, `huddle.answer`, `huddle.ice`, `huddle.mute`, `huddle.camera`, `huddle.screenshare`, `huddle.hand`, `huddle.reaction` — high-frequency relay, realtime-only (kept off `events:huddle` so the API consumers don't parse every ICE candidate) |
 
 All events use the envelope: `{ id, event_type, payload, timestamp }`.
