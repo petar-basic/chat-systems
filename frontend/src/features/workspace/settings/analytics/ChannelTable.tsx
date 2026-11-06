@@ -1,6 +1,6 @@
 import { Archive, Hash, Lock } from 'lucide-react';
 import type { ChannelActivity } from '@/features/workspace/hooks/useAnalytics';
-import { dayLabel, lastMessageDay } from './days';
+import { dayLabel, dayOf } from './days';
 import { SortableTable, type Column } from './SortableTable';
 
 function ChannelLabel({ channel }: { channel: ChannelActivity }) {
@@ -18,34 +18,44 @@ function ChannelLabel({ channel }: { channel: ChannelActivity }) {
   );
 }
 
-const COLUMNS: Column<ChannelActivity>[] = [
-  {
-    key: 'name',
-    label: 'Channel',
-    value: (c) => c.name ?? '',
-    render: (c) => <ChannelLabel channel={c} />,
-  },
-  { key: 'members', label: 'Members', numeric: true, value: (c) => c.members },
-  { key: 'messages', label: 'Messages', numeric: true, value: (c) => c.messages },
-  { key: 'posters', label: 'Posted', numeric: true, value: (c) => c.posters },
-  { key: 'readers', label: 'Read', numeric: true, value: (c) => c.readers },
-  {
-    key: 'lastMessage',
-    label: 'Last message',
-    value: (c) => lastMessageDay(c.last_message_at),
-    render: (c) => (
-      <span className="text-muted">
-        {c.last_message_at ? dayLabel(lastMessageDay(c.last_message_at)) : 'Never'}
-      </span>
-    ),
-  },
-];
+function columns(guests: boolean): Column<ChannelActivity>[] {
+  return [
+    {
+      key: 'name',
+      label: 'Channel',
+      value: (c) => c.name ?? '',
+      render: (c) => <ChannelLabel channel={c} />,
+    },
+    {
+      key: 'created',
+      label: 'Created',
+      value: (c) => dayOf(c.created_at),
+      render: (c) => <span className="text-muted">{dayLabel(dayOf(c.created_at))}</span>,
+    },
+    { key: 'members', label: 'Members', numeric: true, value: (c) => c.members },
+    ...(guests
+      ? [{ key: 'guests', label: 'Guests', numeric: true, value: (c: ChannelActivity) => c.guests }]
+      : []),
+    { key: 'messages', label: 'Messages', numeric: true, value: (c) => c.messages },
+    { key: 'posters', label: 'Posted', numeric: true, value: (c) => c.posters },
+    { key: 'viewers', label: 'Viewed', numeric: true, value: (c) => c.viewers },
+    { key: 'reactions', label: 'Reactions', numeric: true, value: (c) => c.reactions },
+    {
+      key: 'lastMessage',
+      label: 'Last message',
+      value: (c) => dayOf(c.last_message_at),
+      render: (c) => (
+        <span className="text-muted">{c.last_message_at ? dayLabel(dayOf(c.last_message_at)) : 'Never'}</span>
+      ),
+    },
+  ];
+}
 
-export function ChannelTable({ rows }: { rows: ChannelActivity[] }) {
+export function ChannelTable({ rows, guests }: { rows: ChannelActivity[]; guests: boolean }) {
   return (
     <SortableTable
       rows={rows}
-      columns={COLUMNS}
+      columns={columns(guests)}
       rowKey={(c) => c.channel_id}
       initialSort="messages"
       qa="analytics-channels"

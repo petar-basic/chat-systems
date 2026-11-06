@@ -68,19 +68,30 @@ impl AnalyticsRepo {
                    INSERT INTO analytics_counted_events (event_id) VALUES ($1)
                    ON CONFLICT DO NOTHING
                    RETURNING event_id
+               ),
+               reacted AS (
+                   SELECT c.workspace_id, m.channel_id, r.user_id,
+                          (r.created_at AT TIME ZONE 'UTC')::date AS day,
+                          c.channel_type::text AS kind
+                     FROM reactions r
+                     JOIN messages m ON m.id = r.message_id
+                     JOIN channels c ON c.id = m.channel_id
+                     JOIN users u ON u.id = r.user_id
+                    WHERE r.id = $2
+                      AND r.created_at >= (SELECT counted_from FROM analytics_backfill)
+                      AND NOT u.is_bot
+                      AND EXISTS (SELECT 1 FROM fresh)
+               ),
+               by_member AS (
+                   INSERT INTO member_daily_activity (workspace_id, user_id, day, reactions)
+                   SELECT workspace_id, user_id, day, 1 FROM reacted
+                   ON CONFLICT (workspace_id, user_id, day) DO UPDATE SET
+                       reactions = member_daily_activity.reactions + 1
                )
-               INSERT INTO member_daily_activity (workspace_id, user_id, day, reactions)
-               SELECT c.workspace_id, r.user_id, (r.created_at AT TIME ZONE 'UTC')::date, 1
-                 FROM reactions r
-                 JOIN messages m ON m.id = r.message_id
-                 JOIN channels c ON c.id = m.channel_id
-                 JOIN users u ON u.id = r.user_id
-                WHERE r.id = $2
-                  AND r.created_at >= (SELECT counted_from FROM analytics_backfill)
-                  AND NOT u.is_bot
-                  AND EXISTS (SELECT 1 FROM fresh)
-               ON CONFLICT (workspace_id, user_id, day) DO UPDATE SET
-                   reactions = member_daily_activity.reactions + 1"#,
+               INSERT INTO channel_member_activity (channel_id, user_id, day, reactions)
+               SELECT channel_id, user_id, day, 1 FROM reacted WHERE kind IN ('public', 'private')
+               ON CONFLICT (channel_id, user_id, day) DO UPDATE SET
+                   reactions = channel_member_activity.reactions + 1"#,
             event_id,
             reaction_id
         )
@@ -204,6 +215,24 @@ impl AnalyticsRepo {
                 GROUP BY 1, 2, 3
                ON CONFLICT (channel_id, user_id, day) DO UPDATE SET
                    messages = channel_member_activity.messages + EXCLUDED.messages"#,
+            counted_from
+        )
+        .execute(&mut *tx)
+        .await?;
+
+        sqlx::query!(
+            r#"INSERT INTO channel_member_activity (channel_id, user_id, day, reactions)
+               SELECT m.channel_id, r.user_id, (r.created_at AT TIME ZONE 'UTC')::date, COUNT(*)::int
+                 FROM reactions r
+                 JOIN messages m ON m.id = r.message_id
+                 JOIN channels c ON c.id = m.channel_id
+                 JOIN users u ON u.id = r.user_id
+                WHERE r.created_at < $1
+                  AND c.channel_type IN ('public', 'private')
+                  AND NOT u.is_bot
+                GROUP BY 1, 2, 3
+               ON CONFLICT (channel_id, user_id, day) DO UPDATE SET
+                   reactions = channel_member_activity.reactions + EXCLUDED.reactions"#,
             counted_from
         )
         .execute(&mut *tx)
@@ -362,24 +391,31 @@ impl AnalyticsRepo {
             ChannelActivity,
             r#"SELECT c.id AS channel_id, c.name, c.channel_type AS "channel_type: ChannelType",
                       COALESCE(c.is_archived, FALSE) AS "is_archived!",
-                      (SELECT COUNT(*)
-                         FROM channel_members cm
-                         JOIN users u ON u.id = cm.user_id
-                         JOIN workspace_members wm
-                           ON wm.workspace_id = c.workspace_id AND wm.user_id = cm.user_id
-                        WHERE cm.channel_id = c.id AND NOT u.is_bot
-                          AND ($4 OR wm.role <> 'guest')) AS "members!",
+                      c.created_at,
+                      COALESCE(mem.members, 0) AS "members!",
+                      COALESCE(mem.guests, 0) AS "guests!",
                       COALESCE(a.messages, 0)::bigint AS "messages!",
                       COALESCE(a.posters, 0) AS "posters!",
-                      COALESCE(a.readers, 0) AS "readers!",
+                      COALESCE(a.viewers, 0) AS "viewers!",
+                      COALESCE(a.reactions, 0)::bigint AS "reactions!",
                       (SELECT MAX(m.created_at) FROM messages m
                         WHERE m.channel_id = c.id AND m.deleted_at IS NULL
                           AND m.metadata->>'kind' IS NULL) AS last_message_at
                  FROM channels c
                  LEFT JOIN LATERAL (
+                     SELECT COUNT(*) FILTER (WHERE $4 OR wm.role <> 'guest') AS members,
+                            COUNT(*) FILTER (WHERE wm.role = 'guest') AS guests
+                       FROM channel_members cm
+                       JOIN users u ON u.id = cm.user_id
+                       JOIN workspace_members wm
+                         ON wm.workspace_id = c.workspace_id AND wm.user_id = cm.user_id
+                      WHERE cm.channel_id = c.id AND NOT u.is_bot
+                 ) mem ON TRUE
+                 LEFT JOIN LATERAL (
                      SELECT SUM(x.messages) AS messages,
                             COUNT(DISTINCT x.user_id) FILTER (WHERE x.messages > 0) AS posters,
-                            COUNT(DISTINCT x.user_id) FILTER (WHERE x.read) AS readers
+                            COUNT(DISTINCT x.user_id) FILTER (WHERE x.read) AS viewers,
+                            SUM(x.reactions) AS reactions
                        FROM channel_member_activity x
                        LEFT JOIN workspace_members wm
                          ON wm.workspace_id = c.workspace_id AND wm.user_id = x.user_id
@@ -389,7 +425,7 @@ impl AnalyticsRepo {
                 WHERE c.workspace_id = $1
                   AND c.channel_type IN ('public', 'private')
                   AND ($5::uuid IS NULL OR c.id = $5)
-                ORDER BY 6 DESC, c.name"#,
+                ORDER BY COALESCE(a.messages, 0) DESC, c.name"#,
             workspace_id,
             from,
             to,

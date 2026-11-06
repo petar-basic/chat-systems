@@ -3,6 +3,7 @@ CREATE TABLE channel_member_activity (
     user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     day        DATE NOT NULL,
     messages   INT NOT NULL DEFAULT 0,
+    reactions  INT NOT NULL DEFAULT 0,
     read       BOOLEAN NOT NULL DEFAULT FALSE,
     PRIMARY KEY (channel_id, user_id, day)
 );

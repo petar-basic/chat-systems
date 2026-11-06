@@ -225,7 +225,7 @@ sits in the ⋯ menu for everyone in the channel; below `sm` the toggles fold in
 A `SectionedModal` with *About* (name, topic, description and archive for a moderator, the
 topic and description as text for everyone else), *Settings* (announcement channel, whether
 `@channel`, `@here` and `@everyone` work there, and message retention, moderators only), *Activity* (moderators only:
-`GET /channels/:id/analytics`, the messages, the members who posted and read in the last 30
+`GET /channels/:id/analytics`, the messages, the members who posted and viewed in the last 30
 days, and the last message's day) and *Integrations*. *Integrations* reads
 `GET /channels/:id/integrations`: the incoming webhooks bound to the channel, the outgoing
 webhooks and slash commands scoped to it, and the workflows that start from it or post into
@@ -533,7 +533,8 @@ modal already holds. *Export CSV* above each table writes it with `lib/csv`, whi
 commas, quotes and line breaks and keeps a cell that starts like a formula as text. Tabs split
 it into *Overview* (the above), *Channels* and *Quiet channels*. *Channels* reads
 `/analytics/channels` for the same period into `ChannelTable`, which like `MemberTable` is an
-`analytics/SortableTable`. *Quiet channels* (`QuietChannels`) lists the channels with no
+`analytics/SortableTable` (the first column stays put while it scrolls sideways); its *Guests*
+column is there only while guests are counted. *Quiet channels* (`QuietChannels`) lists the channels with no
 message in 30, 60, 90 or 180 days, each with a checkbox and *Archive*; one `ConfirmDialog`
 asks for one channel or for the selection, lists the selection, and keeps a refusal on screen.
 `useArchiveQuietChannels` posts the ids and runs `applyChannelArchived` for each one archived.

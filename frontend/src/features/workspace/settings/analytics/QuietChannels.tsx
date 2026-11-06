@@ -14,7 +14,7 @@ import {
   type QuietChannel,
   type QuietThreshold,
 } from '@/features/workspace/hooks/useAnalytics';
-import { dayLabel, lastMessageDay } from './days';
+import { dayLabel, dayOf } from './days';
 
 interface Props {
   workspaceId: string;
@@ -109,7 +109,7 @@ export function QuietChannels({ workspaceId, instanceUrl }: Props) {
                     {c.channel_type === 'private' ? 'Private' : 'Public'}
                     {' · '}
                     {c.last_message_at
-                      ? `Last message ${dayLabel(lastMessageDay(c.last_message_at))}`
+                      ? `Last message ${dayLabel(dayOf(c.last_message_at))}`
                       : 'No messages yet'}
                     {' · '}
                     {c.members === 1 ? '1 member' : `${c.members.toLocaleString()} members`}

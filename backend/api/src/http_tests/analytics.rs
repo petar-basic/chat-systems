@@ -402,7 +402,7 @@ fn ids(body: &Value) -> Vec<String> {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
-async fn each_channel_counts_its_posters_and_readers_and_adds_up_to_the_workspace(pool: PgPool) {
+async fn each_channel_counts_its_posters_and_viewers_and_adds_up_to_the_workspace(pool: PgPool) {
     let team = team(pool).await;
     let (_, owner_token) = &team.owner;
     let (_, member_token) = &team.member;
@@ -413,6 +413,8 @@ async fn each_channel_counts_its_posters_and_readers_and_adds_up_to_the_workspac
     post(&team.app, member_token, team.public, "three").await;
     post(&team.app, owner_token, team.private, "four").await;
     read(&team.app, guest_token, team.public, first).await;
+    react(&team.app, member_token, first).await;
+    react(&team.app, guest_token, first).await;
     count_everything(&team.state).await;
     count_everything(&team.state).await;
 
@@ -428,12 +430,16 @@ async fn each_channel_counts_its_posters_and_readers_and_adds_up_to_the_workspac
     let public = channel_row(&channels, team.public);
     assert_eq!(public["messages"], 3);
     assert_eq!(public["posters"], 2);
-    assert_eq!(public["readers"], 1);
+    assert_eq!(public["viewers"], 1);
     assert_eq!(public["members"], 3);
+    assert_eq!(public["guests"], 1);
+    assert_eq!(public["reactions"], 2);
     assert_eq!(public["channel_type"], "public");
     assert!(public["last_message_at"].is_string());
+    assert!(public["created_at"].is_string());
     let private = channel_row(&channels, team.private);
     assert_eq!(private["messages"], 1);
+    assert_eq!(private["reactions"], 0);
     assert_eq!(private["channel_type"], "private");
 
     let summed: i64 = channels["data"]
@@ -449,6 +455,24 @@ async fn each_channel_counts_its_posters_and_readers_and_adds_up_to_the_workspac
         day["public_messages"].as_i64().expect("public")
             + day["private_messages"].as_i64().expect("private")
     );
+    assert_eq!(day["reactions"], 2);
+
+    let (_, without) = send(
+        &team.app,
+        "GET",
+        &format!(
+            "/api/workspaces/{}/analytics/channels?days=7&guests=false",
+            team.ws_id
+        ),
+        Some(owner_token),
+        None,
+    )
+    .await;
+    let public = channel_row(&without, team.public);
+    assert_eq!(public["members"], 2);
+    assert_eq!(public["guests"], 1);
+    assert_eq!(public["reactions"], 1);
+    assert_eq!(public["viewers"], 0);
 }
 
 #[test_macros::db_test(migrations = "../migrations")]

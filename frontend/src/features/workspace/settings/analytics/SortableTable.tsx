@@ -18,6 +18,8 @@ interface Props<T> {
   rowQa: string;
 }
 
+const STICKY = 'sticky left-0 z-1 bg-surface';
+
 function compare(a: string | number | null, b: string | number | null): number {
   if (typeof a === 'number' && typeof b === 'number') return a - b;
   return String(a ?? '').localeCompare(String(b ?? ''));
@@ -49,7 +51,7 @@ export function SortableTable<T>({ rows, columns, rowKey, initialSort, qa, rowQa
       <table className="w-full min-w-140">
         <thead>
           <tr className="border-b border-line">
-            {columns.map((c) => {
+            {columns.map((c, i) => {
               const active = sort.key === c.key;
               const Arrow = sort.descending ? ArrowDown : ArrowUp;
               return (
@@ -57,7 +59,7 @@ export function SortableTable<T>({ rows, columns, rowKey, initialSort, qa, rowQa
                   key={c.key}
                   scope="col"
                   aria-sort={active ? (sort.descending ? 'descending' : 'ascending') : 'none'}
-                  className={`whitespace-nowrap px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted ${c.numeric ? 'text-right' : 'text-left'}`}
+                  className={`whitespace-nowrap px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted ${c.numeric ? 'text-right' : 'text-left'} ${i === 0 ? STICKY : ''}`}
                 >
                   <button
                     type="button"
@@ -76,10 +78,10 @@ export function SortableTable<T>({ rows, columns, rowKey, initialSort, qa, rowQa
         <tbody className="divide-y divide-line">
           {sorted.map((row) => (
             <tr key={rowKey(row)} data-qa={rowQa}>
-              {columns.map((c) => (
+              {columns.map((c, i) => (
                 <td
                   key={c.key}
-                  className={`whitespace-nowrap px-3 py-2 text-sm ${c.numeric ? 'text-right tabular-nums text-fg-soft' : 'text-fg'}`}
+                  className={`whitespace-nowrap px-3 py-2 text-sm ${c.numeric ? 'text-right tabular-nums text-fg-soft' : 'text-fg'} ${i === 0 ? STICKY : ''}`}
                 >
                   {c.render ? c.render(row) : shown(c.value(row))}
                 </td>

@@ -65,10 +65,13 @@ pub struct ChannelActivity {
     pub name: Option<String>,
     pub channel_type: ChannelType,
     pub is_archived: bool,
+    pub created_at: DateTime<Utc>,
     pub members: i64,
+    pub guests: i64,
     pub messages: i64,
     pub posters: i64,
-    pub readers: i64,
+    pub viewers: i64,
+    pub reactions: i64,
     pub last_message_at: Option<DateTime<Utc>>,
 }
 

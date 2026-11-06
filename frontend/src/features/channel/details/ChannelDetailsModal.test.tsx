@@ -98,10 +98,13 @@ beforeEach(() => {
       name: 'deploys',
       channel_type: 'public',
       is_archived: false,
+      created_at: '2026-01-15T10:00:00Z',
       members: 6,
+      guests: 0,
       messages: 1234,
       posters: 2,
-      readers: 5,
+      viewers: 5,
+      reactions: 0,
       last_message_at: '2026-11-04T08:30:00Z',
     },
   };
@@ -154,7 +157,7 @@ describe('ChannelDetailsModal activity', () => {
     expect(screen.getByTestId('channel-activity')).toHaveTextContent('Oct 7 – Nov 5');
     expect(screen.getByTestId('channel-activity-messages')).toHaveTextContent('1,234');
     expect(screen.getByTestId('channel-activity-posters')).toHaveTextContent('2of 6 members');
-    expect(screen.getByTestId('channel-activity-readers')).toHaveTextContent('5of 6 members');
+    expect(screen.getByTestId('channel-activity-viewers')).toHaveTextContent('5of 6 members');
     expect(screen.getByTestId('channel-activity-last')).toHaveTextContent('Nov 4');
   });
 

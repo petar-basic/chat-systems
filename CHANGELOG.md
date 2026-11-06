@@ -25,9 +25,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   sorted by any column. A member is active on a day they post, react or read a conversation.
   Guests can be left out, and each table exports as CSV. Only counts are kept, never what
   anyone wrote, and the history from before the upgrade is counted once when the worker starts.
-- Channel analytics. *Analytics → Channels* lists every channel with its members, messages,
-  the members who posted and read in the period and its last message, sortable and exported as
-  CSV. *Quiet channels* lists the channels with no message in 30, 60, 90 or 180 days and
+- Channel analytics. *Analytics → Channels* lists every channel with the date it was created,
+  its members and guests, messages, reactions, the members who posted and viewed it in the
+  period and its last message, sortable and exported as CSV. *Quiet channels* lists the channels with no message in 30, 60, 90 or 180 days and
   archives one or a selection after asking once; each is archived and audited as from
   *Channel settings*. A channel admin sees their channel's last 30 days in *Channel details →
   Activity*.

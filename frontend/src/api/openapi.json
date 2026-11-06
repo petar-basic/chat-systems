@@ -10739,10 +10739,13 @@
           "channel_id",
           "channel_type",
           "is_archived",
+          "created_at",
           "members",
+          "guests",
           "messages",
           "posters",
-          "readers"
+          "viewers",
+          "reactions"
         ],
         "properties": {
           "channel_id": {
@@ -10751,6 +10754,14 @@
           },
           "channel_type": {
             "$ref": "#/components/schemas/ChannelType"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "guests": {
+            "type": "integer",
+            "format": "int64"
           },
           "is_archived": {
             "type": "boolean"
@@ -10780,7 +10791,11 @@
             "type": "integer",
             "format": "int64"
           },
-          "readers": {
+          "reactions": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "viewers": {
             "type": "integer",
             "format": "int64"
           }
@@ -12734,10 +12749,13 @@
                 "channel_id",
                 "channel_type",
                 "is_archived",
+                "created_at",
                 "members",
+                "guests",
                 "messages",
                 "posters",
-                "readers"
+                "viewers",
+                "reactions"
               ],
               "properties": {
                 "channel_id": {
@@ -12746,6 +12764,14 @@
                 },
                 "channel_type": {
                   "$ref": "#/components/schemas/ChannelType"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "guests": {
+                  "type": "integer",
+                  "format": "int64"
                 },
                 "is_archived": {
                   "type": "boolean"
@@ -12775,7 +12801,11 @@
                   "type": "integer",
                   "format": "int64"
                 },
-                "readers": {
+                "reactions": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "viewers": {
                   "type": "integer",
                   "format": "int64"
                 }

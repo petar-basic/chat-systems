@@ -3656,6 +3656,10 @@ export interface components {
             /** Format: uuid */
             channel_id: string;
             channel_type: components["schemas"]["ChannelType"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: int64 */
+            guests: number;
             is_archived: boolean;
             /** Format: date-time */
             last_message_at?: string | null;
@@ -3667,7 +3671,9 @@ export interface components {
             /** Format: int64 */
             posters: number;
             /** Format: int64 */
-            readers: number;
+            reactions: number;
+            /** Format: int64 */
+            viewers: number;
         };
         ChannelAnalytics: {
             channel: components["schemas"]["ChannelActivity"];
@@ -4187,6 +4193,10 @@ export interface components {
                 /** Format: uuid */
                 channel_id: string;
                 channel_type: components["schemas"]["ChannelType"];
+                /** Format: date-time */
+                created_at: string;
+                /** Format: int64 */
+                guests: number;
                 is_archived: boolean;
                 /** Format: date-time */
                 last_message_at?: string | null;
@@ -4198,7 +4208,9 @@ export interface components {
                 /** Format: int64 */
                 posters: number;
                 /** Format: int64 */
-                readers: number;
+                reactions: number;
+                /** Format: int64 */
+                viewers: number;
             }[];
         };
         DataList_ChannelBookmark: {

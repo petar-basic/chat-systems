@@ -1,6 +1,6 @@
 import { QueryState } from '@/shared/components/QueryState/QueryState';
 import type { Channel } from '@/stores/workspace';
-import { dayLabel, lastMessageDay } from '@/features/workspace';
+import { dayLabel, dayOf } from '@/features/workspace';
 import { useChannelAnalytics } from '../hooks/useChannelAnalytics';
 
 function Stat({ label, value, hint, qa }: { label: string; value: string; hint?: string; qa: string }) {
@@ -18,7 +18,7 @@ export function ActivitySection({ channel }: { channel: Channel }) {
   const report = analytics.data;
   const activity = report?.channel;
   const of = activity ? `of ${activity.members.toLocaleString()} members` : undefined;
-  const last = lastMessageDay(activity?.last_message_at);
+  const last = dayOf(activity?.last_message_at);
 
   return (
     <QueryState
@@ -44,10 +44,10 @@ export function ActivitySection({ channel }: { channel: Channel }) {
               qa="channel-activity-posters"
             />
             <Stat
-              label="Members who read"
-              value={activity.readers.toLocaleString()}
+              label="Members who viewed"
+              value={activity.viewers.toLocaleString()}
               hint={of}
-              qa="channel-activity-readers"
+              qa="channel-activity-viewers"
             />
             <Stat
               label="Last message"

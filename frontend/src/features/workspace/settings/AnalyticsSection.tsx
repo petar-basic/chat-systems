@@ -22,7 +22,7 @@ import { DayChart } from './analytics/DayChart';
 import { MemberTable, type MemberRow } from './analytics/MemberTable';
 import { ChannelTable } from './analytics/ChannelTable';
 import { QuietChannels } from './analytics/QuietChannels';
-import { dayLabel, lastMessageDay } from './analytics/days';
+import { dayLabel, dayOf } from './analytics/days';
 
 interface Props {
   workspaceId: string;
@@ -189,27 +189,33 @@ function membersCsv(rows: MemberRow[]) {
   ];
 }
 
-function channelsCsv(rows: ChannelActivity[]) {
+function channelsCsv(rows: ChannelActivity[], guests: boolean) {
   return [
     [
       'Channel',
       'Type',
       'Archived',
+      'Created',
       'Members',
+      ...(guests ? ['Guests'] : []),
       'Messages',
       'Members who posted',
-      'Members who read',
+      'Members who viewed',
+      'Reactions',
       'Last message',
     ],
     ...rows.map((c) => [
       c.name,
       c.channel_type,
       c.is_archived ? 'yes' : 'no',
+      dayOf(c.created_at),
       c.members,
+      ...(guests ? [c.guests] : []),
       c.messages,
       c.posters,
-      c.readers,
-      lastMessageDay(c.last_message_at),
+      c.viewers,
+      c.reactions,
+      dayOf(c.last_message_at),
     ]),
   ];
 }
@@ -299,11 +305,11 @@ function ChannelsTab({ workspaceId, workspaceName, instanceUrl, days, guests }: 
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-base font-semibold text-fg">Channels</h3>
           <CsvButton
-            onClick={() => downloadCsv(fileName(workspaceName, 'channels', days), channelsCsv(rows))}
+            onClick={() => downloadCsv(fileName(workspaceName, 'channels', days), channelsCsv(rows, guests))}
             qa="analytics-channels-csv"
           />
         </div>
-        <ChannelTable rows={rows} />
+        <ChannelTable rows={rows} guests={guests} />
       </section>
     </QueryState>
   );

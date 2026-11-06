@@ -78,10 +78,13 @@ function channel(id: string, name: string, values: object = {}) {
     name,
     channel_type: 'public',
     is_archived: false,
+    created_at: '2026-01-15T10:00:00Z',
     members: 3,
+    guests: 0,
     messages: 0,
     posters: 0,
-    readers: 0,
+    viewers: 0,
+    reactions: 0,
     last_message_at: null,
     ...values,
   };
@@ -91,10 +94,12 @@ const channels = [
   channel('c-general', 'general', {
     messages: 4,
     posters: 2,
-    readers: 3,
+    viewers: 3,
+    guests: 1,
+    reactions: 5,
     last_message_at: '2026-11-03T09:00:00Z',
   }),
-  channel('c-secret', 'secret', { channel_type: 'private', messages: 9, posters: 1, readers: 1 }),
+  channel('c-secret', 'secret', { channel_type: 'private', messages: 9, posters: 1, viewers: 1 }),
   channel('c-old', 'old', { is_archived: true }),
 ];
 
@@ -232,7 +237,7 @@ describe('AnalyticsSection', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Channels' }));
 
     await waitFor(() => expect(channelNames()).toEqual(['secret', 'general', 'old']));
-    fireEvent.click(screen.getByRole('button', { name: 'Read' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Viewed' }));
     expect(channelNames()).toEqual(['general', 'secret', 'old']);
     expect(screen.getByLabelText('Archived')).toBeInTheDocument();
     expect(screen.getByLabelText('Private')).toBeInTheDocument();
@@ -243,16 +248,33 @@ describe('AnalyticsSection', () => {
         'Channel',
         'Type',
         'Archived',
+        'Created',
         'Members',
+        'Guests',
         'Messages',
         'Members who posted',
-        'Members who read',
+        'Members who viewed',
+        'Reactions',
         'Last message',
       ],
-      ['general', 'public', 'no', 3, 4, 2, 3, '2026-11-03'],
-      ['secret', 'private', 'no', 3, 9, 1, 1, null],
-      ['old', 'public', 'yes', 3, 0, 0, 0, null],
+      ['general', 'public', 'no', '2026-01-15', 3, 1, 4, 2, 3, 5, '2026-11-03'],
+      ['secret', 'private', 'no', '2026-01-15', 3, 0, 9, 1, 1, 0, null],
+      ['old', 'public', 'yes', '2026-01-15', 3, 0, 0, 0, 0, 0, null],
     ]);
+  });
+
+  it('drops the guests column when guests are left out', async () => {
+    answer(busy);
+    renderSection();
+    fireEvent.click(screen.getByRole('tab', { name: 'Channels' }));
+    expect(await screen.findByRole('button', { name: 'Guests' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Include guests'));
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Guests' })).not.toBeInTheDocument());
+    expect(get).toHaveBeenCalledWith('/workspaces/{ws_id}/analytics/channels', {
+      params: { path: { ws_id: 'ws-1' }, query: { days: 30, guests: false } },
+    });
   });
 
   it('archives the quiet channels picked, after asking once', async () => {
