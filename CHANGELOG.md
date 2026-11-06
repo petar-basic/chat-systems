@@ -14,7 +14,20 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
-## [Unreleased]
+## [4.4.2] — 2026-11-06
+
+### Upgrading from 4.4.1
+
+- Set `VERSION=4.4.2`, pull both images and restart `api`, `realtime`, `worker` and `frontend`
+  together. There is no migration and no new setting. The desktop app updates itself to 4.4.2
+  within six hours, or at its next start.
+
+### Added
+
+- *Account* and *Security* in Preferences, that is two-factor authentication and passkeys, are
+  in Japanese too, so all of Preferences is.
+- The few words the shared parts of the app say on their own, such as *(optional)* next to a
+  label, *Nothing matches*, *Close* and *Cancel*, are in Japanese too.
 
 ### Changed
 
