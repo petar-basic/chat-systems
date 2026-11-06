@@ -43,6 +43,7 @@ function renderPanel() {
       <PasskeysPanel />
     </QueryClientProvider>,
   );
+  return client;
 }
 
 describe('PasskeysPanel', () => {
@@ -124,6 +125,19 @@ describe('PasskeysPanel', () => {
     fireEvent.click(screen.getByTestId('passkey-confirm-submit'));
 
     await waitFor(() => expect(post).toHaveBeenCalledWith('/auth/passkeys/{id}/remove', { code: '123456' }));
+  });
+
+  it('has the two-factor status fetched again once a passkey is gone', async () => {
+    get.mockResolvedValue({ offered: true, data: [laptop] });
+    post.mockResolvedValue({ status: 'removed' });
+    const client = renderPanel();
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
+
+    fireEvent.click(await screen.findByTestId('passkey-remove'));
+    fireEvent.change(screen.getByLabelText('Password or code'), { target: { value: '123456' } });
+    fireEvent.click(screen.getByTestId('passkey-confirm-submit'));
+
+    await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ['totp-status'] }));
   });
 
   it('renames one in place', async () => {

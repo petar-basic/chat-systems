@@ -7,6 +7,7 @@ use utoipa_axum::routes;
 
 use shared_common::errors::{AppError, AppResult};
 
+use super::models::User;
 use super::service::AuthService;
 use super::totp;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
@@ -43,6 +44,12 @@ pub struct TotpConfirmed {
 
 #[utoipa::path(get, path = "/auth/totp", tag = "totp", responses((status = 200, body = TotpStatus)))]
 async fn status(State(state): State<Arc<AppState>>, auth: AuthUser) -> AppResult<Json<TotpStatus>> {
+    let user = state
+        .auth_service
+        .repo()
+        .find_by_id(auth.user_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("User not found".into()))?;
     let enrolment = state.totp_repo.find(auth.user_id).await?;
     let remaining = sqlx::query_scalar!(
         r#"SELECT COUNT(*) AS "count!" FROM totp_recovery_codes WHERE user_id = $1 AND used_at IS NULL"#,
@@ -54,8 +61,15 @@ async fn status(State(state): State<Arc<AppState>>, auth: AuthUser) -> AppResult
     Ok(Json(TotpStatus {
         enrolled: enrolment.map(|e| e.is_active()).unwrap_or(false),
         recovery_codes_remaining: remaining,
-        required: state.config.require_admin_totp,
+        required: must_keep_totp(&state, &user).await?,
     }))
+}
+
+async fn must_keep_totp(state: &AppState, user: &User) -> AppResult<bool> {
+    if !state.config.require_admin_totp || !user.is_instance_admin {
+        return Ok(false);
+    }
+    Ok(state.passkey_repo.count(user.id).await? == 0)
 }
 
 #[derive(serde::Deserialize, utoipa::ToSchema)]
@@ -173,10 +187,10 @@ async fn disable(
         .await?
         .ok_or_else(|| AppError::NotFound("User not found".into()))?;
 
-    // An instance admin cannot take their own second factor off while the
+    // An instance admin cannot take their last second factor off while the
     // instance requires one: that would be a supported way back to the weaker
     // account the requirement exists to prevent.
-    if state.config.require_admin_totp && user.is_instance_admin {
+    if must_keep_totp(&state, &user).await? {
         return Err(AppError::Forbidden(
             "This instance requires a second factor for admins".into(),
         ));
