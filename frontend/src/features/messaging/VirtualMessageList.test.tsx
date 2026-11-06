@@ -131,15 +131,16 @@ describe('VirtualMessageList scroll anchoring', () => {
     vi.stubGlobal(
       'ResizeObserver',
       class {
-        constructor(callback: () => void) {
-          resized = callback;
+        constructor(private callback: () => void) {}
+        observe(target: Element) {
+          if ((target as HTMLElement).dataset.qa === 'list') resized = this.callback;
         }
-        observe() {}
+        unobserve() {}
         disconnect() {}
       },
     );
     const rows = Array.from({ length: 40 }, (_, i) => row(`m${i}`));
-    const { scroller } = renderList(rows);
+    const { scroller, unmount } = renderList(rows);
 
     scrollTo(scroller, 40 * ROW_HEIGHT - VIEWPORT_HEIGHT);
     viewportHeight = VIEWPORT_HEIGHT - 24;
@@ -153,6 +154,7 @@ describe('VirtualMessageList scroll anchoring', () => {
     act(() => resized());
     expect(scroller.scrollTop).toBe(400);
 
+    unmount();
     viewportHeight = VIEWPORT_HEIGHT;
     vi.unstubAllGlobals();
   });
