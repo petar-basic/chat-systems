@@ -1,9 +1,15 @@
-import { useInfiniteQuery, useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+  type InfiniteData,
+  type QueryClient,
+} from '@tanstack/react-query';
 import type { Message, Reaction } from '@/stores/workspace';
 import type { components } from '@/api/schema';
 
 type Attachment = components['schemas']['Attachment'];
-import { useCurrentApi } from '@/shared/hooks/useCurrentApi';
+import { getApiForInstance, useCurrentApi } from '@/shared/hooks/useCurrentApi';
 import { applyReadState } from '@/lib/readState';
 import { isKeptUnread, keepUnread } from '@/stores/keptUnread';
 import { settleChannelNotifications } from '@/features/notifications';
@@ -44,6 +50,20 @@ export function olderMessagesCursor(page: MessagesResponse): string | undefined 
   if (page.data.length < MESSAGES_PAGE_SIZE) return undefined;
   const oldest = page.data[page.data.length - 1];
   return oldest?.id;
+}
+
+export function prefetchMessages(queryClient: QueryClient, channelId: string, instanceUrl?: string) {
+  return queryClient.prefetchInfiniteQuery({
+    queryKey: QUERY_KEYS.messages(channelId),
+    queryFn: ({ pageParam }): Promise<MessagesResponse> =>
+      getApiForInstance(instanceUrl).typed((c) =>
+        c.GET('/channels/{ch_id}/messages', {
+          params: { path: { ch_id: channelId }, query: { limit: MESSAGES_PAGE_SIZE, cursor: pageParam } },
+        }),
+      ),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: olderMessagesCursor,
+  });
 }
 
 export const useMessages = (channelId: string | null, markReadIn?: string) => {
