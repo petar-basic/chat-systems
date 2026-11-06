@@ -1310,6 +1310,10 @@ keep the workspace's period.
 |--------|-------|-----|--------|
 | GET | `/workspaces/:ws_id/analytics` | admin | Query `days` (7, 30 or 90), `guests?` (default true) → `{ from, to, members, active_members, daily, weekly }`: for each UTC day the members who had joined by then, those active, those who joined, messages in public channels, private channels and DMs, files and reactions; `weekly` counts distinct active members per ISO week |
 | GET | `/workspaces/:ws_id/analytics/members` | admin | Same query → `{ data: { user_id, role, days_active, messages, last_active }[] }` for every current member, bots left out; `last_active` is the last day ever, not only in the window |
+| GET | `/workspaces/:ws_id/analytics/channels` | admin | Same query → `{ data: { channel_id, name, channel_type, is_archived, created_at, members, guests, messages, posters, viewers, reactions, last_message_at }[] }` for every public and private channel, archived ones too, busiest first, the columns of Slack's *Channels* tab; `members` leaves guests out with `guests=false` while `guests` always counts them, `posters` and `viewers` are the members who posted in or viewed the channel in the window, `reactions` those added to its messages, `last_message_at` the last message ever |
+| GET | `/workspaces/:ws_id/analytics/quiet-channels` | admin | Query `days` (30, 60, 90 or 180) → `{ data: { channel_id, name, channel_type, members, last_message_at, created_at }[] }`: the channels not archived and not default with no message in that many days (a channel never posted in counts from its creation; a system message such as a join or an archive is not a message here, nor in `last_message_at` above), the longest quiet first |
+| POST | `/workspaces/:ws_id/analytics/quiet-channels/archive` | admin | `{ channel_ids }` (1 to 200) → `{ archived }`. Every id is checked first: one outside the workspace or a DM is 404, a default channel 400, and then nothing is archived. Each is archived as *Channel settings* would: a `channel.archived` audit row, the system message and `channel.updated`. One already archived is left out of `archived` |
+| GET | `/channels/:ch_id/analytics` | channel moderator | → `{ from, to, channel }`, the same row as above for the last 30 days, guests counted |
 
 `chat-worker`'s `analytics` consumer keeps `member_daily_activity`, one row per member per UTC
 day they were active, from the workspace stream: `message.created` adds a message by its
@@ -1319,8 +1323,11 @@ or a webhook's message is left out. The daily totals are sums of these rows, so 
 out applies to messages too, and nothing scans `messages`. Delivery is at least once, so each
 counted event's id goes into `analytics_counted_events` first and a second delivery adds
 nothing; ids older than a week are forgotten. `analytics_backfill.counted_from`, the time
-migration 96 ran, splits the history: the worker's backfill counts every message and reaction
-before it, once, and the consumer only what came after.
+migration 97 ran, splits the history: the worker's backfill counts every message and reaction
+before it, once, and the consumer only what came after. `channel_member_activity` keeps one row
+per member per channel per day they posted in it (`messages`), reacted in it (`reactions`) or read it (`read`), in the same
+statement as the member row, so a channel's numbers add up to the workspace's. Migration 97
+emptied the rollup and moved `counted_from` so the backfill counts both tables from the start.
 
 ---
 

@@ -23,3 +23,4 @@ export type { ChannelPeriod, ChannelRetention } from './hooks/useRetention';
 export { useUserGroups } from './hooks/useUserGroups';
 export type { UserGroup } from './hooks/useUserGroups';
 export { useWorkspaceChannels, useWorkspaceMembers } from './hooks/useWorkspaces';
+export { dayLabel, dayOf } from './settings/analytics/days';

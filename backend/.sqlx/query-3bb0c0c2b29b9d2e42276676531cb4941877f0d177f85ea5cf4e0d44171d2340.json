@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH fresh AS (\n                   INSERT INTO analytics_counted_events (event_id) VALUES ($1)\n                   ON CONFLICT DO NOTHING\n                   RETURNING event_id\n               ),\n               reacted AS (\n                   SELECT c.workspace_id, m.channel_id, r.user_id,\n                          (r.created_at AT TIME ZONE 'UTC')::date AS day,\n                          c.channel_type::text AS kind\n                     FROM reactions r\n                     JOIN messages m ON m.id = r.message_id\n                     JOIN channels c ON c.id = m.channel_id\n                     JOIN users u ON u.id = r.user_id\n                    WHERE r.id = $2\n                      AND r.created_at >= (SELECT counted_from FROM analytics_backfill)\n                      AND NOT u.is_bot\n                      AND EXISTS (SELECT 1 FROM fresh)\n               ),\n               by_member AS (\n                   INSERT INTO member_daily_activity (workspace_id, user_id, day, reactions)\n                   SELECT workspace_id, user_id, day, 1 FROM reacted\n                   ON CONFLICT (workspace_id, user_id, day) DO UPDATE SET\n                       reactions = member_daily_activity.reactions + 1\n               )\n               INSERT INTO channel_member_activity (channel_id, user_id, day, reactions)\n               SELECT channel_id, user_id, day, 1 FROM reacted WHERE kind IN ('public', 'private')\n               ON CONFLICT (channel_id, user_id, day) DO UPDATE SET\n                   reactions = channel_member_activity.reactions + 1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3bb0c0c2b29b9d2e42276676531cb4941877f0d177f85ea5cf4e0d44171d2340"
+}

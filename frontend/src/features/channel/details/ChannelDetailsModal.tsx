@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { Info, Plug, SlidersHorizontal } from 'lucide-react';
+import { ChartColumn, Info, Plug, SlidersHorizontal } from 'lucide-react';
 import { SectionedModal, type ModalSection } from '@/shared/components/Modal/SectionedModal';
 import type { Channel } from '@/stores/workspace';
 import type { AppRef } from '@/features/workspace';
 import { AboutSection } from './AboutSection';
 import { SettingsSection } from './SettingsSection';
 import { IntegrationsSection } from './IntegrationsSection';
+import { ActivitySection } from './ActivitySection';
 
-export type ChannelDetailsTab = 'about' | 'settings' | 'integrations';
+export type ChannelDetailsTab = 'about' | 'settings' | 'activity' | 'integrations';
 
 const ABOUT: ModalSection<ChannelDetailsTab> = { key: 'about', label: 'About', Icon: Info };
 const SETTINGS: ModalSection<ChannelDetailsTab> = {
@@ -15,6 +16,7 @@ const SETTINGS: ModalSection<ChannelDetailsTab> = {
   label: 'Settings',
   Icon: SlidersHorizontal,
 };
+const ACTIVITY: ModalSection<ChannelDetailsTab> = { key: 'activity', label: 'Activity', Icon: ChartColumn };
 const INTEGRATIONS: ModalSection<ChannelDetailsTab> = {
   key: 'integrations',
   label: 'Integrations',
@@ -38,7 +40,7 @@ export function ChannelDetailsModal({
   onOpenApp,
   onClose,
 }: Props) {
-  const sections = canModerate ? [ABOUT, SETTINGS, INTEGRATIONS] : [ABOUT, INTEGRATIONS];
+  const sections = canModerate ? [ABOUT, SETTINGS, ACTIVITY, INTEGRATIONS] : [ABOUT, INTEGRATIONS];
   const [chosen, setChosen] = useState(initialTab);
   const active = sections.some((s) => s.key === chosen) ? chosen : 'about';
 
@@ -53,6 +55,7 @@ export function ChannelDetailsModal({
     >
       {active === 'about' && <AboutSection channel={channel} canModerate={canModerate} onClose={onClose} />}
       {active === 'settings' && <SettingsSection channel={channel} onClose={onClose} />}
+      {active === 'activity' && <ActivitySection channel={channel} />}
       {active === 'integrations' && (
         <IntegrationsSection
           channel={channel}

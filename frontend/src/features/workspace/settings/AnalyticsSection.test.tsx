@@ -7,13 +7,16 @@ import { downloadCsv } from '@/lib/csv';
 import { AnalyticsSection } from './AnalyticsSection';
 
 const get = vi.fn();
+const post = vi.fn();
 
 vi.mock('@/shared/hooks/useCurrentApi', () => ({
   getApiForInstance: () => ({
-    typed: async (call: (c: { GET: typeof get }) => Promise<{ data: unknown }>) =>
-      (await call({ GET: get })).data,
+    typed: async (call: (c: { GET: typeof get; POST: typeof post }) => Promise<{ data: unknown }>) =>
+      (await call({ GET: get, POST: post })).data,
   }),
 }));
+
+vi.mock('@/shared/components/Toast', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 vi.mock('@/lib/csv', async (original) => ({
   ...(await original<typeof import('@/lib/csv')>()),
@@ -69,10 +72,63 @@ const members = [
   { user_id: 'u-cy', display_name: null, email: 'cy@example.com' },
 ] as WorkspaceMember[];
 
+function channel(id: string, name: string, values: object = {}) {
+  return {
+    channel_id: id,
+    name,
+    channel_type: 'public',
+    is_archived: false,
+    created_at: '2026-01-15T10:00:00Z',
+    members: 3,
+    guests: 0,
+    messages: 0,
+    posters: 0,
+    viewers: 0,
+    reactions: 0,
+    last_message_at: null,
+    ...values,
+  };
+}
+
+const channels = [
+  channel('c-general', 'general', {
+    messages: 4,
+    posters: 2,
+    viewers: 3,
+    guests: 1,
+    reactions: 5,
+    last_message_at: '2026-11-03T09:00:00Z',
+  }),
+  channel('c-secret', 'secret', { channel_type: 'private', messages: 9, posters: 1, viewers: 1 }),
+  channel('c-old', 'old', { is_archived: true }),
+];
+
+const quietChannels = [
+  {
+    channel_id: 'c-ghost',
+    name: 'ghost',
+    channel_type: 'public',
+    members: 1,
+    last_message_at: null,
+    created_at: '2026-01-01T00:00:00Z',
+  },
+  {
+    channel_id: 'c-attic',
+    name: 'attic',
+    channel_type: 'private',
+    members: 4,
+    last_message_at: '2026-05-02T10:00:00Z',
+    created_at: '2025-01-01T00:00:00Z',
+  },
+];
+
 function answer(report: object) {
-  get.mockImplementation(async (path: string) =>
-    path.endsWith('/members') ? { data: { data: activity } } : { data: report },
-  );
+  get.mockImplementation(async (path: string) => {
+    if (path.endsWith('/members')) return { data: { data: activity } };
+    if (path.endsWith('/channels')) return { data: { data: channels } };
+    if (path.endsWith('/quiet-channels')) return { data: { data: quietChannels } };
+    return { data: report };
+  });
 }
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -90,9 +146,13 @@ function renderSection() {
 const names = () =>
   screen.queryAllByTestId('analytics-member-row').map((row) => row.querySelector('td')?.textContent);
 
+const channelNames = () =>
+  screen.queryAllByTestId('analytics-channel-row').map((row) => row.querySelector('td')?.textContent);
+
 describe('AnalyticsSection', () => {
   beforeEach(() => {
     get.mockReset();
+    post.mockReset();
     vi.mocked(downloadCsv).mockReset();
   });
 
@@ -169,5 +229,112 @@ describe('AnalyticsSection', () => {
     expect(file).toBe('dev-team-days-30-days.csv');
     expect(rows).toHaveLength(4);
     expect(rows[1]).toEqual([DAYS[0], 3, 2, 1, 4, 0, 1, 0, 2]);
+  });
+
+  it('lists the channels busiest first and exports them', async () => {
+    answer(busy);
+    renderSection();
+    fireEvent.click(screen.getByRole('tab', { name: 'Channels' }));
+
+    await waitFor(() => expect(channelNames()).toEqual(['secret', 'general', 'old']));
+    fireEvent.click(screen.getByRole('button', { name: 'Viewed' }));
+    expect(channelNames()).toEqual(['general', 'secret', 'old']);
+    expect(screen.getByLabelText('Archived')).toBeInTheDocument();
+    expect(screen.getByLabelText('Private')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('analytics-channels-csv'));
+    expect(downloadCsv).toHaveBeenCalledWith('dev-team-channels-30-days.csv', [
+      [
+        'Channel',
+        'Type',
+        'Archived',
+        'Created',
+        'Members',
+        'Guests',
+        'Messages',
+        'Members who posted',
+        'Members who viewed',
+        'Reactions',
+        'Last message',
+      ],
+      ['general', 'public', 'no', '2026-01-15', 3, 1, 4, 2, 3, 5, '2026-11-03'],
+      ['secret', 'private', 'no', '2026-01-15', 3, 0, 9, 1, 1, 0, null],
+      ['old', 'public', 'yes', '2026-01-15', 3, 0, 0, 0, 0, 0, null],
+    ]);
+  });
+
+  it('drops the guests column when guests are left out', async () => {
+    answer(busy);
+    renderSection();
+    fireEvent.click(screen.getByRole('tab', { name: 'Channels' }));
+    expect(await screen.findByRole('button', { name: 'Guests' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Include guests'));
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Guests' })).not.toBeInTheDocument());
+    expect(get).toHaveBeenCalledWith('/workspaces/{ws_id}/analytics/channels', {
+      params: { path: { ws_id: 'ws-1' }, query: { days: 30, guests: false } },
+    });
+  });
+
+  it('archives the quiet channels picked, after asking once', async () => {
+    answer(busy);
+    post.mockResolvedValue({ data: { archived: ['c-ghost', 'c-attic'] } });
+    renderSection();
+    fireEvent.click(screen.getByRole('tab', { name: 'Quiet channels' }));
+
+    expect(await screen.findAllByTestId('analytics-quiet-row')).toHaveLength(2);
+    expect(get).toHaveBeenCalledWith('/workspaces/{ws_id}/analytics/quiet-channels', {
+      params: { path: { ws_id: 'ws-1' }, query: { days: 90 } },
+    });
+    expect(screen.getByTestId('analytics-quiet-archive-selected')).toBeDisabled();
+
+    fireEvent.click(screen.getByText('ghost'));
+    fireEvent.click(screen.getByText('attic'));
+    fireEvent.click(screen.getByRole('button', { name: 'Archive 2 channels' }));
+
+    const dialog = await screen.findByTestId('analytics-quiet-confirm');
+    expect(within(dialog).getByText('#ghost')).toBeInTheDocument();
+    expect(within(dialog).getByText('#attic')).toBeInTheDocument();
+    expect(post).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId('analytics-quiet-confirm-confirm'));
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith('/workspaces/{ws_id}/analytics/quiet-channels/archive', {
+        params: { path: { ws_id: 'ws-1' } },
+        body: { channel_ids: ['c-ghost', 'c-attic'] },
+      }),
+    );
+  });
+
+  it('archives one quiet channel from its own row', async () => {
+    answer(busy);
+    post.mockResolvedValue({ data: { archived: ['c-attic'] } });
+    renderSection();
+    fireEvent.click(screen.getByRole('tab', { name: 'Quiet channels' }));
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Archive #attic' }));
+    expect(await screen.findByText('Archive #attic?')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('analytics-quiet-confirm-confirm'));
+
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith('/workspaces/{ws_id}/analytics/quiet-channels/archive', {
+        params: { path: { ws_id: 'ws-1' } },
+        body: { channel_ids: ['c-attic'] },
+      }),
+    );
+  });
+
+  it('keeps the dialog open with the reason when archiving fails', async () => {
+    answer(busy);
+    post.mockRejectedValue(new Error('A default channel cannot be archived'));
+    renderSection();
+    fireEvent.click(screen.getByRole('tab', { name: 'Quiet channels' }));
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Archive #ghost' }));
+    fireEvent.click(await screen.findByTestId('analytics-quiet-confirm-confirm'));
+
+    expect(await screen.findByText('A default channel cannot be archived')).toBeInTheDocument();
+    expect(screen.getByTestId('analytics-quiet-confirm')).toBeInTheDocument();
   });
 });

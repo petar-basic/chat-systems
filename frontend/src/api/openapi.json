@@ -1721,6 +1721,36 @@
         }
       }
     },
+    "/channels/{ch_id}/analytics": {
+      "get": {
+        "tags": [
+          "analytics"
+        ],
+        "operationId": "channel_analytics",
+        "parameters": [
+          {
+            "name": "ch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelAnalytics"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/channels/{ch_id}/bookmarks": {
       "get": {
         "tags": [
@@ -6216,6 +6246,53 @@
         }
       }
     },
+    "/workspaces/{ws_id}/analytics/channels": {
+      "get": {
+        "tags": [
+          "analytics"
+        ],
+        "operationId": "channel_list_analytics",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "guests",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_ChannelActivity"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workspaces/{ws_id}/analytics/members": {
       "get": {
         "tags": [
@@ -6256,6 +6333,85 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DataList_MemberActivity"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/analytics/quiet-channels": {
+      "get": {
+        "tags": [
+          "analytics"
+        ],
+        "operationId": "quiet_channels",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_QuietChannel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/analytics/quiet-channels/archive": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "operationId": "archive_quiet_channels",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArchiveChannelsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchivedChannels"
                 }
               }
             }
@@ -10058,6 +10214,36 @@
           }
         }
       },
+      "ArchiveChannelsRequest": {
+        "type": "object",
+        "required": [
+          "channel_ids"
+        ],
+        "properties": {
+          "channel_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "ArchivedChannels": {
+        "type": "object",
+        "required": [
+          "archived"
+        ],
+        "properties": {
+          "archived": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
       "Attachment": {
         "type": "object",
         "required": [
@@ -10544,6 +10730,95 @@
           "workspace_id": {
             "type": "string",
             "format": "uuid"
+          }
+        }
+      },
+      "ChannelActivity": {
+        "type": "object",
+        "required": [
+          "channel_id",
+          "channel_type",
+          "is_archived",
+          "created_at",
+          "members",
+          "guests",
+          "messages",
+          "posters",
+          "viewers",
+          "reactions"
+        ],
+        "properties": {
+          "channel_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "channel_type": {
+            "$ref": "#/components/schemas/ChannelType"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "guests": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "is_archived": {
+            "type": "boolean"
+          },
+          "last_message_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "members": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "messages": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "posters": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "reactions": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "viewers": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "ChannelAnalytics": {
+        "type": "object",
+        "required": [
+          "from",
+          "to",
+          "channel"
+        ],
+        "properties": {
+          "channel": {
+            "$ref": "#/components/schemas/ChannelActivity"
+          },
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
           }
         }
       },
@@ -12460,6 +12735,85 @@
           }
         }
       },
+      "DataList_ChannelActivity": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "channel_id",
+                "channel_type",
+                "is_archived",
+                "created_at",
+                "members",
+                "guests",
+                "messages",
+                "posters",
+                "viewers",
+                "reactions"
+              ],
+              "properties": {
+                "channel_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "channel_type": {
+                  "$ref": "#/components/schemas/ChannelType"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "guests": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "is_archived": {
+                  "type": "boolean"
+                },
+                "last_message_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "members": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "messages": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "posters": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "reactions": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "viewers": {
+                  "type": "integer",
+                  "format": "int64"
+                }
+              }
+            }
+          }
+        }
+      },
       "DataList_ChannelBookmark": {
         "type": "object",
         "required": [
@@ -13930,6 +14284,56 @@
                   "format": "date-time"
                 },
                 "user_agent": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "DataList_QuietChannel": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "channel_id",
+                "channel_type",
+                "members",
+                "created_at"
+              ],
+              "properties": {
+                "channel_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "channel_type": {
+                  "$ref": "#/components/schemas/ChannelType"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "last_message_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "members": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "name": {
                   "type": [
                     "string",
                     "null"
@@ -17470,6 +17874,45 @@
             "format": "date-time"
           },
           "user_agent": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "QuietChannel": {
+        "type": "object",
+        "required": [
+          "channel_id",
+          "channel_type",
+          "members",
+          "created_at"
+        ],
+        "properties": {
+          "channel_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "channel_type": {
+            "$ref": "#/components/schemas/ChannelType"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_message_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "members": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
             "type": [
               "string",
               "null"

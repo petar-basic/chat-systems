@@ -5,6 +5,7 @@ import { ChannelDetailsModal, type ChannelDetailsTab } from './ChannelDetailsMod
 import type { Channel } from '@/stores/workspace';
 import type { ChannelRetention } from '@/features/workspace/hooks/useRetention';
 import type { ChannelIntegrations } from '../hooks/useChannelIntegrations';
+import type { ChannelAnalytics } from '../hooks/useChannelAnalytics';
 import type { AppRef } from '@/features/workspace';
 
 const updateChannel = vi.fn();
@@ -15,6 +16,7 @@ const rotateHook = vi.fn();
 const deleteHook = vi.fn();
 let retention: ChannelRetention;
 let integrations: ChannelIntegrations;
+let analytics: ChannelAnalytics;
 
 vi.mock('../hooks/useChannels', () => ({
   useUpdateChannel: () => ({ mutateAsync: updateChannel, isPending: false }),
@@ -37,6 +39,9 @@ vi.mock('@/features/workspace/hooks/useWorkspaces', () => ({
 }));
 vi.mock('../hooks/useChannelIntegrations', () => ({
   useChannelIntegrations: () => ({ isLoading: false, data: integrations }),
+}));
+vi.mock('../hooks/useChannelAnalytics', () => ({
+  useChannelAnalytics: () => ({ isLoading: false, isError: false, data: analytics }),
 }));
 
 const channel = {
@@ -85,6 +90,24 @@ beforeEach(() => {
   revealHook.mockReset().mockResolvedValue({ incoming_url: 'https://chat.test/api/hooks/incoming/first' });
   rotateHook.mockReset().mockResolvedValue({ incoming_url: 'https://chat.test/api/hooks/incoming/second' });
   deleteHook.mockReset().mockResolvedValue({});
+  analytics = {
+    from: '2026-10-07',
+    to: '2026-11-05',
+    channel: {
+      channel_id: 'ch-1',
+      name: 'deploys',
+      channel_type: 'public',
+      is_archived: false,
+      created_at: '2026-01-15T10:00:00Z',
+      members: 6,
+      guests: 0,
+      messages: 1234,
+      posters: 2,
+      viewers: 5,
+      reactions: 0,
+      last_message_at: '2026-11-04T08:30:00Z',
+    },
+  };
   retention = { overrides_allowed: true, workspace_message_days: 365, channel: null };
   integrations = {
     incoming_webhooks: [
@@ -104,9 +127,9 @@ beforeEach(() => {
 });
 
 describe('ChannelDetailsModal', () => {
-  it('gives a moderator About, Settings and Integrations, and everyone else About and Integrations', () => {
+  it('gives a moderator About, Settings, Activity and Integrations, and everyone else About and Integrations', () => {
     renderModal();
-    expect(tabs()).toEqual(['About', 'Settings', 'Integrations']);
+    expect(tabs()).toEqual(['About', 'Settings', 'Activity', 'Integrations']);
     expect(screen.getByTestId('channel-about-name')).toHaveValue('deploys');
   });
 
@@ -125,6 +148,23 @@ describe('ChannelDetailsModal', () => {
       expect(updateChannel).toHaveBeenCalledWith({ name: 'deploys', topic: 'Releases', description: '' }),
     );
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe('ChannelDetailsModal activity', () => {
+  it('counts the last 30 days of the channel for its moderator', () => {
+    renderModal({ initialTab: 'activity' });
+    expect(screen.getByTestId('channel-activity')).toHaveTextContent('Oct 7 – Nov 5');
+    expect(screen.getByTestId('channel-activity-messages')).toHaveTextContent('1,234');
+    expect(screen.getByTestId('channel-activity-posters')).toHaveTextContent('2of 6 members');
+    expect(screen.getByTestId('channel-activity-viewers')).toHaveTextContent('5of 6 members');
+    expect(screen.getByTestId('channel-activity-last')).toHaveTextContent('Nov 4');
+  });
+
+  it('keeps the numbers from a member who does not moderate', () => {
+    renderModal({ canModerate: false, initialTab: 'activity' });
+    expect(screen.queryByTestId('channel-activity')).not.toBeInTheDocument();
+    expect(screen.getByTestId('channel-about')).toBeInTheDocument();
   });
 });
 

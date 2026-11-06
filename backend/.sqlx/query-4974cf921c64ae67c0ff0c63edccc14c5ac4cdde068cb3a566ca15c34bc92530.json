@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH reader AS (\n                   SELECT wm.workspace_id, wm.user_id\n                     FROM workspace_members wm\n                     JOIN users u ON u.id = wm.user_id\n                    WHERE wm.workspace_id = $1 AND wm.user_id = $3 AND NOT u.is_bot\n               ),\n               by_member AS (\n                   INSERT INTO member_daily_activity (workspace_id, user_id, day)\n                   SELECT workspace_id, user_id, $4 FROM reader\n                   ON CONFLICT DO NOTHING\n               )\n               INSERT INTO channel_member_activity (channel_id, user_id, day, read)\n               SELECT c.id, reader.user_id, $4, TRUE\n                 FROM reader\n                 JOIN channels c ON c.id = $2 AND c.workspace_id = reader.workspace_id\n                WHERE c.channel_type IN ('public', 'private')\n               ON CONFLICT (channel_id, user_id, day) DO UPDATE SET read = TRUE",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Date"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4974cf921c64ae67c0ff0c63edccc14c5ac4cdde068cb3a566ca15c34bc92530"
+}

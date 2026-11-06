@@ -9,16 +9,20 @@ import { downloadCsv } from '@/lib/csv';
 import type { WorkspaceMember } from '@/stores/workspace';
 import {
   ANALYTICS_WINDOWS,
+  useChannelActivity,
   useMemberAnalytics,
   useWorkspaceAnalytics,
   type AnalyticsWindow,
+  type ChannelActivity,
   type DailyActivity,
   type MemberActivity,
   type WorkspaceAnalytics,
 } from '@/features/workspace/hooks/useAnalytics';
 import { DayChart } from './analytics/DayChart';
 import { MemberTable, type MemberRow } from './analytics/MemberTable';
-import { dayLabel } from './analytics/days';
+import { ChannelTable } from './analytics/ChannelTable';
+import { QuietChannels } from './analytics/QuietChannels';
+import { dayLabel, dayOf } from './analytics/days';
 
 interface Props {
   workspaceId: string;
@@ -185,36 +189,69 @@ function membersCsv(rows: MemberRow[]) {
   ];
 }
 
-export function AnalyticsSection({ workspaceId, workspaceName, instanceUrl, members }: Props) {
-  const [days, setDays] = useState<AnalyticsWindow>(30);
-  const [guests, setGuests] = useState(true);
+function channelsCsv(rows: ChannelActivity[], guests: boolean) {
+  return [
+    [
+      'Channel',
+      'Type',
+      'Archived',
+      'Created',
+      'Members',
+      ...(guests ? ['Guests'] : []),
+      'Messages',
+      'Members who posted',
+      'Members who viewed',
+      'Reactions',
+      'Last message',
+    ],
+    ...rows.map((c) => [
+      c.name,
+      c.channel_type,
+      c.is_archived ? 'yes' : 'no',
+      dayOf(c.created_at),
+      c.members,
+      ...(guests ? [c.guests] : []),
+      c.messages,
+      c.posters,
+      c.viewers,
+      c.reactions,
+      dayOf(c.last_message_at),
+    ]),
+  ];
+}
+
+type Tab = 'overview' | 'channels' | 'quiet';
+
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'channels', label: 'Channels' },
+  { key: 'quiet', label: 'Quiet channels' },
+];
+
+interface Scope {
+  workspaceId: string;
+  workspaceName: string;
+  instanceUrl?: string;
+  days: AnalyticsWindow;
+  guests: boolean;
+}
+
+function WorkspaceTab({
+  workspaceId,
+  workspaceName,
+  instanceUrl,
+  days,
+  guests,
+  members,
+}: Scope & {
+  members: WorkspaceMember[];
+}) {
   const report = useWorkspaceAnalytics(workspaceId, days, guests, instanceUrl);
   const activity = useMemberAnalytics(workspaceId, days, guests, instanceUrl);
   const rows = memberRows(activity.data ?? [], members);
 
   return (
-    <div className="space-y-6" data-qa="analytics-panel">
-      <div className="flex flex-wrap items-end gap-4">
-        <Select
-          label="Period"
-          value={days}
-          onChange={(e) => setDays(Number(e.target.value) as AnalyticsWindow)}
-          dataQa="analytics-window"
-          className="w-48"
-        >
-          {ANALYTICS_WINDOWS.map((n) => (
-            <option key={n} value={n}>
-              Last {n} days
-            </option>
-          ))}
-        </Select>
-        <Checkbox label="Include guests" checked={guests} onChange={setGuests} dataQa="analytics-guests" />
-      </div>
-      <p className="text-xs text-muted">
-        Counts only, never what anyone wrote. A member is active on a day they post, react or read a
-        conversation. Days run midnight to midnight UTC.
-      </p>
-
+    <>
       <QueryState isLoading={report.isLoading} isError={report.isError} onRetry={() => void report.refetch()}>
         {report.data && (
           <section className="space-y-3">
@@ -250,6 +287,92 @@ export function AnalyticsSection({ workspaceId, workspaceName, instanceUrl, memb
           <MemberTable rows={rows} />
         </section>
       </QueryState>
+    </>
+  );
+}
+
+function ChannelsTab({ workspaceId, workspaceName, instanceUrl, days, guests }: Scope) {
+  const channels = useChannelActivity(workspaceId, days, guests, instanceUrl);
+  const rows = channels.data ?? [];
+
+  return (
+    <QueryState
+      isLoading={channels.isLoading}
+      isError={channels.isError}
+      onRetry={() => void channels.refetch()}
+    >
+      <section className="space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-base font-semibold text-fg">Channels</h3>
+          <CsvButton
+            onClick={() => downloadCsv(fileName(workspaceName, 'channels', days), channelsCsv(rows, guests))}
+            qa="analytics-channels-csv"
+          />
+        </div>
+        <ChannelTable rows={rows} guests={guests} />
+      </section>
+    </QueryState>
+  );
+}
+
+export function AnalyticsSection({ workspaceId, workspaceName, instanceUrl, members }: Props) {
+  const [tab, setTab] = useState<Tab>('overview');
+  const [days, setDays] = useState<AnalyticsWindow>(30);
+  const [guests, setGuests] = useState(true);
+  const scope = { workspaceId, workspaceName, instanceUrl, days, guests };
+
+  return (
+    <div className="space-y-6" data-qa="analytics-panel">
+      <div className="flex gap-1" role="tablist" aria-label="Analytics">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.key}
+            onClick={() => setTab(t.key)}
+            className={`cursor-pointer rounded-full px-3 py-1 text-sm transition ${
+              tab === t.key ? 'bg-accent text-white' : 'text-fg-dim hover:bg-raised'
+            }`}
+            data-qa={`analytics-tab-${t.key}`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'quiet' ? (
+        <QuietChannels workspaceId={workspaceId} instanceUrl={instanceUrl} />
+      ) : (
+        <>
+          <div className="flex flex-wrap items-end gap-4">
+            <Select
+              label="Period"
+              value={days}
+              onChange={(e) => setDays(Number(e.target.value) as AnalyticsWindow)}
+              dataQa="analytics-window"
+              className="w-48"
+            >
+              {ANALYTICS_WINDOWS.map((n) => (
+                <option key={n} value={n}>
+                  Last {n} days
+                </option>
+              ))}
+            </Select>
+            <Checkbox
+              label="Include guests"
+              checked={guests}
+              onChange={setGuests}
+              dataQa="analytics-guests"
+            />
+          </div>
+          <p className="text-xs text-muted">
+            Counts only, never what anyone wrote. A member is active on a day they post, react or read a
+            conversation. Days run midnight to midnight UTC.
+          </p>
+          {tab === 'overview' ? <WorkspaceTab {...scope} members={members} /> : <ChannelsTab {...scope} />}
+        </>
+      )}
     </div>
   );
 }

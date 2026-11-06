@@ -74,6 +74,10 @@ export const QUERY_KEYS = {
     ['analytics', workspaceId, days, guests] as const,
   analyticsMembers: (workspaceId: string, days: number, guests: boolean) =>
     ['analytics', workspaceId, days, guests, 'members'] as const,
+  analyticsChannels: (workspaceId: string, days: number, guests: boolean) =>
+    ['analytics', workspaceId, days, guests, 'channels'] as const,
+  quietChannels: (workspaceId: string, days: number) => ['analytics', workspaceId, 'quiet', days] as const,
+  channelAnalytics: (channelId: string) => ['channels', channelId, 'analytics'] as const,
   retention: (workspaceId: string) => ['retention', workspaceId] as const,
   retentionPreview: (
     workspaceId: string,
