@@ -14,6 +14,7 @@ fn main() {
             "open_workspace",
             "start_sso",
             "start_passkey",
+            "press_menu_keys",
         ]),
     ))
     .expect("tauri build script");
