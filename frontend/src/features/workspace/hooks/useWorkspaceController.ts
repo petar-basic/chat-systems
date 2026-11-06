@@ -13,6 +13,7 @@ import { newestSentIn } from '@/lib/readOnScreen';
 import { useRightPanel } from './useRightPanel';
 import { useWorkspaceData } from './useWorkspaceData';
 import { useWorkspaceRouting } from './useWorkspaceRouting';
+import { placeIn } from '../lastPlace';
 import { useComposer } from './useComposer';
 import { useWorkspaceShortcuts } from './useWorkspaceShortcuts';
 import { useMarkWorkspaceRead } from '@/features/unreads';
@@ -96,7 +97,7 @@ export function useWorkspaceController() {
   const handleSelectWorkspace = useCallback(
     (ws: { id: string }) => {
       panel.close();
-      navigate(ROUTES.workspace(ws.id));
+      navigate(placeIn(ws.id));
     },
     [panel, navigate],
   );

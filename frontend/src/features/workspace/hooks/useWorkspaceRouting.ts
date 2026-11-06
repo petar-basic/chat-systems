@@ -6,6 +6,7 @@ import { messagePath, useMessageLocation } from '@/features/messaging';
 import { useChannelPreview } from '@/features/channel';
 import { toast } from '@/shared/components/Toast';
 import { useWorkspaceStore, type Message, type Workspace, type Channel } from '@/stores/workspace';
+import { lastWorkspaceId, placeIn, rememberPlace } from '../lastPlace';
 import type { useRightPanel } from './useRightPanel';
 
 interface Args {
@@ -15,6 +16,23 @@ interface Args {
   channels: Channel[];
   markConversationReadServer: (conversationId: string) => void;
   panel: ReturnType<typeof useRightPanel>;
+}
+
+interface Place {
+  conversationId?: string;
+  channelId?: string;
+  listId: string | null;
+  unreads: boolean;
+  threads: boolean;
+}
+
+function placeOf(workspaceId: string, place: Place): string | null {
+  if (place.conversationId) return ROUTES.conversation(workspaceId, place.conversationId);
+  if (place.channelId) return ROUTES.channel(workspaceId, place.channelId);
+  if (place.listId) return ROUTES.list(workspaceId, place.listId);
+  if (place.unreads) return ROUTES.unreads(workspaceId);
+  if (place.threads) return ROUTES.threads(workspaceId);
+  return null;
 }
 
 /// The url is the source of truth for which workspace, channel or conversation
@@ -87,8 +105,9 @@ export function useWorkspaceRouting({
         navigate(`/app/${workspaces[0].id}`, { replace: true });
       }
     } else {
-      const ws = currentWorkspace || workspaces[0];
-      if (ws) navigate(`/app/${ws.id}`, { replace: true });
+      const last = lastWorkspaceId();
+      const ws = currentWorkspace || workspaces.find((w) => w.id === last) || workspaces[0];
+      if (ws) navigate(placeIn(ws.id), { replace: true });
     }
   }, [
     workspaces,
@@ -102,6 +121,20 @@ export function useWorkspaceRouting({
   ]);
 
   const workspaceReady = !!workspaceId && currentWorkspace?.id === workspaceId;
+
+  const here = workspaceReady
+    ? placeOf(workspaceId, {
+        conversationId: routeConversationId,
+        channelId: urlChannelId,
+        listId,
+        unreads: isUnreadsRoute,
+        threads: isThreadsRoute,
+      })
+    : null;
+
+  useEffect(() => {
+    if (workspaceId && here) rememberPlace(workspaceId, here);
+  }, [workspaceId, here]);
   const { data: place, isError: placeMissing } = useMessageLocation(
     workspaceReady ? urlMessageId : undefined,
   );
