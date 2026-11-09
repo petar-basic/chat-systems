@@ -8,6 +8,7 @@ import enHuddle from '@/locales/en/huddle.json';
 import enNotifications from '@/locales/en/notifications.json';
 import enProfile from '@/locales/en/profile.json';
 import enSidebar from '@/locales/en/sidebar.json';
+import enWorkspace from '@/locales/en/workspace.json';
 import jaAuth from '@/locales/ja/auth.json';
 import jaChannel from '@/locales/ja/channel.json';
 import jaCommon from '@/locales/ja/common.json';
@@ -15,6 +16,7 @@ import jaHuddle from '@/locales/ja/huddle.json';
 import jaNotifications from '@/locales/ja/notifications.json';
 import jaProfile from '@/locales/ja/profile.json';
 import jaSidebar from '@/locales/ja/sidebar.json';
+import jaWorkspace from '@/locales/ja/workspace.json';
 
 const STORAGE_KEY = 'chat_language';
 
@@ -35,6 +37,7 @@ export const resources = {
     notifications: enNotifications,
     profile: enProfile,
     sidebar: enSidebar,
+    workspace: enWorkspace,
   },
   ja: {
     auth: jaAuth,
@@ -44,6 +47,7 @@ export const resources = {
     notifications: jaNotifications,
     profile: jaProfile,
     sidebar: jaSidebar,
+    workspace: jaWorkspace,
   },
 } as const;
 
@@ -107,7 +111,7 @@ export const i18nOptions = {
   resources,
   fallbackLng: 'en',
   supportedLngs: LANGUAGES,
-  ns: ['auth', 'channel', 'common', 'huddle', 'notifications', 'profile', 'sidebar'],
+  ns: ['auth', 'channel', 'common', 'huddle', 'notifications', 'profile', 'sidebar', 'workspace'],
   initAsync: false,
   interpolation: { escapeValue: false },
   react: { unescape: unescapeText },

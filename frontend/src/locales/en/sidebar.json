@@ -54,5 +54,35 @@
     "paused": "Notifications paused until {{time}}",
     "pausedBySchedule": "Notifications paused by your schedule until {{time}}",
     "signOut": "Sign out"
+  },
+  "newDm": {
+    "title": "New message",
+    "description": "Pick one person for a direct message, or up to eight for a group.",
+    "search": "Search people",
+    "searchPlaceholder": "Search people…",
+    "noPeople": "No people found",
+    "nobody": "Nobody picked yet",
+    "selected": "{{count}} selected",
+    "start": "Start chat",
+    "startGroup": "Start group"
+  },
+  "newChannel": {
+    "title": "Create channel",
+    "description": "Channels are where a team talks about one topic. Pick a name people will recognise.",
+    "name": "Name",
+    "namePlaceholder": "e.g. plan-budget",
+    "visibility": "Visibility",
+    "public": "Public",
+    "publicHint": "Anyone in the workspace can find and join it.",
+    "private": "Private",
+    "privateHint": "Only people who are invited can find or read it.",
+    "about": "Description",
+    "aboutPlaceholder": "What is this channel for?",
+    "announcement": "Announcement channel",
+    "announcementHint": "Only admins can post. Everyone else can still read and react.",
+    "nameRequired": "Enter a channel name.",
+    "nameTaken": "A channel with that name already exists.",
+    "failed": "Could not create the channel.",
+    "create": "Create"
   }
 }

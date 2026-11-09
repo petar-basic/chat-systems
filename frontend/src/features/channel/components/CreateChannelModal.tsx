@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/shared/components/Button/Button';
 import { Modal } from '@/shared/components/Modal/Modal';
 import { TextInput } from '@/shared/components/Form/TextInput';
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export function CreateChannelModal({ kinds, channels, onCreate, onClose }: Props) {
+  const { t } = useTranslation(['sidebar', 'common']);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isPrivate, setIsPrivate] = useState(!kinds.includes('public'));
@@ -30,11 +32,11 @@ export function CreateChannelModal({ kinds, channels, onCreate, onClose }: Props
     e.preventDefault();
     const trimmed = name.replace(/^-+|-+$/g, '');
     if (!trimmed) {
-      setError('Enter a channel name.');
+      setError(t('newChannel.nameRequired'));
       return;
     }
     if (channels.some((ch) => ch.name?.toLowerCase() === trimmed.toLowerCase())) {
-      setError('A channel with that name already exists.');
+      setError(t('newChannel.nameTaken'));
       return;
     }
     setError(null);
@@ -48,7 +50,7 @@ export function CreateChannelModal({ kinds, channels, onCreate, onClose }: Props
       });
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not create the channel.');
+      setError(err instanceof Error ? err.message : t('newChannel.failed'));
     } finally {
       setCreating(false);
     }
@@ -56,28 +58,28 @@ export function CreateChannelModal({ kinds, channels, onCreate, onClose }: Props
 
   return (
     <Modal
-      title="Create channel"
-      description="Channels are where a team talks about one topic. Pick a name people will recognise."
+      title={t('newChannel.title')}
+      description={t('newChannel.description')}
       onClose={onClose}
       dataQa="create-channel-modal"
       onSubmit={handleSubmit}
-      dismissLabel="Cancel"
+      dismissLabel={t('cancel', { ns: 'common' })}
       actions={
         <Button type="submit" variant="primary" loading={creating} data-qa="create-channel-submit">
-          Create
+          {t('newChannel.create')}
         </Button>
       }
     >
       <div className="space-y-5">
         <TextInput
-          label="Name"
+          label={t('newChannel.name')}
           value={name}
           onChange={(e) => {
             setName(channelNameFrom(e.target.value));
             if (error) setError(null);
           }}
           leading={<span className="text-sm">#</span>}
-          placeholder="e.g. plan-budget"
+          placeholder={t('newChannel.namePlaceholder')}
           maxLength={CHANNEL_NAME_MAX}
           counter
           error={error}
@@ -87,22 +89,22 @@ export function CreateChannelModal({ kinds, channels, onCreate, onClose }: Props
         />
 
         <RadioCards
-          label="Visibility"
+          label={t('newChannel.visibility')}
           value={isPrivate ? 'private' : 'public'}
           onChange={(value) => setIsPrivate(value === 'private')}
           columns={kinds.length > 1 ? 2 : 1}
           options={[
             {
               value: 'public' as const,
-              label: 'Public',
-              description: 'Anyone in the workspace can find and join it.',
+              label: t('newChannel.public'),
+              description: t('newChannel.publicHint'),
               icon: <Hash className="w-4 h-4" />,
               dataQa: 'create-channel-public',
             },
             {
               value: 'private' as const,
-              label: 'Private',
-              description: 'Only people who are invited can find or read it.',
+              label: t('newChannel.private'),
+              description: t('newChannel.privateHint'),
               icon: <Lock className="w-4 h-4" />,
               dataQa: 'create-channel-private',
             },
@@ -110,18 +112,18 @@ export function CreateChannelModal({ kinds, channels, onCreate, onClose }: Props
         />
 
         <TextArea
-          label="Description"
+          label={t('newChannel.about')}
           optional
           rows={2}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="What is this channel for?"
+          placeholder={t('newChannel.aboutPlaceholder')}
           dataQa="create-channel-description"
         />
 
         <Checkbox
-          label="Announcement channel"
-          description="Only admins can post. Everyone else can still read and react."
+          label={t('newChannel.announcement')}
+          description={t('newChannel.announcementHint')}
           checked={announcementOnly}
           onChange={setAnnouncementOnly}
           dataQa="create-channel-announcement"
