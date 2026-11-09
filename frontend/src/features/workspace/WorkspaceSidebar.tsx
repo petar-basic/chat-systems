@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/shared/components/Button/Button';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { Plus, ServerCrash, RefreshCw, Upload } from 'lucide-react';
@@ -35,6 +36,7 @@ export default function WorkspaceSidebar({
   onAddInstance,
   onImportFromSlack,
 }: Props) {
+  const { t } = useTranslation(['workspace', 'common']);
   const { instances } = useInstanceStore();
   const wsStatuses = useWsStatusStore((s) => s.statuses);
   const unreadByWorkspace = useWorkspaceUnreadCounts(workspaces);
@@ -86,7 +88,7 @@ export default function WorkspaceSidebar({
       {!shell && (
         <div
           role="navigation"
-          aria-label="Workspaces"
+          aria-label={t('rail.label')}
           className="w-16 bg-rail flex flex-col items-center py-3 gap-1 border-r border-surface overflow-y-auto"
         >
           {groups.map((group, groupIdx) => (
@@ -108,28 +110,34 @@ export default function WorkspaceSidebar({
                         : 'bg-subtle';
                   const statusLabel =
                     status === 'connected'
-                      ? 'Connected'
+                      ? t('rail.connected')
                       : status === 'connecting'
-                        ? 'Connecting…'
+                        ? t('rail.connecting')
                         : status === 'disconnected'
-                          ? 'Disconnected'
-                          : 'Not connected';
+                          ? t('rail.disconnected')
+                          : t('rail.notConnected');
                   return (
                     <div className="flex items-center gap-1 py-0.5">
                       <div
                         role="img"
-                        aria-label={`${instanceLabel(group.instance.url)}: ${statusLabel}`}
+                        aria-label={t('rail.status', {
+                          server: instanceLabel(group.instance.url),
+                          status: statusLabel,
+                        })}
                         className={`w-1.5 h-1.5 rounded-full ${dotColor}`}
-                        data-tooltip={`${instanceLabel(group.instance.url)}: ${statusLabel}`}
+                        data-tooltip={t('rail.status', {
+                          server: instanceLabel(group.instance.url),
+                          status: statusLabel,
+                        })}
                         data-tooltip-side="right"
                       />
                       {(status === 'disconnected' || (!status && instances.length > 0)) && (
                         <button
                           onClick={() => instanceManager.get(group.instance.url).ws.connect()}
                           className="text-muted hover:text-fg-dim transition cursor-pointer"
-                          data-tooltip="Retry connection"
+                          data-tooltip={t('rail.retry')}
                           data-tooltip-side="right"
-                          aria-label="Retry connection"
+                          aria-label={t('rail.retry')}
                         >
                           <RefreshCw className="w-2.5 h-2.5" />
                         </button>
@@ -152,7 +160,15 @@ export default function WorkspaceSidebar({
                             ? 'ring-2 ring-purple-400 ring-offset-2 ring-offset-rail'
                             : 'opacity-80 hover:opacity-100'
                         }`}
-                        data-tooltip={`${ws.name} · ${instanceLabel(group.instance.url)}${showBadge ? ` · ${unread} unread` : ''}`}
+                        data-tooltip={
+                          showBadge
+                            ? t('rail.tileUnread', {
+                                name: ws.name,
+                                server: instanceLabel(group.instance.url),
+                                count: unread,
+                              })
+                            : t('rail.tile', { name: ws.name, server: instanceLabel(group.instance.url) })
+                        }
                         data-tooltip-side="right"
                       >
                         <WorkspaceIcon
@@ -166,7 +182,7 @@ export default function WorkspaceSidebar({
                         is meant to sit on the corner. */}
                       {showBadge && (
                         <span
-                          aria-label={`${unread} unread notifications`}
+                          aria-label={t('rail.unread', { count: unread })}
                           className="pointer-events-none absolute -top-1 -right-1 min-w-4 h-4 px-1 bg-badge text-badge-fg text-4xs font-bold rounded-full flex items-center justify-center leading-none ring-2 ring-rail"
                         >
                           {unread > 99 ? '99+' : unread}
@@ -181,8 +197,14 @@ export default function WorkspaceSidebar({
                     key={ws.id}
                     onClick={() => onSelectWorkspace(ws)}
                     className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold transition cursor-pointer opacity-40 hover:opacity-70 bg-raised text-muted relative"
-                    aria-label={`${ws.name} (deleted) · ${instanceLabel(group.instance.url)}`}
-                    data-tooltip={`${ws.name} (deleted) · ${instanceLabel(group.instance.url)}`}
+                    aria-label={t('rail.deleted', {
+                      name: ws.name,
+                      server: instanceLabel(group.instance.url),
+                    })}
+                    data-tooltip={t('rail.deleted', {
+                      name: ws.name,
+                      server: instanceLabel(group.instance.url),
+                    })}
                     data-tooltip-side="right"
                   >
                     <span className="line-through">{workspaceInitials(ws.name)}</span>
@@ -192,9 +214,9 @@ export default function WorkspaceSidebar({
                 <button
                   onClick={() => openCreateModal(group.instance.url)}
                   className="w-10 h-10 rounded-xl flex items-center justify-center bg-surface text-muted hover:bg-raised hover:text-fg transition cursor-pointer"
-                  data-tooltip={`Create workspace on ${instanceLabel(group.instance.url)}`}
+                  data-tooltip={t('rail.create', { server: instanceLabel(group.instance.url) })}
                   data-tooltip-side="right"
-                  aria-label={`Create workspace on ${instanceLabel(group.instance.url)}`}
+                  aria-label={t('rail.create', { server: instanceLabel(group.instance.url) })}
                 >
                   <Plus className="w-4 h-4" />
                 </button>
@@ -207,9 +229,9 @@ export default function WorkspaceSidebar({
           <button
             onClick={onAddInstance}
             className="w-10 h-10 rounded-xl flex items-center justify-center bg-surface text-muted hover:bg-raised hover:text-fg transition cursor-pointer"
-            data-tooltip="Add instance"
+            data-tooltip={t('rail.addInstance')}
             data-tooltip-side="right"
-            aria-label="Add instance"
+            aria-label={t('rail.addInstance')}
           >
             <ServerCrash className="w-4 h-4" />
           </button>
@@ -218,16 +240,16 @@ export default function WorkspaceSidebar({
 
       {showNewWs && (
         <Modal
-          title="Create workspace"
+          title={t('create.title')}
           description={instanceLabel(newWsInstanceUrl)}
           onClose={() => setShowNewWs(false)}
           size="sm"
           dataQa="create-workspace-modal"
           onSubmit={handleCreate}
-          dismissLabel="Cancel"
+          dismissLabel={t('cancel', { ns: 'common' })}
           actions={
             <Button type="submit" variant="primary">
-              Create
+              {t('create.submit')}
             </Button>
           }
         >
@@ -245,16 +267,16 @@ export default function WorkspaceSidebar({
           >
             <Upload className="w-4 h-4 text-accent shrink-0" />
             <span>
-              <span className="block text-sm text-fg-soft">Import from Slack instead</span>
-              <span className="block text-xs text-muted">Bring a workspace export in, with its history</span>
+              <span className="block text-sm text-fg-soft">{t('create.import')}</span>
+              <span className="block text-xs text-muted">{t('create.importHint')}</span>
             </span>
           </button>
 
           <TextInput
-            label="Workspace name"
+            label={t('create.name')}
             value={newWsName}
             onChange={(e) => setNewWsName(e.target.value)}
-            placeholder="e.g. Acme"
+            placeholder={t('create.namePlaceholder')}
             required
             data-autofocus
           />

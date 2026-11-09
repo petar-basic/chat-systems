@@ -1,0 +1,25 @@
+{
+  "rail": {
+    "label": "ワークスペース",
+    "connected": "接続中",
+    "connecting": "接続しています…",
+    "disconnected": "切断されました",
+    "notConnected": "未接続",
+    "status": "{{server}}: {{status}}",
+    "retry": "再接続",
+    "tile": "{{name}} · {{server}}",
+    "tileUnread": "{{name}} · {{server}} · 未読 {{count}}件",
+    "unread": "未読の通知 {{count}}件",
+    "deleted": "{{name}}(削除済み) · {{server}}",
+    "create": "{{server}} にワークスペースを作成",
+    "addInstance": "サーバーを追加"
+  },
+  "create": {
+    "title": "ワークスペースを作成",
+    "import": "代わりに Slack から取り込む",
+    "importHint": "ワークスペースのエクスポートを、その履歴を含めて取り込む",
+    "name": "ワークスペース名",
+    "namePlaceholder": "例: 営業部",
+    "submit": "作成"
+  }
+}

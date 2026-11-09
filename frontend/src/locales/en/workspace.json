@@ -1,0 +1,25 @@
+{
+  "rail": {
+    "label": "Workspaces",
+    "connected": "Connected",
+    "connecting": "Connecting…",
+    "disconnected": "Disconnected",
+    "notConnected": "Not connected",
+    "status": "{{server}}: {{status}}",
+    "retry": "Retry connection",
+    "tile": "{{name}} · {{server}}",
+    "tileUnread": "{{name}} · {{server}} · {{count}} unread",
+    "unread": "{{count}} unread notifications",
+    "deleted": "{{name}} (deleted) · {{server}}",
+    "create": "Create workspace on {{server}}",
+    "addInstance": "Add instance"
+  },
+  "create": {
+    "title": "Create workspace",
+    "import": "Import from Slack instead",
+    "importHint": "Bring a workspace export in, with its history",
+    "name": "Workspace name",
+    "namePlaceholder": "e.g. Acme",
+    "submit": "Create"
+  }
+}
