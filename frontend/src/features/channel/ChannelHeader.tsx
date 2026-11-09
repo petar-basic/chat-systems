@@ -17,7 +17,7 @@ interface Props {
   showPins: boolean;
   showFiles: boolean;
   showChannelMembers: boolean;
-  onToggleSearch: () => void;
+  onToggleSearch?: () => void;
   onTogglePins: () => void;
   onToggleFiles: () => void;
   onToggleChannelMembers: () => void;
@@ -123,14 +123,16 @@ export default function ChannelHeader({
               onClick={onToggleFiles}
               dataQa="channel-header-files"
             />
-            <IconButton
-              label={t('header.search')}
-              size="md"
-              icon={<Search className="w-4 h-4" />}
-              pressed={showSearch}
-              onClick={onToggleSearch}
-              data-qa="channel-header-search"
-            />
+            {onToggleSearch && (
+              <IconButton
+                label={t('header.search')}
+                size="md"
+                icon={<Search className="w-4 h-4" />}
+                pressed={showSearch}
+                onClick={onToggleSearch}
+                data-qa="channel-header-search"
+              />
+            )}
 
             <div className="relative" ref={overflowRef}>
               <IconButton

@@ -48,6 +48,9 @@ export function useRightPanel(currentChannelId?: string, currentDmPartnerId?: st
   const toggle = useCallback((kind: Exclude<PanelKind, 'thread'>) => {
     setActive((p) => (p?.kind === kind ? null : { kind }));
   }, []);
+  const open = useCallback((kind: Exclude<PanelKind, 'thread'>) => {
+    setActive((p) => (p?.kind === kind ? p : { kind }));
+  }, []);
   const addChannelMembers = useCallback(() => setActive({ kind: 'channelMembers', adding: true }), []);
   const openWorkflow = useCallback((workflowId: string) => setActive({ kind: 'workflows', workflowId }), []);
   const openThread = useCallback(
@@ -58,5 +61,5 @@ export function useRightPanel(currentChannelId?: string, currentDmPartnerId?: st
 
   useEscapeToClose(close, !!active);
 
-  return { active, toggle, openThread, addChannelMembers, openWorkflow, close };
+  return { active, toggle, open, openThread, addChannelMembers, openWorkflow, close };
 }

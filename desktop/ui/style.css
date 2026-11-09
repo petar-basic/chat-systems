@@ -53,10 +53,18 @@ body {
   user-select: none;
 }
 
+.titlebar {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 5;
+  height: 40px;
+  background: var(--rail);
+}
+
 main {
   max-width: 400px;
   margin: 0 auto;
-  padding: 40px 24px;
+  padding: 80px 24px 40px;
 }
 
 header {

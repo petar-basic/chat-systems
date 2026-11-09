@@ -25,5 +25,10 @@
     "connecting": "Connecting…",
     "offline": "You're offline — reconnecting…"
   },
-  "retry": "Retry"
+  "retry": "Retry",
+  "topBar": {
+    "back": "Back",
+    "forward": "Forward",
+    "searchIn": "Search {{name}}"
+  }
 }
