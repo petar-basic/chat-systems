@@ -296,33 +296,37 @@ export default function WorkspacePage() {
                 />
               )}
 
-              {currentChannel && (
-                <MessageList
-                  channelId={currentChannel.id}
-                  draftKey={currentChannel.id}
-                  markReadIn={currentChannel.workspace_id}
-                  members={c.workspaceMembers}
-                  channels={c.channels}
-                  onThreadOpen={panel.openThread}
-                  onSave={c.handleSaveMessage}
-                  onForward={c.handleForwardMessage}
-                  highlightMessageId={c.highlightMessageId}
-                  onTargetMessageFound={c.handleTargetMessageFound}
-                  empty={
-                    <ChannelIntro
-                      channel={currentChannel}
-                      onAddPeople={currentChannel.is_archived ? undefined : addPeople}
-                      onAddBookmark={
-                        canModerate && !currentChannel.is_archived ? () => setAddingBookmark(true) : undefined
-                      }
-                    />
-                  }
-                />
-              )}
+              <div className="relative flex min-h-0 flex-1 flex-col">
+                {currentChannel && (
+                  <MessageList
+                    channelId={currentChannel.id}
+                    draftKey={currentChannel.id}
+                    markReadIn={currentChannel.workspace_id}
+                    members={c.workspaceMembers}
+                    channels={c.channels}
+                    onThreadOpen={panel.openThread}
+                    onSave={c.handleSaveMessage}
+                    onForward={c.handleForwardMessage}
+                    highlightMessageId={c.highlightMessageId}
+                    onTargetMessageFound={c.handleTargetMessageFound}
+                    empty={
+                      <ChannelIntro
+                        channel={currentChannel}
+                        onAddPeople={currentChannel.is_archived ? undefined : addPeople}
+                        onAddBookmark={
+                          canModerate && !currentChannel.is_archived
+                            ? () => setAddingBookmark(true)
+                            : undefined
+                        }
+                      />
+                    }
+                  />
+                )}
 
-              {currentChannel && user && (
-                <TypingIndicator channelId={currentChannel.id} currentUserId={user.id} />
-              )}
+                {currentChannel && user && (
+                  <TypingIndicator channelId={currentChannel.id} currentUserId={user.id} />
+                )}
+              </div>
 
               {c.ephemeral && (
                 <div

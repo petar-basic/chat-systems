@@ -23,7 +23,7 @@
       "nothing": "ダイレクトメッセージのみ。チャンネルは、開くまで通知しません。"
     },
     "override": "各チャンネルのベルメニューから、この設定を上書き(変更)できます。ダイレクトメッセージについては、個別に設定を変更しない限り、通知が届くようになっています。",
-    "saveFailed": "通知の設定を変更できませんでした。もう一度お試しください。"
+    "saveFailed": "通知設定を変更できませんでした。もう一度お試しください。"
   },
   "keywords": {
     "label": "通知するキーワード",
@@ -49,6 +49,20 @@
     "nextDay": "{{time}}(翌日)",
     "timezone": "時刻は、プロフィールで設定したタイムゾーン({{timezone}})で表示しています。",
     "saveFailed": "時間帯を保存できませんでした。もう一度お試しください。"
+  },
+  "pause": {
+    "heading": "{{workspace}} の通知を一時停止",
+    "headingAnywhere": "通知を一時停止",
+    "resume": "{{workspace}} の通知を再開",
+    "resumeAnywhere": "通知を再開",
+    "presets": {
+      "halfHour": "30分",
+      "hour": "1時間",
+      "twoHours": "2時間"
+    },
+    "untilTomorrow": "明日の朝まで",
+    "until": "{{time}} まで一時停止中",
+    "bySchedule": "通知設定により {{time}} まで一時停止中"
   },
   "days": {
     "mon": {

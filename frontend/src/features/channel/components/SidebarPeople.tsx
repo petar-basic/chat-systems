@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { Conversation } from '@/features/messaging';
 import { conversationTitle, departedPartner } from '@/lib/conversationHelpers';
 import { displayNameOf } from '@/lib/userHelpers';
@@ -84,6 +85,7 @@ export function ConversationRow({
 }
 
 export function MemberRow({ userId, onOpenDm }: { userId: string; onOpenDm: (id: string) => void }) {
+  const { t } = useTranslation('sidebar');
   const { getUser } = useUserCache();
   const cached = getUser(userId);
 
@@ -93,7 +95,11 @@ export function MemberRow({ userId, onOpenDm }: { userId: string; onOpenDm: (id:
     <button
       onClick={() => onOpenDm(userId)}
       className="w-full px-3 py-1 flex items-center gap-2 text-sm text-muted hover:bg-raised/30 hover:text-fg-soft transition cursor-pointer"
-      data-tooltip={cached?.status_text ? `Message ${name} — ${cached.status_text}` : `Message ${name}`}
+      data-tooltip={
+        cached?.status_text
+          ? t('row.messageWithStatus', { name, status: cached.status_text })
+          : t('row.message', { name })
+      }
     >
       <UserAvatarWithPresence userId={userId} name={name} avatarUrl={cached?.avatar_url} />
       <span className="truncate">{name}</span>

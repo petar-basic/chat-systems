@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import i18n from '@/lib/i18n';
 import { usePresenceStore } from '@/stores/presence';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { YouMenu } from './YouMenu';
@@ -89,5 +90,41 @@ describe('YouMenu', () => {
     expect(bell).toHaveAttribute('data-paused', 'true');
     expect(bell.getAttribute('data-tooltip')).toMatch(/^Notifications paused by your schedule until /);
     expect(screen.getByRole('button', { name: bell.getAttribute('data-tooltip')! })).toBe(bell);
+  });
+});
+
+describe('YouMenu in Japanese', () => {
+  beforeEach(async () => {
+    pause = null;
+    usePresenceStore.setState({ statuses: { 'user-1': 'online' } });
+    await i18n.changeLanguage('ja');
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('names the menu and the buttons', () => {
+    renderMenu();
+    for (const name of ['離席中にする', 'プロフィール', '設定', '予約済み', '後で']) {
+      expect(screen.getByRole('button', { name })).toBeInTheDocument();
+    }
+    expect(screen.getByRole('button', { name: 'プロフィールを編集' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'サインアウト' })).toBeInTheDocument();
+    expect(screen.getByTestId('open-notifications')).toHaveAttribute('data-tooltip', '通知');
+  });
+
+  it('says how long notifications are paused, and why', () => {
+    pause = { until: new Date(Date.now() + 3600000).toISOString(), bySchedule: false };
+    renderMenu();
+    expect(screen.getByTestId('open-notifications').getAttribute('data-tooltip')).toMatch(
+      /^通知\(.+ まで一時停止中\)$/,
+    );
+  });
+
+  it('offers to come back online while away', () => {
+    usePresenceStore.setState({ statuses: { 'user-1': 'away' } });
+    renderMenu();
+    expect(screen.getByRole('button', { name: 'オンラインに戻す' })).toBeInTheDocument();
   });
 });

@@ -23,7 +23,7 @@ import { QUERY_KEYS } from '@/shared/constants';
 import { applyReadState } from './readState';
 import { applyChannelArchived } from './channelArchive';
 import { belongsElsewhere } from './channelWorkspace';
-import { readOnScreen } from './readOnScreen';
+import { readOnReturn, readOnScreen } from './readOnScreen';
 import { patchMessageEverywhere, shownInChannel } from './messagePatch';
 import { dropReply, patchReply, placeReply } from './threadCache';
 import { syncListFrames } from '@/features/lists/listSync';
@@ -153,6 +153,7 @@ export const useWebSocketQuerySync = () => {
       }),
     );
 
+    unsubs.push(readOnReturn(queryClient));
     unsubs.push(...syncListFrames(queryClient));
     unsubs.push(...syncMembershipFrames(queryClient));
 

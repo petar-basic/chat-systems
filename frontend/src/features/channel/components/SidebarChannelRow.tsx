@@ -1,5 +1,6 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { BellOff, Hash, Lock, FolderInput } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { AnchoredPopover } from '@/shared/components/Popover/AnchoredPopover';
 import { CHANNEL_DRAG_TYPE } from './channelDrag';
 import type { Channel } from '@/stores/workspace';
@@ -38,6 +39,7 @@ export function SidebarChannelRow({
   sectionId = null,
   onMove,
 }: Props) {
+  const { t } = useTranslation('sidebar');
   const [moveOpen, setMoveOpen] = useState(false);
   const moveAnchor = useRef<HTMLButtonElement>(null);
   const targets = moveTargets.filter((target) => target.id !== sectionId);
@@ -75,11 +77,11 @@ export function SidebarChannelRow({
         }`}
       >
         {icon}
-        <span className="truncate">{channel.name || 'Channel'}</span>
+        <span className="truncate">{channel.name || t('row.channel')}</span>
         {(muted || channel.effective_notify_level === 'nothing') && (
           <BellOff
             className="w-3 h-3 text-faint ml-auto shrink-0"
-            aria-label={muted ? 'Muted' : 'Notifications off'}
+            aria-label={muted ? t('row.muted') : t('row.notificationsOff')}
             data-qa="sidebar-channel-quiet"
           />
         )}
@@ -110,9 +112,9 @@ export function SidebarChannelRow({
         <button
           ref={moveAnchor}
           onClick={() => setMoveOpen((open) => !open)}
-          aria-label={`Move ${channel.name} to a section`}
+          aria-label={t('row.move', { name: channel.name })}
           aria-expanded={moveOpen}
-          data-tooltip="Move to…"
+          data-tooltip={t('row.moveHint')}
           data-qa="sidebar-channel-move"
           className="absolute right-7 hidden group-hover:flex focus-visible:flex p-1 rounded text-muted hover:text-fg hover:bg-raised"
         >
@@ -125,7 +127,7 @@ export function SidebarChannelRow({
           onClose={() => setMoveOpen(false)}
           className="w-48 bg-surface border border-line rounded-lg shadow-xl py-1"
         >
-          <div className="px-3 py-1 text-xs text-muted">Move to</div>
+          <div className="px-3 py-1 text-xs text-muted">{t('row.moveTo')}</div>
           {targets.map((target) => (
             <button
               key={target.id ?? 'default'}

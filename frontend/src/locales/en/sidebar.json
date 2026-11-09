@@ -1,0 +1,58 @@
+{
+  "label": "Channels and direct messages",
+  "allUnreads": "All unreads",
+  "allUnreadsHint": "All unreads ({{shortcut}})",
+  "threads": "Threads",
+  "later": "Later",
+  "channels": "Channels",
+  "createChannel": "Create channel",
+  "browseChannels": "Browse channels",
+  "createSection": "Create section",
+  "newSectionName": "New section name",
+  "directMessages": "Direct Messages",
+  "newDirectMessage": "New direct message",
+  "noConversations": "No conversations yet",
+  "people": "People",
+  "justYou": "Just you so far.",
+  "invitePeople": "Invite people",
+  "row": {
+    "message": "Message {{name}}",
+    "messageWithStatus": "Message {{name}} — {{status}}",
+    "channel": "Channel",
+    "muted": "Muted",
+    "notificationsOff": "Notifications off",
+    "move": "Move {{name}} to a section",
+    "moveHint": "Move to…",
+    "moveTo": "Move to"
+  },
+  "section": {
+    "options": "Options for {{name}}",
+    "rename": "Rename",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "delete": "Delete section",
+    "name": "Section name"
+  },
+  "workspace": {
+    "select": "Select workspace",
+    "invite": "Invite people",
+    "workflows": "Workflows",
+    "settings": "Workspace settings",
+    "leave": "Leave workspace…",
+    "instanceAdmin": "Instance admin"
+  },
+  "you": {
+    "editProfile": "Edit profile",
+    "you": "You",
+    "setAway": "Set yourself away",
+    "setActive": "Set yourself active",
+    "profile": "Profile",
+    "preferences": "Preferences",
+    "scheduled": "Scheduled",
+    "later": "Later",
+    "notifications": "Notifications",
+    "paused": "Notifications paused until {{time}}",
+    "pausedBySchedule": "Notifications paused by your schedule until {{time}}",
+    "signOut": "Sign out"
+  }
+}
