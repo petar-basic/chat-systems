@@ -61,7 +61,7 @@ export default function TypingIndicator({ channelId, currentUserId }: Props) {
 
   if (typingUsers.length === 0) return null;
 
-  const names = typingUsers.map((t) => getUser(t.userId)?.display_name || UNKNOWN_USER).slice(0, 3);
+  const names = typingUsers.map((t) => getUser(t.userId)?.display_name || UNKNOWN_USER);
 
   let text: string;
   if (names.length === 1) {
