@@ -21,6 +21,7 @@ import {
   RichTextDisplay,
   MessageInput,
   MessageItem,
+  isGrouped,
   asAttachments,
   useComposerAttachments,
   GalleryProvider,
@@ -223,12 +224,13 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
                   </Button>
                 </div>
               )}
-              {replies.map((r) => {
+              {replies.map((r, i) => {
                 const sender = getUser(r.user_id);
                 return (
                   <MessageItem
                     key={r.id}
                     message={r}
+                    grouped={isGrouped(replies[i - 1], r)}
                     dataQa="thread-reply"
                     isHighlighted={r.id === replyId}
                     currentUserId={currentUserId}
