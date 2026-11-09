@@ -7,6 +7,7 @@ import { logger } from './logger';
 
 const READ_DELAY_MS = 250;
 const pending = new Map<string, ReturnType<typeof setTimeout>>();
+const sent = new Map<string, string>();
 
 export function newestSentIn(queryClient: QueryClient, channelId: string): string | null {
   const cache = queryClient.getQueryData<InfiniteData<{ data: Message[] }>>(QUERY_KEYS.messages(channelId));
@@ -39,6 +40,7 @@ export function readOnScreen(queryClient: QueryClient, channelId: string) {
       pending.delete(channelId);
       const newest = newestSentIn(queryClient, channelId);
       if (!newest) return;
+      sent.set(channelId, newest);
       getApiForInstance(instanceUrl)
         .typed((c) =>
           c.POST('/channels/{ch_id}/read', {
@@ -49,4 +51,21 @@ export function readOnScreen(queryClient: QueryClient, channelId: string) {
         .catch((err) => logger.error('readOnScreen', where, err));
     }, READ_DELAY_MS),
   );
+}
+
+export function readOnReturn(queryClient: QueryClient): () => void {
+  const onReturn = () => {
+    const { currentChannel, currentConversationId } = useWorkspaceStore.getState();
+    for (const channelId of [currentChannel?.id, currentConversationId]) {
+      if (!channelId) continue;
+      const newest = newestSentIn(queryClient, channelId);
+      if (newest && sent.get(channelId) !== newest) readOnScreen(queryClient, channelId);
+    }
+  };
+  window.addEventListener('focus', onReturn);
+  document.addEventListener('visibilitychange', onReturn);
+  return () => {
+    window.removeEventListener('focus', onReturn);
+    document.removeEventListener('visibilitychange', onReturn);
+  };
 }
