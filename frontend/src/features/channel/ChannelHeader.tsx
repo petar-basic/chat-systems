@@ -1,4 +1,5 @@
 import { useRef, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Hash, Lock, Search, Pin, Users, Menu, Info, Plug, MoreHorizontal, Files, Bell } from 'lucide-react';
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
 import { IconButton } from '@/shared/components/IconButton/IconButton';
@@ -39,6 +40,7 @@ export default function ChannelHeader({
   onOpenWorkflow,
   onOpenApp,
 }: Props) {
+  const { t } = useTranslation('channel');
   const { canModerate } = useChannelModeration(channel?.id ?? null);
   const { data: hookedChannels } = useHookedChannels(channel?.workspace_id ?? null);
   const [details, setDetails] = useState<ChannelDetailsTab | null>(null);
@@ -60,8 +62,8 @@ export default function ChannelHeader({
       {onOpenNav && (
         <button
           onClick={onOpenNav}
-          aria-label="Open navigation"
-          data-tooltip="Open navigation"
+          aria-label={t('header.openNavigation')}
+          data-tooltip={t('header.openNavigation')}
           data-qa="mobile-nav-toggle"
           className="lg:hidden p-1.5 -ml-1 rounded-lg text-muted hover:text-fg hover:bg-raised/50"
         >
@@ -84,11 +86,11 @@ export default function ChannelHeader({
               type="button"
               onClick={() => setDetails('integrations')}
               data-qa="channel-integration-indicator"
-              data-tooltip="An integration forwards messages from this channel to an external URL"
+              data-tooltip={t('header.integrationHint')}
               className="flex items-center gap-1 shrink-0 px-1.5 py-0.5 rounded bg-amber-500/10 text-warning text-2xs cursor-pointer hover:bg-amber-500/20"
             >
               <Plug className="w-3 h-3" />
-              Integration
+              {t('header.integration')}
             </button>
           )}
           {channel.topic && (
@@ -99,7 +101,7 @@ export default function ChannelHeader({
             {!channel.is_archived && <HuddleBar channelId={channel.id} />}
             <NotificationLevelButton channelId={channel.id} direct={false} className="max-sm:hidden" />
             <HeaderToggle
-              label="Channel members"
+              label={t('header.members')}
               icon={<Users className="w-4 h-4" />}
               count={memberCount ?? '—'}
               pressed={showChannelMembers}
@@ -107,7 +109,7 @@ export default function ChannelHeader({
               dataQa="channel-header-members"
             />
             <HeaderToggle
-              label="Pinned messages"
+              label={t('header.pins')}
               icon={<Pin className="w-4 h-4" />}
               count={pinCount || undefined}
               pressed={showPins}
@@ -115,7 +117,7 @@ export default function ChannelHeader({
               dataQa="channel-header-pins"
             />
             <HeaderToggle
-              label="Files"
+              label={t('header.files')}
               icon={<Files className="w-4 h-4" />}
               pressed={showFiles}
               onClick={onToggleFiles}
@@ -123,7 +125,7 @@ export default function ChannelHeader({
             />
             {onToggleSearch && (
               <IconButton
-                label="Search"
+                label={t('header.search')}
                 size="md"
                 icon={<Search className="w-4 h-4" />}
                 pressed={showSearch}
@@ -134,7 +136,7 @@ export default function ChannelHeader({
 
             <div className="relative" ref={overflowRef}>
               <IconButton
-                label="More channel actions"
+                label={t('header.more')}
                 size="md"
                 icon={<MoreHorizontal className="w-4 h-4" />}
                 onClick={() => setOverflowOpen((open) => !open)}
@@ -145,7 +147,7 @@ export default function ChannelHeader({
                 <div className="absolute right-0 top-full mt-1 w-48 bg-surface border border-line rounded-lg shadow-xl z-20 py-1">
                   <MenuItem
                     icon={<Users className="w-4 h-4" />}
-                    label="Members"
+                    label={t('menu.members')}
                     phoneOnly
                     onClick={() => {
                       onToggleChannelMembers();
@@ -154,7 +156,7 @@ export default function ChannelHeader({
                   />
                   <MenuItem
                     icon={<Pin className="w-4 h-4" />}
-                    label="Pinned"
+                    label={t('menu.pins')}
                     phoneOnly
                     onClick={() => {
                       onTogglePins();
@@ -163,7 +165,7 @@ export default function ChannelHeader({
                   />
                   <MenuItem
                     icon={<Files className="w-4 h-4" />}
-                    label="Files"
+                    label={t('menu.files')}
                     phoneOnly
                     onClick={() => {
                       onToggleFiles();
@@ -172,7 +174,7 @@ export default function ChannelHeader({
                   />
                   <MenuItem
                     icon={<Bell className="w-4 h-4" />}
-                    label="Notification settings"
+                    label={t('menu.notifications')}
                     phoneOnly
                     onClick={() => {
                       setNotificationsOpen(true);
@@ -181,7 +183,7 @@ export default function ChannelHeader({
                   />
                   <MenuItem
                     icon={<Info className="w-4 h-4" />}
-                    label="Channel details"
+                    label={t('menu.details')}
                     dataQa="channel-details-open"
                     onClick={() => {
                       setDetails('about');

@@ -1,5 +1,6 @@
 import { useRef, useState, type KeyboardEvent, type RefObject } from 'react';
 import { Bell, BellOff, BellRing, Check } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { AnchoredPopover } from '@/shared/components/Popover/AnchoredPopover';
 import { IconButton } from '@/shared/components/IconButton/IconButton';
 import { toast } from '@/shared/components/Toast';
@@ -12,7 +13,6 @@ import {
   useSetNotifyLevel,
   type NotifyLevel,
 } from '@/features/notifications/hooks/useNotifyLevels';
-import { NOTIFY_LEVEL_LABELS } from './notifyLevels';
 
 const LEVELS: NotifyLevel[] = ['all', 'mentions', 'nothing'];
 
@@ -48,16 +48,14 @@ interface MenuProps extends Target {
 }
 
 export function NotificationLevelMenu({ channelId, direct, anchorRef, onClose }: MenuProps) {
+  const { t } = useTranslation('notifications');
   const settings = useNotifySettings({ channelId, direct });
   const setLevel = useSetNotifyLevel(settings.workspaceId, settings.instanceUrl);
   const setMuted = useSetChannelMuted(settings.workspaceId, settings.instanceUrl);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const choose = (level: NotifyLevel | null) => {
-    setLevel.mutate(
-      { channelId, level },
-      { onError: () => toast.error("Couldn't change notifications. Try again.") },
-    );
+    setLevel.mutate({ channelId, level }, { onError: () => toast.error(t('menu.saveFailed')) });
     onClose();
   };
 
@@ -78,8 +76,8 @@ export function NotificationLevelMenu({ channelId, direct, anchorRef, onClose }:
   };
 
   const options: { level: NotifyLevel | null; label: string; qa: string }[] = [
-    { level: null, label: `Default (${NOTIFY_LEVEL_LABELS[settings.defaultLevel]})`, qa: 'default' },
-    ...LEVELS.map((level) => ({ level, label: NOTIFY_LEVEL_LABELS[level], qa: level })),
+    { level: null, label: t('menu.default', { level: t(`levels.${settings.defaultLevel}`) }), qa: 'default' },
+    ...LEVELS.map((level) => ({ level, label: t(`levels.${level}`), qa: level })),
   ];
 
   return (
@@ -89,9 +87,9 @@ export function NotificationLevelMenu({ channelId, direct, anchorRef, onClose }:
       dataQa="notification-menu"
       className="w-64 bg-surface border border-line rounded-lg shadow-xl py-1"
     >
-      <div ref={menuRef} role="menu" aria-label="Notification settings" onKeyDown={onKeyDown}>
+      <div ref={menuRef} role="menu" aria-label={t('menu.label')} onKeyDown={onKeyDown}>
         <div className="px-3 py-1 text-xs text-muted" aria-hidden="true">
-          Notify me about
+          {t('menu.heading')}
         </div>
         {options.map(({ level, label, qa }) => {
           const checked = settings.stored === level;
@@ -129,7 +127,7 @@ export function NotificationLevelMenu({ channelId, direct, anchorRef, onClose }:
               ) : (
                 <BellOff className="w-4 h-4 shrink-0" />
               )}
-              {settings.muted ? 'Unmute channel' : 'Mute channel'}
+              {settings.muted ? t('menu.unmute') : t('menu.mute')}
             </button>
           </>
         )}
@@ -144,6 +142,7 @@ interface ButtonProps extends Target {
 }
 
 export function NotificationLevelButton({ channelId, direct, small = false, className = '' }: ButtonProps) {
+  const { t } = useTranslation('notifications');
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement>(null);
   const { effective, muted } = useNotifySettings({ channelId, direct });
@@ -152,7 +151,7 @@ export function NotificationLevelButton({ channelId, direct, small = false, clas
     <>
       <IconButton
         ref={anchorRef}
-        label="Notification settings"
+        label={t('menu.label')}
         icon={<Icon className={small ? 'w-3 h-3' : 'w-4 h-4'} />}
         aria-haspopup="menu"
         aria-expanded={open}

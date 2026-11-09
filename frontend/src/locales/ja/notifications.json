@@ -7,6 +7,14 @@
     "mentions": "メンション",
     "nothing": "通知しない"
   },
+  "menu": {
+    "label": "通知設定",
+    "heading": "通知内容",
+    "default": "標準({{level}})",
+    "mute": "チャンネルをミュート",
+    "unmute": "ミュートを解除",
+    "saveFailed": "通知設定を変更できませんでした。もう一度お試しください。"
+  },
   "default": {
     "label": "{{name}} で通知する内容",
     "descriptions": {

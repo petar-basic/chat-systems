@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import { useNavigate } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, ArrowRight, Search } from 'lucide-react';
 import { IconButton } from '@/shared/components/IconButton/IconButton';
 import { useHistoryReach } from '../hooks/useHistoryReach';
@@ -12,9 +13,10 @@ interface Props {
 }
 
 export function DesktopTopBar({ workspaceName, searching, onSearch, style }: Props) {
+  const { t } = useTranslation('common');
   const navigate = useNavigate();
   const { back, forward } = useHistoryReach();
-  const label = workspaceName ? `Search ${workspaceName}` : 'Search';
+  const label = workspaceName ? t('topBar.searchIn', { name: workspaceName }) : t('topBar.search');
 
   return (
     <header
@@ -25,14 +27,14 @@ export function DesktopTopBar({ workspaceName, searching, onSearch, style }: Pro
     >
       <div className="flex items-center gap-0.5">
         <IconButton
-          label="Back"
+          label={t('topBar.back')}
           icon={<ArrowLeft className="h-4 w-4" />}
           disabled={!back}
           onClick={() => void navigate(-1)}
           data-qa="desktop-back"
         />
         <IconButton
-          label="Forward"
+          label={t('topBar.forward')}
           icon={<ArrowRight className="h-4 w-4" />}
           disabled={!forward}
           onClick={() => void navigate(1)}
