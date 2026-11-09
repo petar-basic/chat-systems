@@ -1,10 +1,5 @@
 import { formatTime } from '@/lib/datetime';
 
-export interface SchedulePreset {
-  label: string;
-  at: () => Date;
-}
-
 export function nextMorning(from: Date, addDays: number): Date {
   const at = new Date(from);
   at.setDate(at.getDate() + addDays);
@@ -17,11 +12,11 @@ export function nextMondayMorning(from: Date): Date {
   return nextMorning(from, daysUntilMonday);
 }
 
-export const SCHEDULE_PRESETS: SchedulePreset[] = [
-  { label: 'In an hour', at: () => new Date(Date.now() + 60 * 60 * 1000) },
-  { label: 'Tomorrow at 9:00', at: () => nextMorning(new Date(), 1) },
-  { label: 'Monday at 9:00', at: () => nextMondayMorning(new Date()) },
-];
+export const SCHEDULE_PRESETS = [
+  { name: 'inAnHour', at: () => new Date(Date.now() + 60 * 60 * 1000) },
+  { name: 'tomorrow', at: () => nextMorning(new Date(), 1) },
+  { name: 'monday', at: () => nextMondayMorning(new Date()) },
+] as const;
 
 export const REMIND_PRESETS = [
   { name: 'in20Minutes', at: () => new Date(Date.now() + 20 * 60 * 1000) },

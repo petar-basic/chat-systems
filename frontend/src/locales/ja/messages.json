@@ -107,5 +107,69 @@
     "pinFailed": "ピン留めを変更できませんでした",
     "reactionFailed": "リアクションを変更できませんでした",
     "linkCopied": "リンクをコピーしました"
+  },
+  "composer": {
+    "placeholder": "#{{name}} へのメッセージ",
+    "placeholderDm": "{{name}} へのメッセージ",
+    "upload": "ファイルアップロード",
+    "poll": "投票を作成",
+    "showFormatting": "書式を表示",
+    "hideFormatting": "書式を隠す",
+    "emoji": "絵文字を挿入",
+    "sendHint": "送信 ({{keys}})",
+    "send": "送信",
+    "save": "保存",
+    "broadcastTitle": "{{count}}人に通知されます。送信しますか?",
+    "waitForUploads": "ファイルアップロードが終わるまでお待ちください",
+    "uploadFailed": "ファイルアップロードに失敗しました。再試行するか、一度選択しているファイルを外してください。",
+    "pollFailed": "投票を作成できませんでした"
+  },
+  "schedule": {
+    "label": "予約送信",
+    "hint": "あとで送信",
+    "inAnHour": "1時間後",
+    "tomorrow": "明日 9:00",
+    "monday": "月曜 9:00",
+    "pickTime": "日時を指定",
+    "submit": "予約",
+    "needTime": "先に日時を選んでください",
+    "past": "その日時はすでに過ぎています",
+    "scheduled": "{{time}} に送信を予約しました",
+    "failed": "メッセージを予約できませんでした"
+  },
+  "toolbar": {
+    "bold": "太字 ({{keys}})",
+    "italic": "斜体 ({{keys}})",
+    "underline": "下線 ({{keys}})",
+    "strike": "取り消し線",
+    "code": "インラインコード",
+    "codeBlock": "コードブロック",
+    "bullets": "箇条書き",
+    "numbers": "番号付きリスト",
+    "quote": "引用"
+  },
+  "tray": {
+    "uploading": "{{name}} をアップロード中",
+    "retry": "{{name}} のアップロードを再試行",
+    "failed": "アップロードに失敗しました"
+  },
+  "mentions": {
+    "none": "該当なし",
+    "channel": "このチャンネルの全員",
+    "here": "今オンラインの人",
+    "groupSize_other": "{{count}}人",
+    "commands": "コマンド"
+  },
+  "typing": {
+    "one": "{{name}} さんが入力中…",
+    "two": "{{first}} さんと {{second}} さんが入力中…",
+    "many": "{{name}} さんほか{{count}}人が入力中…"
+  },
+  "appPrompt": {
+    "onlyYou": "· あなたにだけ表示されています",
+    "hint": "このリンクのプレビューを表示するには、{{app}} のアカウントを接続してください。",
+    "connect": "{{app}} を接続",
+    "notNow": "今はしない",
+    "never": "今後は表示しない"
   }
 }

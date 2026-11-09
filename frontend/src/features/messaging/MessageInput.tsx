@@ -1,4 +1,5 @@
 import { useRef, useCallback, useMemo, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/shared/components/Button/Button';
 import { toUserMessage } from '@/lib/errors';
 import { formatDateTime } from '@/lib/datetime';
@@ -104,6 +105,7 @@ export default function MessageInput({
   shortcutChannelId,
   slashCommands = false,
 }: Props) {
+  const { t } = useTranslation(['messages', 'common']);
   const attachmentsRef = useRef(attachments);
   const allowEmptyRef = useRef(allowEmpty);
   useEffect(() => {
@@ -131,8 +133,8 @@ export default function MessageInput({
   const workspace = useWorkspaceStore((s) => s.currentWorkspace);
   const { data: groups } = useUserGroups(workspace?.id, workspace?.instanceUrl);
   const mentionItems = useMemo<MentionItem[]>(
-    () => buildMentionItems(members, channels, isDm, groups ?? [], canBroadcast),
-    [members, channels, isDm, groups, canBroadcast],
+    () => buildMentionItems(members, channels, isDm, t, groups ?? [], canBroadcast),
+    [members, channels, isDm, t, groups, canBroadcast],
   );
   // The editor is built once, but the people it can mention change with the
   // channel, so the suggestion callback reads the current list through a ref.
@@ -233,7 +235,11 @@ export default function MessageInput({
     extensions: [
       ...createEditorExtensions(),
       Placeholder.configure({
-        placeholder: placeholder ?? (isDm ? `Message ${channelName}` : `Message #${channelName}`),
+        placeholder:
+          placeholder ??
+          (isDm
+            ? t('composer.placeholderDm', { name: channelName })
+            : t('composer.placeholder', { name: channelName })),
       }),
       submitExtension,
       ...(isDm ? [] : [mentionExtension]),
@@ -273,11 +279,11 @@ export default function MessageInput({
       const files = attachments?.items.filter((item) => item.status === 'ready') ?? [];
       if (!markdown && files.length === 0) return;
       if (attachments?.busy) {
-        toast.error('Wait for the files to finish uploading');
+        toast.error(t('composer.waitForUploads'));
         return;
       }
       if (attachments?.failed) {
-        toast.error('A file did not upload. Retry it or remove it first');
+        toast.error(t('composer.uploadFailed'));
         return;
       }
       try {
@@ -293,12 +299,12 @@ export default function MessageInput({
         setShowSchedule(false);
         setCustomSendAt('');
         setScheduleError(null);
-        toast.success(`Scheduled for ${formatDateTime(sendAt)}`);
+        toast.success(t('schedule.scheduled', { time: formatDateTime(sendAt) }));
       } catch (err) {
-        toast.error(toUserMessage(err, 'Could not schedule that message'));
+        toast.error(toUserMessage(err, t('schedule.failed')));
       }
     },
-    [editor, scheduleTarget, scheduleMessage, draftKey, attachments],
+    [editor, scheduleTarget, scheduleMessage, draftKey, attachments, t],
   );
 
   const [showPoll, setShowPoll] = useState(false);
@@ -330,18 +336,18 @@ export default function MessageInput({
           });
         } catch (err) {
           editor.commands.setContent(markdown);
-          toast.error(toUserMessage(err, "Couldn't create the poll"));
+          toast.error(toUserMessage(err, t('composer.pollFailed')));
         }
         return;
       }
       const files = attachmentsRef.current;
       if (!markdown && !files?.hasReady && !allowEmptyRef.current) return;
       if (files?.busy) {
-        toast.error('Wait for the files to finish uploading');
+        toast.error(t('composer.waitForUploads'));
         return;
       }
       if (files?.failed) {
-        toast.error('A file did not upload. Retry it or remove it first');
+        toast.error(t('composer.uploadFailed'));
         return;
       }
       if (!confirmed && !editing && asksBeforeBroadcast(markdown, channelMemberCount)) {
@@ -358,7 +364,18 @@ export default function MessageInput({
         if (draftKey) useDraftStore.getState().setDraft(draftKey, markdown);
       }
     },
-    [editor, onSend, draftKey, pollTarget, editing, createPoll, channelMemberCount],
+    [
+      editor,
+      onSend,
+      draftKey,
+      pollTarget,
+      editing,
+      createPoll,
+      channelMemberCount,
+      t,
+      setShowPoll,
+      setConfirmingBroadcast,
+    ],
   );
 
   useEffect(() => {
@@ -414,7 +431,7 @@ export default function MessageInput({
           <div className="flex flex-wrap items-center gap-0.5 min-w-0">
             {attachments && (
               <FilePicker
-                label="Upload file"
+                label={t('composer.upload')}
                 multiple
                 onFiles={addFiles}
                 dataQa="composer-upload"
@@ -427,8 +444,8 @@ export default function MessageInput({
               <button
                 type="button"
                 onClick={() => setShowPoll(true)}
-                aria-label="Create a poll"
-                data-tooltip="Create a poll"
+                aria-label={t('composer.poll')}
+                data-tooltip={t('composer.poll')}
                 data-qa="composer-poll"
                 className="p-1 text-muted hover:text-fg-soft transition cursor-pointer rounded hover:bg-raised/60"
               >
@@ -448,8 +465,8 @@ export default function MessageInput({
             <button
               type="button"
               onClick={() => setShowFormatting((open) => !open)}
-              aria-label={showFormatting ? 'Hide formatting' : 'Show formatting'}
-              data-tooltip={showFormatting ? 'Hide formatting' : 'Show formatting'}
+              aria-label={showFormatting ? t('composer.hideFormatting') : t('composer.showFormatting')}
+              data-tooltip={showFormatting ? t('composer.hideFormatting') : t('composer.showFormatting')}
               aria-pressed={showFormatting}
               data-qa="composer-formatting-toggle"
               className="@md:hidden p-1 text-muted hover:text-fg-soft transition cursor-pointer rounded hover:bg-raised/60"
@@ -461,8 +478,8 @@ export default function MessageInput({
                 ref={emojiBtnRef}
                 type="button"
                 onClick={() => setShowEmoji((v) => !v)}
-                aria-label="Insert emoji"
-                data-tooltip="Insert emoji"
+                aria-label={t('composer.emoji')}
+                data-tooltip={t('composer.emoji')}
                 className="p-1 text-muted hover:text-fg-soft transition cursor-pointer rounded hover:bg-raised/60"
               >
                 <SmilePlus className="w-3.5 h-3.5" />
@@ -490,14 +507,14 @@ export default function MessageInput({
                 disabled={isEmpty}
                 data-qa="message-edit-save"
               >
-                Save
+                {t('composer.save')}
               </Button>
               <button
                 type="button"
                 onClick={onCancel}
                 className="rounded px-2.5 py-1 text-muted transition hover:text-fg"
               >
-                Cancel
+                {t('cancel', { ns: 'common' })}
               </button>
             </div>
           ) : (
@@ -511,11 +528,11 @@ export default function MessageInput({
                       setShowSchedule((open) => !open);
                     }}
                     disabled={isEmpty}
-                    aria-label="Schedule message"
+                    aria-label={t('schedule.label')}
                     aria-expanded={showSchedule}
                     data-qa="schedule-open"
                     className="p-1 text-muted hover:text-fg disabled:text-faint transition cursor-pointer disabled:cursor-not-allowed rounded hover:bg-raised/60"
-                    data-tooltip="Send later"
+                    data-tooltip={t('schedule.hint')}
                   >
                     <Clock className="w-3.5 h-3.5" />
                   </button>
@@ -527,20 +544,20 @@ export default function MessageInput({
                     >
                       {SCHEDULE_PRESETS.map((preset) => (
                         <button
-                          key={preset.label}
+                          key={preset.name}
                           type="button"
                           onClick={() => void handleSchedule(preset.at())}
                           data-qa="schedule-preset"
                           className="w-full px-3 py-2 flex items-center justify-between gap-2 text-left text-sm text-fg-dim hover:bg-raised/60 transition cursor-pointer"
                         >
-                          <span>{preset.label}</span>
+                          <span>{t(`schedule.${preset.name}`)}</span>
                           <span className="text-2xs text-subtle">{formatScheduleHint(preset.at())}</span>
                         </button>
                       ))}
 
                       <div className="mt-1 border-t border-line/70 px-3 py-2">
                         <TextInput
-                          label="Pick a time"
+                          label={t('schedule.pickTime')}
                           compact
                           type="datetime-local"
                           value={customSendAt}
@@ -564,18 +581,18 @@ export default function MessageInput({
                           onClick={() => {
                             const at = new Date(customSendAt);
                             if (!customSendAt || Number.isNaN(at.getTime())) {
-                              setScheduleError('Pick a date and time first');
+                              setScheduleError(t('schedule.needTime'));
                               return;
                             }
                             if (at.getTime() <= Date.now()) {
-                              setScheduleError('That time has already passed');
+                              setScheduleError(t('schedule.past'));
                               return;
                             }
                             void handleSchedule(at);
                           }}
                           data-qa="schedule-custom-submit"
                         >
-                          Schedule
+                          {t('schedule.submit')}
                         </Button>
                       </div>
                     </div>
@@ -588,8 +605,8 @@ export default function MessageInput({
                 disabled={sendBlocked}
                 data-qa="composer-send"
                 className="p-1 text-accent hover:text-accent-soft disabled:text-faint transition cursor-pointer disabled:cursor-not-allowed rounded hover:bg-raised/60"
-                data-tooltip={`Send (${sendLabel})`}
-                aria-label="Send"
+                data-tooltip={t('composer.sendHint', { keys: sendLabel })}
+                aria-label={t('composer.send')}
               >
                 <Send className="w-3.5 h-3.5" />
               </button>
@@ -600,8 +617,8 @@ export default function MessageInput({
       {showPoll && pollTarget && <PollDialog target={pollTarget} onClose={() => setShowPoll(false)} />}
       {confirmingBroadcast && (
         <ConfirmDialog
-          title={`This notifies ${channelMemberCount - 1} people. Send anyway?`}
-          confirmLabel="Send"
+          title={t('composer.broadcastTitle', { count: channelMemberCount - 1 })}
+          confirmLabel={t('composer.send')}
           tone="primary"
           onConfirm={() => handleSend(true)}
           onClose={() => setConfirmingBroadcast(false)}

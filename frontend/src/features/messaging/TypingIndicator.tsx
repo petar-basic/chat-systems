@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { globalEventBus, type ServerEvent } from '@/lib/globalEventBus';
 import { useUserCache } from '@/stores/users';
 import { UNKNOWN_USER, TYPING_INDICATOR_TTL_MS } from '@/shared/constants';
@@ -14,6 +15,7 @@ interface TypingUser {
 }
 
 export default function TypingIndicator({ channelId, currentUserId }: Props) {
+  const { t } = useTranslation('messages');
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
   const { getUser } = useUserCache();
 
@@ -65,11 +67,11 @@ export default function TypingIndicator({ channelId, currentUserId }: Props) {
 
   let text: string;
   if (names.length === 1) {
-    text = `${names[0]} is typing...`;
+    text = t('typing.one', { name: names[0] });
   } else if (names.length === 2) {
-    text = `${names[0]} and ${names[1]} are typing...`;
+    text = t('typing.two', { first: names[0], second: names[1] });
   } else {
-    text = `${names[0]} and ${names.length - 1} others are typing...`;
+    text = t('typing.many', { name: names[0], count: names.length - 1 });
   }
 
   return (

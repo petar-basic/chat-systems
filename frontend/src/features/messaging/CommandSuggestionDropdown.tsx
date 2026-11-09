@@ -1,4 +1,5 @@
 import { forwardRef, useImperativeHandle, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { SlashCommand } from './hooks/useSlashCommands';
 
 interface Props {
@@ -12,6 +13,7 @@ export interface CommandSuggestionHandle {
 
 export const CommandSuggestionDropdown = forwardRef<CommandSuggestionHandle, Props>(
   ({ items, command }, ref) => {
+    const { t } = useTranslation('messages');
     const [selectedIndex, setSelectedIndex] = useState(0);
 
     const [prevItems, setPrevItems] = useState(items);
@@ -45,7 +47,7 @@ export const CommandSuggestionDropdown = forwardRef<CommandSuggestionHandle, Pro
     return (
       <div
         role="listbox"
-        aria-label="Commands"
+        aria-label={t('mentions.commands')}
         data-qa="command-suggestions"
         className="bg-surface border border-line rounded-lg shadow-xl overflow-hidden w-80 max-h-72 overflow-y-auto"
       >
