@@ -18,6 +18,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ### Fixed
 
+- In the desktop app on a Mac, the first workspace on the rail is no longer hidden under the top
+  bar, and the window's close, minimise and zoom buttons stay centred in the bar instead of
+  moving back up to where macOS puts them.
 - *Also send to the channel* above a thread's reply box has room above and below it and lines
   up with the box, in the thread panel and in *Threads*.
 
