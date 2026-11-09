@@ -128,12 +128,12 @@ describe('readOnScreen', () => {
 
     focused = false;
     window.dispatchEvent(new Event('focus'));
-    await vi.runAllTimersAsync();
+    await vi.advanceTimersByTimeAsync(1000);
     expect(post).not.toHaveBeenCalled();
 
     focused = true;
     window.dispatchEvent(new Event('focus'));
-    await vi.runAllTimersAsync();
+    await vi.advanceTimersByTimeAsync(1000);
     expect(post).toHaveBeenCalledTimes(1);
     expect(post).toHaveBeenCalledWith('/channels/{ch_id}/read', {
       params: { path: { ch_id: 'dm-back' } },
@@ -141,7 +141,7 @@ describe('readOnScreen', () => {
     });
 
     document.dispatchEvent(new Event('visibilitychange'));
-    await vi.runAllTimersAsync();
+    await vi.advanceTimersByTimeAsync(1000);
     expect(post).toHaveBeenCalledTimes(1);
     stop();
   });
