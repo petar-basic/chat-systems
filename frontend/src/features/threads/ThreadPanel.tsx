@@ -269,7 +269,7 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
                 checked={alsoToChannel}
                 onChange={setAlsoToChannel}
                 dataQa="thread-also-to-channel"
-                className="px-4 pt-2 text-xs text-muted"
+                className="px-4 pt-3 pb-2"
               />
               <MessageInput
                 key={`thread:${parentMessage.id}`}

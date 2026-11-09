@@ -281,7 +281,7 @@ function ThreadCard({
           checked={alsoToChannel}
           onChange={setAlsoToChannel}
           dataQa="thread-card-also-to-channel"
-          className="px-3 pt-2 text-xs text-muted"
+          className="px-4 pt-3 pb-2"
         />
         <MessageInput
           channelName=""
