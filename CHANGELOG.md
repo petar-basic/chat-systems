@@ -20,6 +20,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 - On a Mac, the tooltips of *All unreads* and of *Bold*, *Italic* and *Underline* name the keys
   a Mac has (⌥⇧A, ⌘B, ⌘I, ⌘U) instead of Alt, Shift and Ctrl.
+- In the desktop app, the workspaces on the rail show the app's own tooltip beside the rail,
+  like every other button, instead of the system's. It names the workspace and its shortcut,
+  not the server. This needs the desktop app and the server both on this release.
 
 ## [4.4.2] — 2026-11-06
 
