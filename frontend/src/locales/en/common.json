@@ -29,7 +29,6 @@
   "topBar": {
     "back": "Back",
     "forward": "Forward",
-    "search": "Search",
     "searchIn": "Search {{name}}"
   }
 }

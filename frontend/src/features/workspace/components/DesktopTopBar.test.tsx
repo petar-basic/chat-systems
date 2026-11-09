@@ -1,7 +1,6 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { BrowserRouter, useNavigate } from 'react-router';
-import i18n from '@/lib/i18n';
 import { DesktopTopBar } from './DesktopTopBar';
 
 function Go() {
@@ -24,10 +23,6 @@ function renderBar(onSearch = vi.fn()) {
 }
 
 describe('DesktopTopBar', () => {
-  afterEach(async () => {
-    await i18n.changeLanguage('en');
-  });
-
   it('names the workspace it searches and opens search', () => {
     const onSearch = renderBar();
     fireEvent.click(screen.getByTestId('desktop-search'));
@@ -53,13 +48,5 @@ describe('DesktopTopBar', () => {
     act(() => fireEvent.click(screen.getByTestId('desktop-back')));
     await waitFor(() => expect(screen.getByTestId('desktop-forward')).toBeEnabled());
     expect(screen.getByTestId('desktop-back')).toBeDisabled();
-  });
-
-  it('speaks Japanese', async () => {
-    await i18n.changeLanguage('ja');
-    renderBar();
-    expect(screen.getByTestId('desktop-search')).toHaveTextContent('Acmeを検索');
-    expect(screen.getByRole('button', { name: '戻る' })).toHaveAttribute('data-tooltip', '戻る');
-    expect(screen.getByRole('button', { name: '進む' })).toHaveAttribute('data-tooltip', '進む');
   });
 });

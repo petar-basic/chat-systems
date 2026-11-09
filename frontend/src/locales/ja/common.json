@@ -25,11 +25,5 @@
     "connecting": "接続しています…",
     "offline": "オフラインです。再接続しています…"
   },
-  "retry": "再試行",
-  "topBar": {
-    "back": "戻る",
-    "forward": "進む",
-    "search": "検索",
-    "searchIn": "{{name}}を検索"
-  }
+  "retry": "再試行"
 }

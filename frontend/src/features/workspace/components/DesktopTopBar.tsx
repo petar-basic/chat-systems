@@ -13,10 +13,12 @@ interface Props {
 }
 
 export function DesktopTopBar({ workspaceName, searching, onSearch, style }: Props) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'channel']);
   const navigate = useNavigate();
   const { back, forward } = useHistoryReach();
-  const label = workspaceName ? t('topBar.searchIn', { name: workspaceName }) : t('topBar.search');
+  const label = workspaceName
+    ? t('topBar.searchIn', { name: workspaceName })
+    : t('header.search', { ns: 'channel' });
 
   return (
     <header
