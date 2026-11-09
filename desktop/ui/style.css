@@ -53,10 +53,18 @@ body {
   user-select: none;
 }
 
+.titlebar {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 5;
+  height: 40px;
+  background: var(--rail);
+}
+
 main {
   max-width: 400px;
   margin: 0 auto;
-  padding: 40px 24px;
+  padding: 80px 24px 40px;
 }
 
 header {
@@ -188,4 +196,43 @@ li .address {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.rail-hint {
+  position: fixed;
+  left: 6px;
+  z-index: 10;
+  max-width: 256px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--fg);
+  color: var(--bg);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  transform: translateY(-50%);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.2);
+  pointer-events: none;
+}
+
+.rail-hint[hidden] {
+  display: none;
+}
+
+.rail-hint.enter {
+  animation: rail-hint-in 120ms ease-out;
+  transform-origin: center left;
+}
+
+@keyframes rail-hint-in {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) scale(0.96);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail-hint.enter {
+    animation: none;
+  }
 }

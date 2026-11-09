@@ -14,12 +14,37 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
-## [Unreleased]
+## [4.5.0] — 2026-11-09
+
+### Upgrading from 4.4.2
+
+- Set `VERSION=4.5.0`, pull both images and restart `api`, `realtime`, `worker` and `frontend`
+  together. There is no migration and no new setting. The desktop app updates itself to 4.5.0
+  within six hours, or at its next start. Its new top bar and the rail's tooltips need both the
+  server and the desktop app on 4.5.0. With only one of them updated everything still works,
+  but the bar does not line up with the top of the window.
+
+### Added
+
+- The channel header, the huddle buttons in it and the channel's notification menu are in
+  Japanese too.
+
+### Changed
+
+- The desktop app has a top bar across the window, like the rail's colour: back and forward
+  through where you have been, and a search box for the workspace you are in. The search icon
+  in the channel header is gone there, since the bar has it. On a Mac the window buttons sit in
+  the bar and the bar moves the window; double-clicking it zooms. The window title is always
+  *Chat Systems*, never the server's name. This needs the desktop app and the server both on
+  this release.
 
 ### Fixed
 
 - On a Mac, the tooltips of *All unreads* and of *Bold*, *Italic* and *Underline* name the keys
   a Mac has (⌥⇧A, ⌘B, ⌘I, ⌘U) instead of Alt, Shift and Ctrl.
+- In the desktop app, the workspaces on the rail show the app's own tooltip beside the rail,
+  like every other button, instead of the system's. It names the workspace and its shortcut,
+  not the server. This needs the desktop app and the server both on this release.
 
 ## [4.4.2] — 2026-11-06
 

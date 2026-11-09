@@ -81,3 +81,18 @@ form.addEventListener('submit', async (event) => {
 
 listen('servers-changed', (event) => render(event.payload));
 invoke('list_servers').then(render);
+
+const hint = document.createElement('div');
+hint.className = 'rail-hint';
+hint.setAttribute('role', 'tooltip');
+hint.hidden = true;
+document.body.append(hint);
+
+listen('rail-hint', (event) => {
+  const shown = event.payload;
+  hint.hidden = !shown;
+  if (!shown) return;
+  hint.textContent = shown.text;
+  hint.style.top = `${shown.y}px`;
+  hint.classList.toggle('enter', shown.animate);
+});

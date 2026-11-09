@@ -3,6 +3,7 @@ mod navigation;
 mod notifications;
 mod servers;
 mod sso;
+mod titlebar;
 mod updates;
 mod workspaces;
 
@@ -356,7 +357,9 @@ fn load_server<R: Runtime>(
                 .permission("allow-start-passkey")
                 .permission("allow-report-theme")
                 .permission("allow-report-colours")
-                .permission("allow-press-menu-keys"),
+                .permission("allow-press-menu-keys")
+                .permission("core:window:allow-start-dragging")
+                .permission("core:window:allow-internal-toggle-maximize"),
         );
         let builder = WebviewBuilder::new(&label, WebviewUrl::External(origin.clone()))
             .initialization_script(BRIDGE)
@@ -377,7 +380,6 @@ fn open_server<R: Runtime>(app: &AppHandle<R>, server: &Server) -> Result<(), St
     let window = main_window(app)?;
     let label = load_server(app, &window, server)?;
     show_content(&window, &label);
-    let _ = window.set_title(&server.name);
     app.state::<Servers>()
         .lock()
         .map_err(|e| e.to_string())?
@@ -402,7 +404,6 @@ fn open_picker<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
             .map_err(|e| e.to_string())?;
     }
     show_content(&window, PICKER);
-    let _ = window.set_title("Chat Systems");
     announce(app);
     Ok(())
 }
@@ -695,11 +696,43 @@ fn rail_menu(
 }
 
 fn dispatch<R: Runtime>(app: &AppHandle<R>, url: &str, command: serde_json::Value) {
-    if let Some(webview) = app.get_webview(&webview_label(url)) {
+    dispatch_to(app, &webview_label(url), command);
+}
+
+fn dispatch_to<R: Runtime>(app: &AppHandle<R>, label: &str, command: serde_json::Value) {
+    if let Some(webview) = app.get_webview(label) {
         let _ = webview.eval(format!(
             "window.chatSystemsDesktop && window.chatSystemsDesktop.dispatch({command})"
         ));
     }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+struct RailHint {
+    text: String,
+    y: f64,
+    animate: bool,
+}
+
+#[tauri::command]
+fn rail_hint(app: AppHandle, hint: Option<RailHint>) -> Result<(), String> {
+    let showing = app
+        .state::<Showing>()
+        .0
+        .lock()
+        .map_err(|e| e.to_string())?
+        .clone();
+    if showing == PICKER {
+        return app
+            .emit_to(PICKER, "rail-hint", hint)
+            .map_err(|e| e.to_string());
+    }
+    dispatch_to(
+        &app,
+        &showing,
+        serde_json::json!({ "kind": "rail-hint", "hint": hint }),
+    );
+    Ok(())
 }
 
 fn server_of<R: Runtime>(app: &AppHandle<R>, webview: &Webview<R>) -> Result<Server, String> {
@@ -1030,6 +1063,7 @@ pub fn run() {
             report_colours,
             notify,
             rail_menu,
+            rail_hint,
             add_menu,
             open_workspace,
             start_sso,
@@ -1062,8 +1096,11 @@ pub fn run() {
                 .inner_size(1280.0, 860.0)
                 .min_inner_size(560.0, 560.0);
             #[cfg(target_os = "macos")]
-            let builder = builder.title_bar_style(tauri::TitleBarStyle::Transparent);
+            let builder = builder
+                .title_bar_style(tauri::TitleBarStyle::Overlay)
+                .hidden_title(true);
             let window = builder.build()?;
+            titlebar::place_lights(&window, RAIL_WIDTH);
             let size = window
                 .inner_size()?
                 .to_logical::<f64>(window.scale_factor()?);
@@ -1078,7 +1115,8 @@ pub fn run() {
             let watched = window.clone();
             window.on_window_event(move |event| match event {
                 WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => {
-                    layout(&watched)
+                    layout(&watched);
+                    titlebar::place_lights(&watched, RAIL_WIDTH);
                 }
                 WindowEvent::CloseRequested { api, .. } => {
                     api.prevent_close();
