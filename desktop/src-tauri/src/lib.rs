@@ -1100,7 +1100,7 @@ pub fn run() {
                 .title_bar_style(tauri::TitleBarStyle::Overlay)
                 .hidden_title(true);
             let window = builder.build()?;
-            titlebar::place_lights(&window, RAIL_WIDTH);
+            titlebar::keep_lights(&window, RAIL_WIDTH);
             let size = window
                 .inner_size()?
                 .to_logical::<f64>(window.scale_factor()?);
@@ -1115,8 +1115,7 @@ pub fn run() {
             let watched = window.clone();
             window.on_window_event(move |event| match event {
                 WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => {
-                    layout(&watched);
-                    titlebar::place_lights(&watched, RAIL_WIDTH);
+                    layout(&watched)
                 }
                 WindowEvent::CloseRequested { api, .. } => {
                     api.prevent_close();
