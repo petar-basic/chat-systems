@@ -21,3 +21,4 @@ export { REMIND_PRESETS, formatScheduleHint, toLocalInputValue } from './schedul
 export { asAttachments, useComposerAttachments } from './useComposerAttachments';
 export { messagePath, useMessageLocation, useOpenMessage } from './hooks/useMessageLocation';
 export type { MessageLocation } from './hooks/useMessageLocation';
+export { isGrouped } from './messageGrouping';
