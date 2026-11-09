@@ -1,5 +1,6 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { ChevronRight, MoreHorizontal } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { AnchoredPopover } from '@/shared/components/Popover/AnchoredPopover';
 import { SectionNameInput } from './SectionNameInput';
 import { acceptsChannelDrop } from './channelDrag';
@@ -29,6 +30,7 @@ export function SidebarCustomSection({
   onDropChannel,
   children,
 }: Props) {
+  const { t } = useTranslation('sidebar');
   const [renaming, setRenaming] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuAnchor = useRef<HTMLButtonElement>(null);
@@ -57,7 +59,7 @@ export function SidebarCustomSection({
         {renaming ? (
           <SectionNameInput
             initial={name}
-            label="Section name"
+            label={t('section.name')}
             onSubmit={(next) => {
               setRenaming(false);
               if (next !== name) onRename(next);
@@ -81,8 +83,8 @@ export function SidebarCustomSection({
             ref={menuAnchor}
             type="button"
             onClick={() => setMenuOpen((open) => !open)}
-            aria-label={`Options for ${name}`}
-            data-tooltip={`Options for ${name}`}
+            aria-label={t('section.options', { name })}
+            data-tooltip={t('section.options', { name })}
             aria-expanded={menuOpen}
             data-qa="sidebar-section-menu"
             className="p-0.5 rounded text-muted opacity-0 group-hover/section:opacity-100 focus-visible:opacity-100 hover:text-fg hover:bg-raised"
@@ -96,10 +98,10 @@ export function SidebarCustomSection({
             onClose={() => setMenuOpen(false)}
             className="w-44 bg-surface border border-line rounded-lg shadow-xl py-1"
           >
-            {item('Rename', () => setRenaming(true))}
-            {onMoveUp && item('Move up', onMoveUp)}
-            {onMoveDown && item('Move down', onMoveDown)}
-            {item('Delete section', onDelete, true)}
+            {item(t('section.rename'), () => setRenaming(true))}
+            {onMoveUp && item(t('section.moveUp'), onMoveUp)}
+            {onMoveDown && item(t('section.moveDown'), onMoveDown)}
+            {item(t('section.delete'), onDelete, true)}
           </AnchoredPopover>
         )}
       </div>

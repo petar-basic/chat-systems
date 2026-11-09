@@ -50,6 +50,20 @@
     "timezone": "Times are in {{timezone}}, the timezone in your profile.",
     "saveFailed": "Couldn't save your schedule. Try again."
   },
+  "pause": {
+    "heading": "Pause notifications in {{workspace}}",
+    "headingAnywhere": "Pause notifications",
+    "resume": "Resume notifications in {{workspace}}",
+    "resumeAnywhere": "Resume notifications",
+    "presets": {
+      "halfHour": "For 30 minutes",
+      "hour": "For 1 hour",
+      "twoHours": "For 2 hours"
+    },
+    "untilTomorrow": "Until tomorrow",
+    "until": "Paused until {{time}}",
+    "bySchedule": "Paused by your schedule until {{time}}"
+  },
   "days": {
     "mon": {
       "short": "Mon",

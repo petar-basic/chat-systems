@@ -1,10 +1,11 @@
 import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Bell, BellOff, Bookmark, CircleDot, Clock, LogOut, SlidersHorizontal, User } from 'lucide-react';
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { displayNameOf } from '@/lib/userHelpers';
 import { PauseMenuItems, usePause } from '@/features/notifications';
-import { pauseLabel } from '@/lib/pause';
+import { formatResume } from '@/lib/pause';
 import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
 import PresenceDot from '@/shared/components/PresenceDot';
 import { usePresenceStore } from '@/stores/presence';
@@ -38,6 +39,7 @@ export function YouMenu({
   onOpenNotifications,
   onLogout,
 }: Props) {
+  const { t } = useTranslation('sidebar');
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useOnClickOutside(ref, () => setOpen(false), open);
@@ -46,7 +48,9 @@ export function YouMenu({
   const setAway = useSetAway(userId);
   const pause = usePause();
   const BellIcon = pause ? BellOff : Bell;
-  const bellLabel = pause ? `Notifications ${pauseLabel(pause).toLowerCase()}` : 'Notifications';
+  const bellLabel = pause
+    ? t(pause.bySchedule ? 'you.pausedBySchedule' : 'you.paused', { time: formatResume(pause.until) })
+    : t('you.notifications');
 
   const pick = (action: () => void) => () => {
     action();
@@ -57,10 +61,10 @@ export function YouMenu({
     <div className="px-3 py-3 border-t border-line/50 flex items-center gap-2">
       <button
         onClick={onOpenProfile}
-        aria-label="Edit profile"
+        aria-label={t('you.editProfile')}
         data-qa="sidebar-profile-avatar"
         className="relative rounded-full shrink-0 hover:ring-2 hover:ring-purple-400 transition cursor-pointer"
-        data-tooltip="Edit profile"
+        data-tooltip={t('you.editProfile')}
       >
         <Avatar
           userId={user?.id ?? ''}
@@ -74,7 +78,7 @@ export function YouMenu({
           onClick={() => setOpen((current) => !current)}
           data-qa="open-you-menu"
           className="w-full min-w-0 text-left hover:bg-raised/30 rounded px-1 -mx-1 transition cursor-pointer"
-          data-tooltip="You"
+          data-tooltip={t('you.you')}
         >
           <div className="text-sm font-medium truncate">
             {user?.display_name}
@@ -97,21 +101,21 @@ export function YouMenu({
           >
             <button className={ITEM} data-qa="toggle-away" onClick={pick(() => setAway.mutate(!away))}>
               <CircleDot className="w-4 h-4 shrink-0" />
-              {away ? 'Set yourself active' : 'Set yourself away'}
+              {away ? t('you.setActive') : t('you.setAway')}
             </button>
             <div className="my-1 h-px bg-raised" />
             <button className={ITEM} data-qa="open-profile" onClick={pick(onOpenProfile)}>
-              <User className="w-4 h-4 shrink-0" /> Profile
+              <User className="w-4 h-4 shrink-0" /> {t('you.profile')}
             </button>
             <button className={ITEM} data-qa="open-preferences" onClick={pick(onOpenPreferences)}>
-              <SlidersHorizontal className="w-4 h-4 shrink-0" /> Preferences
+              <SlidersHorizontal className="w-4 h-4 shrink-0" /> {t('you.preferences')}
             </button>
             <div className="my-1 h-px bg-raised" />
             <button className={ITEM} data-qa="open-scheduled" onClick={pick(onOpenScheduled)}>
-              <Clock className="w-4 h-4" /> Scheduled
+              <Clock className="w-4 h-4" /> {t('you.scheduled')}
             </button>
             <button className={ITEM} data-qa="open-later" onClick={pick(onOpenLater)}>
-              <Bookmark className="w-4 h-4" /> Later
+              <Bookmark className="w-4 h-4" /> {t('you.later')}
             </button>
             <div className="my-1 h-px bg-raised" />
             <PauseMenuItems onDone={() => setOpen(false)} />
@@ -136,8 +140,8 @@ export function YouMenu({
       <button
         onClick={onLogout}
         className="text-muted hover:text-danger transition cursor-pointer"
-        data-tooltip="Sign out"
-        aria-label="Sign out"
+        data-tooltip={t('you.signOut')}
+        aria-label={t('you.signOut')}
       >
         <LogOut className="w-4 h-4" />
       </button>

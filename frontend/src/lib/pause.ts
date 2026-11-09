@@ -10,11 +10,11 @@ export interface Pause {
   bySchedule: boolean;
 }
 
-export const PAUSE_PRESETS: { label: string; minutes: number }[] = [
-  { label: 'For 30 minutes', minutes: 30 },
-  { label: 'For 1 hour', minutes: 60 },
-  { label: 'For 2 hours', minutes: 120 },
-];
+export const PAUSE_PRESETS = [
+  { name: 'halfHour', minutes: 30 },
+  { name: 'hour', minutes: 60 },
+  { name: 'twoHours', minutes: 120 },
+] as const;
 
 export function minutesFromNowIso(minutes: number, now = Date.now()): string {
   return new Date(now + minutes * 60000).toISOString();
@@ -42,9 +42,4 @@ export function formatResume(iso: string, now = new Date()): string {
   const time = formatClock(at, { hour: 'numeric', minute: '2-digit' });
   if (at.toDateString() === now.toDateString()) return time;
   return `${at.toLocaleDateString([], { weekday: 'short' })} ${time}`;
-}
-
-export function pauseLabel(pause: Pause, now = new Date()): string {
-  const until = formatResume(pause.until, now);
-  return pause.bySchedule ? `Paused by your schedule until ${until}` : `Paused until ${until}`;
 }

@@ -27,7 +27,8 @@ import {
   type NotificationKind,
 } from './hooks/useNotifications';
 import { flattenMentions } from '@/lib/mentions';
-import { currentPause, pauseLabel } from '@/lib/pause';
+import { currentPause } from '@/lib/pause';
+import { usePauseLabel } from './hooks/usePauseLabel';
 import { PauseMenuItems } from '@/features/notifications';
 import { useNotificationPrefs } from '@/stores/notificationPrefs';
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
@@ -130,6 +131,7 @@ function NotificationRow({
 
 export default function NotificationsPanel({ workspaceId, onClose, onOpenMessage }: Props) {
   const navigate = useNavigate();
+  const pauseLabel = usePauseLabel();
   const { data: notifications = [], isLoading, isError, refetch } = useNotifications(workspaceId);
   const { data: unreadCount = 0 } = useUnreadNotificationCount(workspaceId);
   const markRead = useMarkNotificationsRead(workspaceId);

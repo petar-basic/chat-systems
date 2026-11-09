@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { CreateChannelDraft } from '@/shared/models/channel';
 import { useNavigate } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { Bookmark, Compass, FolderPlus, Inbox, MessagesSquare } from 'lucide-react';
 import { useLater } from '@/features/later';
 import { useUnreadThreadCount } from '@/features/threads';
@@ -24,7 +25,6 @@ import { acceptsChannelDrop } from './components/channelDrag';
 import { SectionNameInput } from './components/SectionNameInput';
 import { creatableChannelKinds } from '@/lib/channelPermissions';
 import { useSidebarLayout, useSidebarActions } from '@/features/channel/hooks/useSidebarLayout';
-import { EmptyLabels } from '@/shared/constants';
 import { isApplePlatform, shortcutLabel } from '@/features/navigation';
 
 interface Props {
@@ -98,6 +98,7 @@ export default function ChannelSidebar({
   threadsActive,
   onLogout,
 }: Props) {
+  const { t } = useTranslation('sidebar');
   const { data: unreadNotifCount = 0 } = useUnreadNotificationCount(currentWorkspace?.id ?? null);
   const self = useUserCache((s) => (user ? s.getUser(user.id) : undefined));
   const { data: laterItems } = useLater(currentWorkspace?.id, 'in_progress', currentWorkspace?.instanceUrl);
@@ -126,7 +127,7 @@ export default function ChannelSidebar({
       .map((p) => [p.channel_id, p.section_id] as const),
   );
   const moveTargets = [
-    { id: null, name: 'Channels' },
+    { id: null, name: t('channels') },
     ...sections.map((section) => ({ id: section.id, name: section.name })),
   ];
   const moveChannel = (channelId: string, sectionId: string | null) =>
@@ -164,7 +165,7 @@ export default function ChannelSidebar({
     <>
       <div
         role="navigation"
-        aria-label="Channels and direct messages"
+        aria-label={t('label')}
         className="w-60 bg-sidebar flex flex-col border-r border-line/50"
       >
         <WorkspaceMenu
@@ -185,7 +186,9 @@ export default function ChannelSidebar({
             type="button"
             onClick={onOpenUnreads}
             aria-current={unreadsActive ? 'page' : undefined}
-            data-tooltip={`All unreads (${shortcutLabel(['alt', 'shift', 'A'], isApplePlatform())})`}
+            data-tooltip={t('allUnreadsHint', {
+              shortcut: shortcutLabel(['alt', 'shift', 'A'], isApplePlatform()),
+            })}
             data-qa="all-unreads-open"
             className={`w-full px-3 py-1.5 mb-2 flex items-center gap-2 text-sm transition cursor-pointer ${
               unreadsActive
@@ -194,7 +197,7 @@ export default function ChannelSidebar({
             } ${totalUnread > 0 ? 'font-semibold' : ''}`}
           >
             <Inbox className="w-4 h-4 shrink-0" />
-            <span className="truncate">All unreads</span>
+            <span className="truncate">{t('allUnreads')}</span>
             {totalUnread > 0 && (
               <span className="ml-auto text-xs px-1.5 rounded-full bg-raised text-fg-soft">
                 {totalUnread > 99 ? '99+' : totalUnread}
@@ -213,7 +216,7 @@ export default function ChannelSidebar({
             } ${unreadThreads > 0 ? 'font-semibold' : ''}`}
           >
             <MessagesSquare className="w-4 h-4 shrink-0" />
-            <span className="truncate">Threads</span>
+            <span className="truncate">{t('threads')}</span>
             {unreadThreads > 0 && (
               <span
                 className="ml-auto text-xs px-1.5 rounded-full bg-raised text-fg-soft"
@@ -235,7 +238,7 @@ export default function ChannelSidebar({
             }`}
           >
             <Bookmark className="w-4 h-4 shrink-0" />
-            <span className="truncate">Later</span>
+            <span className="truncate">{t('later')}</span>
             {laterCount > 0 && (
               <span
                 className="ml-auto text-xs px-1.5 rounded-full bg-raised text-fg-soft"
@@ -268,12 +271,12 @@ export default function ChannelSidebar({
           >
             <SidebarSectionHeader
               section="channels"
-              label="Channels"
+              label={t('channels')}
               collapsed={collapsed.channels}
               onToggle={toggleSection}
               action={
                 creatableKinds.length > 0
-                  ? { label: 'Create channel', onClick: () => setShowNewChannel(true) }
+                  ? { label: t('createChannel'), onClick: () => setShowNewChannel(true) }
                   : undefined
               }
             />
@@ -286,14 +289,14 @@ export default function ChannelSidebar({
               className="w-full px-3 py-1.5 flex items-center gap-2 text-sm text-muted hover:bg-raised/30 hover:text-fg-soft transition cursor-pointer"
             >
               <Compass className="w-4 h-4 shrink-0" />
-              <span className="truncate">Browse channels</span>
+              <span className="truncate">{t('browseChannels')}</span>
             </button>
           )}
           {!collapsed.channels &&
             (creatingSection ? (
               <div className="px-3 py-1">
                 <SectionNameInput
-                  label="New section name"
+                  label={t('newSectionName')}
                   onSubmit={(name) => {
                     setCreatingSection(false);
                     sidebar.createSection.mutate(name);
@@ -308,20 +311,20 @@ export default function ChannelSidebar({
                 className="w-full px-3 py-1.5 flex items-center gap-2 text-sm text-muted hover:bg-raised/30 hover:text-fg-soft transition cursor-pointer"
               >
                 <FolderPlus className="w-4 h-4 shrink-0" />
-                <span className="truncate">Create section</span>
+                <span className="truncate">{t('createSection')}</span>
               </button>
             ))}
 
           <SidebarSectionHeader
             section="dms"
-            label="Direct Messages"
+            label={t('directMessages')}
             collapsed={collapsed.dms}
             onToggle={toggleSection}
-            action={{ label: 'New direct message', onClick: () => setShowDmPicker(true) }}
+            action={{ label: t('newDirectMessage'), onClick: () => setShowDmPicker(true) }}
             className="mt-4"
           />
           {collapsed.dms ? null : conversations.length === 0 ? (
-            <div className="px-3 py-1.5 text-xs text-muted">{EmptyLabels.NoConversations}</div>
+            <div className="px-3 py-1.5 text-xs text-muted">{t('noConversations')}</div>
           ) : (
             conversations.map((conv) => (
               <ConversationRow
@@ -339,14 +342,14 @@ export default function ChannelSidebar({
             <>
               <SidebarSectionHeader
                 section="people"
-                label="People"
+                label={t('people')}
                 collapsed={collapsed.people}
                 onToggle={toggleSection}
                 className="mt-4"
               />
               {collapsed.people ? null : otherMembers.length === 0 ? (
                 <div className="px-3 py-1.5 text-xs text-muted" data-qa="sidebar-people-empty">
-                  {EmptyLabels.NoPeople}
+                  {t('justYou')}
                   {isWorkspaceAdmin && (
                     <>
                       {' '}
@@ -356,7 +359,7 @@ export default function ChannelSidebar({
                         data-qa="sidebar-people-invite"
                         className="text-accent hover:underline cursor-pointer"
                       >
-                        Invite people
+                        {t('invitePeople')}
                       </button>
                     </>
                   )}
