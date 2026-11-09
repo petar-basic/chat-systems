@@ -23,6 +23,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   moving back up to where macOS puts them.
 - Replies in a thread run together like messages in a channel: several in a row from the same
   person show their name and picture once, not on every reply.
+- *Also send to the channel* above a thread's reply box has room above and below it and lines
+  up with the box, in the thread panel and in *Threads*.
 
 ## [4.5.0] — 2026-11-09
 
