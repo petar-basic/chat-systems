@@ -1,9 +1,11 @@
 import { Phone, Users } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useHuddleStore } from '@/stores/huddle';
 import { useStartHuddle } from '@/features/huddle/hooks/useHuddle';
 
 export function HuddleBar({ channelId }: { channelId: string }) {
+  const { t } = useTranslation('huddle');
   const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace);
   const currentUserId = useWorkspaceStore((s) => s.currentUserId);
   const channelHuddle = useWorkspaceStore((s) => s.activeHuddleChannels.get(channelId));
@@ -42,7 +44,7 @@ export function HuddleBar({ channelId }: { channelId: string }) {
         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-green-600/20 text-success hover:bg-green-600/30 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <Users className="w-4 h-4" />
-        <span className="text-xs font-medium">Join huddle</span>
+        <span className="text-xs font-medium">{t('join')}</span>
       </button>
     );
   }
@@ -51,8 +53,8 @@ export function HuddleBar({ channelId }: { channelId: string }) {
     <button
       onClick={onStart}
       disabled={busy}
-      aria-label="Start huddle"
-      data-tooltip="Start huddle"
+      aria-label={t('start')}
+      data-tooltip={t('start')}
       className="p-1.5 rounded-lg text-muted hover:text-fg hover:bg-raised/50 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
     >
       <Phone className="w-4 h-4" />

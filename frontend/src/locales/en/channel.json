@@ -1,0 +1,19 @@
+{
+  "header": {
+    "openNavigation": "Open navigation",
+    "integration": "Integration",
+    "integrationHint": "An integration forwards messages from this channel to an external URL",
+    "members": "Channel members",
+    "pins": "Pinned messages",
+    "files": "Files",
+    "search": "Search",
+    "more": "More channel actions"
+  },
+  "menu": {
+    "members": "Members",
+    "pins": "Pinned",
+    "files": "Files",
+    "notifications": "Notification settings",
+    "details": "Channel details"
+  }
+}
