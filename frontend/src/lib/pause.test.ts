@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { currentPause, pauseLabel } from './pause';
+import { currentPause } from './pause';
 
 const now = Date.parse('2026-10-21T18:00:00Z');
 const iso = (offsetMinutes: number) => new Date(now + offsetMinutes * 60000).toISOString();
@@ -26,15 +26,5 @@ describe('currentPause', () => {
       until: iso(900),
       bySchedule: false,
     });
-  });
-});
-
-describe('pauseLabel', () => {
-  it('says why notifications are paused', () => {
-    const today = new Date(now);
-    expect(pauseLabel({ until: iso(60), bySchedule: true }, today)).toMatch(
-      /^Paused by your schedule until /,
-    );
-    expect(pauseLabel({ until: iso(60), bySchedule: false }, today)).toMatch(/^Paused until /);
   });
 });

@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChevronDown, LogOut, Settings, ShieldCheck, UserPlus, Workflow } from 'lucide-react';
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
@@ -31,6 +32,7 @@ export function WorkspaceMenu({
   onOpenInstanceAdmin,
   onLeave,
 }: Props) {
+  const { t } = useTranslation('sidebar');
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useOnClickOutside(ref, () => setOpen(false), open);
@@ -49,27 +51,27 @@ export function WorkspaceMenu({
         data-qa="workspace-menu"
         className="w-full px-4 py-3 flex items-center justify-between border-b border-line/50 hover:bg-raised/30 transition cursor-pointer"
       >
-        <span className="font-semibold text-fg truncate">{workspaceName || 'Select workspace'}</span>
+        <span className="font-semibold text-fg truncate">{workspaceName || t('workspace.select')}</span>
         <ChevronDown className="w-4 h-4 text-muted" />
       </button>
       {open && (
         <div className="unthemed text-fg absolute top-full left-0 right-0 bg-surface border border-line rounded-b-lg shadow-xl z-30">
           {isWorkspaceAdmin && (
             <button className={ITEM} data-qa="open-invite" onClick={pick(onInvite)}>
-              <UserPlus className="w-4 h-4" /> Invite people
+              <UserPlus className="w-4 h-4" /> {t('workspace.invite')}
             </button>
           )}
           {canUseWorkflows && (
             <button className={ITEM} data-qa="open-workflows" onClick={pick(onOpenWorkflows)}>
-              <Workflow className="w-4 h-4" /> Workflows
+              <Workflow className="w-4 h-4" /> {t('workspace.workflows')}
             </button>
           )}
           <button className={ITEM} data-qa="open-workspace-settings" onClick={pick(onOpenSettings)}>
-            <Settings className="w-4 h-4" /> Workspace settings
+            <Settings className="w-4 h-4" /> {t('workspace.settings')}
           </button>
           {canLeave && (
             <button className={ITEM} data-qa="leave-workspace" onClick={pick(onLeave)}>
-              <LogOut className="w-4 h-4" /> Leave workspace…
+              <LogOut className="w-4 h-4" /> {t('workspace.leave')}
             </button>
           )}
           {isInstanceAdmin && (
@@ -77,7 +79,7 @@ export function WorkspaceMenu({
               className="w-full px-4 py-2 text-left text-sm text-accent-soft hover:bg-raised flex items-center gap-2 cursor-pointer border-t border-line"
               onClick={pick(onOpenInstanceAdmin)}
             >
-              <ShieldCheck className="w-4 h-4" /> Instance admin
+              <ShieldCheck className="w-4 h-4" /> {t('workspace.instanceAdmin')}
             </button>
           )}
         </div>

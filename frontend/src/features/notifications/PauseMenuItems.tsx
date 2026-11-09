@@ -1,16 +1,19 @@
 import { Moon } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useDndStatus, useSetDnd } from '@/features/notifications/hooks/useNotifications';
 import { useWorkspaceStore } from '@/stores/workspace';
-import { PAUSE_PRESETS, currentPause, minutesFromNowIso, pauseLabel, tomorrowMorningIso } from '@/lib/pause';
+import { PAUSE_PRESETS, currentPause, minutesFromNowIso, tomorrowMorningIso } from '@/lib/pause';
+import { usePauseLabel } from './hooks/usePauseLabel';
 
 const ITEM = 'w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised cursor-pointer';
 
 export function PauseMenuItems({ onDone }: { onDone: () => void }) {
+  const { t } = useTranslation('notifications');
+  const pauseLabel = usePauseLabel();
   const { data: status } = useDndStatus();
   const setDnd = useSetDnd();
   const pause = currentPause(status);
   const workspace = useWorkspaceStore((s) => s.currentWorkspace?.name);
-  const where = workspace ? ` in ${workspace}` : '';
 
   const choose = (until: string | null) => {
     setDnd.mutate(until);
@@ -30,7 +33,7 @@ export function PauseMenuItems({ onDone }: { onDone: () => void }) {
           onClick={() => choose(null)}
           data-qa="pause-resume"
         >
-          Resume notifications{where}
+          {workspace ? t('pause.resume', { workspace }) : t('pause.resumeAnywhere')}
         </button>
       </div>
     );
@@ -39,7 +42,7 @@ export function PauseMenuItems({ onDone }: { onDone: () => void }) {
   return (
     <div data-qa="pause-menu">
       <div className="px-3 py-1 text-3xs uppercase tracking-wide text-subtle" data-qa="pause-heading">
-        Pause notifications{where}
+        {workspace ? t('pause.heading', { workspace }) : t('pause.headingAnywhere')}
       </div>
       {PAUSE_PRESETS.map((preset) => (
         <button
@@ -48,11 +51,11 @@ export function PauseMenuItems({ onDone }: { onDone: () => void }) {
           className={ITEM}
           onClick={() => choose(minutesFromNowIso(preset.minutes))}
         >
-          {preset.label}
+          {t(`pause.presets.${preset.name}`)}
         </button>
       ))}
       <button type="button" className={ITEM} onClick={() => choose(tomorrowMorningIso())}>
-        Until tomorrow
+        {t('pause.untilTomorrow')}
       </button>
     </div>
   );

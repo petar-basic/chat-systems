@@ -41,8 +41,6 @@ export const EmptyLabels = {
   NoMessagesHint: 'Be the first to say something!',
   NoNotifications: 'No notifications',
   NoNotificationsHint: "You're all caught up!",
-  NoConversations: 'No conversations yet',
-  NoPeople: 'Just you so far.',
   NoChannels: 'No channels yet',
   NoChannelsHint: 'Create one to start the conversation.',
   NoWorkspaces: "You're not in a workspace yet",
