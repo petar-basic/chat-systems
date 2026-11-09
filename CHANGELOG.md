@@ -23,6 +23,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   moving back up to where macOS puts them.
 - Replies in a thread run together like messages in a channel: several in a row from the same
   person show their name and picture once, not on every reply.
+- A message that arrives in the open channel or conversation while the app is in the background
+  is marked read when you come back to the app, as in Slack, so its notification and the badge
+  clear instead of waiting until you switch away and back.
 
 ## [4.5.0] — 2026-11-09
 
