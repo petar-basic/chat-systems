@@ -1,5 +1,7 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
+import i18n from '@/lib/i18n';
+import { useDisplayStore } from '@/stores/display';
 import { MessageAttachments } from './MessageAttachments';
 
 const image = (n: number) => ({
@@ -116,5 +118,39 @@ describe('MessageAttachments media', () => {
     expect(screen.queryByTestId('attachment-video')).not.toBeInTheDocument();
     expect(screen.getByTestId('attachment-file')).toHaveTextContent('old.avi');
     canPlay.mockRestore();
+  });
+});
+
+describe('MessageAttachments in Japanese', () => {
+  const name = '<img src=x onerror="alert(1)"> {{name}}';
+
+  afterEach(async () => {
+    useDisplayStore.setState({ previews: 'shown' });
+    await i18n.changeLanguage('en');
+  });
+
+  it('names a collapsed image and the image count, with the file name as text', async () => {
+    await i18n.changeLanguage('ja');
+    useDisplayStore.setState({ previews: 'collapsed' });
+    const { unmount } = render(<MessageAttachments attachments={[{ ...image(1), filename: name }]} />);
+    expect(screen.getByTestId('attachment-images-collapsed').textContent).toBe(`${name} を表示`);
+    unmount();
+    render(<MessageAttachments attachments={[image(1), image(2)]} />);
+    expect(screen.getByTestId('attachment-images-collapsed').textContent).toBe('画像 2枚を表示');
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
+
+  it('names the kind, and the remove and download controls after the file, as text', async () => {
+    await i18n.changeLanguage('ja');
+    const doc = { ...pdf, id: 'doc-1', filename: `${name}.docx`, mime_type: 'application/octet-stream' };
+    const { unmount } = render(<MessageAttachments attachments={[doc]} onRemove={vi.fn()} />);
+    expect(screen.getByTestId('attachment-file')).toHaveTextContent('文書 · 1.5 MB');
+    expect(screen.getByRole('button', { name: `${name}.docx を外す` })).toBeInTheDocument();
+    unmount();
+    render(<MessageAttachments attachments={[{ ...image(1), filename: name }]} />);
+    fireEvent.click(screen.getByTestId('attachment-image'));
+    expect(screen.getByRole('link', { name: `${name} をダウンロード` })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'プレビューを閉じる' })).toBeInTheDocument();
+    expect(document.querySelector('[onerror]')).toBeNull();
   });
 });

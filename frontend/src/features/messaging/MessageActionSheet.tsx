@@ -1,4 +1,5 @@
 import { useRef, useState, type ComponentType } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
 import { ActionSheet } from '@/shared/components/ActionSheet/ActionSheet';
 import EmojiPicker from './EmojiPicker';
@@ -26,6 +27,7 @@ export default function MessageActionSheet({
   onClose,
   dataQa = 'message-action-sheet',
 }: Props) {
+  const { t } = useTranslation('messages');
   const [showPicker, setShowPicker] = useState(false);
   const pickerAnchorRef = useRef<HTMLButtonElement>(null);
 
@@ -35,7 +37,7 @@ export default function MessageActionSheet({
   };
 
   return (
-    <ActionSheet onClose={onClose} dataQa={dataQa} title="Message actions">
+    <ActionSheet onClose={onClose} dataQa={dataQa} title={t('sheet.title')}>
       {onReact && (
         <div className="flex items-center gap-2 px-4 py-3 border-b border-line">
           {quickReactions.map((emoji) => (
@@ -43,8 +45,8 @@ export default function MessageActionSheet({
               key={emoji}
               type="button"
               onClick={() => react(emoji)}
-              aria-label={`React with ${emoji}`}
-              data-tooltip={`React with ${emoji}`}
+              aria-label={t('actions.react', { emoji })}
+              data-tooltip={t('actions.react', { emoji })}
               data-qa="sheet-quick-reaction"
               className="w-11 h-11 rounded-full bg-raised/60 hover:bg-raised text-xl flex items-center justify-center transition"
             >
@@ -55,8 +57,8 @@ export default function MessageActionSheet({
             ref={pickerAnchorRef}
             type="button"
             onClick={() => setShowPicker((open) => !open)}
-            aria-label="More reactions"
-            data-tooltip="More reactions"
+            aria-label={t('sheet.moreReactions')}
+            data-tooltip={t('sheet.moreReactions')}
             aria-expanded={showPicker}
             data-qa="sheet-more-reactions"
             className="w-11 h-11 rounded-full bg-raised/60 hover:bg-raised text-muted flex items-center justify-center transition"

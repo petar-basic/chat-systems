@@ -1,4 +1,5 @@
 import { memo, useEffect, useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { CornerDownRight, MessageSquare, Pin, Trash2 } from 'lucide-react';
 import { UserHoverCard } from '@/features/messaging/UserHoverCard';
 import { useLongPress } from '@/shared/hooks/useLongPress';
@@ -87,6 +88,7 @@ function MessageItem({
   onForward,
   dataQa = 'message-row',
 }: MessageItemProps) {
+  const { t } = useTranslation('messages');
   const [editing, setEditing] = useState(false);
   const workspace = useWorkspaceStore((s) => s.currentWorkspace);
   const savedItemId = useSavedItemId(onSave ? workspace?.id : undefined, message.id, workspace?.instanceUrl);
@@ -225,7 +227,7 @@ function MessageItem({
           <Trash2 className="w-3.5 h-3.5 text-muted" />
         </div>
         <div className="flex-1 min-w-0 py-1">
-          <p className="text-sm text-muted italic">This message was deleted</p>
+          <p className="text-sm text-muted italic">{t('item.deleted')}</p>
           {message.reply_count > 0 && onThreadOpen && (
             <button
               onClick={() => onThreadOpen(message)}
@@ -233,9 +235,7 @@ function MessageItem({
               className="mt-1 flex items-center gap-1.5 text-xs text-accent hover:text-accent-soft transition"
             >
               <MessageSquare className="w-3.5 h-3.5" />
-              <span className="font-medium">
-                {message.reply_count} {message.reply_count === 1 ? 'reply' : 'replies'}
-              </span>
+              <span className="font-medium">{t('item.replies', { count: message.reply_count })}</span>
             </button>
           )}
         </div>
@@ -245,7 +245,7 @@ function MessageItem({
 
   const pinnedMarker = message.is_pinned ? (
     <span data-qa="pinned-marker" className="text-xs text-warning inline-flex items-center gap-0.5">
-      <Pin className="w-3 h-3" /> pinned
+      <Pin className="w-3 h-3" /> {t('item.pinned')}
     </span>
   ) : null;
 
@@ -258,11 +258,11 @@ function MessageItem({
           aria-expanded={showHistory}
           className="text-xs text-muted italic underline decoration-dotted hover:text-fg-soft transition cursor-pointer"
         >
-          (edited)
+          {t('item.edited')}
         </button>
       ) : (
         <span data-qa="edited-marker" className="text-xs text-muted italic">
-          (edited)
+          {t('item.edited')}
         </span>
       )
     ) : null;
@@ -288,7 +288,7 @@ function MessageItem({
           data-qa="bot-tag"
           className="px-1 py-0.5 text-3xs font-semibold uppercase tracking-wide bg-raised text-fg-dim rounded"
         >
-          {message.metadata.bot.workflow_id ? 'Workflow' : 'Bot'}
+          {message.metadata.bot.workflow_id ? t('item.workflow') : t('item.bot')}
         </span>
       )}
       {!message.metadata?.bot && senderIsApp && (
@@ -296,7 +296,7 @@ function MessageItem({
           data-qa="app-tag"
           className="px-1 py-0.5 text-3xs font-semibold uppercase tracking-wide bg-raised text-fg-dim rounded"
         >
-          App
+          {t('item.app')}
         </span>
       )}
     </>
@@ -358,7 +358,7 @@ function MessageItem({
               className="float-left mr-2 inline-flex items-baseline gap-2"
             >
               {sender}
-              {message.pending && <span className="text-xs text-muted italic">Sending…</span>}
+              {message.pending && <span className="text-xs text-muted italic">{t('item.sending')}</span>}
             </span>
           )}
           {!stacked && !compact && (
@@ -367,7 +367,7 @@ function MessageItem({
               <span className="text-xs text-muted" data-qa="message-header-time">
                 {time}
               </span>
-              {message.pending && <span className="text-xs text-muted italic">Sending…</span>}
+              {message.pending && <span className="text-xs text-muted italic">{t('item.sending')}</span>}
               {pinnedMarker}
             </div>
           )}
@@ -408,14 +408,14 @@ function MessageItem({
 
           {message.failed && (
             <div className="mt-1 flex items-center gap-2 text-xs text-danger" data-qa="message-failed">
-              <span>Failed to send.</span>
+              <span>{t('item.failed')}</span>
               {onRetry && (
                 <button
                   onClick={() => onRetry(message)}
                   data-qa="message-retry"
                   className="font-semibold text-danger hover:text-danger underline"
                 >
-                  Retry
+                  {t('item.retry')}
                 </button>
               )}
               {onDiscard && (
@@ -424,7 +424,7 @@ function MessageItem({
                   data-qa="message-discard"
                   className="font-semibold text-muted hover:text-fg underline"
                 >
-                  Discard
+                  {t('item.discard')}
                 </button>
               )}
             </div>
@@ -440,7 +440,7 @@ function MessageItem({
                 className="mt-1 flex items-center gap-1.5 text-xs text-muted hover:text-accent transition"
               >
                 <CornerDownRight className="w-3.5 h-3.5" />
-                Replied to a thread
+                {t('item.repliedToThread')}
               </button>
             ) : (
               <p
@@ -448,7 +448,7 @@ function MessageItem({
                 data-qa="message-also-in-channel"
               >
                 <CornerDownRight className="w-3.5 h-3.5" />
-                Also sent to the channel
+                {t('item.alsoInChannel')}
               </p>
             ))}
 
@@ -465,10 +465,10 @@ function MessageItem({
               className="mt-1 flex items-center gap-1.5 text-xs text-accent hover:text-accent-soft transition group/thread"
             >
               <MessageSquare className="w-3.5 h-3.5" />
-              <span className="font-medium">
-                {message.reply_count} {message.reply_count === 1 ? 'reply' : 'replies'}
+              <span className="font-medium">{t('item.replies', { count: message.reply_count })}</span>
+              <span className="text-muted group-hover/thread:text-accent transition">
+                {t('item.viewThread')}
               </span>
-              <span className="text-muted group-hover/thread:text-accent transition">View thread</span>
             </button>
           )}
         </div>
@@ -487,16 +487,16 @@ function MessageItem({
           <MessageActionSheet
             quickReactions={QUICK_REACTIONS}
             onReact={archived ? undefined : (emoji) => handleReactionToggle(emoji)}
-            actions={sheetActionsFor(message, actions)}
+            actions={sheetActionsFor(message, actions, t)}
             onClose={() => setSheetOpen(false)}
           />
         )}
       </div>
       {confirmDelete && (
         <ConfirmDialog
-          title="Delete message?"
-          description="This can't be undone."
-          confirmLabel="Delete"
+          title={t('item.deleteTitle')}
+          description={t('item.deleteBody')}
+          confirmLabel={t('item.delete')}
           onConfirm={async () => {
             await onDelete(message.id);
           }}

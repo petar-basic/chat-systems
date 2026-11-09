@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { Button } from '@/shared/components/Button/Button';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -52,6 +53,7 @@ export default function VirtualMessageList<R extends VirtualRow>({
   qa,
   ariaLabel,
 }: Props<R>) {
+  const { t } = useTranslation('messages');
   const scrollRef = useRef<HTMLDivElement>(null);
   const [atBottom, setAtBottom] = useState(true);
   const [hasUnseen, setHasUnseen] = useState(false);
@@ -255,7 +257,7 @@ export default function VirtualMessageList<R extends VirtualRow>({
           data-qa="jump-to-first-unread"
         >
           <ArrowUp className="w-3.5 h-3.5" />
-          Jump to first unread
+          {t('list.jumpToUnread')}
         </Button>
       )}
 
@@ -268,7 +270,7 @@ export default function VirtualMessageList<R extends VirtualRow>({
           data-qa="jump-to-latest"
         >
           <ArrowDown className="w-3.5 h-3.5" />
-          New messages
+          {t('list.newMessages')}
         </Button>
       )}
     </div>
