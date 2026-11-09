@@ -59,7 +59,7 @@ export default function TypingIndicator({ channelId, currentUserId }: Props) {
     };
   }, [channelId]);
 
-  if (typingUsers.length === 0) return <div className="h-6 shrink-0" data-qa="typing-strip" />;
+  if (typingUsers.length === 0) return null;
 
   const names = typingUsers.map((t) => getUser(t.userId)?.display_name || UNKNOWN_USER).slice(0, 3);
 
@@ -73,22 +73,27 @@ export default function TypingIndicator({ channelId, currentUserId }: Props) {
   }
 
   return (
-    <div className="h-6 shrink-0 px-4 text-xs text-muted flex items-center gap-2" data-qa="typing-strip">
-      <div className="flex gap-0.5">
-        <span
-          className="w-1.5 h-1.5 bg-subtle rounded-full animate-bounce"
-          style={{ animationDelay: '0ms' }}
-        />
-        <span
-          className="w-1.5 h-1.5 bg-subtle rounded-full animate-bounce"
-          style={{ animationDelay: '150ms' }}
-        />
-        <span
-          className="w-1.5 h-1.5 bg-subtle rounded-full animate-bounce"
-          style={{ animationDelay: '300ms' }}
-        />
+    <div
+      className="pointer-events-none absolute inset-x-0 bottom-0 flex h-6 items-center px-4"
+      data-qa="typing-strip"
+    >
+      <div className="flex items-center gap-2 rounded-md bg-app/90 px-1.5 text-xs text-muted">
+        <div className="flex gap-0.5">
+          <span
+            className="w-1.5 h-1.5 bg-subtle rounded-full animate-bounce"
+            style={{ animationDelay: '0ms' }}
+          />
+          <span
+            className="w-1.5 h-1.5 bg-subtle rounded-full animate-bounce"
+            style={{ animationDelay: '150ms' }}
+          />
+          <span
+            className="w-1.5 h-1.5 bg-subtle rounded-full animate-bounce"
+            style={{ animationDelay: '300ms' }}
+          />
+        </div>
+        {text}
       </div>
-      {text}
     </div>
   );
 }
