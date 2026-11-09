@@ -54,5 +54,35 @@
     "paused": "通知({{time}} まで一時停止中)",
     "pausedBySchedule": "通知(通知設定により {{time}} まで一時停止中)",
     "signOut": "サインアウト"
+  },
+  "newDm": {
+    "title": "新規メッセージ",
+    "description": "1名ならDM、複数はグループ宛になります(最大8名)",
+    "search": "メンバー検索",
+    "searchPlaceholder": "メンバー検索…",
+    "noPeople": "該当するメンバーがいません",
+    "nobody": "まだ選ばれていません",
+    "selected": "{{count}}人を選択中",
+    "start": "開始",
+    "startGroup": "グループチャット開始"
+  },
+  "newChannel": {
+    "title": "チャンネルを作成",
+    "description": "チャンネルは、1つの話題について話し合う場所です。わかりやすい名前を付けてください。",
+    "name": "名前",
+    "namePlaceholder": "例: 予算計画",
+    "visibility": "公開範囲",
+    "public": "公開",
+    "publicHint": "誰でも参加できます。",
+    "private": "非公開",
+    "privateHint": "招待された人だけが閲覧・参加できます。",
+    "about": "説明",
+    "aboutPlaceholder": "このチャンネルの目的は?",
+    "announcement": "告知用チャンネル",
+    "announcementHint": "ワークスペースとこのチャンネルの管理者だけが投稿できます。",
+    "nameRequired": "チャンネル名を入力してください。",
+    "nameTaken": "同じ名前のチャンネルがすでにあります。",
+    "failed": "チャンネルを作成できませんでした。",
+    "create": "作成"
   }
 }

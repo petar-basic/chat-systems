@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import i18n from '@/lib/i18n';
 import { CreateChannelModal } from './CreateChannelModal';
 import type { ChannelKind } from '@/lib/channelPermissions';
 
@@ -31,5 +32,36 @@ describe('CreateChannelModal', () => {
     renderModal(['public']);
     expect(screen.queryByTestId('create-channel-private')).toBeNull();
     expect(screen.getByRole('radio', { name: 'Public' })).toBeChecked();
+  });
+});
+
+describe('CreateChannelModal in Japanese', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('names the form and says what is wrong with the name', async () => {
+    await i18n.changeLanguage('ja');
+    render(
+      <CreateChannelModal
+        kinds={['public', 'private']}
+        channels={[{ id: 'ch-1', name: 'design' } as never]}
+        onCreate={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('heading', { name: 'チャンネルを作成' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /^公開/ })).toBeChecked();
+    expect(screen.getByText('招待された人だけが閲覧・参加できます。')).toBeInTheDocument();
+    expect(
+      screen.getByText('ワークスペースとこのチャンネルの管理者だけが投稿できます。'),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('create-channel-submit'));
+    expect(await screen.findByText('チャンネル名を入力してください。')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByTestId('create-channel-name'), { target: { value: 'Design' } });
+    fireEvent.click(screen.getByTestId('create-channel-submit'));
+    expect(await screen.findByText('同じ名前のチャンネルがすでにあります。')).toBeInTheDocument();
   });
 });

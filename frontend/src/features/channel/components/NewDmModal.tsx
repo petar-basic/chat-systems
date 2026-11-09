@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/shared/components/Button/Button';
 import { Check } from 'lucide-react';
 import { Modal } from '@/shared/components/Modal/Modal';
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export function NewDmModal({ members, currentUserId, onStart, onClose }: Props) {
+  const { t } = useTranslation(['sidebar', 'common']);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<string[]>([]);
 
@@ -33,17 +35,17 @@ export function NewDmModal({ members, currentUserId, onStart, onClose }: Props) 
 
   return (
     <Modal
-      title="New message"
-      description="Pick one person for a direct message, or up to eight for a group."
+      title={t('newDm.title')}
+      description={t('newDm.description')}
       onClose={onClose}
       size="sm"
       dataQa="new-dm-modal"
       footerStart={
         <span className="text-xs text-muted" data-qa="new-dm-selected-count">
-          {selected.length === 0 ? 'Nobody picked yet' : `${selected.length} selected`}
+          {selected.length === 0 ? t('newDm.nobody') : t('newDm.selected', { count: selected.length })}
         </span>
       }
-      dismissLabel="Cancel"
+      dismissLabel={t('cancel', { ns: 'common' })}
       actions={
         <Button
           variant="primary"
@@ -55,22 +57,22 @@ export function NewDmModal({ members, currentUserId, onStart, onClose }: Props) 
           disabled={selected.length === 0}
           data-qa="new-dm-start"
         >
-          {selected.length > 1 ? 'Start group' : 'Start chat'}
+          {selected.length > 1 ? t('newDm.startGroup') : t('newDm.start')}
         </Button>
       }
     >
       <TextInput
-        label="Search people"
+        label={t('newDm.search')}
         labelHidden
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search people…"
+        placeholder={t('newDm.searchPlaceholder')}
         dataQa="new-dm-search"
         className="mb-3"
       />
       <div className="flex flex-col gap-1">
         {candidates.length === 0 ? (
-          <div className="px-3 py-4 text-sm text-muted text-center">No people found</div>
+          <div className="px-3 py-4 text-sm text-muted text-center">{t('newDm.noPeople')}</div>
         ) : (
           candidates.map((m) => {
             const picked = selected.includes(m.user_id);
