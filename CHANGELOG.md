@@ -21,6 +21,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - In the desktop app on a Mac, the first workspace on the rail is no longer hidden under the top
   bar, and the window's close, minimise and zoom buttons stay centred in the bar instead of
   moving back up to where macOS puts them.
+- Replies in a thread run together like messages in a channel: several in a row from the same
+  person show their name and picture once, not on every reply.
 - Messages scroll all the way down to the message box instead of being cut off a line above
   it. *Someone is typing* floats over the bottom of the messages instead of keeping an empty
   strip for itself.
