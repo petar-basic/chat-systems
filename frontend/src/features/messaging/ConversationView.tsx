@@ -133,20 +133,22 @@ export default function ConversationView({
           </div>
         </div>
 
-        <MessageList
-          channelId={conversation.id}
-          draftKey={`conversation:${conversation.id}`}
-          markReadIn={workspaceId}
-          members={members}
-          channels={channels}
-          onThreadOpen={onOpenThread}
-          onSave={onSave}
-          onForward={onForward}
-          highlightMessageId={highlightMessageId}
-          onTargetMessageFound={onTargetMessageFound}
-        />
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          <MessageList
+            channelId={conversation.id}
+            draftKey={`conversation:${conversation.id}`}
+            markReadIn={workspaceId}
+            members={members}
+            channels={channels}
+            onThreadOpen={onOpenThread}
+            onSave={onSave}
+            onForward={onForward}
+            highlightMessageId={highlightMessageId}
+            onTargetMessageFound={onTargetMessageFound}
+          />
 
-        <TypingIndicator channelId={conversation.id} currentUserId={currentUserId} />
+          <TypingIndicator channelId={conversation.id} currentUserId={currentUserId} />
+        </div>
         {isDirect && partnerId !== currentUserId && <OffHoursNote userId={partnerId} />}
 
         {note && (
