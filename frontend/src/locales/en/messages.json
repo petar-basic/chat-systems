@@ -1,0 +1,113 @@
+{
+  "item": {
+    "deleted": "This message was deleted",
+    "bot": "Bot",
+    "workflow": "Workflow",
+    "app": "App",
+    "sending": "Sending…",
+    "failed": "Failed to send.",
+    "retry": "Retry",
+    "discard": "Discard",
+    "pinned": "pinned",
+    "edited": "(edited)",
+    "replies_one": "{{count}} reply",
+    "replies_other": "{{count}} replies",
+    "viewThread": "View thread",
+    "repliedToThread": "Replied to a thread",
+    "alsoInChannel": "Also sent to the channel",
+    "deleteTitle": "Delete message?",
+    "deleteBody": "This can't be undone.",
+    "delete": "Delete"
+  },
+  "list": {
+    "label": "Messages",
+    "empty": "No messages yet",
+    "emptyHint": "Be the first to say something!",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "newDivider": "New",
+    "jumpToUnread": "Jump to first unread",
+    "newMessages": "New messages"
+  },
+  "actions": {
+    "react": "React with {{emoji}}",
+    "thread": "Reply in thread",
+    "addReaction": "Add reaction",
+    "save": "Save for later",
+    "unsave": "Remove from Later",
+    "more": "More actions",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "markUnread": "Mark unread",
+    "copyLink": "Copy link",
+    "remind": "Remind me about this",
+    "forward": "Forward",
+    "edit": "Edit",
+    "delete": "Delete"
+  },
+  "remind": {
+    "in20Minutes": "In 20 minutes",
+    "in1Hour": "In 1 hour",
+    "in3Hours": "In 3 hours",
+    "tomorrow": "Tomorrow at 9:00",
+    "nextWeek": "Next week"
+  },
+  "sheet": {
+    "title": "Message actions",
+    "moreReactions": "More reactions",
+    "remindInHour": "Remind me in 1 hour",
+    "pin": "Pin to channel",
+    "unpin": "Unpin from channel",
+    "edit": "Edit message",
+    "delete": "Delete message"
+  },
+  "reactions": {
+    "reacted": "<names>{{names}}</names> reacted",
+    "reactedLabel": "{{names}} reacted",
+    "you": "You",
+    "someone": "Someone",
+    "separator": ", ",
+    "pair": "{{first}} and {{last}}",
+    "others_one": "{{names}} and {{count}} other",
+    "others_other": "{{names}} and {{count}} others"
+  },
+  "attachments": {
+    "show": "Show {{name}}",
+    "showImages": "Show {{count}} images",
+    "download": "Download {{name}}",
+    "remove": "Remove {{name}}"
+  },
+  "gallery": {
+    "openOriginal": "Open original",
+    "close": "Close preview",
+    "previous": "Previous image",
+    "next": "Next image"
+  },
+  "previews": {
+    "show": "Show link preview",
+    "showMany": "Show {{count}} link previews",
+    "refresh": "Refresh preview",
+    "refreshShort": "Refresh",
+    "remove": "Remove preview",
+    "play": "Play {{title}}"
+  },
+  "history": {
+    "title": "Edit history",
+    "close": "Close edit history",
+    "now": "Now",
+    "before": "Before {{time}}",
+    "none": "No earlier versions.",
+    "failed": "Could not load the history",
+    "loading": "Loading…"
+  },
+  "toasts": {
+    "sendFailed": "Message failed to send",
+    "editFailed": "Couldn't save your edit",
+    "deleteFailed": "Couldn't delete the message",
+    "hidePreviewFailed": "Couldn't remove the preview",
+    "markUnreadFailed": "Couldn't mark the message unread",
+    "pinFailed": "Couldn't update the pin",
+    "reactionFailed": "Couldn't update the reaction",
+    "linkCopied": "Link copied to clipboard"
+  }
+}

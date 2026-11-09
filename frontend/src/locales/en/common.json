@@ -30,5 +30,17 @@
     "back": "Back",
     "forward": "Forward",
     "searchIn": "Search {{name}}"
+  },
+  "fileKinds": {
+    "pdf": "PDF",
+    "image": "Image",
+    "video": "Video",
+    "audio": "Audio",
+    "spreadsheet": "Spreadsheet",
+    "presentation": "Presentation",
+    "document": "Document",
+    "archive": "Archive",
+    "text": "Text",
+    "other": "File"
   }
 }

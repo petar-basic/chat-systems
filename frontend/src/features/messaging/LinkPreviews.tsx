@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ExternalLink, Play, RefreshCw, X } from 'lucide-react';
 import type { components } from '@/api/schema';
 import { appName } from '@/lib/appConnect';
@@ -18,13 +19,18 @@ interface LinkPreviewsProps {
 }
 
 export function LinkPreviews({ unfurls, onHide, onRefresh }: LinkPreviewsProps) {
+  const { t } = useTranslation('messages');
   const worthShowing = unfurls.filter(
     (unfurl) => unfurl.kind === 'app' || unfurl.kind === 'video' || unfurl.description || unfurl.image_url,
   );
   if (worthShowing.length === 0) return null;
   return (
     <CollapsedPreview
-      label={worthShowing.length === 1 ? 'Show link preview' : `Show ${worthShowing.length} link previews`}
+      label={
+        worthShowing.length === 1
+          ? t('previews.show')
+          : t('previews.showMany', { count: worthShowing.length })
+      }
       dataQa="link-previews-collapsed"
     >
       <div className="mt-1 flex flex-col gap-1.5" data-qa="link-previews">
@@ -77,6 +83,7 @@ function AppCard({
   onHide?: () => void;
   onRefresh?: () => void;
 }) {
+  const { t } = useTranslation('messages');
   const provider = appName(unfurl.provider ?? '');
   const [imageFailed, setImageFailed] = useState(false);
   const image = !imageFailed && unfurl.image_url?.startsWith('https://') ? unfurl.image_url : null;
@@ -138,8 +145,8 @@ function AppCard({
           <button
             type="button"
             onClick={onRefresh}
-            aria-label="Refresh preview"
-            data-tooltip="Refresh"
+            aria-label={t('previews.refresh')}
+            data-tooltip={t('previews.refreshShort')}
             data-qa="app-preview-refresh"
             className="rounded p-0.5 hover:bg-raised hover:text-fg-dim"
           >
@@ -151,8 +158,8 @@ function AppCard({
         <button
           type="button"
           onClick={onHide}
-          aria-label="Remove preview"
-          data-tooltip="Remove preview"
+          aria-label={t('previews.remove')}
+          data-tooltip={t('previews.remove')}
           className="absolute right-1 top-1 rounded p-0.5 text-muted opacity-0 transition hover:bg-raised hover:text-fg-dim focus-visible:opacity-100 group-hover/preview:opacity-100"
         >
           <X className="h-3.5 w-3.5" />
@@ -163,6 +170,7 @@ function AppCard({
 }
 
 function VideoCard({ unfurl, onHide }: { unfurl: Unfurl; onHide?: () => void }) {
+  const { t } = useTranslation('messages');
   const [playing, setPlaying] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
   const src = unfurl.embed ? embedSrc(unfurl.embed) : null;
@@ -202,8 +210,8 @@ function VideoCard({ unfurl, onHide }: { unfurl: Unfurl; onHide?: () => void }) 
             onClick={() =>
               src ? setPlaying(true) : window.open(unfurl.url, '_blank', 'noopener,noreferrer')
             }
-            aria-label={`Play ${unfurl.title}`}
-            data-tooltip={`Play ${unfurl.title}`}
+            aria-label={t('previews.play', { title: unfurl.title })}
+            data-tooltip={t('previews.play', { title: unfurl.title })}
             data-qa="video-play"
             className="relative mt-1 block aspect-video w-full overflow-hidden rounded-md border border-line/60 bg-black"
           >
@@ -228,8 +236,8 @@ function VideoCard({ unfurl, onHide }: { unfurl: Unfurl; onHide?: () => void }) 
         <button
           type="button"
           onClick={onHide}
-          aria-label="Remove preview"
-          data-tooltip="Remove preview"
+          aria-label={t('previews.remove')}
+          data-tooltip={t('previews.remove')}
           className="absolute right-1 top-1 rounded p-0.5 text-muted opacity-0 transition hover:bg-raised hover:text-fg-dim focus-visible:opacity-100 group-hover/preview:opacity-100"
         >
           <X className="h-3.5 w-3.5" />
@@ -240,6 +248,7 @@ function VideoCard({ unfurl, onHide }: { unfurl: Unfurl; onHide?: () => void }) 
 }
 
 function LinkPreviewCard({ unfurl, onHide }: { unfurl: Unfurl; onHide?: () => void }) {
+  const { t } = useTranslation('messages');
   const image = unfurl.image_url?.startsWith('https://') ? unfurl.image_url : null;
   return (
     <div
@@ -270,8 +279,8 @@ function LinkPreviewCard({ unfurl, onHide }: { unfurl: Unfurl; onHide?: () => vo
         <button
           type="button"
           onClick={onHide}
-          aria-label="Remove preview"
-          data-tooltip="Remove preview"
+          aria-label={t('previews.remove')}
+          data-tooltip={t('previews.remove')}
           data-qa="link-preview-remove"
           className="absolute right-1 top-1 rounded p-0.5 text-muted opacity-0 transition hover:bg-raised hover:text-fg-dim focus-visible:opacity-100 group-hover/preview:opacity-100"
         >

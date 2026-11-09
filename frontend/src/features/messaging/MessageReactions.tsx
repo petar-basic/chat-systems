@@ -1,8 +1,10 @@
 import { HoverCard } from '@/shared/components/Popover/HoverCard';
+import { useTranslation } from 'react-i18next';
 import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
 import type { Message } from '@/stores/workspace';
 import { useUserCache } from '@/stores/users';
 import { displayNameOf } from '@/lib/userHelpers';
+import { Trans } from '@/shared/components/Trans/Trans';
 import { joinReactors, reactorNames, type ReactionGroup } from './reactionSummary';
 
 function groupReactions(message: Message, currentUserId: string): ReactionGroup[] {
@@ -54,11 +56,17 @@ function ReactionPill({
   currentUserId: string;
   onToggle?: (emoji: string) => void;
 }) {
+  const { t } = useTranslation('messages');
   const getUser = useUserCache((s) => s.getUser);
-  const names = reactorNames(group.userIds, currentUserId, (id) => {
-    const user = getUser(id);
-    return user ? displayNameOf(user.display_name) : undefined;
-  });
+  const names = reactorNames(
+    group.userIds,
+    currentUserId,
+    (id) => {
+      const user = getUser(id);
+      return user ? displayNameOf(user.display_name) : undefined;
+    },
+    t,
+  );
 
   return (
     <HoverCard
@@ -71,8 +79,12 @@ function ReactionPill({
           <span className="block text-lg leading-none mb-1">
             <ReactionEmoji emoji={group.emoji} />
           </span>
-          <span className="text-fg-soft font-medium">{joinReactors(names)}</span>
-          <span> reacted</span>
+          <Trans
+            t={t}
+            i18nKey="reactions.reacted"
+            values={{ names: joinReactors(names, t) }}
+            components={{ names: <span className="text-fg-soft font-medium" /> }}
+          />
         </>
       }
     >
@@ -80,7 +92,7 @@ function ReactionPill({
         onClick={() => onToggle?.(group.emoji)}
         disabled={!onToggle}
         aria-pressed={group.hasOwn}
-        aria-label={`${joinReactors(names)} reacted`}
+        aria-label={t('reactions.reactedLabel', { names: joinReactors(names, t) })}
         data-qa="message-reaction"
         className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs border transition ${
           group.hasOwn

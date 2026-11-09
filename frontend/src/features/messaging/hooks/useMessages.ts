@@ -5,6 +5,7 @@ import {
   type InfiniteData,
   type QueryClient,
 } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import type { Message, Reaction } from '@/stores/workspace';
 import type { components } from '@/api/schema';
 
@@ -13,7 +14,7 @@ import { getApiForInstance, useCurrentApi } from '@/shared/hooks/useCurrentApi';
 import { applyReadState } from '@/lib/readState';
 import { isKeptUnread, keepUnread } from '@/stores/keptUnread';
 import { settleChannelNotifications } from '@/features/notifications';
-import { QUERY_KEYS, MESSAGES_PAGE_SIZE, ErrorLabels } from '@/shared/constants';
+import { QUERY_KEYS, MESSAGES_PAGE_SIZE } from '@/shared/constants';
 import {
   upsertMessage,
   patchMessageById,
@@ -103,6 +104,7 @@ export const useMessages = (channelId: string | null, markReadIn?: string) => {
 };
 
 export const useSendMessage = (channelId: string, userId: string) => {
+  const { t } = useTranslation('messages');
   const queryClient = useQueryClient();
   const apiClient = useCurrentApi();
   const key = QUERY_KEYS.messages(channelId);
@@ -147,7 +149,7 @@ export const useSendMessage = (channelId: string, userId: string) => {
         patchMessageById(old, id, (m) => ({ ...m, pending: false, failed: true })),
       );
       if (context) useUnsentStore.getState().keep({ ...context.optimistic, pending: false, failed: true });
-      toast.error(refusalOr(err, ErrorLabels.SendFailed));
+      toast.error(refusalOr(err, t('toasts.sendFailed')));
     },
     onSuccess: (message, { id }) => {
       useUnsentStore.getState().deliver({ id, channel_id: channelId, thread_parent_id: null });
@@ -167,6 +169,7 @@ export const useSendMessage = (channelId: string, userId: string) => {
 };
 
 export const useEditMessage = () => {
+  const { t } = useTranslation('messages');
   const queryClient = useQueryClient();
   const apiClient = useCurrentApi();
 
@@ -211,12 +214,13 @@ export const useEditMessage = () => {
     onError: (err, _vars, ctx) => {
       logger.error('useEditMessage', 'mutationFn', err);
       if (ctx?.previous) queryClient.setQueryData(QUERY_KEYS.messages(ctx.channelId), ctx.previous);
-      toast.error(ErrorLabels.EditFailed);
+      toast.error(t('toasts.editFailed'));
     },
   });
 };
 
 export const useDeleteMessage = () => {
+  const { t } = useTranslation('messages');
   const queryClient = useQueryClient();
   const apiClient = useCurrentApi();
 
@@ -233,7 +237,7 @@ export const useDeleteMessage = () => {
     },
     onError: (err) => {
       logger.error('useDeleteMessage', 'mutationFn', err);
-      toast.error(ErrorLabels.DeleteFailed);
+      toast.error(t('toasts.deleteFailed'));
     },
   });
 };
@@ -250,6 +254,7 @@ export const useRefreshLinkPreviews = () => {
 };
 
 export const useHideLinkPreviews = () => {
+  const { t } = useTranslation('messages');
   const queryClient = useQueryClient();
   const apiClient = useCurrentApi();
 
@@ -265,12 +270,13 @@ export const useHideLinkPreviews = () => {
     },
     onError: (err) => {
       logger.error('useHideLinkPreviews', 'mutationFn', err);
-      toast.error(ErrorLabels.HidePreviewFailed);
+      toast.error(t('toasts.hidePreviewFailed'));
     },
   });
 };
 
 export const useMarkUnread = () => {
+  const { t } = useTranslation('messages');
   const queryClient = useQueryClient();
   const apiClient = useCurrentApi();
 
@@ -288,7 +294,7 @@ export const useMarkUnread = () => {
     },
     onError: (err) => {
       logger.error('useMarkUnread', 'mutationFn', err);
-      toast.error(ErrorLabels.MarkUnreadFailed);
+      toast.error(t('toasts.markUnreadFailed'));
     },
   });
 };
@@ -301,6 +307,7 @@ interface ReactionVars {
 }
 
 export const usePinMessage = () => {
+  const { t } = useTranslation('messages');
   const queryClient = useQueryClient();
   const apiClient = useCurrentApi();
 
@@ -329,7 +336,7 @@ export const usePinMessage = () => {
     onError: (err, _vars, ctx) => {
       logger.error('usePinMessage', 'mutationFn', err);
       if (ctx?.previous) queryClient.setQueryData(QUERY_KEYS.messages(ctx.channelId), ctx.previous);
-      toast.error(ErrorLabels.PinFailed);
+      toast.error(t('toasts.pinFailed'));
     },
     onSettled: (_data, _err, { channelId }) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.channelPins(channelId) });
@@ -338,6 +345,7 @@ export const usePinMessage = () => {
 };
 
 export const useReactToMessage = () => {
+  const { t } = useTranslation('messages');
   const queryClient = useQueryClient();
   const apiClient = useCurrentApi();
 
@@ -373,12 +381,13 @@ export const useReactToMessage = () => {
           reactions: (m.reactions ?? []).filter((r) => !(r.user_id === userId && r.emoji === emoji)),
         })),
       );
-      toast.error(ErrorLabels.ReactionFailed);
+      toast.error(t('toasts.reactionFailed'));
     },
   });
 };
 
 export const useRemoveReaction = () => {
+  const { t } = useTranslation('messages');
   const queryClient = useQueryClient();
   const apiClient = useCurrentApi();
 
@@ -403,7 +412,7 @@ export const useRemoveReaction = () => {
     onError: (err, _vars, ctx) => {
       logger.error('useRemoveReaction', 'mutationFn', err);
       if (ctx?.previous) queryClient.setQueryData(QUERY_KEYS.messages(ctx.channelId), ctx.previous);
-      toast.error(ErrorLabels.ReactionFailed);
+      toast.error(t('toasts.reactionFailed'));
     },
   });
 };

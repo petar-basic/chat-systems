@@ -1,0 +1,111 @@
+{
+  "item": {
+    "deleted": "このメッセージは削除されました",
+    "bot": "ボット",
+    "workflow": "ワークフロー",
+    "app": "アプリ",
+    "sending": "送信中…",
+    "failed": "送信できませんでした。",
+    "retry": "再送信",
+    "discard": "破棄",
+    "pinned": "ピン留め",
+    "edited": "(編集済み)",
+    "replies_other": "返信 {{count}}件",
+    "viewThread": "スレッドを表示",
+    "repliedToThread": "スレッドへの返信",
+    "alsoInChannel": "チャンネルにも投稿済み",
+    "deleteTitle": "メッセージを削除しますか?",
+    "deleteBody": "この操作は取り消せません。",
+    "delete": "削除"
+  },
+  "list": {
+    "label": "メッセージ",
+    "empty": "まだメッセージはありません",
+    "emptyHint": "最初のメッセージを送ってみましょう!",
+    "today": "今日",
+    "yesterday": "昨日",
+    "newDivider": "新着",
+    "jumpToUnread": "最初の未読へ移動",
+    "newMessages": "新着メッセージ"
+  },
+  "actions": {
+    "react": "{{emoji}} でリアクション",
+    "thread": "スレッドで返信",
+    "addReaction": "リアクションを追加",
+    "save": "「後で」に保存",
+    "unsave": "「後で」から外す",
+    "more": "その他の操作",
+    "pin": "ピン留め",
+    "unpin": "ピン留めを外す",
+    "markUnread": "未読にする",
+    "copyLink": "リンクをコピー",
+    "remind": "リマインド",
+    "forward": "転送",
+    "edit": "編集",
+    "delete": "削除"
+  },
+  "remind": {
+    "in20Minutes": "20分後",
+    "in1Hour": "1時間後",
+    "in3Hours": "3時間後",
+    "tomorrow": "明日 9:00",
+    "nextWeek": "来週月曜 9:00"
+  },
+  "sheet": {
+    "title": "メッセージの操作",
+    "moreReactions": "ほかのリアクション",
+    "remindInHour": "1時間後にリマインド",
+    "pin": "チャンネルにピン留め",
+    "unpin": "ピン留めを外す",
+    "edit": "メッセージを編集",
+    "delete": "メッセージを削除"
+  },
+  "reactions": {
+    "reacted": "<names>{{names}}</names> がリアクションしました",
+    "reactedLabel": "{{names}} がリアクションしました",
+    "you": "あなた",
+    "someone": "誰か",
+    "separator": "、",
+    "pair": "{{first}} と {{last}}",
+    "others_other": "{{names}} ほか{{count}}人"
+  },
+  "attachments": {
+    "show": "{{name}} を表示",
+    "showImages": "画像 {{count}}枚を表示",
+    "download": "{{name}} をダウンロード",
+    "remove": "{{name}} を外す"
+  },
+  "gallery": {
+    "openOriginal": "元の画像を開く",
+    "close": "プレビューを閉じる",
+    "previous": "前の画像",
+    "next": "次の画像"
+  },
+  "previews": {
+    "show": "リンクのプレビューを表示",
+    "showMany": "リンクのプレビュー {{count}}件を表示",
+    "refresh": "プレビューを更新",
+    "refreshShort": "更新",
+    "remove": "プレビューを削除",
+    "play": "{{title}} を再生"
+  },
+  "history": {
+    "title": "編集履歴",
+    "close": "編集履歴を閉じる",
+    "now": "現在",
+    "before": "{{time}} 以前",
+    "none": "以前の版はありません。",
+    "failed": "履歴を読み込めませんでした",
+    "loading": "読み込み中…"
+  },
+  "toasts": {
+    "sendFailed": "メッセージを送信できませんでした",
+    "editFailed": "編集を保存できませんでした",
+    "deleteFailed": "メッセージを削除できませんでした",
+    "hidePreviewFailed": "プレビューを削除できませんでした",
+    "markUnreadFailed": "未読にできませんでした",
+    "pinFailed": "ピン留めを変更できませんでした",
+    "reactionFailed": "リアクションを変更できませんでした",
+    "linkCopied": "リンクをコピーしました"
+  }
+}

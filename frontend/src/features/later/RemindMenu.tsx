@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AlarmClock } from 'lucide-react';
 import { AnchoredPopover } from '@/shared/components/Popover/AnchoredPopover';
 import { IconButton } from '@/shared/components/IconButton/IconButton';
@@ -16,6 +17,7 @@ const ITEM =
   'w-full px-3 py-1.5 flex items-center justify-between gap-3 text-left text-sm text-fg-dim hover:bg-raised';
 
 export function RemindMenu({ label = 'Remind me', onPick, onClear, dataQa }: Props) {
+  const { t } = useTranslation('messages');
   const anchor = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const [custom, setCustom] = useState('');
@@ -45,8 +47,8 @@ export function RemindMenu({ label = 'Remind me', onPick, onClear, dataQa }: Pro
           className="w-60 bg-surface border border-line rounded-lg shadow-xl py-1"
         >
           {REMIND_PRESETS.map((preset) => (
-            <button key={preset.label} type="button" className={ITEM} onClick={() => pick(preset.at())}>
-              <span>{preset.label}</span>
+            <button key={preset.name} type="button" className={ITEM} onClick={() => pick(preset.at())}>
+              <span>{t(`remind.${preset.name}`)}</span>
               <span className="text-2xs text-subtle">{formatScheduleHint(preset.at())}</span>
             </button>
           ))}

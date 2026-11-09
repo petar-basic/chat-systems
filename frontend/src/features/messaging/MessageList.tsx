@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUnreadChannels } from '@/features/channel';
 import { UnreadDivider } from './UnreadDivider';
@@ -23,7 +24,7 @@ import { displayNameOf } from '@/lib/userHelpers';
 import { useMessageActions } from './hooks/useMessageActions';
 import { formatDaySeparator } from './messageGrouping';
 import { QueryState } from '@/shared/components/QueryState/QueryState';
-import { EmptyLabels, QUERY_KEYS } from '@/shared/constants';
+import { QUERY_KEYS } from '@/shared/constants';
 
 interface Props {
   channelId: string;
@@ -40,10 +41,11 @@ interface Props {
 }
 
 export function DaySeparator({ at }: { at: string }) {
+  const { t } = useTranslation('messages');
   return (
     <div className="flex items-center gap-3 px-2 py-2" data-qa="day-separator">
       <div className="flex-1 h-px bg-raised/60" />
-      <span className="text-xs font-medium text-muted">{formatDaySeparator(at)}</span>
+      <span className="text-xs font-medium text-muted">{formatDaySeparator(at, t)}</span>
       <div className="flex-1 h-px bg-raised/60" />
     </div>
   );
@@ -62,6 +64,7 @@ export default function MessageList({
   markReadIn,
   draftKey,
 }: Props) {
+  const { t } = useTranslation('messages');
   const { data, isLoading, isError, refetch, isFetching, isFetchingNextPage, hasNextPage, fetchNextPage } =
     useMessages(channelId, markReadIn);
   const { getUser } = useUserCache();
@@ -206,8 +209,8 @@ export default function MessageList({
         empty ?? (
           <>
             <MessageSquare className="w-12 h-12 mb-3 text-faint" />
-            <p className="text-lg font-medium">{EmptyLabels.NoMessages}</p>
-            <p className="text-sm">{EmptyLabels.NoMessagesHint}</p>
+            <p className="text-lg font-medium">{t('list.empty')}</p>
+            <p className="text-sm">{t('list.emptyHint')}</p>
           </>
         )
       }
@@ -226,7 +229,7 @@ export default function MessageList({
             stickKey={channelId}
             onScrollToKeyHandled={() => setScrollTarget(undefined)}
             qa="message-list"
-            ariaLabel="Messages"
+            ariaLabel={t('list.label')}
           />
         </RovingContext>
       </GalleryProvider>
