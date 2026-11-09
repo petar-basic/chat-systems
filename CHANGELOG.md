@@ -14,6 +14,14 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
+## [Unreleased]
+
+### Fixed
+
+- In the desktop app on a Mac, the first workspace on the rail is no longer hidden under the top
+  bar, and the window's close, minimise and zoom buttons stay centred in the bar instead of
+  moving back up to where macOS puts them.
+
 ## [4.5.0] — 2026-11-09
 
 ### Upgrading from 4.4.2
