@@ -14,6 +14,13 @@ ghcr.io/petar-basic/chat-systems-frontend:<version>
 Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
 from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
+## [Unreleased]
+
+### Fixed
+
+- *Also send to the channel* above a thread's reply box has room above and below it and lines
+  up with the box, in the thread panel and in *Threads*.
+
 ## [4.5.0] — 2026-11-09
 
 ### Upgrading from 4.4.2
