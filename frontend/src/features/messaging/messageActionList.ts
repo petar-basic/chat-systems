@@ -9,6 +9,7 @@ import {
   Pin,
   Trash2,
 } from 'lucide-react';
+import type { TFunction } from 'i18next';
 import type { Message } from '@/stores/workspace';
 import type { SheetAction } from './MessageActionSheet';
 
@@ -33,45 +34,53 @@ export interface MessageActionHandlers {
   onDelete: () => void;
 }
 
-export function sheetActionsFor(message: Message, a: MessageActionHandlers): SheetAction[] {
+export function sheetActionsFor(
+  message: Message,
+  a: MessageActionHandlers,
+  t: TFunction<'messages'>,
+): SheetAction[] {
   return [
     ...(a.onThread
-      ? [{ key: 'thread', label: 'Reply in thread', Icon: MessageSquare, onSelect: a.onThread }]
+      ? [{ key: 'thread', label: t('actions.thread'), Icon: MessageSquare, onSelect: a.onThread }]
       : []),
     ...(a.onToggleSave && a.onRemind
       ? [
           {
             key: 'save',
-            label: a.saved ? 'Remove from Later' : 'Save for later',
+            label: a.saved ? t('actions.unsave') : t('actions.save'),
             Icon: Bookmark,
             onSelect: a.onToggleSave,
           },
           {
             key: 'remind',
-            label: 'Remind me in 1 hour',
+            label: t('sheet.remindInHour'),
             Icon: AlarmClock,
             onSelect: () => a.onRemind?.(new Date(Date.now() + 60 * 60 * 1000)),
           },
         ]
       : []),
-    ...(a.onCopyLink ? [{ key: 'copy-link', label: 'Copy link', Icon: Link2, onSelect: a.onCopyLink }] : []),
-    ...(a.onMarkUnread && !message.pending
-      ? [{ key: 'mark-unread', label: 'Mark unread', Icon: MailOpen, onSelect: a.onMarkUnread }]
+    ...(a.onCopyLink
+      ? [{ key: 'copy-link', label: t('actions.copyLink'), Icon: Link2, onSelect: a.onCopyLink }]
       : []),
-    ...(a.onForward ? [{ key: 'forward', label: 'Forward', Icon: Forward, onSelect: a.onForward }] : []),
+    ...(a.onMarkUnread && !message.pending
+      ? [{ key: 'mark-unread', label: t('actions.markUnread'), Icon: MailOpen, onSelect: a.onMarkUnread }]
+      : []),
+    ...(a.onForward
+      ? [{ key: 'forward', label: t('actions.forward'), Icon: Forward, onSelect: a.onForward }]
+      : []),
     ...(a.onTogglePin
       ? [
           {
             key: 'pin',
-            label: message.is_pinned ? 'Unpin from channel' : 'Pin to channel',
+            label: message.is_pinned ? t('sheet.unpin') : t('sheet.pin'),
             Icon: Pin,
             onSelect: a.onTogglePin,
           },
         ]
       : []),
-    ...(a.canEdit ? [{ key: 'edit', label: 'Edit message', Icon: Pencil, onSelect: a.onEdit }] : []),
+    ...(a.canEdit ? [{ key: 'edit', label: t('sheet.edit'), Icon: Pencil, onSelect: a.onEdit }] : []),
     ...(a.canDelete
-      ? [{ key: 'delete', label: 'Delete message', Icon: Trash2, onSelect: a.onDelete, destructive: true }]
+      ? [{ key: 'delete', label: t('sheet.delete'), Icon: Trash2, onSelect: a.onDelete, destructive: true }]
       : []),
   ];
 }

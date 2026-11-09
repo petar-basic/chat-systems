@@ -1,5 +1,6 @@
+import type { TFunction } from 'i18next';
+
 const NAMED_LIMIT = 3;
-const UNKNOWN = 'Someone';
 
 export interface ReactionGroup {
   emoji: string;
@@ -12,6 +13,7 @@ export function reactorNames(
   userIds: string[],
   currentUserId: string,
   nameOf: (userId: string) => string | undefined,
+  t: TFunction<'messages'>,
 ): string[] {
   const names: string[] = [];
   let self = false;
@@ -21,20 +23,21 @@ export function reactorNames(
       self = true;
       continue;
     }
-    names.push(nameOf(id) || UNKNOWN);
+    names.push(nameOf(id) || t('reactions.someone'));
   }
 
-  return self ? ['You', ...names] : names;
+  return self ? [t('reactions.you'), ...names] : names;
 }
 
-export function joinReactors(names: string[]): string {
+export function joinReactors(names: string[], t: TFunction<'messages'>): string {
   if (names.length === 0) return '';
   if (names.length === 1) return names[0];
 
   const shown = names.slice(0, NAMED_LIMIT);
   const rest = names.length - shown.length;
 
-  if (rest > 0) return `${shown.join(', ')} and ${rest} ${rest === 1 ? 'other' : 'others'}`;
+  const separator = t('reactions.separator');
+  if (rest > 0) return t('reactions.others', { names: shown.join(separator), count: rest });
 
-  return `${shown.slice(0, -1).join(', ')} and ${shown[shown.length - 1]}`;
+  return t('reactions.pair', { first: shown.slice(0, -1).join(separator), last: shown[shown.length - 1] });
 }

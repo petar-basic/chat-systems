@@ -1,4 +1,5 @@
 import { useCallback, useSyncExternalStore } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { components } from '@/api/schema';
 import type { Message } from '@/stores/workspace';
@@ -111,6 +112,7 @@ export const useThreadMessages = (parentMessageId: string) => {
 export type ThreadReply = OutgoingMessage & { alsoToChannel?: boolean };
 
 export const useSendThreadReply = (parentMessageId: string, channelId: string, userId: string) => {
+  const { t } = useTranslation('messages');
   const queryClient = useQueryClient();
   const apiClient = useCurrentApi();
   const key = QUERY_KEYS.thread(parentMessageId);
@@ -158,7 +160,7 @@ export const useSendThreadReply = (parentMessageId: string, channelId: string, u
       logger.error('useSendThreadReply', 'mutationFn', err);
       patchReply(queryClient, id, (m) => ({ ...m, pending: false, failed: true }));
       if (context) useUnsentStore.getState().keep({ ...context.optimistic, pending: false, failed: true });
-      toast.error(refusalOr(err, ErrorLabels.SendFailed));
+      toast.error(refusalOr(err, t('toasts.sendFailed')));
     },
     onSuccess: (newMessage, { id }) => {
       useUnsentStore.getState().deliver({ id, channel_id: channelId, thread_parent_id: parentMessageId });

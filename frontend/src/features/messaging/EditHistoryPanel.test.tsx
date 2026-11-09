@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import i18n from '@/lib/i18n';
 import EditHistoryPanel from './EditHistoryPanel';
 
 const edits = [
@@ -51,5 +52,31 @@ describe('EditHistoryPanel', () => {
     render(<EditHistoryPanel messageId="m1" currentContent="only" onClose={vi.fn()} />);
     expect(screen.getByText('Requires at least Admin role')).toBeInTheDocument();
     expect(screen.queryByTestId('edit-history-version')).toBeNull();
+  });
+});
+
+describe('EditHistoryPanel in Japanese', () => {
+  afterEach(async () => {
+    state = { data: edits, isLoading: false };
+    await i18n.changeLanguage('en');
+  });
+
+  it('names the panel, the current text and each earlier version', async () => {
+    state = { data: edits, isLoading: false };
+    await i18n.changeLanguage('ja');
+    render(<EditHistoryPanel messageId="m1" currentContent="third" onClose={vi.fn()} />);
+    expect(screen.getByText('編集履歴')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '編集履歴を閉じる' })).toBeInTheDocument();
+    expect(screen.getByTestId('edit-history-current')).toHaveTextContent(/^現在/);
+    for (const version of screen.getAllByTestId('edit-history-version')) {
+      expect(version).toHaveTextContent(/ 以前/);
+    }
+  });
+
+  it('says there is nothing earlier', async () => {
+    state = { data: [], isLoading: false };
+    await i18n.changeLanguage('ja');
+    render(<EditHistoryPanel messageId="m1" currentContent="only" onClose={vi.fn()} />);
+    expect(screen.getByText('以前の版はありません。')).toBeInTheDocument();
   });
 });

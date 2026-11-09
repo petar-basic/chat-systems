@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next';
 import { MESSAGE_GROUP_WINDOW_MS } from '@/shared/constants';
 
 /**
@@ -34,12 +35,12 @@ export function isGrouped(prev: GroupableMessage | undefined, curr: GroupableMes
   return dt >= 0 && dt < MESSAGE_GROUP_WINDOW_MS;
 }
 
-export function formatDaySeparator(iso: string, now: Date = new Date()): string {
+export function formatDaySeparator(iso: string, t: TFunction<'messages'>, now: Date = new Date()): string {
   const d = new Date(iso);
   const yesterday = new Date(now);
   yesterday.setDate(now.getDate() - 1);
-  if (sameDay(d, now)) return 'Today';
-  if (sameDay(d, yesterday)) return 'Yesterday';
+  if (sameDay(d, now)) return t('list.today');
+  if (sameDay(d, yesterday)) return t('list.yesterday');
   return d.toLocaleDateString(undefined, {
     weekday: 'long',
     month: 'long',

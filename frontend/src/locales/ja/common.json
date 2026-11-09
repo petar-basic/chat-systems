@@ -30,5 +30,17 @@
     "back": "戻る",
     "forward": "進む",
     "searchIn": "{{name}} を検索"
+  },
+  "fileKinds": {
+    "pdf": "PDF",
+    "image": "画像",
+    "video": "動画",
+    "audio": "音声",
+    "spreadsheet": "スプレッドシート",
+    "presentation": "プレゼンテーション",
+    "document": "文書",
+    "archive": "圧縮ファイル",
+    "text": "テキスト",
+    "other": "ファイル"
   }
 }

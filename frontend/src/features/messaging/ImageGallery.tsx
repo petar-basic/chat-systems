@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight, Download, ExternalLink, X } from 'lucide-react';
 import { Overlay } from '@/shared/components/Modal/Overlay';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export function ImageGallery({ items, index, onIndexChange, onClose }: Props) {
+  const { t } = useTranslation('messages');
   const item = items[index];
   const { getUser } = useUserCache();
   const [zoomedId, setZoomedId] = useState<string | null>(null);
@@ -81,8 +83,8 @@ export function ImageGallery({ items, index, onIndexChange, onClose }: Props) {
           href={attachment.url}
           target="_blank"
           rel="noopener noreferrer"
-          aria-label="Open original"
-          data-tooltip="Open original"
+          aria-label={t('gallery.openOriginal')}
+          data-tooltip={t('gallery.openOriginal')}
           className={control}
         >
           <ExternalLink className="w-4 h-4" />
@@ -91,7 +93,7 @@ export function ImageGallery({ items, index, onIndexChange, onClose }: Props) {
           href={attachment.url}
           download={attachment.filename}
           data-qa="lightbox-download"
-          aria-label={`Download ${attachment.filename}`}
+          aria-label={t('attachments.download', { name: attachment.filename })}
           className={control}
         >
           <Download className="w-4 h-4" />
@@ -100,8 +102,8 @@ export function ImageGallery({ items, index, onIndexChange, onClose }: Props) {
           type="button"
           onClick={onClose}
           data-qa="lightbox-close"
-          aria-label="Close preview"
-          data-tooltip="Close preview"
+          aria-label={t('gallery.close')}
+          data-tooltip={t('gallery.close')}
           className={control}
         >
           <X className="w-4 h-4" />
@@ -139,8 +141,8 @@ export function ImageGallery({ items, index, onIndexChange, onClose }: Props) {
           <button
             type="button"
             onClick={() => onIndexChange(index - 1)}
-            aria-label="Previous image"
-            data-tooltip="Previous image"
+            aria-label={t('gallery.previous')}
+            data-tooltip={t('gallery.previous')}
             data-qa="gallery-previous"
             className={`${step} left-2`}
           >
@@ -151,8 +153,8 @@ export function ImageGallery({ items, index, onIndexChange, onClose }: Props) {
           <button
             type="button"
             onClick={() => onIndexChange(index + 1)}
-            aria-label="Next image"
-            data-tooltip="Next image"
+            aria-label={t('gallery.next')}
+            data-tooltip={t('gallery.next')}
             data-qa="gallery-next"
             className={`${step} right-2`}
           >

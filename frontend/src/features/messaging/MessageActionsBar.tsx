@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Bookmark,
   Forward,
@@ -26,6 +27,7 @@ interface Props {
 }
 
 export function MessageActionsBar({ message, actions: a, pickerOpen, onPickerChange, onReact }: Props) {
+  const { t } = useTranslation('messages');
   const [showOverflow, setShowOverflow] = useState(false);
   const overflowAnchorRef = useRef<HTMLButtonElement>(null);
   const reactBtnRef = useRef<HTMLButtonElement>(null);
@@ -45,8 +47,8 @@ export function MessageActionsBar({ message, actions: a, pickerOpen, onPickerCha
             <button
               key={emoji}
               onClick={() => onReact(emoji)}
-              aria-label={`React with ${emoji}`}
-              data-tooltip={`React with ${emoji}`}
+              aria-label={t('actions.react', { emoji })}
+              data-tooltip={t('actions.react', { emoji })}
               data-qa="message-quick-reaction"
               className="px-1 py-0.5 text-sm leading-none hover:bg-raised rounded transition"
             >
@@ -59,8 +61,8 @@ export function MessageActionsBar({ message, actions: a, pickerOpen, onPickerCha
       {a.onThread && (
         <button
           onClick={a.onThread}
-          aria-label="Reply in thread"
-          data-tooltip="Reply in thread"
+          aria-label={t('actions.thread')}
+          data-tooltip={t('actions.thread')}
           data-qa="message-action-thread"
           className="p-1 text-muted hover:text-fg hover:bg-raised rounded transition"
         >
@@ -72,8 +74,8 @@ export function MessageActionsBar({ message, actions: a, pickerOpen, onPickerCha
           <button
             ref={reactBtnRef}
             onClick={() => onPickerChange(!pickerOpen)}
-            aria-label="Add reaction"
-            data-tooltip="Add reaction"
+            aria-label={t('actions.addReaction')}
+            data-tooltip={t('actions.addReaction')}
             data-qa="message-action-react"
             className="p-1 text-muted hover:text-fg hover:bg-raised rounded transition"
           >
@@ -94,8 +96,8 @@ export function MessageActionsBar({ message, actions: a, pickerOpen, onPickerCha
       {a.onToggleSave && (
         <button
           onClick={a.onToggleSave}
-          aria-label={a.saved ? 'Remove from Later' : 'Save for later'}
-          data-tooltip={a.saved ? 'Remove from Later' : 'Save for later'}
+          aria-label={a.saved ? t('actions.unsave') : t('actions.save')}
+          data-tooltip={a.saved ? t('actions.unsave') : t('actions.save')}
           aria-pressed={a.saved}
           data-qa="message-action-save"
           className={`p-1 hover:bg-raised rounded transition ${a.saved ? 'text-accent' : 'text-muted hover:text-accent-soft'}`}
@@ -110,8 +112,8 @@ export function MessageActionsBar({ message, actions: a, pickerOpen, onPickerCha
         <button
           ref={overflowAnchorRef}
           onClick={() => setShowOverflow((open) => !open)}
-          aria-label="More actions"
-          data-tooltip="More actions"
+          aria-label={t('actions.more')}
+          data-tooltip={t('actions.more')}
           aria-expanded={showOverflow}
           data-qa="message-action-more"
           className="p-1 text-muted hover:text-fg hover:bg-raised rounded transition"
@@ -134,7 +136,7 @@ export function MessageActionsBar({ message, actions: a, pickerOpen, onPickerCha
                 data-qa="message-action-pin"
                 className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2"
               >
-                <Pin className="w-3.5 h-3.5" /> {message.is_pinned ? 'Unpin' : 'Pin'}
+                <Pin className="w-3.5 h-3.5" /> {message.is_pinned ? t('actions.unpin') : t('actions.pin')}
               </button>
             )}
             {a.onMarkUnread && !message.pending && (
@@ -146,7 +148,7 @@ export function MessageActionsBar({ message, actions: a, pickerOpen, onPickerCha
                 data-qa="message-action-mark-unread"
                 className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2"
               >
-                <MailOpen className="w-3.5 h-3.5" /> Mark unread
+                <MailOpen className="w-3.5 h-3.5" /> {t('actions.markUnread')}
               </button>
             )}
             {a.onCopyLink && (
@@ -158,24 +160,24 @@ export function MessageActionsBar({ message, actions: a, pickerOpen, onPickerCha
                 data-qa="message-action-copy-link"
                 className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2"
               >
-                <Link2 className="w-3.5 h-3.5" /> Copy link
+                <Link2 className="w-3.5 h-3.5" /> {t('actions.copyLink')}
               </button>
             )}
             {a.onRemind && (
               <div className="border-y border-line/60 py-1" data-qa="message-action-remind">
                 <div className="px-3 py-1 text-2xs uppercase tracking-wide text-subtle">
-                  Remind me about this
+                  {t('actions.remind')}
                 </div>
                 {REMIND_PRESETS.map((preset) => (
                   <button
-                    key={preset.label}
+                    key={preset.name}
                     onClick={() => {
                       a.onRemind?.(preset.at());
                       setShowOverflow(false);
                     }}
                     className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised"
                   >
-                    {preset.label}
+                    {t(`remind.${preset.name}`)}
                   </button>
                 ))}
               </div>
@@ -189,7 +191,7 @@ export function MessageActionsBar({ message, actions: a, pickerOpen, onPickerCha
                 data-qa="message-action-forward"
                 className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2"
               >
-                <Forward className="w-3.5 h-3.5" /> Forward
+                <Forward className="w-3.5 h-3.5" /> {t('actions.forward')}
               </button>
             )}
             {a.canEdit && (
@@ -201,7 +203,7 @@ export function MessageActionsBar({ message, actions: a, pickerOpen, onPickerCha
                 data-qa="message-action-edit"
                 className="w-full px-3 py-1.5 text-left text-sm text-fg-dim hover:bg-raised flex items-center gap-2"
               >
-                <Pencil className="w-3.5 h-3.5" /> Edit
+                <Pencil className="w-3.5 h-3.5" /> {t('actions.edit')}
               </button>
             )}
             {a.canDelete && (
@@ -213,7 +215,7 @@ export function MessageActionsBar({ message, actions: a, pickerOpen, onPickerCha
                 data-qa="message-action-delete"
                 className="w-full px-3 py-1.5 text-left text-sm text-danger hover:bg-raised flex items-center gap-2"
               >
-                <Trash2 className="w-3.5 h-3.5" /> Delete
+                <Trash2 className="w-3.5 h-3.5" /> {t('actions.delete')}
               </button>
             )}
           </AnchoredPopover>

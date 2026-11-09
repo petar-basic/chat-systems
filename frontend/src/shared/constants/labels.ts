@@ -1,9 +1,4 @@
 export const ErrorLabels = {
-  SendFailed: 'Message failed to send',
-  EditFailed: "Couldn't save your edit",
-  DeleteFailed: "Couldn't delete the message",
-  HidePreviewFailed: "Couldn't remove the preview",
-  MarkUnreadFailed: "Couldn't mark the message unread",
   MarkReadFailed: "Couldn't mark the channel read",
   MarkAllReadFailed: "Couldn't mark everything read",
   SidebarSaveFailed: "Couldn't save your sidebar",
@@ -19,8 +14,6 @@ export const ErrorLabels = {
   ListCommentFailed: "Couldn't save the comment",
   FollowFailed: "Couldn't update the thread",
   AppConnectFailed: "Couldn't start connecting the app",
-  ReactionFailed: "Couldn't update the reaction",
-  PinFailed: "Couldn't update the pin",
   UploadFailed: 'File upload failed',
   RestoreFailed: "Couldn't restore the workspace",
   SessionExpired: 'Your session expired. Please sign in again.',
@@ -37,8 +30,6 @@ export const ErrorLabels = {
 } as const;
 
 export const EmptyLabels = {
-  NoMessages: 'No messages yet',
-  NoMessagesHint: 'Be the first to say something!',
   NoNotifications: 'No notifications',
   NoNotificationsHint: "You're all caught up!",
   NoChannels: 'No channels yet',
@@ -53,7 +44,6 @@ export const ActionLabels = {
   MarkAllRead: 'Mark all read',
   MarkedAllRead: 'Everything is marked read',
   CreateChannel: 'Create channel',
-  LinkCopied: 'Link copied to clipboard',
 } as const;
 
 export const UNKNOWN_USER = 'Unknown user';

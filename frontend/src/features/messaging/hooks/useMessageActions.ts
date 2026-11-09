@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Message } from '@/stores/workspace';
 import { discardUnsent } from '@/lib/unsent';
@@ -16,7 +17,7 @@ import {
 import { useCurrentUser } from '@/features/instance';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { toast } from '@/shared/components/Toast';
-import { ROUTES, ActionLabels } from '@/shared/constants';
+import { ROUTES } from '@/shared/constants';
 import { logger } from '@/lib/logger';
 
 export interface MessageActions {
@@ -34,6 +35,7 @@ export interface MessageActions {
 }
 
 export function useMessageActions(channelId: string, draftKey: string): MessageActions {
+  const { t } = useTranslation('messages');
   const queryClient = useQueryClient();
   const { data: currentUser } = useCurrentUser();
   const userId = currentUser?.id ?? '';
@@ -75,7 +77,7 @@ export function useMessageActions(channelId: string, draftKey: string): MessageA
         const url = `${window.location.origin}${ROUTES.message(ws.id, channelId, messageId)}`;
         navigator.clipboard
           ?.writeText(url)
-          .then(() => toast.success(ActionLabels.LinkCopied))
+          .then(() => toast.success(t('toasts.linkCopied')))
           .catch((e) => logger.error('useMessageActions', 'copyLink', e));
       },
     }),
@@ -93,6 +95,7 @@ export function useMessageActions(channelId: string, draftKey: string): MessageA
       send,
       queryClient,
       draftKey,
+      t,
     ],
   );
 }

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { isGrouped, isNewDay, formatDaySeparator } from './messageGrouping';
+import i18n from '@/lib/i18n';
 import type { Message } from '@/stores/workspace';
 
 const msg = (over: Partial<Message>): Message => ({
@@ -51,13 +52,19 @@ describe('isGrouped', () => {
 });
 
 describe('formatDaySeparator', () => {
+  const en = i18n.getFixedT('en', 'messages');
   const now = new Date('2026-01-02T12:00:00Z');
   it('labels today and yesterday', () => {
-    expect(formatDaySeparator('2026-01-02T08:00:00Z', now)).toBe('Today');
-    expect(formatDaySeparator('2026-01-01T08:00:00Z', now)).toBe('Yesterday');
+    expect(formatDaySeparator('2026-01-02T08:00:00Z', en, now)).toBe('Today');
+    expect(formatDaySeparator('2026-01-01T08:00:00Z', en, now)).toBe('Yesterday');
+  });
+  it('labels today and yesterday in Japanese', () => {
+    const ja = i18n.getFixedT('ja', 'messages');
+    expect(formatDaySeparator('2026-01-02T08:00:00Z', ja, now)).toBe('今日');
+    expect(formatDaySeparator('2026-01-01T08:00:00Z', ja, now)).toBe('昨日');
   });
   it('labels older dates with a full date string', () => {
-    const label = formatDaySeparator('2025-12-20T08:00:00Z', now);
+    const label = formatDaySeparator('2025-12-20T08:00:00Z', en, now);
     expect(label).not.toBe('Today');
     expect(label).not.toBe('Yesterday');
     expect(label.length).toBeGreaterThan(0);

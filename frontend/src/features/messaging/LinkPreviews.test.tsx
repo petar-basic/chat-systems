@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import i18n from '@/lib/i18n';
 import { LinkPreviews } from './LinkPreviews';
 
 const jira = {
@@ -81,5 +82,36 @@ describe('LinkPreviews', () => {
       />,
     );
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe('LinkPreviews in Japanese', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('names the play and remove buttons, with the title as text', async () => {
+    const title = '<img src=x onerror="alert(1)"> {{name}}';
+    await i18n.changeLanguage('ja');
+    render(
+      <LinkPreviews
+        onHide={vi.fn()}
+        unfurls={[
+          {
+            url: 'https://youtu.be/dQw4w9WgXcQ',
+            title,
+            description: null,
+            site_name: 'YouTube',
+            image_url: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+            kind: 'video',
+            subtitle: null,
+            embed: { provider: 'youtube', id: 'dQw4w9WgXcQ', start: null },
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByTestId('video-play')).toHaveAccessibleName(`${title} を再生`);
+    expect(screen.getByRole('button', { name: 'プレビューを削除' })).toBeInTheDocument();
+    expect(document.querySelector('[onerror]')).toBeNull();
   });
 });

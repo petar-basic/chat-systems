@@ -1,10 +1,11 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Download, Paperclip, X } from 'lucide-react';
 import type { components } from '@/api/schema';
 import { formatBytes } from '@/lib/fileSize';
 import { ImageGallery } from './ImageGallery';
 import { useGallery } from './galleryContext';
-import { fileKind, isRenderableImage, playableMedia } from '@/lib/fileKinds';
+import { fileKind, isRenderableImage, kindOf, playableMedia } from '@/lib/fileKinds';
 import { CollapsedPreview } from './CollapsedPreview';
 import { CachedImage } from '@/shared/components/Image/CachedImage';
 
@@ -31,6 +32,7 @@ interface Props {
 }
 
 export function MessageAttachments({ attachments, compact = false, onRemove }: Props) {
+  const { t } = useTranslation('messages');
   const gallery = useGallery();
   const [viewing, setViewing] = useState<number | null>(null);
   if (attachments.length === 0) return null;
@@ -62,7 +64,11 @@ export function MessageAttachments({ attachments, compact = false, onRemove }: P
     <div className="mt-1 flex flex-col gap-1.5" data-qa="message-attachments">
       {images.length > 0 && (
         <CollapsedPreview
-          label={images.length === 1 ? `Show ${images[0].filename}` : `Show ${images.length} images`}
+          label={
+            images.length === 1
+              ? t('attachments.show', { name: images[0].filename })
+              : t('attachments.showImages', { count: images.length })
+          }
           dataQa="attachment-images-collapsed"
         >
           <ImageGrid images={images} onOpen={open} />
@@ -147,6 +153,7 @@ function ImageGrid({ images, onOpen }: { images: Attachment[]; onOpen: (image: A
 }
 
 function MediaPlayer({ attachment, kind }: { attachment: Attachment; kind: 'video' | 'audio' }) {
+  const { t } = useTranslation('messages');
   const caption = (
     <div className="flex items-center gap-2 text-xs text-muted">
       <span className="truncate text-fg-dim" data-tooltip={attachment.filename}>
@@ -156,7 +163,7 @@ function MediaPlayer({ attachment, kind }: { attachment: Attachment; kind: 'vide
       <a
         href={attachment.url}
         download={attachment.filename}
-        aria-label={`Download ${attachment.filename}`}
+        aria-label={t('attachments.download', { name: attachment.filename })}
         className="ml-auto shrink-0 rounded p-0.5 hover:bg-raised hover:text-fg-dim"
       >
         <Download className="h-3.5 w-3.5" />
@@ -189,7 +196,9 @@ function MediaPlayer({ attachment, kind }: { attachment: Attachment; kind: 'vide
 }
 
 function FileCard({ attachment, onRemove }: { attachment: Attachment; onRemove?: () => void }) {
+  const { t } = useTranslation(['messages', 'common']);
   const kind = fileKind(attachment.mime_type, attachment.filename);
+  const kindName = kindOf(attachment.mime_type, attachment.filename);
   const Icon = kind.icon;
   const body = (
     <>
@@ -199,7 +208,7 @@ function FileCard({ attachment, onRemove }: { attachment: Attachment; onRemove?:
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm text-fg-soft">{attachment.filename}</span>
         <span className="block text-xs text-muted">
-          {kind.label} · {formatBytes(attachment.size_bytes)}
+          {t(`fileKinds.${kindName}`, { ns: 'common' })} · {formatBytes(attachment.size_bytes)}
         </span>
       </span>
     </>
@@ -214,8 +223,8 @@ function FileCard({ attachment, onRemove }: { attachment: Attachment; onRemove?:
         <button
           type="button"
           onClick={onRemove}
-          aria-label={`Remove ${attachment.filename}`}
-          data-tooltip={`Remove ${attachment.filename}`}
+          aria-label={t('attachments.remove', { name: attachment.filename })}
+          data-tooltip={t('attachments.remove', { name: attachment.filename })}
           className="shrink-0 rounded p-1 text-muted hover:bg-raised hover:text-danger"
         >
           <X className="h-4 w-4" />
