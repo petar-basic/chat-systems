@@ -211,7 +211,7 @@ export default function VirtualMessageList<R extends VirtualRow>({
         role="log"
         aria-live="polite"
         aria-label={ariaLabel}
-        className="h-full overflow-y-auto px-4 py-4"
+        className="h-full overflow-y-auto px-4 pt-4 pb-10"
         onScroll={handleScroll}
       >
         <div style={{ height: virtualizer.getTotalSize(), position: 'relative', width: '100%' }}>
@@ -263,7 +263,7 @@ export default function VirtualMessageList<R extends VirtualRow>({
         <Button
           variant="primary"
           size="sm"
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full shadow-lg"
+          className="absolute bottom-10 left-1/2 -translate-x-1/2 rounded-full shadow-lg"
           onClick={() => jumpToBottom('smooth')}
           data-qa="jump-to-latest"
         >
