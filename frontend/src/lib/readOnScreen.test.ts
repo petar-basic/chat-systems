@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { QueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/shared/constants';
 import { useWorkspaceStore } from '@/stores/workspace';
-import { newestSentIn, readOnScreen } from './readOnScreen';
+import { newestSentIn, readOnReturn, readOnScreen } from './readOnScreen';
 import { belongsElsewhere } from './channelWorkspace';
 import { keepUnread, useKeptUnread } from '@/stores/keptUnread';
 
@@ -115,6 +115,35 @@ describe('readOnScreen', () => {
     await vi.runAllTimersAsync();
 
     expect(post).not.toHaveBeenCalled();
+  });
+
+  it('reads what is open once the window is back in front, once for each newest message', async () => {
+    useWorkspaceStore.setState({ currentChannel: null, currentConversationId: 'dm-back' });
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(QUERY_KEYS.messages('dm-back'), {
+      pages: [{ data: [message('b1', '2026-11-09T12:07:00Z', { channel_id: 'dm-back' })] }],
+      pageParams: [undefined],
+    });
+    const stop = readOnReturn(queryClient);
+
+    focused = false;
+    window.dispatchEvent(new Event('focus'));
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(post).not.toHaveBeenCalled();
+
+    focused = true;
+    window.dispatchEvent(new Event('focus'));
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(post).toHaveBeenCalledWith('/channels/{ch_id}/read', {
+      params: { path: { ch_id: 'dm-back' } },
+      body: { message_id: 'b1' },
+    });
+
+    document.dispatchEvent(new Event('visibilitychange'));
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(post).toHaveBeenCalledTimes(1);
+    stop();
   });
 });
 
