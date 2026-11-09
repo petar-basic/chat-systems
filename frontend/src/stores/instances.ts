@@ -7,12 +7,14 @@ import { toast } from '@/shared/components/Toast';
 import { ErrorLabels } from '@/shared/constants';
 import type { components } from '@/api/schema';
 
+export type InstanceRole = components['schemas']['InstanceRole'];
+
 export interface InstanceUser {
   id: string;
   email: string;
   display_name: string;
   avatar_url: string | null;
-  is_instance_admin: boolean;
+  instance_role: InstanceRole;
 }
 
 export function toInstanceUser(user: components['schemas']['UserPublic']): InstanceUser {
@@ -21,7 +23,7 @@ export function toInstanceUser(user: components['schemas']['UserPublic']): Insta
     email: user.email,
     display_name: user.display_name ?? '',
     avatar_url: user.avatar_url ?? null,
-    is_instance_admin: user.is_instance_admin,
+    instance_role: user.instance_role,
   };
 }
 

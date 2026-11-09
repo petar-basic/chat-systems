@@ -16,8 +16,37 @@ pub struct User {
     pub timezone: Option<String>,
     pub status: UserStatus,
     pub is_instance_admin: bool,
+    pub workspace_creator: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+impl User {
+    pub fn instance_role(&self) -> InstanceRole {
+        InstanceRole::of(self.is_instance_admin, self.workspace_creator)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum InstanceRole {
+    Member,
+    WorkspaceCreator,
+    Admin,
+}
+
+impl InstanceRole {
+    pub fn of(is_instance_admin: bool, workspace_creator: bool) -> Self {
+        match (is_instance_admin, workspace_creator) {
+            (true, _) => Self::Admin,
+            (false, true) => Self::WorkspaceCreator,
+            (false, false) => Self::Member,
+        }
+    }
+
+    pub fn creates_workspaces(self) -> bool {
+        self != Self::Member
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type, PartialEq, ToSchema)]
@@ -40,12 +69,13 @@ pub struct UserPublic {
     pub pronouns: Option<String>,
     pub timezone: Option<String>,
     pub status: UserStatus,
-    pub is_instance_admin: bool,
+    pub instance_role: InstanceRole,
     pub created_at: DateTime<Utc>,
 }
 
 impl From<User> for UserPublic {
     fn from(u: User) -> Self {
+        let instance_role = u.instance_role();
         Self {
             id: u.id,
             email: u.email,
@@ -56,7 +86,7 @@ impl From<User> for UserPublic {
             pronouns: u.pronouns,
             timezone: u.timezone,
             status: u.status,
-            is_instance_admin: u.is_instance_admin,
+            instance_role,
             created_at: u.created_at,
         }
     }
@@ -171,6 +201,7 @@ pub struct InstanceInfo {
     pub email_code_sign_in: bool,
     pub max_upload_bytes: u64,
     pub setup_required: bool,
+    pub workspace_creation_restricted: bool,
 }
 
 pub struct RegistrationInvite {

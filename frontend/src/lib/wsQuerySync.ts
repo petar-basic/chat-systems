@@ -89,7 +89,7 @@ export const useWebSocketQuerySync = () => {
           );
           const role = members?.find((m) => m.user_id === instance?.user.id)?.role;
           const isWorkspaceAdmin = role === 'admin' || role === 'owner';
-          const isInstanceAdmin = instance?.user.is_instance_admin ?? false;
+          const isInstanceAdmin = instance?.user.instance_role === 'admin';
           if (isWorkspaceAdmin || isInstanceAdmin) return;
           forgetWorkspace(queryClient, event.workspace_id);
         }

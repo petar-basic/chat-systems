@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, email, password_hash, display_name, avatar_url, bio, title, pronouns, timezone,\n                   status AS \"status: UserStatus\",\n                   is_instance_admin AS \"is_instance_admin!\", created_at, updated_at\n                 FROM users WHERE email = lower($1) AND NOT is_bot",
+  "query": "\n            INSERT INTO users (email, display_name, status)\n            VALUES (lower($1::text), split_part($1::text, '@', 1), 'active')\n            RETURNING id, email, password_hash, display_name, avatar_url, bio, title, pronouns, timezone,\n                   status AS \"status: UserStatus\",\n                   is_instance_admin AS \"is_instance_admin!\", workspace_creator AS \"workspace_creator!\",\n                   created_at, updated_at\n            ",
   "describe": {
     "columns": [
       {
@@ -137,6 +137,17 @@
       },
       {
         "ordinal": 11,
+        "name": "workspace_creator!",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "workspace_creator"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -147,7 +158,7 @@
         }
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -176,8 +187,9 @@
       false,
       true,
       false,
+      false,
       false
     ]
   },
-  "hash": "26e2f0c0c46fece784a1574d24a21601031e980012bbc3fcf76fe9e271906427"
+  "hash": "1f40399b423de2bdef24047c7590a52f4114d834cdeb89bded816c75c6175f3b"
 }

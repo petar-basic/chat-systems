@@ -11,6 +11,7 @@ use uuid::Uuid;
 use shared_common::errors::{AppError, AppResult};
 
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
+use crate::auth::models::InstanceRole;
 use crate::dto::{DataList, StatusResponse};
 use crate::middleware::{admin_middleware, AuthUser};
 use crate::pagination::PageQuery;
@@ -57,16 +58,18 @@ pub struct EmailTest {
 pub struct InstanceSettings {
     pub email_code_sign_in: bool,
     pub email_configured: bool,
+    pub workspace_creation_restricted: bool,
 }
 
 #[derive(Debug, serde::Deserialize, ToSchema)]
 pub struct UpdateInstanceSettings {
-    pub email_code_sign_in: bool,
+    pub email_code_sign_in: Option<bool>,
+    pub workspace_creation_restricted: Option<bool>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
 pub struct InstanceRoleResponse {
-    pub is_instance_admin: bool,
+    pub role: InstanceRole,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -120,15 +123,25 @@ async fn update_instance_settings(
     ip: ClientIp,
     Json(body): Json<UpdateInstanceSettings>,
 ) -> AppResult<Json<InstanceSettings>> {
+    if body.email_code_sign_in.is_none() && body.workspace_creation_restricted.is_none() {
+        return Err(AppError::Validation("Name a setting to change".into()));
+    }
     state
         .instance_settings_repo
-        .set_email_code_sign_in(body.email_code_sign_in)
+        .update(body.email_code_sign_in, body.workspace_creation_restricted)
         .await?;
+    let mut details = serde_json::Map::new();
+    if let Some(on) = body.email_code_sign_in {
+        details.insert("email_code_sign_in".into(), on.into());
+    }
+    if let Some(on) = body.workspace_creation_restricted {
+        details.insert("workspace_creation_restricted".into(), on.into());
+    }
     audit::record(
         &state,
         AuditEntry::new(AuditAction::InstanceSettingsChanged, auth.user_id)
             .ip(&ip)
-            .details(serde_json::json!({ "email_code_sign_in": body.email_code_sign_in })),
+            .details(details.into()),
     )
     .await;
     instance_settings(&state).await.map(Json)
@@ -138,6 +151,10 @@ async fn instance_settings(state: &AppState) -> AppResult<InstanceSettings> {
     Ok(InstanceSettings {
         email_code_sign_in: state.instance_settings_repo.email_code_sign_in().await?,
         email_configured: state.auth_service.can_send_email(),
+        workspace_creation_restricted: state
+            .instance_settings_repo
+            .workspace_creation_restricted()
+            .await?,
     })
 }
 
@@ -174,7 +191,7 @@ pub struct AdminUser {
     pub email: String,
     pub display_name: Option<String>,
     pub status: String,
-    pub is_instance_admin: bool,
+    pub instance_role: InstanceRole,
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
@@ -183,16 +200,26 @@ async fn list_users(
     State(state): State<Arc<AppState>>,
     Query(params): Query<PageQuery>,
 ) -> AppResult<Json<DataList<AdminUser>>> {
-    let users = sqlx::query_as!(
-        AdminUser,
+    let users = sqlx::query!(
         r#"SELECT id, email, display_name, status::text AS "status!",
-                  is_instance_admin AS "is_instance_admin!", created_at
+                  is_instance_admin AS "is_instance_admin!",
+                  workspace_creator AS "workspace_creator!", created_at
              FROM users WHERE NOT is_bot ORDER BY created_at DESC LIMIT $1 OFFSET $2"#,
         params.limit(),
         params.offset()
     )
     .fetch_all(&state.pool)
-    .await?;
+    .await?
+    .into_iter()
+    .map(|row| AdminUser {
+        id: row.id,
+        email: row.email,
+        display_name: row.display_name,
+        status: row.status,
+        instance_role: InstanceRole::of(row.is_instance_admin, row.workspace_creator),
+        created_at: row.created_at,
+    })
+    .collect::<Vec<_>>();
 
     Ok(Json(users.into()))
 }
@@ -273,7 +300,7 @@ async fn activate_user(
 
 #[derive(Debug, serde::Deserialize, ToSchema)]
 pub struct UpdateInstanceRoleRequest {
-    pub is_instance_admin: bool,
+    pub role: InstanceRole,
 }
 
 #[utoipa::path(patch, path = "/admin/users/{user_id}/instance-role", tag = "admin", request_body = UpdateInstanceRoleRequest, responses((status = 200, body = InstanceRoleResponse)))]
@@ -284,24 +311,27 @@ async fn update_instance_role(
     Path(user_id): Path<Uuid>,
     Json(body): Json<UpdateInstanceRoleRequest>,
 ) -> AppResult<Json<InstanceRoleResponse>> {
-    sqlx::query!(
-        "UPDATE users SET is_instance_admin = $1, updated_at = NOW() WHERE id = $2",
-        body.is_instance_admin,
+    let updated = sqlx::query!(
+        "UPDATE users SET is_instance_admin = $1, workspace_creator = $2, updated_at = NOW()
+          WHERE id = $3 AND NOT is_bot",
+        body.role == InstanceRole::Admin,
+        body.role == InstanceRole::WorkspaceCreator,
         user_id
     )
     .execute(&state.pool)
     .await?;
+    if updated.rows_affected() == 0 {
+        return Err(AppError::NotFound("User not found".into()));
+    }
     audit::record(
         &state,
         AuditEntry::new(AuditAction::InstanceRoleChanged, auth.user_id)
             .resource(user_id)
             .ip(&ip)
-            .details(serde_json::json!({ "is_instance_admin": body.is_instance_admin })),
+            .details(serde_json::json!({ "role": body.role })),
     )
     .await;
-    Ok(Json(InstanceRoleResponse {
-        is_instance_admin: body.is_instance_admin,
-    }))
+    Ok(Json(InstanceRoleResponse { role: body.role }))
 }
 
 #[utoipa::path(

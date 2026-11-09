@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            UPDATE users\n            SET display_name = COALESCE($2, display_name),\n                avatar_url = CASE\n                    WHEN $3::text IS NULL THEN avatar_url\n                    WHEN $3 = '' THEN NULL\n                    ELSE $3\n                END,\n                bio = COALESCE($4, bio),\n                title = CASE WHEN $5::text IS NULL THEN title\n                             ELSE NULLIF(BTRIM($5), '') END,\n                pronouns = CASE WHEN $6::text IS NULL THEN pronouns\n                                ELSE NULLIF(BTRIM($6), '') END,\n                timezone = COALESCE($7, timezone),\n                updated_at = NOW()\n            WHERE id = $1\n            RETURNING id, email, password_hash, display_name, avatar_url, bio, title, pronouns, timezone,\n                   status AS \"status: UserStatus\",\n                   is_instance_admin AS \"is_instance_admin!\", created_at, updated_at\n            ",
+  "query": "\n            UPDATE users\n            SET display_name = COALESCE($2, display_name),\n                avatar_url = CASE\n                    WHEN $3::text IS NULL THEN avatar_url\n                    WHEN $3 = '' THEN NULL\n                    ELSE $3\n                END,\n                bio = COALESCE($4, bio),\n                title = CASE WHEN $5::text IS NULL THEN title\n                             ELSE NULLIF(BTRIM($5), '') END,\n                pronouns = CASE WHEN $6::text IS NULL THEN pronouns\n                                ELSE NULLIF(BTRIM($6), '') END,\n                timezone = COALESCE($7, timezone),\n                updated_at = NOW()\n            WHERE id = $1\n            RETURNING id, email, password_hash, display_name, avatar_url, bio, title, pronouns, timezone,\n                   status AS \"status: UserStatus\",\n                   is_instance_admin AS \"is_instance_admin!\", workspace_creator AS \"workspace_creator!\",\n                   created_at, updated_at\n            ",
   "describe": {
     "columns": [
       {
@@ -137,6 +137,17 @@
       },
       {
         "ordinal": 11,
+        "name": "workspace_creator!",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "workspace_creator"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -147,7 +158,7 @@
         }
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -182,8 +193,9 @@
       false,
       true,
       false,
+      false,
       false
     ]
   },
-  "hash": "47437cb5a54b41659c472badd4b0575ccf14186ce7161854d9d4245d57ee6bf7"
+  "hash": "50e0e2706cceb3352e6164b24b0832dfac41fc4901b43e9773b6c6c51044cb41"
 }

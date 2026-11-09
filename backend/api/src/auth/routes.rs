@@ -384,6 +384,10 @@ async fn instance_info(State(state): State<Arc<AppState>>) -> AppResult<Json<Ins
         email_code_sign_in: super::email_code_routes::offered(&state).await?,
         max_upload_bytes: state.config.max_upload_bytes,
         setup_required,
+        workspace_creation_restricted: state
+            .instance_settings_repo
+            .workspace_creation_restricted()
+            .await?,
     }))
 }
 

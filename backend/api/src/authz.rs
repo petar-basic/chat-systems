@@ -135,6 +135,28 @@ pub async fn require_workspace_role(
     Ok(member)
 }
 
+pub async fn require_workspace_creator(state: &AppState, user_id: Uuid) -> AppResult<()> {
+    if !state
+        .instance_settings_repo
+        .workspace_creation_restricted()
+        .await?
+    {
+        return Ok(());
+    }
+    let user = state
+        .auth_service
+        .repo()
+        .find_by_id(user_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("User not found".into()))?;
+    if user.instance_role().creates_workspaces() {
+        return Ok(());
+    }
+    Err(AppError::Forbidden(
+        "On this server only instance admins and workspace creators can create workspaces".into(),
+    ))
+}
+
 pub fn outranks(actor: &WorkspaceRole, target: &WorkspaceRole) -> bool {
     actor.level() > target.level()
 }

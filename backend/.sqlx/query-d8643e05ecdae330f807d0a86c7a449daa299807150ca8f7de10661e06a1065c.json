@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO users (email, display_name, status)\n            VALUES (lower($1::text), split_part($1::text, '@', 1), 'active')\n            RETURNING id, email, password_hash, display_name, avatar_url, bio, title, pronouns, timezone,\n                   status AS \"status: UserStatus\",\n                   is_instance_admin AS \"is_instance_admin!\", created_at, updated_at\n            ",
+  "query": "\n            UPDATE users\n            SET password_hash = $2, display_name = $3, status = 'active', updated_at = NOW()\n            WHERE id = $1\n            RETURNING id, email, password_hash, display_name, avatar_url, bio, title, pronouns, timezone,\n                   status AS \"status: UserStatus\",\n                   is_instance_admin AS \"is_instance_admin!\", workspace_creator AS \"workspace_creator!\",\n                   created_at, updated_at\n            ",
   "describe": {
     "columns": [
       {
@@ -137,6 +137,17 @@
       },
       {
         "ordinal": 11,
+        "name": "workspace_creator!",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "workspace_creator"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -147,7 +158,7 @@
         }
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -160,7 +171,9 @@
     ],
     "parameters": {
       "Left": [
-        "Text"
+        "Uuid",
+        "Varchar",
+        "Varchar"
       ]
     },
     "nullable": [
@@ -176,8 +189,9 @@
       false,
       true,
       false,
+      false,
       false
     ]
   },
-  "hash": "4914a7bc7a405406b4dd8658473950cc1acafd67d8a09b4a5200681f75d2bf00"
+  "hash": "d8643e05ecdae330f807d0a86c7a449daa299807150ca8f7de10661e06a1065c"
 }

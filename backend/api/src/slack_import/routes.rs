@@ -108,6 +108,7 @@ async fn start_import_into_new(
     ip: ClientIp,
     multipart: Multipart,
 ) -> AppResult<Json<DataItem<ImportRun>>> {
+    authz::require_workspace_creator(&state, auth.user_id).await?;
     let upload = read_upload(multipart).await?;
     let name = upload
         .workspace_name

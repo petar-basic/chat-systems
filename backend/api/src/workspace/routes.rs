@@ -73,6 +73,7 @@ async fn create_workspace(
     ip: ClientIp,
     Json(req): Json<CreateWorkspaceRequest>,
 ) -> AppResult<Json<Workspace>> {
+    authz::require_workspace_creator(&state, auth.user_id).await?;
     req.validate()?;
     let workspace = state
         .workspace_service

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, email, password_hash, display_name, avatar_url, bio, title, pronouns, timezone,\n                   status AS \"status: UserStatus\",\n                   is_instance_admin AS \"is_instance_admin!\", created_at, updated_at\n                 FROM users WHERE id = $1",
+  "query": "SELECT id, email, password_hash, display_name, avatar_url, bio, title, pronouns, timezone,\n                   status AS \"status: UserStatus\",\n                   is_instance_admin AS \"is_instance_admin!\", workspace_creator AS \"workspace_creator!\",\n                   created_at, updated_at\n                 FROM users WHERE NOT is_bot ORDER BY created_at, id OFFSET $1 LIMIT $2",
   "describe": {
     "columns": [
       {
@@ -137,6 +137,17 @@
       },
       {
         "ordinal": 11,
+        "name": "workspace_creator!",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "workspace_creator"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -147,7 +158,7 @@
         }
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -160,7 +171,8 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Int8",
+        "Int8"
       ]
     },
     "nullable": [
@@ -176,8 +188,9 @@
       false,
       true,
       false,
+      false,
       false
     ]
   },
-  "hash": "8a66985cdde2850979ad7abaa8c0070eeee76e9a69a334e5ef80349d3de7ab28"
+  "hash": "0d9b94ca4721d28a8db32f1ae4ff0dc76722b7164b38810ea7795981c07a13b2"
 }

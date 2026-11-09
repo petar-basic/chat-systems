@@ -36,6 +36,7 @@ describe('useDesktopRail', () => {
         deletedWorkspaces: [workspace('c3')],
         unreadByWorkspace: { a1: 4, b2: 9 },
         currentWorkspaceId: 'a1',
+        creation: { [window.location.origin]: true },
         onSelectWorkspace: vi.fn(),
         onCreateWorkspace: vi.fn(),
         onLeaveWorkspace: vi.fn(),
@@ -60,6 +61,7 @@ describe('useDesktopRail', () => {
         deletedWorkspaces: [],
         unreadByWorkspace: {},
         currentWorkspaceId: 'a1',
+        creation: { [window.location.origin]: true },
         onSelectWorkspace: vi.fn(),
         onCreateWorkspace: vi.fn(),
         onLeaveWorkspace: vi.fn(),
@@ -93,6 +95,7 @@ describe('useDesktopRail', () => {
         deletedWorkspaces: [],
         unreadByWorkspace: {},
         currentWorkspaceId: undefined,
+        creation: { [window.location.origin]: true },
         onSelectWorkspace,
         onCreateWorkspace,
         onLeaveWorkspace: vi.fn(),
@@ -110,6 +113,36 @@ describe('useDesktopRail', () => {
     expect(subscribed()).toBe(false);
   });
 
+  it('tells the app whether this server lets the person create a workspace, and opens no dialog when it does not', () => {
+    const { shell, send } = fakeShell();
+    const reportCreation = vi.fn();
+    shell.reportCreation = reportCreation;
+    const onCreateWorkspace = vi.fn();
+    const rail = {
+      workspaces: [workspace('a1')],
+      deletedWorkspaces: [],
+      unreadByWorkspace: {},
+      currentWorkspaceId: undefined,
+      creation: { [window.location.origin]: false, 'https://elsewhere.example.com': true } as Record<
+        string,
+        boolean
+      >,
+      onSelectWorkspace: vi.fn(),
+      onCreateWorkspace,
+      onLeaveWorkspace: vi.fn(),
+    };
+    const { rerender } = renderHook((props) => useDesktopRail(shell, props), { initialProps: rail });
+
+    expect(reportCreation).toHaveBeenLastCalledWith(false);
+    act(() => send({ kind: 'create-workspace' }));
+    expect(onCreateWorkspace).not.toHaveBeenCalled();
+
+    rerender({ ...rail, creation: { [window.location.origin]: true } });
+    expect(reportCreation).toHaveBeenLastCalledWith(true);
+    act(() => send({ kind: 'create-workspace' }));
+    expect(onCreateWorkspace).toHaveBeenCalledWith(window.location.origin);
+  });
+
   it('opens a workspace before asking whether to leave it', () => {
     const { shell, send } = fakeShell();
     const onSelectWorkspace = vi.fn();
@@ -120,6 +153,7 @@ describe('useDesktopRail', () => {
         deletedWorkspaces: [],
         unreadByWorkspace: {},
         currentWorkspaceId: undefined,
+        creation: { [window.location.origin]: true },
         onSelectWorkspace,
         onCreateWorkspace: vi.fn(),
         onLeaveWorkspace,
@@ -142,6 +176,7 @@ describe('useDesktopRail', () => {
           deletedWorkspaces: [],
           unreadByWorkspace: {},
           currentWorkspaceId: 'a1',
+          creation: { [window.location.origin]: true },
           onSelectWorkspace: vi.fn(),
           onCreateWorkspace: vi.fn(),
           onLeaveWorkspace: vi.fn(),

@@ -32,6 +32,7 @@ fn dummy_user() -> User {
         timezone: Some("UTC".to_string()),
         status: UserStatus::Active,
         is_instance_admin: false,
+        workspace_creator: false,
         created_at: now,
         updated_at: now,
     }

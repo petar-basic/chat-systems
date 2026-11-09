@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT workspace_creation_restricted FROM instance_settings",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "workspace_creation_restricted",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "instance_settings",
+            "name": "workspace_creation_restricted"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "f9c3b63a27f06943c239c5665d6cbb797af8c0adc25ee0acb8bb2555b86bb827"
+}

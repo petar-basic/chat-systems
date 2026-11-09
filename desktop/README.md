@@ -35,7 +35,7 @@ system warns the first time you open it:
 | `src-tauri/src/updates.rs` | Checking for an update, and asking to restart into it |
 | `src-tauri/tauri.release.conf.json` | What a release build adds: the updater, its endpoint and public key, and signed update bundles |
 | `src-tauri/src/notifications.rs` | What the app accepts from a page's notification: a key it can hand back, a title and a body cut to banner length |
-| `src-tauri/capabilities/` | Which pages may call the app: the rail and *Add a server*; a server's page gets only `report_workspaces`, `report_theme`, `report_colours`, `notify`, `start_sso` and `start_passkey`, granted at run time for its own origin |
+| `src-tauri/capabilities/` | Which pages may call the app: the rail and *Add a server*; a server's page gets only `report_workspaces`, `report_theme`, `report_colours`, `report_creation`, `notify`, `start_sso` and `start_passkey`, granted at run time for its own origin |
 
 ## Run and build
 

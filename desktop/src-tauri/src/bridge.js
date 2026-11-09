@@ -11,6 +11,7 @@
       startPasskey: () => invoke('start_passkey'),
       reportTheme: (theme) => invoke('report_theme', { theme }),
       reportColours: (colours) => invoke('report_colours', { colours }),
+      reportCreation: (allowed) => invoke('report_creation', { allowed }),
       onCommand: (handler) => {
         handlers.add(handler);
         return () => handlers.delete(handler);

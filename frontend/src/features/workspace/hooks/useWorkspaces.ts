@@ -1,6 +1,7 @@
 import { queryOptions, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { components } from '@/api/schema';
-import { useInstanceStore } from '@/stores/instances';
+import { toInstanceUser, useInstanceStore } from '@/stores/instances';
+import { ApiError } from '@/lib/errors';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { instanceManager } from '@/lib/instances';
 import { forgetWorkspace } from '@/lib/forgetWorkspace';
@@ -213,6 +214,15 @@ export const useCreateWorkspace = () => {
       return { ...ws, instanceUrl };
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaces() }),
+    onError: async (err, { instanceUrl }) => {
+      if (!(err instanceof ApiError) || err.status !== 403) return;
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.instanceInfo(instanceUrl) });
+      const me = await instanceManager
+        .get(instanceUrl)
+        .api.typed((c) => c.GET('/users/me'))
+        .catch(() => null);
+      if (me) useInstanceStore.getState().updateInstanceUser(instanceUrl, toInstanceUser(me));
+    },
   });
 };
 

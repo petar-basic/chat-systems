@@ -31,7 +31,8 @@ impl UserRepo {
             VALUES (lower($1), $2, $3, $4)
             RETURNING id, email, password_hash, display_name, avatar_url, bio, title, pronouns, timezone,
                    status AS "status: UserStatus",
-                   is_instance_admin AS "is_instance_admin!", created_at, updated_at
+                   is_instance_admin AS "is_instance_admin!", workspace_creator AS "workspace_creator!",
+                   created_at, updated_at
             "#,
             email,
             password_hash,
@@ -53,7 +54,8 @@ impl UserRepo {
             VALUES (lower($1), $2, 'suspended')
             RETURNING id, email, password_hash, display_name, avatar_url, bio, title, pronouns, timezone,
                    status AS "status: UserStatus",
-                   is_instance_admin AS "is_instance_admin!", created_at, updated_at
+                   is_instance_admin AS "is_instance_admin!", workspace_creator AS "workspace_creator!",
+                   created_at, updated_at
             "#,
             email,
             display_name
@@ -90,7 +92,8 @@ impl UserRepo {
             VALUES (lower($1::text), split_part($1::text, '@', 1), 'active')
             RETURNING id, email, password_hash, display_name, avatar_url, bio, title, pronouns, timezone,
                    status AS "status: UserStatus",
-                   is_instance_admin AS "is_instance_admin!", created_at, updated_at
+                   is_instance_admin AS "is_instance_admin!", workspace_creator AS "workspace_creator!",
+                   created_at, updated_at
             "#,
             email
         )
@@ -103,7 +106,8 @@ impl UserRepo {
             User,
             r#"SELECT id, email, password_hash, display_name, avatar_url, bio, title, pronouns, timezone,
                    status AS "status: UserStatus",
-                   is_instance_admin AS "is_instance_admin!", created_at, updated_at
+                   is_instance_admin AS "is_instance_admin!", workspace_creator AS "workspace_creator!",
+                   created_at, updated_at
                  FROM users WHERE id = $1"#,
             id
         )
@@ -116,7 +120,8 @@ impl UserRepo {
             User,
             r#"SELECT id, email, password_hash, display_name, avatar_url, bio, title, pronouns, timezone,
                    status AS "status: UserStatus",
-                   is_instance_admin AS "is_instance_admin!", created_at, updated_at
+                   is_instance_admin AS "is_instance_admin!", workspace_creator AS "workspace_creator!",
+                   created_at, updated_at
                  FROM users WHERE email = lower($1) AND NOT is_bot"#,
             email
         )
@@ -129,7 +134,8 @@ impl UserRepo {
             User,
             r#"SELECT id, email, password_hash, display_name, avatar_url, bio, title, pronouns, timezone,
                    status AS "status: UserStatus",
-                   is_instance_admin AS "is_instance_admin!", created_at, updated_at
+                   is_instance_admin AS "is_instance_admin!", workspace_creator AS "workspace_creator!",
+                   created_at, updated_at
                  FROM users WHERE NOT is_bot ORDER BY created_at, id OFFSET $1 LIMIT $2"#,
             offset,
             limit
@@ -181,7 +187,8 @@ impl UserRepo {
             WHERE id = $1
             RETURNING id, email, password_hash, display_name, avatar_url, bio, title, pronouns, timezone,
                    status AS "status: UserStatus",
-                   is_instance_admin AS "is_instance_admin!", created_at, updated_at
+                   is_instance_admin AS "is_instance_admin!", workspace_creator AS "workspace_creator!",
+                   created_at, updated_at
             "#,
             id,
             password_hash,
@@ -216,7 +223,8 @@ impl UserRepo {
             WHERE id = $1
             RETURNING id, email, password_hash, display_name, avatar_url, bio, title, pronouns, timezone,
                    status AS "status: UserStatus",
-                   is_instance_admin AS "is_instance_admin!", created_at, updated_at
+                   is_instance_admin AS "is_instance_admin!", workspace_creator AS "workspace_creator!",
+                   created_at, updated_at
             "#,
             id,
             changes.display_name.as_deref(),

@@ -69,6 +69,17 @@ struct Themes(Mutex<HashMap<String, Theme>>);
 #[derive(Default)]
 struct Palettes(Mutex<HashMap<String, Colours>>);
 
+#[derive(Default)]
+struct Creation(Mutex<HashMap<String, bool>>);
+
+fn creates_workspaces<R: Runtime>(app: &AppHandle<R>, url: &str) -> bool {
+    app.state::<Creation>()
+        .0
+        .lock()
+        .map(|creation| creation.get(url).copied().unwrap_or(true))
+        .unwrap_or(true)
+}
+
 #[derive(Clone, Serialize)]
 struct ServerView {
     #[serde(flatten)]
@@ -357,6 +368,7 @@ fn load_server<R: Runtime>(
                 .permission("allow-start-passkey")
                 .permission("allow-report-theme")
                 .permission("allow-report-colours")
+                .permission("allow-report-creation")
                 .permission("allow-press-menu-keys")
                 .permission("core:window:allow-start-dragging")
                 .permission("core:window:allow-internal-toggle-maximize"),
@@ -551,6 +563,9 @@ fn forget_server<R: Runtime>(app: &AppHandle<R>, url: &str) -> Result<(), String
     if let Ok(mut palettes) = app.state::<Palettes>().0.lock() {
         palettes.remove(url);
     }
+    if let Ok(mut creation) = app.state::<Creation>().0.lock() {
+        creation.remove(url);
+    }
     if was_showing {
         return open_last(app);
     }
@@ -630,7 +645,9 @@ fn build_rail_menu<R: Runtime>(
     if !menu.items()?.is_empty() {
         menu.append(&PredefinedMenuItem::separator(app)?)?;
     }
-    menu.append(&create_item(app, server)?)?;
+    if creates_workspaces(app, &server.url) {
+        menu.append(&create_item(app, server)?)?;
+    }
     menu.append(&MenuItem::with_id(
         app,
         format!("remove:{}", server.url),
@@ -654,9 +671,13 @@ fn create_item<R: Runtime>(app: &AppHandle<R>, server: &Server) -> tauri::Result
 fn build_add_menu<R: Runtime>(app: &AppHandle<R>, servers: &[Server]) -> tauri::Result<Menu<R>> {
     let menu = Menu::new(app)?;
     for server in servers {
-        menu.append(&create_item(app, server)?)?;
+        if creates_workspaces(app, &server.url) {
+            menu.append(&create_item(app, server)?)?;
+        }
     }
-    menu.append(&PredefinedMenuItem::separator(app)?)?;
+    if !menu.items()?.is_empty() {
+        menu.append(&PredefinedMenuItem::separator(app)?)?;
+    }
     menu.append(&MenuItem::with_id(
         app,
         "add-server",
@@ -764,6 +785,17 @@ fn report_workspaces(
         .map_err(|e| e.to_string())?
         .insert(server.url, report);
     announce(&app);
+    Ok(())
+}
+
+#[tauri::command]
+fn report_creation(app: AppHandle, webview: Webview, allowed: bool) -> Result<(), String> {
+    let server = server_of(&app, &webview)?;
+    app.state::<Creation>()
+        .0
+        .lock()
+        .map_err(|e| e.to_string())?
+        .insert(server.url, allowed);
     Ok(())
 }
 
@@ -1061,6 +1093,7 @@ pub fn run() {
             report_workspaces,
             report_theme,
             report_colours,
+            report_creation,
             notify,
             rail_menu,
             rail_hint,
@@ -1077,6 +1110,7 @@ pub fn run() {
             app.manage(Reports::default());
             app.manage(Themes::default());
             app.manage(Palettes::default());
+            app.manage(Creation::default());
             app.manage(PendingSso::default());
             let links = app.handle().clone();
             app.deep_link().on_open_url(move |event| {
