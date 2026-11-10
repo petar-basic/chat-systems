@@ -93,4 +93,17 @@ describe('WorkspaceSidebar', () => {
     expect(refused).toHaveBeenCalledWith('Sales', url);
     expect(screen.getByRole('heading', { name: 'Create workspace' })).toBeInTheDocument();
   });
+
+  it('in Japanese says the workspace could not be created when the server gives no reason', async () => {
+    await i18n.changeLanguage('ja');
+    renderRail(vi.fn().mockRejectedValue({}));
+
+    fireEvent.click(screen.getByRole('button', { name: 'chat.example.com にワークスペースを作成' }));
+    fireEvent.change(screen.getByLabelText(/ワークスペース名/), { target: { value: '営業部' } });
+    fireEvent.click(screen.getByRole('button', { name: '作成' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent('ワークスペースを作成できませんでした'),
+    );
+  });
 });
