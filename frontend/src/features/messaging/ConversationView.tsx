@@ -1,4 +1,5 @@
-import { ArrowLeft, Menu, UserMinus } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowLeft, Menu, UserMinus, UserPlus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useUserCache } from '@/stores/users';
 import { usePresenceStore } from '@/stores/presence';
@@ -10,6 +11,7 @@ import { displayNameOf } from '@/lib/userHelpers';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { ConnectionBanner } from '@/shared/components/ConnectionBanner/ConnectionBanner';
 import { HuddleStartButton } from '@/features/huddle';
+import { MAX_GROUP_OTHERS, NewDmModal } from '@/features/channel';
 import { NotificationLevelButton } from '@/features/notifications';
 import { useTypingSignal, typingTargetOf } from '@/shared/hooks/useTypingSignal';
 import { FileDropZone } from '@/shared/components/FileDropZone';
@@ -34,6 +36,7 @@ interface Props {
   onOpenThread: (message: Message, replyId?: string) => void;
   onSave: (message: Message) => void;
   onForward: (message: Message) => void;
+  onAddPeople: (participantIds: string[]) => void;
 }
 
 /// A direct message is a channel nobody can browse, so the feed, the composer
@@ -53,6 +56,7 @@ export default function ConversationView({
   onOpenThread,
   onSave,
   onForward,
+  onAddPeople,
 }: Props) {
   const { t } = useTranslation(['messages', 'channel']);
   const { getUser } = useUserCache();
@@ -64,6 +68,9 @@ export default function ConversationView({
   const isDirect = conversation.kind === 'direct';
   const gone = departedPartner(conversation, currentUserId);
   const note = departureNote(conversation);
+  const others = participantIds.filter((id) => id !== currentUserId);
+  const canAddPeople = !gone && others.length > 0 && others.length < MAX_GROUP_OTHERS;
+  const [addingPeople, setAddingPeople] = useState(false);
 
   const sendMutation = useSendMessage(conversation.id, currentUserId);
   const { signalTyping, stopTyping } = useTypingSignal(typingTargetOf(conversation.id), instanceUrl);
@@ -134,6 +141,17 @@ export default function ConversationView({
             <span className="text-xs text-muted">{t('conversation.activeNow')}</span>
           )}
           <div className="ml-auto flex items-center gap-1">
+            {canAddPeople && (
+              <button
+                onClick={() => setAddingPeople(true)}
+                aria-label={t('conversation.addPeople')}
+                data-tooltip={t('conversation.addPeople')}
+                data-qa="conversation-add-people"
+                className="p-1.5 rounded-lg text-muted hover:text-fg hover:bg-raised/50"
+              >
+                <UserPlus className="w-4 h-4" />
+              </button>
+            )}
             <NotificationLevelButton channelId={conversation.id} direct />
             {isDirect && !gone && (
               <HuddleStartButton
@@ -196,6 +214,15 @@ export default function ConversationView({
           />
         )}
       </div>
+      {addingPeople && (
+        <NewDmModal
+          members={members}
+          currentUserId={currentUserId}
+          adding={others}
+          onStart={onAddPeople}
+          onClose={() => setAddingPeople(false)}
+        />
+      )}
     </FileDropZone>
   );
 }

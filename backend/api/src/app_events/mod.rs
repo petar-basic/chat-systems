@@ -96,7 +96,7 @@ pub fn translate(workspace_id: Uuid, event: &Event) -> Option<Translated> {
             (None, None, vec![(AppEvent::ChannelCreated, body)])
         }
         "channel.updated" => {
-            if p.get("is_archived").and_then(|v| v.as_bool()) != Some(true) {
+            if p.pointer("/channel/is_archived").and_then(|v| v.as_bool()) != Some(true) {
                 return None;
             }
             let body = serde_json::json!({ "channel_id": channel_id });

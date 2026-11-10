@@ -24,3 +24,15 @@ export function useChannelArchived(channelId: string | null | undefined): boolea
     (s) => !!channelId && s.currentChannel?.id === channelId && !!s.currentChannel.is_archived,
   );
 }
+
+export function applyChannel(queryClient: QueryClient, channel: Channel) {
+  queryClient.setQueryData<Channel>(QUERY_KEYS.channel(channel.id), (cached) =>
+    cached ? { ...cached, ...channel } : cached,
+  );
+  void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceChannels(channel.workspace_id) });
+  void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.channelsBrowse(channel.workspace_id) });
+  const { currentChannel } = useWorkspaceStore.getState();
+  if (currentChannel?.id === channel.id) {
+    useWorkspaceStore.setState({ currentChannel: { ...currentChannel, ...channel } });
+  }
+}

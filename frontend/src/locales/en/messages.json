@@ -224,6 +224,7 @@
     "back": "Back to channels",
     "people": "{{count}} people",
     "activeNow": "Active now",
+    "addPeople": "Add people",
     "departed": {
       "separator": ", ",
       "one": "{{name}} is no longer in this workspace",

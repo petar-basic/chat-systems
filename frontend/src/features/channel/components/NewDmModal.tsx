@@ -8,35 +8,41 @@ import { Avatar } from '@/shared/components/Avatar/Avatar';
 import type { WorkspaceMember } from '@/stores/workspace';
 import { matchesPerson } from '@/lib/userHelpers';
 
-const MAX_GROUP_OTHERS = 8;
+export const MAX_GROUP_OTHERS = 8;
 
 interface Props {
   members: WorkspaceMember[];
   currentUserId: string | undefined;
+  adding?: string[];
   onStart: (participantIds: string[]) => void;
   onClose: () => void;
 }
 
-export function NewDmModal({ members, currentUserId, onStart, onClose }: Props) {
+export function NewDmModal({ members, currentUserId, adding = [], onStart, onClose }: Props) {
   const { t } = useTranslation(['sidebar', 'common']);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<string[]>([]);
+  const room = MAX_GROUP_OTHERS - adding.length;
+  const startLabel =
+    adding.length > 0 ? t('newDm.add') : selected.length > 1 ? t('newDm.startGroup') : t('newDm.start');
 
   const togglePerson = (userId: string) =>
     setSelected((picked) =>
       picked.includes(userId)
         ? picked.filter((id) => id !== userId)
-        : picked.length >= MAX_GROUP_OTHERS
+        : picked.length >= room
           ? picked
           : [...picked, userId],
     );
 
-  const candidates = members.filter((m) => m.user_id !== currentUserId && matchesPerson(m, search));
+  const candidates = members.filter(
+    (m) => m.user_id !== currentUserId && !adding.includes(m.user_id) && matchesPerson(m, search),
+  );
 
   return (
     <Modal
-      title={t('newDm.title')}
-      description={t('newDm.description')}
+      title={adding.length > 0 ? t('newDm.addTitle') : t('newDm.title')}
+      description={adding.length > 0 ? t('newDm.addDescription', { count: room }) : t('newDm.description')}
       onClose={onClose}
       size="sm"
       dataQa="new-dm-modal"
@@ -52,12 +58,12 @@ export function NewDmModal({ members, currentUserId, onStart, onClose }: Props) 
           onClick={() => {
             const people = selected;
             onClose();
-            onStart(people);
+            onStart([...adding, ...people]);
           }}
           disabled={selected.length === 0}
           data-qa="new-dm-start"
         >
-          {selected.length > 1 ? t('newDm.startGroup') : t('newDm.start')}
+          {startLabel}
         </Button>
       }
     >

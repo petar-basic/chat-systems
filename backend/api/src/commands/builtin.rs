@@ -8,7 +8,7 @@ use crate::audit::ClientIp;
 use crate::authz;
 use crate::later::repo::NewReminder;
 use crate::state::AppState;
-use crate::workspace::about::{self, About};
+use crate::workspace::details::{self, Details};
 use crate::workspace::membership;
 use crate::workspace::models::WorkspaceRole;
 
@@ -116,22 +116,19 @@ pub async fn run(
             authz::require_channel_edit(state, &channel, user_id, authz::ChannelEdit::About)
                 .await?;
             shared_common::validation::validate_channel_topic(text)?;
-            about::update(
+            details::update(
                 state,
                 &channel,
                 user_id,
                 ip,
-                About {
-                    name: None,
+                Details {
                     topic: Some(text),
-                    description: None,
+                    ..Details::default()
                 },
             )
             .await?;
 
-            Ok(Some(CommandResponse::in_channel(format!(
-                "set the channel topic to: {text}"
-            ))))
+            Ok(Some(CommandResponse::in_channel("")))
         }
 
         "invite" => {

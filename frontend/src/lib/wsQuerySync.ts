@@ -21,7 +21,7 @@ import { useUserCache } from '@/stores/users';
 import { useUnsentStore } from '@/stores/unsent';
 import { QUERY_KEYS } from '@/shared/constants';
 import { applyReadState } from './readState';
-import { applyChannelArchived } from './channelArchive';
+import { applyChannel } from './channelArchive';
 import { belongsElsewhere } from './channelWorkspace';
 import { readOnReturn, readOnScreen } from './readOnScreen';
 import { patchMessageEverywhere, shownInChannel } from './messagePatch';
@@ -119,9 +119,7 @@ export const useWebSocketQuerySync = () => {
         if (event.unread_count === 0)
           queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notifications(event.workspace_id) });
       }),
-      globalEventBus.on('channel.updated', (event) => {
-        applyChannelArchived(queryClient, event.channel_id, event.workspace_id, event.is_archived);
-      }),
+      globalEventBus.on('channel.updated', (event) => applyChannel(queryClient, event.channel)),
       globalEventBus.on('channel.access_revoked', (event) => {
         queryClient.removeQueries({ queryKey: QUERY_KEYS.messages(event.channel_id) });
         queryClient.removeQueries({ queryKey: QUERY_KEYS.channelMembers(event.channel_id) });

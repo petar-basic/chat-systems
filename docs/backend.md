@@ -274,7 +274,7 @@ one, and the role is the row's, not the token's.
 | GET | `/workspaces/:ws_id/channels/browse` | — | `{ data: BrowsableChannel[] }` — every public channel, and every archived private channel the caller is a member of, with `member_count`, `is_member` and `is_archived`; archived ones last, the private ones under the public ones, so an archived private channel, which the sidebar leaves out, can still be reached and unarchived (Members and up; Guests are refused) |
 | POST | `/workspaces/:ws_id/channels` | `{ name, channel_type?, description?, is_default?, post_policy? }` | `Channel` — Members and up; only admins when `settings.public_channel_creators` (or `private_channel_creators` for a private one) is `admins` |
 | GET | `/channels/:ch_id` | — | `Channel` |
-| PATCH | `/channels/:ch_id` | `{ name?, topic?, description?, post_policy?, allow_broadcast_mentions? }` | `Channel` — `topic` and `description` alone: a moderator, or a member of the channel with the Member role or above who may post in it (`authz::require_channel_edit`); anything else in the body needs a moderator. `post_policy` and `allow_broadcast_mentions` are merged into `settings` and each change is audited. Refused on a `dm` or `group_dm` |
+| PATCH | `/channels/:ch_id` | `{ name?, topic?, description?, post_policy?, allow_broadcast_mentions? }` | `Channel` — `topic` and `description` alone: a moderator, or a member of the channel with the Member role or above who may post in it (`authz::require_channel_edit`); anything else in the body needs a moderator. `post_policy` and `allow_broadcast_mentions` are merged into `settings` and each change is audited. Everything is written in one transaction (`workspace::details::update`), and the channel hears it as in Slack: a changed name posts `renamed the channel from “a” to “b”` (`channel_renamed`), a changed topic `set the channel topic: …` or `cleared the channel topic` (`channel_topic_changed`), a changed description the same with *description* (`channel_description_changed`); the same value again posts nothing, and settings post nothing. Every call publishes `channel.updated` with the whole channel. Refused on a `dm` or `group_dm` |
 | DELETE | `/channels/:ch_id` | — | `{ status: "archived" }` — channel moderators; posts a `channel_archived` system line and publishes `channel.updated`; refused on a `dm` or `group_dm`. An archived channel refuses every write with 403 until it is unarchived: posts, replies, reactions, scheduled messages, incoming webhooks, editing, deleting and pinning a message, its link previews, poll votes and closing, files, renaming and settings, adding, removing and re-roling members, bookmarks and starting a huddle |
 | POST | `/channels/:ch_id/unarchive` | — | `{ status: "unarchived" }` — channel moderators; posts `channel_unarchived` and publishes `channel.updated` |
 | PATCH | `/channels/:ch_id/notifications` | `{ muted }` | `{ muted: bool }` — members only (403 otherwise) |
@@ -291,7 +291,8 @@ one, and the role is the row's, not the token's.
 
 A `dm` or `group_dm` keeps the people and settings it was created with: adding, removing,
 leaving, the role route, archive, unarchive and `PATCH` all answer 403, for its participants and
-for workspace admins alike.
+for workspace admins alike, with "A direct message keeps the people and settings it started
+with".
 
 **Channel bookmarks** (the link bar under the channel header):
 
@@ -326,7 +327,7 @@ position they left with and a recounted unread, and stages `channel.member_joine
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/conversations` | — | `{ data: ConversationSummary[] }` — newest message first, with `participant_ids`, `last_message_at`, the caller's `unread_count` (the counter `/unreads` reads, so neither their own messages nor thread replies count), and `departed`: who left the workspace, with the `display_name` and `avatar_url` of their account |
-| POST | `/workspaces/:ws_id/conversations` | `{ participant_ids }` | `Conversation` — one other person returns the existing `direct` thread if there is one; more create a `group` |
+| POST | `/workspaces/:ws_id/conversations` | `{ participant_ids }` | `Conversation` — one other person returns the existing `direct` thread if there is one; more return the `group` that has exactly these people and nobody who left it, or create one. This is how *Add people* in a DM or group DM works: a new group with everyone in it, the old conversation unchanged |
 
 Creating one publishes `conversation.created`, which the gateway delivers to every participant
 so the new thread shows up for the other side; messages in it are ordinary `message.*` and
@@ -557,7 +558,8 @@ Hook types: `incoming_webhook`, `outgoing_webhook`, `slash_command`
 Built-in commands run before any registered one and never leave the instance: `/away`,
 `/dnd`, `/topic`, `/invite`, `/shrug` and `/remind`. `/topic` and `/invite` run what
 `PATCH /channels/:ch_id` and `POST /channels/:ch_id/members` run, checks and audit row
-included; an `in_channel` answer where the caller may not post comes back ephemeral. `/away` switches `manual_away` on or off. `/remind` understands `me in 30m to ship`,
+included; `/topic` answers with an empty `in_channel`, since the topic message is the answer.
+An `in_channel` answer where the caller may not post comes back ephemeral. `/away` switches `manual_away` on or off. `/remind` understands `me in 30m to ship`,
 `me at 15:00 to call back` and `me tomorrow at 9am standup`; clock times are resolved in the
 caller's own timezone and a time already past means tomorrow. Reminding somebody else needs
 workspace admin, the same rule `POST /workspaces/:ws_id/later` applies. A reminder lands in the person's *Later* list.
@@ -1176,7 +1178,7 @@ of 300 a minute.
 made with the app and sealed under `bot-app-signing-secrets` (the start-up re-seal covers it).
 The worker's `app_event_consumer` reads the workspace streams in its own group, turns
 `message.created`, `reaction.added/removed`, `channel.member_joined`, `channel.created` and
-`channel.updated` (archived) into envelopes, and for each app subscribed to the event, holding
+`channel.updated` (when its `channel.is_archived` is true) into envelopes, and for each app subscribed to the event, holding
 its scope and a member of its channel (`channel_created`: any public channel), inserts an
 `app_deliveries` row. The row's `event_id` is derived from the stream event and the event type,
 and `(app_id, event_id)` is unique, so a stream redelivery queues nothing twice. The consumer
@@ -1449,7 +1451,7 @@ A join is authorised against the huddle's own `huddle_sessions` row, never again
 | `events:huddle` | `huddle.started`, `huddle.ended`, `huddle.ring`, `huddle.member_joined`, `huddle.member_left` — lifecycle; also consumed by the API for history + call notifications |
 | `events:list` | `list.upserted`, `list.deleted`, `list.columns_changed`, `list.item_upserted`, `list.item_deleted` — to the list's channel, or to the owner of a personal list |
 | `events:thread` | `thread.read_state` — sent only to the user whose thread state changed (a reply, `/read`, follow or unfollow), with its `following` and `unread_count` |
-| `events:channel` | `channel.read_state` — sent only to the user whose read position moved (by `/read` or `/unread`), so their other tabs and devices update their badges; it is durable, for the analytics rollup, so a reconnect replays it to that user; `channel.member_removed` becomes `channel.access_revoked` for the removed user; `channel.updated` (`is_archived`) goes to everyone in the channel when it is archived or unarchived |
+| `events:channel` | `channel.read_state` — sent only to the user whose read position moved (by `/read` or `/unread`), so their other tabs and devices update their badges; it is durable, for the analytics rollup, so a reconnect replays it to that user; `channel.member_removed` becomes `channel.access_revoked` for the removed user; `channel.updated` (the whole `Channel`) goes to everyone in the channel whenever its name, topic, description, settings or archived state is written |
 | `events:huddle-signal` | `huddle.offer`, `huddle.answer`, `huddle.ice`, `huddle.mute`, `huddle.camera`, `huddle.screenshare`, `huddle.hand`, `huddle.reaction` — high-frequency relay, realtime-only (kept off `events:huddle` so the API consumers don't parse every ICE candidate) |
 
 All events use the envelope: `{ id, event_type, payload, timestamp }`.

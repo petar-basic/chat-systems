@@ -64,7 +64,11 @@
     "nobody": "Nobody picked yet",
     "selected": "{{count}} selected",
     "start": "Start chat",
-    "startGroup": "Start group"
+    "startGroup": "Start group",
+    "addTitle": "Add people to this conversation",
+    "addDescription_one": "This starts a new group conversation. The one you are in stays as it is. You can add one more person.",
+    "addDescription_other": "This starts a new group conversation. The one you are in stays as it is. You can add up to {{count}} more people.",
+    "add": "Add"
   },
   "newChannel": {
     "title": "Create channel",

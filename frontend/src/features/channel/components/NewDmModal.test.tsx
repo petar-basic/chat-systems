@@ -44,4 +44,25 @@ describe('NewDmModal', () => {
     fireEvent.change(screen.getByLabelText('メンバー検索'), { target: { value: 'nobody-here' } });
     expect(screen.getByText('該当するメンバーがいません')).toBeInTheDocument();
   });
+  it('adds to the people already in a conversation and leaves them out of the list', () => {
+    const onStart = vi.fn();
+    render(
+      <NewDmModal
+        members={members}
+        currentUserId="u-1"
+        adding={['u-3']}
+        onStart={onStart}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Add people to this conversation' })).toBeInTheDocument();
+    const candidates = screen.getAllByTestId('new-dm-candidate');
+    expect(candidates.map((c) => c.dataset.userId)).toEqual(['u-2']);
+    fireEvent.click(candidates[0]);
+    expect(screen.getByTestId('new-dm-start')).toHaveTextContent('Add');
+    fireEvent.click(screen.getByTestId('new-dm-start'));
+
+    expect(onStart).toHaveBeenCalledWith(['u-3', 'u-2']);
+  });
 });

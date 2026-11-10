@@ -54,7 +54,7 @@ function AboutForm({ channel, renames, onClose }: FormProps) {
   const [description, setDescription] = useState(channel.description ?? '');
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const updateChannel = useUpdateChannel(channel.workspace_id, channel.id);
+  const updateChannel = useUpdateChannel(channel.id);
   const archiveChannel = useArchiveChannel(channel.workspace_id);
 
   const handleSave = async (e: FormEvent) => {

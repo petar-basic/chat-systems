@@ -22,6 +22,13 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   details → About* or with `/topic`, as in Slack. Guests and people outside the channel can't,
   and in an announcement channel only its moderators can. Renaming a channel still needs a
   moderator.
+- The channel hears what changed, as in Slack: "set the channel topic: …", "cleared the channel
+  topic", the same for the description, and "renamed the channel from “a” to “b”". Everyone
+  viewing the channel sees the new name, topic, description and settings at once, without a
+  reload.
+- *Add people* in a DM or group DM starts a group conversation with everyone in it plus the
+  people you pick, as in Slack; the conversation you were in stays as it is. Starting a group
+  with people who already have one opens that one instead of a second.
 
 ### Security
 
@@ -42,6 +49,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - `/topic` no longer changes the topic of an archived channel.
 - `/invite` says who it added by name, not by an id, and saving a channel's topic or
   description updates the channel's header at once instead of after a reload.
+- Archiving or unarchiving a DM says that a direct message keeps its settings, instead of that
+  only moderators can do it.
 - Changing an archived channel's message retention no longer posts a message into it.
 
 ## [4.6.0] — 2026-11-10

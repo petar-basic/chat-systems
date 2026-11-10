@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { queryClient } from './queryClient';
-import { applyChannelArchived } from './channelArchive';
+import { applyChannel, applyChannelArchived } from './channelArchive';
 import { QUERY_KEYS } from '@/shared/constants';
 import { useWorkspaceStore, type Channel } from '@/stores/workspace';
 
@@ -34,6 +34,38 @@ describe('applyChannelArchived', () => {
     useWorkspaceStore.setState({ currentChannel: other });
 
     applyChannelArchived(queryClient, 'c1', 'w1', true);
+
+    expect(useWorkspaceStore.getState().currentChannel).toBe(other);
+  });
+});
+
+describe('applyChannel', () => {
+  afterEach(() => {
+    queryClient.clear();
+    useWorkspaceStore.setState({ currentChannel: null });
+  });
+
+  it('shows a change somebody else made in the open channel and the lists', () => {
+    useWorkspaceStore.setState({ currentChannel: { ...channel, muted: true } });
+    queryClient.setQueryData(QUERY_KEYS.channel('c1'), channel);
+    queryClient.setQueryData(QUERY_KEYS.workspaceChannels('w1'), [channel]);
+
+    applyChannel(queryClient, { ...channel, name: 'liftoff', topic: 'Ship it' });
+
+    expect(useWorkspaceStore.getState().currentChannel).toMatchObject({
+      name: 'liftoff',
+      topic: 'Ship it',
+      muted: true,
+    });
+    expect(queryClient.getQueryData<Channel>(QUERY_KEYS.channel('c1'))?.topic).toBe('Ship it');
+    expect(queryClient.getQueryState(QUERY_KEYS.workspaceChannels('w1'))?.isInvalidated).toBe(true);
+  });
+
+  it('leaves another open channel alone', () => {
+    const other = { ...channel, id: 'c2' };
+    useWorkspaceStore.setState({ currentChannel: other });
+
+    applyChannel(queryClient, { ...channel, topic: 'Ship it' });
 
     expect(useWorkspaceStore.getState().currentChannel).toBe(other);
   });

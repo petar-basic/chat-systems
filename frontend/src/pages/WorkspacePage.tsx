@@ -230,6 +230,7 @@ export default function WorkspacePage() {
             onOpenThread={panel.openThread}
             onSave={c.handleSaveMessage}
             onForward={c.handleForwardMessage}
+            onAddPeople={(people) => void c.handleOpenWith(people)}
           />
         ) : (
           <FileDropZone

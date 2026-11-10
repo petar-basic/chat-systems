@@ -342,6 +342,15 @@ async fn each_event_reaches_an_app_only_in_the_channels_it_is_in(pool: PgPool) {
 
     let (status, body) = send(
         &s.app,
+        "PATCH",
+        &format!("/api/channels/{joined}"),
+        Some(&s.token),
+        Some(json!({ "topic": "shipping soon" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    let (status, body) = send(
+        &s.app,
         "DELETE",
         &format!("/api/channels/{joined}"),
         Some(&s.token),
@@ -374,6 +383,11 @@ async fn each_event_reaches_an_app_only_in_the_channels_it_is_in(pool: PgPool) {
             .count(),
         0,
         "an app does not hear its own messages"
+    );
+    assert_eq!(
+        of_type(&queued, "channel_archived").len(),
+        1,
+        "a new topic is not an archive"
     );
     assert_eq!(
         of_type(&queued, "member_joined_channel")

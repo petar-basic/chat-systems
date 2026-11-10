@@ -778,6 +778,7 @@ impl WorkspaceRepo {
 
     pub async fn update_channel(
         &self,
+        conn: &mut PgConnection,
         id: Uuid,
         name: Option<&str>,
         topic: Option<&str>,
@@ -801,7 +802,7 @@ impl WorkspaceRepo {
             topic,
             description
         )
-        .fetch_one(&self.pool)
+        .fetch_one(&mut *conn)
         .await
     }
 
@@ -810,6 +811,7 @@ impl WorkspaceRepo {
     /// silently drop whatever they put there.
     pub async fn merge_channel_settings(
         &self,
+        conn: &mut PgConnection,
         id: Uuid,
         patch: &serde_json::Value,
     ) -> sqlx::Result<Channel> {
@@ -827,7 +829,7 @@ impl WorkspaceRepo {
             id,
             patch
         )
-        .fetch_one(&self.pool)
+        .fetch_one(&mut *conn)
         .await
     }
 

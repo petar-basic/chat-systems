@@ -105,6 +105,28 @@ async fn bot_messages(state: &AppState, ch: Uuid) -> i64 {
         .expect("count")
 }
 
+async fn said(state: &AppState, ch: Uuid) -> Vec<String> {
+    let mut said: Vec<String> = sqlx::query_scalar(
+        "SELECT content FROM messages WHERE channel_id = $1 AND metadata->>'kind' LIKE 'channel_%'",
+    )
+    .bind(ch)
+    .fetch_all(&state.pool)
+    .await
+    .expect("system messages");
+    said.sort();
+    said
+}
+
+async fn last_update(state: &AppState, ch: Uuid) -> serde_json::Value {
+    sqlx::query_scalar(
+        "SELECT payload FROM event_outbox WHERE event_type = 'channel.updated' AND payload->>'channel_id' = $1 ORDER BY id DESC LIMIT 1",
+    )
+    .bind(ch.to_string())
+    .fetch_one(&state.pool)
+    .await
+    .expect("channel.updated")
+}
+
 #[test_macros::db_test(migrations = "../migrations")]
 async fn a_conversation_keeps_the_people_and_settings_it_started_with(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
@@ -164,6 +186,16 @@ async fn a_conversation_keeps_the_people_and_settings_it_started_with(pool: PgPo
                 let (status, answer) = send(&app, method, path, Some(token), body.clone()).await;
                 assert_eq!(status, StatusCode::FORBIDDEN, "{method} {path}: {answer:?}");
             }
+        }
+        for (method, path) in [
+            ("DELETE", format!("/api/channels/{ch}")),
+            ("POST", format!("/api/channels/{ch}/unarchive")),
+        ] {
+            let (_, answer) = send(&app, method, &path, Some(&bob), None).await;
+            assert_eq!(
+                answer["error"], "A direct message keeps the people and settings it started with",
+                "{method} {path}"
+            );
         }
         let (status, answer) =
             command(&app, &bob, ch, "invite", &format!("@[Erin]({erin_id})")).await;
@@ -413,4 +445,148 @@ async fn a_command_answer_into_a_dm_with_someone_who_left_stays_private(pool: Pg
         .await
         .expect("count");
     assert_eq!(posted, 0, "nothing lands where nobody would read it");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn the_channel_hears_what_changed_and_every_open_client_gets_the_channel(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "said-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Said WS").await;
+    let ch = seed_channel(&state, ws_id, owner_id, "deploys", false).await;
+    let (bob_id, _, bob) = seed_and_login(&app, &state, "said-bob", false).await;
+    add_ws_member(&state, ws_id, bob_id, "member").await;
+    join(&app, &bob, ch).await;
+
+    let (status, body) = patch(
+        &app,
+        &bob,
+        ch,
+        json!({ "topic": "release week", "description": "Where we ship" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    let mut expected = vec![
+        "set the channel description: Where we ship".to_string(),
+        "set the channel topic: release week".to_string(),
+    ];
+    assert_eq!(said(&state, ch).await, expected);
+    let update = last_update(&state, ch).await;
+    assert_eq!(update["workspace_id"], json!(ws_id));
+    assert_eq!(update["channel"]["topic"], "release week");
+    assert_eq!(update["channel"]["description"], "Where we ship");
+
+    let (status, _) = patch(&app, &bob, ch, json!({ "topic": "release week" })).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        said(&state, ch).await,
+        expected,
+        "the same topic again says nothing"
+    );
+
+    let (status, body) = command(&app, &bob, ch, "topic", "launch day").await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["response_type"], "in_channel");
+    assert_eq!(body["text"], "");
+    assert_eq!(
+        bot_messages(&state, ch).await,
+        0,
+        "the change speaks for itself, not the command"
+    );
+    expected.push("set the channel topic: launch day".into());
+    expected.sort();
+    assert_eq!(said(&state, ch).await, expected);
+
+    let (status, _) = patch(&app, &bob, ch, json!({ "topic": "" })).await;
+    assert_eq!(status, StatusCode::OK);
+    expected.push("cleared the channel topic".into());
+    expected.sort();
+    assert_eq!(said(&state, ch).await, expected);
+    assert_eq!(
+        last_update(&state, ch).await["channel"]["topic"]
+            .as_str()
+            .unwrap_or_default(),
+        ""
+    );
+
+    let (status, _) = patch(&app, &owner, ch, json!({ "name": "shipping" })).await;
+    assert_eq!(status, StatusCode::OK);
+    expected.push("renamed the channel from “deploys” to “shipping”".into());
+    expected.sort();
+    assert_eq!(said(&state, ch).await, expected);
+    assert_eq!(last_update(&state, ch).await["channel"]["name"], "shipping");
+
+    let (status, _) = patch(&app, &owner, ch, json!({ "post_policy": "moderators" })).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        said(&state, ch).await,
+        expected,
+        "who may post is a setting, not news"
+    );
+    let update = last_update(&state, ch).await;
+    assert_eq!(update["channel"]["settings"]["post_policy"], "moderators");
+    assert_eq!(update["channel"]["name"], "shipping");
+    assert_eq!(audited(&state, "channel.updated", owner_id, ch).await, 1);
+    assert_eq!(
+        audited(&state, "channel.post_policy_changed", owner_id, ch).await,
+        1
+    );
+
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/channels/{ch}"),
+        Some(&owner),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        last_update(&state, ch).await["channel"]["is_archived"],
+        true
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn adding_people_to_a_conversation_starts_a_group_or_finds_the_one_they_have(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "add-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Add WS").await;
+    let (bob_id, _, bob) = seed_and_login(&app, &state, "add-bob", false).await;
+    let (carol_id, _, carol) = seed_and_login(&app, &state, "add-carol", false).await;
+    let (dave_id, _, dave) = seed_and_login(&app, &state, "add-dave", false).await;
+    let (erin_id, _, _) = seed_and_login(&app, &state, "add-erin", false).await;
+    for id in [bob_id, carol_id, dave_id, erin_id] {
+        add_ws_member(&state, ws_id, id, "member").await;
+    }
+
+    let direct = conversation(&app, &bob, ws_id, &[carol_id]).await;
+    let group = conversation(&app, &bob, ws_id, &[carol_id, dave_id]).await;
+    assert_ne!(group, direct);
+    assert_eq!(
+        roster(&state, direct).await.len(),
+        2,
+        "the DM stays as it was"
+    );
+    assert_eq!(
+        conversation(&app, &carol, ws_id, &[dave_id, bob_id]).await,
+        group,
+        "the same people land in the group they already have"
+    );
+    let bigger = conversation(&app, &bob, ws_id, &[carol_id, dave_id, erin_id]).await;
+    assert_ne!(bigger, group);
+
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/workspaces/{ws_id}/members/{dave_id}"),
+        Some(&dave),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let fresh = conversation(&app, &bob, ws_id, &[carol_id, erin_id]).await;
+    assert_ne!(
+        fresh, bigger,
+        "a group somebody left is not the one these people started"
+    );
 }

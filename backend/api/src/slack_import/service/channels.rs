@@ -83,10 +83,17 @@ impl Import<'_> {
                         )
                         .await?;
                     if !channel.topic.value.is_empty() {
+                        let mut conn = self.state.pool.acquire().await?;
                         self.state
                             .workspace_service
                             .repo
-                            .update_channel(created.id, None, Some(&channel.topic.value), None)
+                            .update_channel(
+                                &mut conn,
+                                created.id,
+                                None,
+                                Some(&channel.topic.value),
+                                None,
+                            )
                             .await?;
                     }
                     self.report.channels_created += 1;
