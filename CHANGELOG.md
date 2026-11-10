@@ -16,11 +16,42 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ## [Unreleased]
 
+### Changed
+
+- Anyone in a channel who may post in it can change its topic and description, in *Channel
+  details → About* or with `/topic`, as in Slack. Guests and people outside the channel can't,
+  and in an announcement channel only its moderators can. Renaming a channel still needs a
+  moderator.
+- The channel hears what changed, as in Slack: "set the channel topic: …", "cleared the channel
+  topic", the same for the description, and "renamed the channel from “a” to “b”". Everyone
+  viewing the channel sees the new name, topic, description and settings at once, without a
+  reload.
+- *Add people* in a DM or group DM starts a group conversation with everyone in it plus the
+  people you pick, as in Slack; the conversation you were in stays as it is. Starting a group
+  with people who already have one opens that one instead of a second.
+
+### Security
+
+- Nobody can add people to a direct message or a group DM, remove or promote anyone in it,
+  leave it, archive it, rename it or set its topic, workspace admins included. Before, a
+  participant or an admin could add somebody, who then read the whole conversation.
+- `/invite` follows the rules of adding someone in *Channel details*: guests can't, an archived
+  channel takes nobody, and it is in the audit log.
+
 ### Fixed
 
 - In the desktop app, clicking a link to another site in a message, a link preview, a bookmark
   or a list opens it in your browser. On a Mac a plain click did nothing and only ⌘-click
   opened it. This needs the desktop app on this release; the server does not change.
+- A message scheduled into a DM whose other person has left the workspace is not delivered; it
+  fails with "The person you wrote to has left the workspace." A command's answer there is
+  shown only to you.
+- `/topic` no longer changes the topic of an archived channel.
+- `/invite` says who it added by name, not by an id, and saving a channel's topic or
+  description updates the channel's header at once instead of after a reload.
+- Archiving or unarchiving a DM says that a direct message keeps its settings, instead of that
+  only moderators can do it.
+- Changing an archived channel's message retention no longer posts a message into it.
 
 ## [4.6.0] — 2026-11-10
 

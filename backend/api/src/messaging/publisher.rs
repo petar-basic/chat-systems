@@ -4,6 +4,7 @@ use tracing::{info, warn};
 use uuid::Uuid;
 
 use super::models::{Message, Reaction, ReadState};
+use crate::workspace::models::Channel;
 
 use shared_common::errors::{AppError, AppResult};
 use shared_events::Event;
@@ -429,18 +430,16 @@ impl EventPublisher {
 
     pub async fn stage_channel_updated(
         conn: &mut PgConnection,
-        channel_id: Uuid,
-        workspace_id: Uuid,
-        is_archived: bool,
+        channel: &Channel,
     ) -> AppResult<Staged> {
         Self::stage(
             conn,
             "channel.updated",
-            workspace_id,
+            channel.workspace_id,
             serde_json::json!({
-                "channel_id": channel_id,
-                "workspace_id": workspace_id,
-                "is_archived": is_archived,
+                "channel_id": channel.id,
+                "workspace_id": channel.workspace_id,
+                "channel": channel,
             }),
         )
         .await

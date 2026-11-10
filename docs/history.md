@@ -2645,3 +2645,36 @@ every id before archiving any, then archives each through the same function as *
 settings*, so each has its audit row and system message. The table took the columns of Slack's
 *Channels* tab when it was reviewed against it, *Viewed* among them; Slack has no list of
 quiet channels, only an Enterprise API that archives up to a hundred at once.
+
+## Wave 32a — What the third survey found
+
+### [CS-121a] A conversation stays between the people in it ✅ shipped
+The ticket kept the topic with moderators, the route's rule at the time. Slack lets anyone in a
+channel who may post there set its topic and description, guests aside, so that became the
+rule for the panel, `PATCH /channels/{id}` and `/topic` alike: a moderator, or a member of the
+channel with the Member role or above who passes `can_post`. A `PATCH` that carries a name, the
+posting policy or broadcast mentions is a settings change and still needs a moderator. A `dm`
+or `group_dm` refuses every change to its people and settings, leaving included, for its
+participants and for admins, with one message, which archive and unarchive now give too:
+they used to ask for a moderator first. *Add people* does what Slack does: the DM header opens
+the new-message picker with everyone already there, and *Add* opens the group of all of them,
+leaving the old conversation as it was. `POST /workspaces/{id}/conversations` returns the group
+that has exactly those people and no departures (`find_group`) before it creates one, so adding
+the same person twice does not make two groups. The departure rule moved from
+`require_posting` into `authz::posting_blocked`, which says why a write is blocked, so the
+message route, `invoke`, a command's later answer and the scheduled executor ask the same
+question, and the executor can fail a DM to someone who left with `recipient_left` rather than
+`not_authorized`. `/invite` and the member route became one function, `membership::invite`,
+and `/topic` and the panel another, `workspace::details::update`, each writing the audit row the
+route wrote. That function does the whole `PATCH` in one transaction, settings included, and
+posts what Slack posts for a new name, topic or description (not for settings, and not for the
+same value again), so `/topic` answers with an empty `in_channel` instead of its own bot line.
+Every write publishes `channel.updated` with the whole channel instead of `is_archived` alone,
+and `applyChannel` puts it into the open channel, so the people already looking at a channel
+see the change without a reload; the app-event fan-out reads `channel.is_archived` from it.
+Retention on an archived channel is saved and audited without a system message. Trying it
+in the app turned up two older faults: the header kept the topic it had when the channel was
+opened, because `currentChannel` is a copy taken when it is selected, so `useUpdateChannel`
+now writes the answer into it the way `applyChannelArchived` does; and `/invite` answered with
+`<@id>`, which nothing renders, so it names the person as a mention token with the name from
+their account rather than the label that was typed.

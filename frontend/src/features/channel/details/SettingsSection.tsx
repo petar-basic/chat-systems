@@ -21,7 +21,7 @@ export function SettingsSection({ channel, onClose }: Props) {
   const [retentionChoice, setRetentionChoice] = useState<PeriodChoice | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const updateChannel = useUpdateChannel(channel.workspace_id, channel.id);
+  const updateChannel = useUpdateChannel(channel.id);
   const retention = useChannelRetention(channel.id);
   const setRetention = useSetChannelRetention(channel.id);
 

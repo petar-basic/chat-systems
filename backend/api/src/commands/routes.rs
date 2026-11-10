@@ -144,14 +144,16 @@ async fn invoke(
     // strict check happens up front so an announcement channel cannot be
     // written to through `/topic` or a registered command either.
     let access = authz::require_channel_access(&state, ch_id, auth.user_id).await?;
-    let may_post = access.can_post();
+    let may_post = authz::posting_blocked(&state, &access).await?.is_none();
 
     let command = req.command.trim().trim_start_matches('/').to_lowercase();
     if command.is_empty() {
         return Err(AppError::NotFound("unknown_command".into()));
     }
 
-    if let Some(response) = builtin::run(&state, ch_id, auth.user_id, &command, &req.text).await? {
+    if let Some(response) =
+        builtin::run(&state, ch_id, auth.user_id, &ip, &command, &req.text).await?
+    {
         return finish(
             &state,
             ch_id,

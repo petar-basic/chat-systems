@@ -5,6 +5,7 @@ export { ChannelIntro } from './ChannelIntro';
 export { ChannelPreviewBar } from './ChannelPreviewBar';
 export { ChannelArchivedBar } from './ChannelArchivedBar';
 export { CreateChannelModal } from './components/CreateChannelModal';
+export { NewDmModal, MAX_GROUP_OTHERS } from './components/NewDmModal';
 export { default as ChannelFilesPanel } from './ChannelFilesPanel';
 export { default as ChannelMembersPanel } from './ChannelMembersPanel';
 export { default as PinnedMessagesPanel } from './PinnedMessagesPanel';

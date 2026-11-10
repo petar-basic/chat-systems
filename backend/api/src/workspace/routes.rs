@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
+use super::details::{self, duplicate_channel_name, Details};
 use super::icon;
 use super::membership;
 use super::models::*;
@@ -626,14 +627,6 @@ async fn unread_channels(
     }))
 }
 
-fn duplicate_channel_name(err: sqlx::Error) -> AppError {
-    if shared_common::errors::is_unique_violation(&err) {
-        AppError::Conflict("A channel with that name already exists".into())
-    } else {
-        err.into()
-    }
-}
-
 #[utoipa::path(post, path = "/workspaces/{ws_id}/channels", tag = "channels", request_body = CreateChannelRequest, responses((status = 200, body = Channel)))]
 async fn create_channel(
     State(state): State<Arc<AppState>>,
@@ -667,10 +660,12 @@ async fn create_channel(
 
     let channel = match req.post_policy {
         Some(policy) => {
+            let mut conn = state.pool.acquire().await?;
             state
                 .workspace_service
                 .repo
                 .merge_channel_settings(
+                    &mut conn,
                     channel.id,
                     &serde_json::json!({ "post_policy": policy.as_str() }),
                 )
@@ -731,80 +726,29 @@ async fn update_channel(
 ) -> AppResult<Json<Channel>> {
     req.validate()?;
     let channel = authz::find_channel(&state, ch_id).await?;
-    authz::require_channel_moderator(&state, &channel, auth.user_id).await?;
-    authz::require_not_archived(&channel)?;
-    let mut updated = state
-        .workspace_service
-        .repo
-        .update_channel(
-            ch_id,
-            req.name.as_deref(),
-            req.topic.as_deref(),
-            req.description.as_deref(),
-        )
-        .await
-        .map_err(duplicate_channel_name)?;
-
-    if let Some(policy) = req.post_policy {
-        let before = channel
-            .settings
-            .get("post_policy")
-            .and_then(|v| v.as_str())
-            .unwrap_or("everyone")
-            .to_string();
-
-        updated = state
-            .workspace_service
-            .repo
-            .merge_channel_settings(
-                ch_id,
-                &serde_json::json!({ "post_policy": policy.as_str() }),
-            )
-            .await?;
-
-        // "Who silenced this channel" is exactly the question an audit log is
-        // for, so it is recorded separately from the rename.
-        audit::record(
-            &state,
-            AuditEntry::new(AuditAction::ChannelPostPolicyChanged, auth.user_id)
-                .workspace(channel.workspace_id)
-                .resource(ch_id)
-                .ip(&ip)
-                .details(serde_json::json!({ "from": before, "to": policy.as_str() })),
-        )
-        .await;
-    }
-
-    if let Some(allowed) = req.allow_broadcast_mentions {
-        updated = state
-            .workspace_service
-            .repo
-            .merge_channel_settings(
-                ch_id,
-                &serde_json::json!({ "allow_broadcast_mentions": allowed }),
-            )
-            .await?;
-        audit::record(
-            &state,
-            AuditEntry::new(AuditAction::ChannelBroadcastMentionsChanged, auth.user_id)
-                .workspace(channel.workspace_id)
-                .resource(ch_id)
-                .ip(&ip)
-                .details(serde_json::json!({ "allowed": allowed })),
-        )
-        .await;
-    }
-
-    audit::record(
+    let edit = if req.name.is_some()
+        || req.post_policy.is_some()
+        || req.allow_broadcast_mentions.is_some()
+    {
+        authz::ChannelEdit::Settings
+    } else {
+        authz::ChannelEdit::About
+    };
+    authz::require_channel_edit(&state, &channel, auth.user_id, edit).await?;
+    let updated = details::update(
         &state,
-        AuditEntry::new(AuditAction::ChannelUpdated, auth.user_id)
-            .workspace(channel.workspace_id)
-            .resource(ch_id)
-            .ip(&ip)
-            .details(serde_json::json!({ "from": channel.name, "to": updated.name })),
+        &channel,
+        auth.user_id,
+        &ip,
+        Details {
+            name: req.name.as_deref(),
+            topic: req.topic.as_deref(),
+            description: req.description.as_deref(),
+            post_policy: req.post_policy,
+            allow_broadcast_mentions: req.allow_broadcast_mentions,
+        },
     )
-    .await;
-
+    .await?;
     Ok(Json(updated))
 }
 
@@ -859,6 +803,7 @@ async fn archive_channel(
     Path(ch_id): Path<Uuid>,
 ) -> AppResult<Json<StatusResponse>> {
     let channel = authz::find_channel(&state, ch_id).await?;
+    authz::require_not_conversation(&channel)?;
     authz::require_channel_moderator(&state, &channel, auth.user_id).await?;
     set_archived(&state, &channel, auth.user_id, &ip, true).await?;
     Ok(Json(StatusResponse::new("archived")))
@@ -872,6 +817,7 @@ async fn unarchive_channel(
     Path(ch_id): Path<Uuid>,
 ) -> AppResult<Json<StatusResponse>> {
     let channel = authz::find_channel(&state, ch_id).await?;
+    authz::require_not_conversation(&channel)?;
     authz::require_channel_moderator(&state, &channel, auth.user_id).await?;
     set_archived(&state, &channel, auth.user_id, &ip, false).await?;
     Ok(Json(StatusResponse::new("unarchived")))
@@ -912,9 +858,14 @@ pub(crate) async fn set_archived(
         .publisher
         .stage_message_created(&mut tx, &msg, channel.workspace_id, &[])
         .await?;
-    let updated =
-        EventPublisher::stage_channel_updated(&mut tx, channel.id, channel.workspace_id, archived)
-            .await?;
+    let updated = EventPublisher::stage_channel_updated(
+        &mut tx,
+        &Channel {
+            is_archived: archived,
+            ..channel.clone()
+        },
+    )
+    .await?;
     tx.commit().await?;
     state.publisher.dispatch(created).await;
     state.publisher.dispatch(updated).await;
@@ -960,39 +911,7 @@ async fn add_channel_member(
     Json(req): Json<AddChannelMemberRequest>,
 ) -> AppResult<Json<ChannelMember>> {
     let channel = authz::find_channel(&state, ch_id).await?;
-    authz::require_not_archived(&channel)?;
-    authz::require_workspace_role(
-        &state,
-        channel.workspace_id,
-        auth.user_id,
-        &WorkspaceRole::Member,
-    )
-    .await?;
-    if !authz::can_moderate_channel(&state, &channel, auth.user_id).await
-        && channel.channel_type != ChannelType::Public
-    {
-        state
-            .workspace_service
-            .repo
-            .get_channel_member(ch_id, auth.user_id)
-            .await?
-            .ok_or_else(|| {
-                AppError::Forbidden("Only members of this channel can add people to it".into())
-            })?;
-    }
-    authz::require_workspace_member(&state, channel.workspace_id, req.user_id).await?;
-    let member = membership::add_to_channel(&state, &channel, req.user_id).await?;
-
-    audit::record(
-        &state,
-        AuditEntry::new(AuditAction::ChannelMemberAdded, auth.user_id)
-            .workspace(channel.workspace_id)
-            .resource(ch_id)
-            .ip(&ip)
-            .details(serde_json::json!({ "user_id": req.user_id })),
-    )
-    .await;
-
+    let member = membership::invite(&state, &channel, auth.user_id, req.user_id, &ip).await?;
     Ok(Json(member))
 }
 
@@ -1005,6 +924,7 @@ async fn update_channel_member_role(
     Json(req): Json<UpdateChannelMemberRoleRequest>,
 ) -> AppResult<Json<ChannelMember>> {
     let channel = authz::find_channel(&state, ch_id).await?;
+    authz::require_not_conversation(&channel)?;
     authz::require_channel_moderator(&state, &channel, auth.user_id).await?;
     authz::require_not_archived(&channel)?;
     let target = state
@@ -1044,6 +964,7 @@ async fn remove_channel_member(
     Path((ch_id, user_id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<Json<StatusResponse>> {
     let channel = authz::find_channel(&state, ch_id).await?;
+    authz::require_not_conversation(&channel)?;
     if auth.user_id != user_id {
         authz::require_channel_moderator(&state, &channel, auth.user_id).await?;
     }

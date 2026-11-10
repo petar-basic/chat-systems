@@ -4,7 +4,7 @@ import { useWorkspaceStore } from '@/stores/workspace';
 import { useCurrentApi, getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { QUERY_KEYS } from '@/shared/constants';
 import { fromChannelContext } from './channelContext';
-import { applyChannelArchived } from '@/lib/channelArchive';
+import { applyChannel, applyChannelArchived } from '@/lib/channelArchive';
 import { instanceManager } from '@/lib/instances';
 import { wsClient } from '@/lib/ws';
 import type { Message, Channel } from '@/stores/workspace';
@@ -148,7 +148,7 @@ export const useUpdateChannelMemberRole = (channelId: string) => {
   });
 };
 
-export const useUpdateChannel = (workspaceId: string, channelId: string) => {
+export const useUpdateChannel = (channelId: string) => {
   const queryClient = useQueryClient();
   const apiClient = useCurrentApi();
   return useMutation({
@@ -156,9 +156,7 @@ export const useUpdateChannel = (workspaceId: string, channelId: string) => {
       apiClient.typed((c) =>
         c.PATCH('/channels/{ch_id}', { params: { path: { ch_id: channelId } }, body: patch }),
       ),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceChannels(workspaceId) });
-    },
+    onSuccess: (updated) => applyChannel(queryClient, updated),
   });
 };
 

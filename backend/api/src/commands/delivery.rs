@@ -215,7 +215,7 @@ pub async fn answer(
     let access =
         authz::require_channel_access(state, invocation.channel_id, invocation.user_id).await?;
     let posts = response.response_type == "in_channel"
-        && access.can_post()
+        && authz::posting_blocked(state, &access).await?.is_none()
         && !response.text.trim().is_empty();
     if !posts {
         tell(state, invocation, "ephemeral", &response.text).await;

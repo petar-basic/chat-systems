@@ -92,6 +92,9 @@ async fn create_conversation(
 
     let mut everyone = participants.clone();
     everyone.push(auth.user_id);
+    if let Some(existing) = state.conversation_repo.find_group(ws_id, &everyone).await? {
+        return Ok(Json(existing));
+    }
     Ok(Json(
         open(
             &state,

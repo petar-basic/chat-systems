@@ -210,6 +210,7 @@
       "not_authorized": "You can no longer post there.",
       "author_inactive": "Your account was suspended.",
       "channel_archived": "The channel was archived.",
+      "recipient_left": "The person you wrote to has left the workspace.",
       "workspace_unavailable": "The workspace is no longer available.",
       "thread_gone": "The thread it replied to is gone.",
       "unknown": "The server could not deliver it."
@@ -223,6 +224,7 @@
     "back": "Back to channels",
     "people": "{{count}} people",
     "activeNow": "Active now",
+    "addPeople": "Add people",
     "departed": {
       "separator": ", ",
       "one": "{{name}} is no longer in this workspace",

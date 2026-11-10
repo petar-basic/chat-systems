@@ -430,18 +430,9 @@ pub(crate) async fn handle_event_for(
             cm.send_to_user(audience, uid, &framed(&frame)).await;
         }
         "channel.updated" => {
-            let (Some(channel_id), Some(workspace_id)) =
-                (field("channel_id"), field("workspace_id"))
+            let (Some(channel_id), Some(frame)) = (field("channel_id"), typed(event_type, payload))
             else {
                 return;
-            };
-            let frame = ServerFrame::ChannelUpdated {
-                channel_id,
-                workspace_id,
-                is_archived: payload
-                    .get("is_archived")
-                    .and_then(serde_json::Value::as_bool)
-                    .unwrap_or(false),
             };
             cm.broadcast_to_channel(audience, channel_id, &framed(&frame))
                 .await;

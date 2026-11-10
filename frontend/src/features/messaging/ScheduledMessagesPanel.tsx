@@ -33,6 +33,7 @@ const FAILURES = [
   'not_authorized',
   'author_inactive',
   'channel_archived',
+  'recipient_left',
   'workspace_unavailable',
   'thread_gone',
 ] as const;

@@ -4,9 +4,12 @@ use shared_common::errors::{AppError, AppResult};
 
 use chrono::{Duration, Utc};
 
+use crate::audit::ClientIp;
 use crate::authz;
 use crate::later::repo::NewReminder;
 use crate::state::AppState;
+use crate::workspace::details::{self, Details};
+use crate::workspace::membership;
 use crate::workspace::models::WorkspaceRole;
 
 use super::routes::CommandResponse;
@@ -39,6 +42,7 @@ pub async fn run(
     state: &AppState,
     channel_id: Uuid,
     user_id: Uuid,
+    ip: &ClientIp,
     command: &str,
     text: &str,
 ) -> AppResult<Option<CommandResponse>> {
@@ -102,9 +106,6 @@ pub async fn run(
 
         "topic" => {
             let channel = authz::find_channel(state, channel_id).await?;
-            // The route has already established that this person can see the
-            // channel; setting a topic is an ordinary member's job, as it is in
-            // the panel.
             if text.is_empty() {
                 return Ok(Some(CommandResponse::ephemeral(match channel.topic {
                     Some(topic) => format!("The topic is: {topic}"),
@@ -112,16 +113,22 @@ pub async fn run(
                 })));
             }
 
-            shared_common::validation::validate_description(text)?;
-            state
-                .workspace_service
-                .repo
-                .update_channel(channel_id, None, Some(text), None)
+            authz::require_channel_edit(state, &channel, user_id, authz::ChannelEdit::About)
                 .await?;
+            shared_common::validation::validate_channel_topic(text)?;
+            details::update(
+                state,
+                &channel,
+                user_id,
+                ip,
+                Details {
+                    topic: Some(text),
+                    ..Details::default()
+                },
+            )
+            .await?;
 
-            Ok(Some(CommandResponse::in_channel(format!(
-                "set the channel topic to: {text}"
-            ))))
+            Ok(Some(CommandResponse::in_channel("")))
         }
 
         "invite" => {
@@ -129,10 +136,16 @@ pub async fn run(
                 .ok_or_else(|| AppError::Validation("Name somebody: /invite @user".into()))?;
             let channel = authz::find_channel(state, channel_id).await?;
 
-            authz::require_workspace_member(state, channel.workspace_id, target).await?;
-            crate::workspace::membership::add_to_channel(state, &channel, target).await?;
+            membership::invite(state, &channel, user_id, target, ip).await?;
+            let name = state
+                .auth_service
+                .repo()
+                .find_by_id(target)
+                .await?
+                .and_then(|u| u.display_name)
+                .unwrap_or_else(|| "someone".into());
             Ok(Some(CommandResponse::in_channel(format!(
-                "added <@{target}> to the channel"
+                "added @[{name}]({target}) to the channel"
             ))))
         }
 

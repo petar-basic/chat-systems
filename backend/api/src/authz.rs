@@ -68,6 +68,13 @@ impl ChannelAccess {
         self.member.role.has_at_least(&WorkspaceRole::Member) && self.is_channel_admin()
     }
 
+    pub fn can_edit_about(&self) -> bool {
+        self.can_moderate()
+            || (self.channel_member.is_some()
+                && self.member.role.has_at_least(&WorkspaceRole::Member)
+                && self.can_post())
+    }
+
     pub fn allows_broadcast_mentions(&self) -> bool {
         self.channel
             .settings
@@ -238,12 +245,32 @@ pub async fn require_channel_post_as(
     require_posting(state, access).await
 }
 
-async fn require_posting(state: &AppState, access: ChannelAccess) -> AppResult<ChannelAccess> {
-    require_not_archived(&access.channel)?;
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PostingBlocked {
+    Archived,
+    ModeratorsOnly,
+    Departed(String),
+}
+
+impl From<PostingBlocked> for AppError {
+    fn from(blocked: PostingBlocked) -> Self {
+        AppError::Forbidden(match blocked {
+            PostingBlocked::Archived => "This channel is archived".into(),
+            PostingBlocked::ModeratorsOnly => "Only moderators can post in this channel".into(),
+            PostingBlocked::Departed(name) => format!("{name} is no longer in this workspace"),
+        })
+    }
+}
+
+pub async fn posting_blocked(
+    state: &AppState,
+    access: &ChannelAccess,
+) -> AppResult<Option<PostingBlocked>> {
+    if access.channel.is_archived {
+        return Ok(Some(PostingBlocked::Archived));
+    }
     if !access.can_post() {
-        return Err(AppError::Forbidden(
-            "Only moderators can post in this channel".into(),
-        ));
+        return Ok(Some(PostingBlocked::ModeratorsOnly));
     }
     if access.channel.channel_type == ChannelType::Dm {
         if let Some(name) = state
@@ -251,12 +278,17 @@ async fn require_posting(state: &AppState, access: ChannelAccess) -> AppResult<C
             .departed_name(access.channel.id)
             .await?
         {
-            return Err(AppError::Forbidden(format!(
-                "{name} is no longer in this workspace"
-            )));
+            return Ok(Some(PostingBlocked::Departed(name)));
         }
     }
-    Ok(access)
+    Ok(None)
+}
+
+async fn require_posting(state: &AppState, access: ChannelAccess) -> AppResult<ChannelAccess> {
+    match posting_blocked(state, &access).await? {
+        Some(blocked) => Err(blocked.into()),
+        None => Ok(access),
+    }
 }
 
 pub fn require_not_archived(channel: &Channel) -> AppResult<()> {
@@ -264,6 +296,48 @@ pub fn require_not_archived(channel: &Channel) -> AppResult<()> {
         return Err(AppError::Forbidden("This channel is archived".into()));
     }
     Ok(())
+}
+
+pub fn require_not_conversation(channel: &Channel) -> AppResult<()> {
+    if matches!(channel.channel_type, ChannelType::Dm | ChannelType::GroupDm) {
+        return Err(AppError::Forbidden(
+            "A direct message keeps the people and settings it started with".into(),
+        ));
+    }
+    Ok(())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChannelEdit {
+    About,
+    Settings,
+}
+
+pub async fn require_channel_edit(
+    state: &AppState,
+    channel: &Channel,
+    user_id: Uuid,
+    edit: ChannelEdit,
+) -> AppResult<()> {
+    require_not_conversation(channel)?;
+    match edit {
+        ChannelEdit::Settings => {
+            require_channel_moderator(state, channel, user_id).await?;
+            require_not_archived(channel)
+        }
+        ChannelEdit::About => {
+            require_not_archived(channel)?;
+            let allowed = access_to(state, channel, user_id)
+                .await?
+                .is_some_and(|access| access.can_edit_about());
+            if !allowed {
+                return Err(AppError::Forbidden(
+                    "Only people in this channel who can post here can change its topic".into(),
+                ));
+            }
+            Ok(())
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

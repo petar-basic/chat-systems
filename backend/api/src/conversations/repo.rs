@@ -95,6 +95,34 @@ impl ConversationRepo {
         Ok(row.and_then(ConversationRow::into_conversation))
     }
 
+    pub async fn find_group(
+        &self,
+        workspace_id: Uuid,
+        everyone: &[Uuid],
+    ) -> sqlx::Result<Option<Conversation>> {
+        let row = sqlx::query_as!(
+            ConversationRow,
+            r#"
+            SELECT c.id, c.workspace_id, c.channel_type AS "channel_type: ChannelType", c.created_by, c.created_at,
+                   COALESCE((SELECT MAX(m.created_at) FROM messages m WHERE m.channel_id = c.id AND m.deleted_at IS NULL), c.created_at) AS "last_message_at!"
+              FROM channels c
+             WHERE c.workspace_id = $1 AND c.channel_type = 'group_dm'
+               AND (SELECT COUNT(*) FROM channel_members p WHERE p.channel_id = c.id) = cardinality($2::uuid[])
+               AND NOT EXISTS (
+                   SELECT 1 FROM channel_members p WHERE p.channel_id = c.id AND p.user_id <> ALL($2::uuid[])
+               )
+               AND NOT EXISTS (SELECT 1 FROM conversation_departures d WHERE d.channel_id = c.id)
+             ORDER BY c.created_at, c.id
+             LIMIT 1
+            "#,
+            workspace_id,
+            everyone
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row.and_then(ConversationRow::into_conversation))
+    }
+
     pub async fn create_in(
         &self,
         conn: &mut PgConnection,

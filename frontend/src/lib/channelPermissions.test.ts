@@ -3,6 +3,7 @@ import {
   canModerateChannel,
   canAddChannelMembers,
   canPostInChannel,
+  canEditChannelAbout,
   canBroadcastInChannel,
   creatableChannelKinds,
 } from './channelPermissions';
@@ -65,6 +66,28 @@ describe('canPostInChannel', () => {
   /// `can_moderate`, and the two have to agree or the composer lies.
   it('does not promote a guest through channel admin', () => {
     expect(canPostInChannel(locked, 'guest', 'admin')).toBe(false);
+  });
+});
+
+describe('canEditChannelAbout', () => {
+  const locked = { post_policy: 'moderators' as const };
+
+  it('lets a member of the channel who may post change its topic', () => {
+    expect(canEditChannelAbout(undefined, 'member', 'member')).toBe(true);
+    expect(canEditChannelAbout(undefined, 'member', 'admin')).toBe(true);
+  });
+
+  it('keeps guests and people outside the channel to reading it', () => {
+    expect(canEditChannelAbout(undefined, 'guest', 'member')).toBe(false);
+    expect(canEditChannelAbout(undefined, 'guest', 'admin')).toBe(false);
+    expect(canEditChannelAbout(undefined, 'member', undefined)).toBe(false);
+    expect(canEditChannelAbout(undefined, null, undefined)).toBe(false);
+  });
+
+  it('holds an announcement channel to the people who moderate it', () => {
+    expect(canEditChannelAbout(locked, 'member', 'member')).toBe(false);
+    expect(canEditChannelAbout(locked, 'member', 'admin')).toBe(true);
+    expect(canEditChannelAbout(locked, 'admin', undefined)).toBe(true);
   });
 });
 

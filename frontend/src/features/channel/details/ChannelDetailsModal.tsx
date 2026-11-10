@@ -16,6 +16,7 @@ const ICONS = { about: Info, settings: SlidersHorizontal, activity: ChartColumn,
 interface Props {
   channel: Channel;
   canModerate: boolean;
+  canEditAbout: boolean;
   initialTab?: ChannelDetailsTab;
   onOpenWorkflow?: (workflowId: string) => void;
   onOpenApp?: (app: AppRef) => void;
@@ -25,6 +26,7 @@ interface Props {
 export function ChannelDetailsModal({
   channel,
   canModerate,
+  canEditAbout,
   initialTab = 'about',
   onOpenWorkflow,
   onOpenApp,
@@ -51,7 +53,14 @@ export function ChannelDetailsModal({
       onClose={onClose}
       qaPrefix="channel-details"
     >
-      {active === 'about' && <AboutSection channel={channel} canModerate={canModerate} onClose={onClose} />}
+      {active === 'about' && (
+        <AboutSection
+          channel={channel}
+          canModerate={canModerate}
+          canEditAbout={canEditAbout}
+          onClose={onClose}
+        />
+      )}
       {active === 'settings' && <SettingsSection channel={channel} onClose={onClose} />}
       {active === 'activity' && <ActivitySection channel={channel} />}
       {active === 'integrations' && (

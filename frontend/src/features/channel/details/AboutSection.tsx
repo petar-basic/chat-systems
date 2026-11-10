@@ -11,12 +11,14 @@ import { useArchiveChannel, useUpdateChannel } from '../hooks/useChannels';
 interface Props {
   channel: Channel;
   canModerate: boolean;
+  canEditAbout: boolean;
   onClose: () => void;
 }
 
-export function AboutSection({ channel, canModerate, onClose }: Props) {
-  if (!canModerate) return <AboutText channel={channel} />;
-  return <AboutForm channel={channel} onClose={onClose} />;
+export function AboutSection({ channel, canModerate, canEditAbout, onClose }: Props) {
+  if (canModerate) return <AboutForm channel={channel} renames onClose={onClose} />;
+  if (canEditAbout) return <AboutForm channel={channel} renames={false} onClose={onClose} />;
+  return <AboutText channel={channel} />;
 }
 
 function AboutText({ channel }: { channel: Channel }) {
@@ -39,23 +41,29 @@ function AboutText({ channel }: { channel: Channel }) {
   );
 }
 
-function AboutForm({ channel, onClose }: Omit<Props, 'canModerate'>) {
+interface FormProps {
+  channel: Channel;
+  renames: boolean;
+  onClose: () => void;
+}
+
+function AboutForm({ channel, renames, onClose }: FormProps) {
   const { t } = useTranslation('channel');
   const [name, setName] = useState(channel.name ?? '');
   const [topic, setTopic] = useState(channel.topic ?? '');
   const [description, setDescription] = useState(channel.description ?? '');
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const updateChannel = useUpdateChannel(channel.workspace_id, channel.id);
+  const updateChannel = useUpdateChannel(channel.id);
   const archiveChannel = useArchiveChannel(channel.workspace_id);
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (renames && !name.trim()) return;
     setError(null);
     try {
       await updateChannel.mutateAsync({
-        name: name.trim(),
+        ...(renames ? { name: name.trim() } : {}),
         topic: topic.trim(),
         description: description.trim(),
       });
@@ -73,14 +81,16 @@ function AboutForm({ channel, onClose }: Omit<Props, 'canModerate'>) {
   return (
     <>
       <form onSubmit={handleSave} noValidate className="space-y-4">
-        <TextInput
-          label={t('details.about.name')}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          maxLength={80}
-          dataQa="channel-about-name"
-          required
-        />
+        {renames && (
+          <TextInput
+            label={t('details.about.name')}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={80}
+            dataQa="channel-about-name"
+            required
+          />
+        )}
         <TextInput
           label={t('details.about.topic')}
           optional
@@ -101,22 +111,24 @@ function AboutForm({ channel, onClose }: Omit<Props, 'canModerate'>) {
             {error}
           </p>
         )}
-        <div className="flex items-center justify-between gap-2 pt-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            icon={<Archive className="h-3.5 w-3.5" />}
-            onClick={() => setConfirmArchive(true)}
-            data-qa="channel-about-archive"
-            className="-ml-2.5 hover:text-danger"
-          >
-            {t('details.about.archive')}
-          </Button>
+        <div className={`flex items-center gap-2 pt-2 ${renames ? 'justify-between' : 'justify-end'}`}>
+          {renames && (
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={<Archive className="h-3.5 w-3.5" />}
+              onClick={() => setConfirmArchive(true)}
+              data-qa="channel-about-archive"
+              className="-ml-2.5 hover:text-danger"
+            >
+              {t('details.about.archive')}
+            </Button>
+          )}
           <Button
             type="submit"
             variant="primary"
             loading={updateChannel.isPending}
-            disabled={!name.trim()}
+            disabled={renames && !name.trim()}
             data-qa="channel-about-save"
           >
             {t('details.save')}

@@ -153,6 +153,11 @@ renders `ConversationView` — a header with the participants over the same `Mes
 conversation id as the channel id. A participant who left the workspace keeps their name and
 photo from the conversation's `departed`; a DM with them says *<name> is no longer in this
 workspace* in place of the composer, and a group DM says it above the composer.
+*Add people* in the header, offered while somebody else is still there and the group has room
+for one more (nine people in all), opens `NewDmModal` with `adding` set to everyone else in
+it: they are left out of the list, and *Add* opens the group of all of them through
+`handleOpenWith`, as in Slack. The server returns the group these people already have, if there
+is one; the conversation you were in stays as it is.
 `workspace.members_changed` refetches the conversation list, so a departure or a return shows
 at once.
 
@@ -222,8 +227,9 @@ sits in the ⋯ menu for everyone in the channel; below `sm` the toggles fold in
 *Integrations*.
 
 ### `channel/details/ChannelDetailsModal`
-A `SectionedModal` with *About* (name, topic, description and archive for a moderator, the
-topic and description as text for everyone else), *Settings* (announcement channel, whether
+A `SectionedModal` with *About* (name, topic, description and archive for a moderator, topic
+and description for a member who may post there (`canEditChannelAbout`), the two as text for
+everyone else), *Settings* (announcement channel, whether
 `@channel`, `@here` and `@everyone` work there, and message retention, moderators only), *Activity* (moderators only:
 `GET /channels/:id/analytics`, the messages, the members who posted and viewed in the last 30
 days, and the last message's day) and *Integrations*. *Integrations* reads
@@ -240,8 +246,10 @@ Takes the composer's place, ahead of the preview bar and the announcement notice
 current channel has `is_archived`. *Unarchive* is there for a channel moderator
 (`useChannelModeration().canModerate`). `lib/channelArchive.applyChannelArchived` patches the
 open channel and its `channel` query and refreshes the channel list and *Browse channels*; the
-archive and unarchive mutations call it, and so does `wsQuerySync` on `channel.updated`, so
-everyone viewing the channel switches at once. *Browse channels* lists archived channels with
+archive and unarchive mutations call it. `applyChannel` does the same with a whole `Channel`:
+`useUpdateChannel` calls it with what the save returned and `wsQuerySync` with the channel in
+`channel.updated`, so a new name, topic, description, setting or archived state shows at once for
+everyone viewing the channel. *Browse channels* lists archived channels with
 *Archived* in place of *Joined*; a row opens the channel to read, with no *Join* or *Leave*. The
 thread panel of an archived channel says so in place of its composer.
 
@@ -956,7 +964,7 @@ typing, and `notification` events are handled separately — by `usePresenceStor
 | `message.pinned` | Invalidate pins query + patch `is_pinned` on cached message |
 | `reaction.added` / `reaction.removed` | Patch reactions array on cached message |
 | `channel.created` | Invalidate workspace channels list |
-| `channel.updated` | Invalidate single channel query |
+| `channel.updated` | `applyChannel` with the channel it carries: the open channel and its query take it, the channel list and *Browse channels* refetch |
 | `channel.member_added` / `channel.member_removed` | Invalidate channel members query |
 | `workspace.members_changed` | Someone joined or left: invalidate that workspace's members and every cached channel member list (`membershipSync.ts`) |
 | `workspace.created` / `workspace.restored` | Invalidate workspaces list |

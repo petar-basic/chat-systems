@@ -14,7 +14,7 @@ function purposeOf(channel: Channel) {
   if (channel.is_default) {
     return 'Everyone in the workspace is here. Use it for announcements and for anything the whole team should see.';
   }
-  return 'Nobody has said what this channel is for yet. Its admins can add a description in the channel settings.';
+  return 'Nobody has said what this channel is for yet. Anyone who posts here can add one in the channel details.';
 }
 
 export function ChannelIntro({ channel, onAddPeople, onAddBookmark }: Props) {
