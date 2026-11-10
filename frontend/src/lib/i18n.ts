@@ -7,6 +7,7 @@ import enCommon from '@/locales/en/common.json';
 import enMessages from '@/locales/en/messages.json';
 import enHuddle from '@/locales/en/huddle.json';
 import enNotifications from '@/locales/en/notifications.json';
+import enPolls from '@/locales/en/polls.json';
 import enProfile from '@/locales/en/profile.json';
 import enSidebar from '@/locales/en/sidebar.json';
 import enWorkspace from '@/locales/en/workspace.json';
@@ -16,6 +17,7 @@ import jaCommon from '@/locales/ja/common.json';
 import jaMessages from '@/locales/ja/messages.json';
 import jaHuddle from '@/locales/ja/huddle.json';
 import jaNotifications from '@/locales/ja/notifications.json';
+import jaPolls from '@/locales/ja/polls.json';
 import jaProfile from '@/locales/ja/profile.json';
 import jaSidebar from '@/locales/ja/sidebar.json';
 import jaWorkspace from '@/locales/ja/workspace.json';
@@ -38,6 +40,7 @@ export const resources = {
     huddle: enHuddle,
     messages: enMessages,
     notifications: enNotifications,
+    polls: enPolls,
     profile: enProfile,
     sidebar: enSidebar,
     workspace: enWorkspace,
@@ -49,6 +52,7 @@ export const resources = {
     huddle: jaHuddle,
     messages: jaMessages,
     notifications: jaNotifications,
+    polls: jaPolls,
     profile: jaProfile,
     sidebar: jaSidebar,
     workspace: jaWorkspace,
@@ -115,7 +119,18 @@ export const i18nOptions = {
   resources,
   fallbackLng: 'en',
   supportedLngs: LANGUAGES,
-  ns: ['auth', 'channel', 'common', 'huddle', 'messages', 'notifications', 'profile', 'sidebar', 'workspace'],
+  ns: [
+    'auth',
+    'channel',
+    'common',
+    'huddle',
+    'messages',
+    'notifications',
+    'polls',
+    'profile',
+    'sidebar',
+    'workspace',
+  ],
   initAsync: false,
   interpolation: { escapeValue: false },
   react: { unescape: unescapeText },

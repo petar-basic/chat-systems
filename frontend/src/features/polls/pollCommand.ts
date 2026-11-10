@@ -6,9 +6,8 @@ export const OPTION_MAX = 100;
 export type PollCommand =
   | { kind: 'dialog' }
   | { kind: 'create'; question: string; options: string[] }
-  | { kind: 'invalid'; message: string };
+  | { kind: 'invalid'; problem: 'usage' | 'unclosed' | 'count' };
 
-const USAGE = 'Try /poll "Lunch?" "Thursday" "Friday", or /poll alone for the dialog';
 const QUOTES: Record<string, string> = { '"': '"', '“': '”', '„': '“', '”': '”' };
 
 export function parsePollCommand(content: string): PollCommand | null {
@@ -26,18 +25,18 @@ export function parsePollCommand(content: string): PollCommand | null {
       continue;
     }
     const close = QUOTES[ch];
-    if (!close) return { kind: 'invalid', message: USAGE };
+    if (!close) return { kind: 'invalid', problem: 'usage' };
     const end = rest.indexOf(close, i + 1);
-    if (end < 0) return { kind: 'invalid', message: 'A quote is not closed' };
+    if (end < 0) return { kind: 'invalid', problem: 'unclosed' };
     parts.push(rest.slice(i + 1, end).trim());
     i = end + 1;
   }
 
   const [question, ...options] = parts;
-  if (!question) return { kind: 'invalid', message: USAGE };
+  if (!question) return { kind: 'invalid', problem: 'usage' };
   const kept = options.filter(Boolean);
   if (kept.length < MIN_OPTIONS || kept.length > MAX_OPTIONS) {
-    return { kind: 'invalid', message: `A poll needs ${MIN_OPTIONS} to ${MAX_OPTIONS} options` };
+    return { kind: 'invalid', problem: 'count' };
   }
   return { kind: 'create', question, options: kept };
 }

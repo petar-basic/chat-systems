@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import type { components } from '@/api/schema';
 import type { Message } from '@/stores/workspace';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
-import { ErrorLabels, QUERY_KEYS } from '@/shared/constants';
+import { QUERY_KEYS } from '@/shared/constants';
 import { toast } from '@/shared/components/Toast';
 import { toUserMessage } from '@/lib/errors';
 import { patchMessageEverywhere, placeOwnMessage } from '@/lib/messagePatch';
@@ -66,6 +67,7 @@ export function usePollVoters(poll: PollSummary, instanceUrl?: string) {
 }
 
 export function useVote(message: Located, poll: PollSummary, instanceUrl?: string) {
+  const { t } = useTranslation('polls');
   const queryClient = useQueryClient();
   const key = QUERY_KEYS.pollVote(poll.id);
   return useMutation({
@@ -88,7 +90,7 @@ export function useVote(message: Located, poll: PollSummary, instanceUrl?: strin
         queryClient.setQueryData(key, context.mine);
         setPoll(queryClient, message, context.poll);
       }
-      toast.error(toUserMessage(err, ErrorLabels.VoteFailed));
+      toast.error(toUserMessage(err, t('toasts.voteFailed')));
     },
     onSuccess: (result) => {
       queryClient.setQueryData(key, result.option_ids);
@@ -98,6 +100,7 @@ export function useVote(message: Located, poll: PollSummary, instanceUrl?: strin
 }
 
 export function useClosePoll(message: Located, pollId: string, instanceUrl?: string) {
+  const { t } = useTranslation('polls');
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () =>
@@ -105,7 +108,7 @@ export function useClosePoll(message: Located, pollId: string, instanceUrl?: str
         c.POST('/polls/{poll_id}/close', { params: { path: { poll_id: pollId } } }),
       ),
     onSuccess: (poll) => setPoll(queryClient, message, poll),
-    onError: (err) => toast.error(toUserMessage(err, ErrorLabels.PollCloseFailed)),
+    onError: (err) => toast.error(toUserMessage(err, t('toasts.closeFailed'))),
   });
 }
 

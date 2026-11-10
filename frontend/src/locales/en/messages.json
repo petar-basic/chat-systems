@@ -89,7 +89,8 @@
     "refresh": "Refresh preview",
     "refreshShort": "Refresh",
     "remove": "Remove preview",
-    "play": "Play {{title}}"
+    "play": "Play {{title}}",
+    "asOf": "As of {{time}}"
   },
   "history": {
     "title": "Edit history",
@@ -108,7 +109,8 @@
     "markUnreadFailed": "Couldn't mark the message unread",
     "pinFailed": "Couldn't update the pin",
     "reactionFailed": "Couldn't update the reaction",
-    "linkCopied": "Link copied to clipboard"
+    "linkCopied": "Link copied to clipboard",
+    "saved": "Saved for later"
   },
   "composer": {
     "placeholder": "Message #{{name}}",
@@ -174,5 +176,46 @@
     "connect": "Connect {{app}}",
     "notNow": "Not now",
     "never": "Never ask me again"
+  },
+  "forward": {
+    "title": "Forward message",
+    "from": "From {{author}} in {{origin}}",
+    "someone": "Somebody",
+    "files": "📎 Files are forwarded too",
+    "comment": "Comment",
+    "commentPlaceholder": "Add a comment (optional)",
+    "search": "Search for somewhere to forward to",
+    "searchPlaceholder": "Search channels and people",
+    "none": "Nothing matches that.",
+    "failed": "Failed to forward that message"
+  },
+  "scheduled": {
+    "title": "Scheduled",
+    "empty": "Nothing is waiting to be sent. Write a message, then pick the clock next to Send.",
+    "thread": "{{target}} · thread",
+    "leftChannel": "a channel you left",
+    "files_one": "{{count}} file",
+    "files_other": "{{count}} files",
+    "reschedule": "Reschedule",
+    "rescheduleLabel": "Reschedule message for {{target}}",
+    "cancel": "Cancel",
+    "remove": "Remove",
+    "cancelLabel": "Cancel message for {{target}}",
+    "removeLabel": "Remove message for {{target}}",
+    "newTime": "New time",
+    "move": "Move",
+    "sendNow": "Send now",
+    "notSent": "Not sent. {{reason}}",
+    "reasons": {
+      "not_authorized": "You can no longer post there.",
+      "author_inactive": "Your account was suspended.",
+      "channel_archived": "The channel was archived.",
+      "workspace_unavailable": "The workspace is no longer available.",
+      "thread_gone": "The thread it replied to is gone.",
+      "unknown": "The server could not deliver it."
+    },
+    "moveFailed": "Failed to move that message",
+    "cancelFailed": "Failed to cancel",
+    "sendFailed": "Failed to send"
   }
 }

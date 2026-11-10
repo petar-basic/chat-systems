@@ -87,7 +87,8 @@
     "refresh": "プレビューを更新",
     "refreshShort": "更新",
     "remove": "プレビューを削除",
-    "play": "{{title}} を再生"
+    "play": "{{title}} を再生",
+    "asOf": "{{time}} 時点"
   },
   "history": {
     "title": "編集履歴",
@@ -106,7 +107,8 @@
     "markUnreadFailed": "未読にできませんでした",
     "pinFailed": "ピン留めを変更できませんでした",
     "reactionFailed": "リアクションを変更できませんでした",
-    "linkCopied": "リンクをコピーしました"
+    "linkCopied": "リンクをコピーしました",
+    "saved": "「後で」に保存しました"
   },
   "composer": {
     "placeholder": "#{{name}} へのメッセージ",
@@ -171,5 +173,45 @@
     "connect": "{{app}} を接続",
     "notNow": "今はしない",
     "never": "今後は表示しない"
+  },
+  "forward": {
+    "title": "メッセージを転送",
+    "from": "投稿者: {{author}} さん ・ 投稿先: {{origin}}",
+    "someone": "不明なユーザー",
+    "files": "📎 ファイルも一緒に転送されます",
+    "comment": "コメント",
+    "commentPlaceholder": "コメントを追加（任意）",
+    "search": "転送先を検索",
+    "searchPlaceholder": "チャンネルやメンバーを検索",
+    "none": "該当するものがありません。",
+    "failed": "メッセージを転送できませんでした"
+  },
+  "scheduled": {
+    "title": "予約済み",
+    "empty": "送信待ちの項目はありません。メッセージを作成し、送信ボタン横にある時計アイコンを押してください。",
+    "thread": "{{target}} · スレッド",
+    "leftChannel": "退出したチャンネル",
+    "files_other": "ファイル {{count}}件",
+    "reschedule": "日時を変更",
+    "rescheduleLabel": "{{target}} への予約の日時を変更",
+    "cancel": "予約を取り消す",
+    "remove": "削除",
+    "cancelLabel": "{{target}} への予約を取り消す",
+    "removeLabel": "{{target}} へのメッセージを削除",
+    "newTime": "新しい日時",
+    "move": "変更",
+    "sendNow": "今すぐ送信",
+    "notSent": "送信されませんでした。{{reason}}",
+    "reasons": {
+      "not_authorized": "その場所には、もう投稿できません。",
+      "author_inactive": "あなたのアカウントは停止されています。",
+      "channel_archived": "チャンネルがアーカイブされました。",
+      "workspace_unavailable": "ワークスペースが利用できなくなりました。",
+      "thread_gone": "返信先のスレッドがなくなりました。",
+      "unknown": "サーバーが配信できませんでした。"
+    },
+    "moveFailed": "日時を変更できませんでした",
+    "cancelFailed": "取り消せませんでした",
+    "sendFailed": "送信できませんでした"
   }
 }

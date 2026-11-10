@@ -10,9 +10,10 @@ export function targetLabel(
   conversations: Conversation[],
   currentUserId: string | undefined,
   nameOf: (userId: string) => string | undefined,
+  leftChannel = 'a channel you left',
 ): string {
   const channel = channels.find((c) => c.id === channelId);
   if (channel) return `#${channel.name}`;
   const conversation = conversations.find((c) => c.id === channelId);
-  return conversation ? conversationTitle(conversation, currentUserId, nameOf) : 'a channel you left';
+  return conversation ? conversationTitle(conversation, currentUserId, nameOf) : leftChannel;
 }

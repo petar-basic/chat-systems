@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import i18n from '@/lib/i18n';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createRef } from 'react';
 import { QueryClient, QueryClientProvider, useQuery, type InfiniteData } from '@tanstack/react-query';
@@ -209,5 +210,27 @@ describe('PollCard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close poll' }));
     await waitFor(() => expect(screen.getByTestId('poll-footer')).toHaveTextContent('Closed'));
     expect(calls.post).toHaveBeenCalledWith('/polls/{poll_id}/close', undefined);
+  });
+});
+
+describe('PollCard in Japanese', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('names the poll after its question, as text, and counts the votes', async () => {
+    const question = '<img src=x onerror="alert(1)"> {{name}}';
+    await i18n.changeLanguage('ja');
+    renderCard(pollOf({ question, closed_at: '2026-10-24T10:00:00Z' }));
+    expect(await screen.findByLabelText(`投票: ${question}`)).toBeInTheDocument();
+    expect(screen.getByText('1つ選択')).toBeInTheDocument();
+    expect(screen.getByTestId('poll-footer').textContent).toBe('2票 · 締め切り済み');
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
+
+  it('marks an anonymous poll', async () => {
+    await i18n.changeLanguage('ja');
+    renderCard(pollOf({ anonymous: true, multiple_choice: true }));
+    expect((await screen.findByText(/複数選択可/)).textContent).toBe('複数選択可 · 匿名');
   });
 });

@@ -132,7 +132,7 @@ function AppCard({
         </a>
       )}
       <div className="mt-2 flex items-center gap-3 text-xs text-muted">
-        {fetched && <span>As of {fetched}</span>}
+        {fetched && <span>{t('previews.asOf', { time: fetched })}</span>}
         <a
           href={unfurl.url}
           target="_blank"
