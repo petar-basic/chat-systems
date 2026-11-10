@@ -1,4 +1,5 @@
 {
   "start": "Start huddle",
-  "join": "Join huddle"
+  "join": "Join huddle",
+  "busy": "Already in a huddle"
 }

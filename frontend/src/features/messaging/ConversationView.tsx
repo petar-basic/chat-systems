@@ -1,4 +1,5 @@
 import { ArrowLeft, Menu, UserMinus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useUserCache } from '@/stores/users';
 import { usePresenceStore } from '@/stores/presence';
 import type { Channel, Message, WorkspaceMember } from '@/stores/workspace';
@@ -53,6 +54,7 @@ export default function ConversationView({
   onSave,
   onForward,
 }: Props) {
+  const { t } = useTranslation(['messages', 'channel']);
   const { getUser } = useUserCache();
   const title = conversationTitle(conversation, currentUserId, (id) => getUser(id)?.display_name);
   const participantIds = conversation.participant_ids;
@@ -73,14 +75,19 @@ export default function ConversationView({
 
   return (
     <FileDropZone className="flex-1 flex min-w-0" disabled={!!gone} onFiles={attachments.add}>
-      <div role="main" aria-label="Direct message" className="flex-1 flex flex-col min-w-0" data-message-pane>
+      <div
+        role="main"
+        aria-label={t('conversation.label')}
+        className="flex-1 flex flex-col min-w-0"
+        data-message-pane
+      >
         <ConnectionBanner instanceUrl={instanceUrl} />
         <div className="h-12 px-4 flex items-center gap-3 border-b border-line/50 shrink-0">
           {onOpenNav && (
             <button
               onClick={onOpenNav}
-              aria-label="Open navigation"
-              data-tooltip="Open navigation"
+              aria-label={t('header.openNavigation', { ns: 'channel' })}
+              data-tooltip={t('header.openNavigation', { ns: 'channel' })}
               className="lg:hidden p-1.5 -ml-1 rounded-lg text-muted hover:text-fg hover:bg-raised/50"
             >
               <Menu className="w-5 h-5" />
@@ -88,8 +95,8 @@ export default function ConversationView({
           )}
           <button
             onClick={onClose}
-            aria-label="Back to channels"
-            data-tooltip="Back to channels"
+            aria-label={t('conversation.back')}
+            data-tooltip={t('conversation.back')}
             className="text-muted hover:text-fg transition cursor-pointer mr-1"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -118,8 +125,14 @@ export default function ConversationView({
           <span className="font-semibold text-fg truncate" data-qa="conversation-title">
             {title}
           </span>
-          {!isDirect && <span className="text-xs text-muted shrink-0">{participantIds.length} people</span>}
-          {isDirect && !gone && status === 'online' && <span className="text-xs text-muted">Active now</span>}
+          {!isDirect && (
+            <span className="text-xs text-muted shrink-0">
+              {t('conversation.people', { count: participantIds.length })}
+            </span>
+          )}
+          {isDirect && !gone && status === 'online' && (
+            <span className="text-xs text-muted">{t('conversation.activeNow')}</span>
+          )}
           <div className="ml-auto flex items-center gap-1">
             <NotificationLevelButton channelId={conversation.id} direct />
             {isDirect && !gone && (

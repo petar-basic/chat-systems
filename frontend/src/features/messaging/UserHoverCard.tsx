@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { MessageSquare, Moon, Phone } from 'lucide-react';
 import { HoverCard } from '@/shared/components/Popover/HoverCard';
@@ -25,8 +26,6 @@ interface Props {
   children: ReactNode;
   triggerClassName?: string;
 }
-
-const PRESENCE_LABEL = { online: 'Online', away: 'Away', offline: 'Offline' } as const;
 
 export function UserHoverCard({ userId, name, avatarUrl, children, triggerClassName }: Props) {
   const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace);
@@ -67,6 +66,7 @@ function UserCardBody({
   workspaceId: string;
   instanceUrl: string;
 }) {
+  const { t } = useTranslation(['messages', 'common', 'huddle']);
   const navigate = useNavigate();
   const { data: self } = useCurrentUser();
   const cached = useUserCache((s) => s.getUser(userId));
@@ -136,12 +136,12 @@ function UserCardBody({
           )}
           <div className="flex items-center gap-1.5 mt-0.5">
             <PresenceDot userId={userId} className="w-2 h-2" />
-            <span className="text-xs text-muted">{PRESENCE_LABEL[presence]}</span>
+            <span className="text-xs text-muted">{t(`presence.${presence}`, { ns: 'common' })}</span>
           </div>
           {paused && (
             <div className="flex items-center gap-1 text-xs text-muted mt-1" data-qa="hover-card-paused">
               <Moon className="w-3 h-3 shrink-0" />
-              Notifications paused until {formatResume(paused.until)}
+              {t('hoverCard.paused', { time: formatResume(paused.until) })}
             </div>
           )}
           {(statusEmoji || statusText) && (
@@ -176,17 +176,17 @@ function UserCardBody({
             className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg bg-raised hover:bg-elevated text-fg text-xs font-medium transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <MessageSquare className="w-3.5 h-3.5" />
-            Message
+            {t('hoverCard.message')}
           </button>
           <button
             onClick={() => void onHuddle()}
             disabled={busy || inHuddle}
-            data-tooltip={inHuddle ? 'Already in a huddle' : 'Start huddle'}
+            data-tooltip={inHuddle ? t('busy', { ns: 'huddle' }) : t('start', { ns: 'huddle' })}
             data-qa="hover-card-huddle"
             className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg bg-raised hover:bg-elevated text-fg text-xs font-medium transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Phone className="w-3.5 h-3.5" />
-            Huddle
+            {t('hoverCard.huddle')}
           </button>
         </div>
       )}

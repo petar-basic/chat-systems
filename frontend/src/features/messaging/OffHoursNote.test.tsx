@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import i18n from '@/lib/i18n';
 import { render, screen } from '@testing-library/react';
 import { OffHoursNote } from './OffHoursNote';
 import { LocalTimeLine } from './LocalTimeLine';
@@ -45,5 +46,44 @@ describe('their local time', () => {
     person('America/New_York');
     render(<OffHoursNote userId="u-ana" />);
     expect(screen.queryByTestId('off-hours-note')).toBeNull();
+  });
+});
+
+describe('OffHoursNote in Japanese', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(Date.UTC(2026, 10, 4, 22, 0)));
+    useDisplayStore.setState({ clock: 'h24' });
+  });
+
+  afterEach(async () => {
+    vi.useRealTimers();
+    await i18n.changeLanguage('en');
+  });
+
+  it('says it is late for them, with their name as text, and shows the local time', async () => {
+    const hostile = '<img src=x onerror="alert(1)"> {{name}}';
+    useUserCache.setState({
+      users: new Map([
+        [
+          'u-ana',
+          {
+            id: 'u-ana',
+            email: 'ana@x.test',
+            display_name: hostile,
+            avatar_url: null,
+            timezone: 'Europe/Belgrade',
+          },
+        ],
+      ]),
+    });
+    await i18n.changeLanguage('ja');
+    render(<OffHoursNote userId="u-ana" />);
+    expect(screen.getByTestId('off-hours-note').textContent).toBe(
+      `${hostile} さんの現地時刻は 23:00 です（夜遅い時間です）。`,
+    );
+    render(<LocalTimeLine timezone="Asia/Tokyo" />);
+    expect(screen.getByTestId('hover-card-local-time').textContent).toBe('現地時刻 07:00');
+    expect(document.querySelector('[onerror]')).toBeNull();
   });
 });

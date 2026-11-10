@@ -42,5 +42,7 @@
     "archive": "Archive",
     "text": "Text",
     "other": "File"
-  }
+  },
+  "unknownUser": "Unknown user",
+  "listSeparator": ", "
 }

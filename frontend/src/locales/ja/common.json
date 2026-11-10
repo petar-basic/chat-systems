@@ -42,5 +42,7 @@
     "archive": "圧縮ファイル",
     "text": "テキスト",
     "other": "ファイル"
-  }
+  },
+  "unknownUser": "不明なユーザー",
+  "listSeparator": "、"
 }

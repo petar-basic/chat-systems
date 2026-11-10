@@ -1,0 +1,29 @@
+{
+  "view": {
+    "title": "スレッド",
+    "loading": "読み込み中…",
+    "failed": "スレッドを読み込めませんでした。",
+    "empty": "まだスレッドはありません",
+    "emptyHint": "自分が始めた、返信した、またはメンションされたスレッドがここに表示されます。",
+    "showMore": "さらにスレッドを表示",
+    "label": "{{place}} のスレッド",
+    "newReplies_other": "新しい返信 {{count}}件",
+    "moreReplies_other": "残りの返信 {{count}}件を表示",
+    "alsoToChannel": "#{{name}} にも投稿",
+    "alsoToConversation": "会話にも投稿",
+    "reply": "返信…",
+    "channelFallback": "チャンネル",
+    "dmFallback": "ダイレクトメッセージ"
+  },
+  "panel": {
+    "title": "スレッド",
+    "follow": "フォロー",
+    "unfollow": "フォロー解除",
+    "empty": "まだ返信はありません。最初の返信を送ってみましょう!",
+    "earlier": "以前の返信を表示",
+    "deleted": "このスレッドは削除されたため、新しい返信はできません。"
+  },
+  "toasts": {
+    "followFailed": "スレッドのフォローを変更できませんでした"
+  }
+}

@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import i18n from '@/lib/i18n';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ThreadSummary } from '@/features/threads/hooks/useThreads';
@@ -66,13 +67,13 @@ vi.mock('@/features/messaging/useComposerAttachments', () => ({
 
 const onOpenThread = vi.fn();
 
-const renderView = () =>
+const renderView = (channelName = 'design') =>
   render(
     <QueryClientProvider client={new QueryClient()}>
       <ThreadsView
         workspaceId="ws-1"
         currentUserId="u1"
-        channels={[{ id: 'ch-1', name: 'design', channel_type: 'public' } as never]}
+        channels={[{ id: 'ch-1', name: channelName, channel_type: 'public' } as never]}
         conversations={[]}
         members={[]}
         onOpenThread={onOpenThread}
@@ -140,5 +141,24 @@ describe('ThreadsView', () => {
     threads = [];
     renderView();
     expect(screen.getByTestId('threads-empty')).toBeInTheDocument();
+  });
+});
+
+describe('ThreadsView in Japanese', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('names each thread and the channel to also send to, as text', async () => {
+    const hostile = '<img src=x onerror="alert(1)"> {{name}}';
+    threads = [thread(2)];
+    await i18n.changeLanguage('ja');
+    renderView(hostile);
+    expect(screen.getByRole('heading', { name: 'スレッド' })).toBeInTheDocument();
+    expect(screen.getByTestId('thread-card')).toHaveAccessibleName(`${hostile} のスレッド`);
+    expect(screen.getByLabelText(`#${hostile} にも投稿`)).toBeInTheDocument();
+    expect(screen.getByTestId('thread-new')).toHaveTextContent('新しい返信 2件');
+    expect(screen.getByTestId('thread-open')).toHaveTextContent('残りの返信 2件を表示');
+    expect(document.querySelector('[onerror]')).toBeNull();
   });
 });

@@ -217,5 +217,26 @@
     "moveFailed": "Failed to move that message",
     "cancelFailed": "Failed to cancel",
     "sendFailed": "Failed to send"
+  },
+  "conversation": {
+    "label": "Direct message",
+    "back": "Back to channels",
+    "people": "{{count}} people",
+    "activeNow": "Active now",
+    "departed": {
+      "separator": ", ",
+      "one": "{{name}} is no longer in this workspace",
+      "many": "{{names}} and {{last}} are no longer in this workspace"
+    },
+    "offHours": {
+      "late": "It is {{time}} for {{name}}, late in their day.",
+      "early": "It is {{time}} for {{name}}, early in their day."
+    }
+  },
+  "hoverCard": {
+    "paused": "Notifications paused until {{time}}",
+    "localTime": "{{time}} local time",
+    "message": "Message",
+    "huddle": "Huddle"
   }
 }

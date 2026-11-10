@@ -10,6 +10,7 @@ import enNotifications from '@/locales/en/notifications.json';
 import enPolls from '@/locales/en/polls.json';
 import enProfile from '@/locales/en/profile.json';
 import enSidebar from '@/locales/en/sidebar.json';
+import enThreads from '@/locales/en/threads.json';
 import enWorkspace from '@/locales/en/workspace.json';
 import jaAuth from '@/locales/ja/auth.json';
 import jaChannel from '@/locales/ja/channel.json';
@@ -20,6 +21,7 @@ import jaNotifications from '@/locales/ja/notifications.json';
 import jaPolls from '@/locales/ja/polls.json';
 import jaProfile from '@/locales/ja/profile.json';
 import jaSidebar from '@/locales/ja/sidebar.json';
+import jaThreads from '@/locales/ja/threads.json';
 import jaWorkspace from '@/locales/ja/workspace.json';
 
 const STORAGE_KEY = 'chat_language';
@@ -43,6 +45,7 @@ export const resources = {
     polls: enPolls,
     profile: enProfile,
     sidebar: enSidebar,
+    threads: enThreads,
     workspace: enWorkspace,
   },
   ja: {
@@ -55,6 +58,7 @@ export const resources = {
     polls: jaPolls,
     profile: jaProfile,
     sidebar: jaSidebar,
+    threads: jaThreads,
     workspace: jaWorkspace,
   },
 } as const;
@@ -129,6 +133,7 @@ export const i18nOptions = {
     'polls',
     'profile',
     'sidebar',
+    'threads',
     'workspace',
   ],
   initAsync: false,

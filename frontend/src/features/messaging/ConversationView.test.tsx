@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import i18n from '@/lib/i18n';
 import { render, screen } from '@testing-library/react';
 import type { Conversation } from '@/features/messaging/hooks/useConversations';
 import ConversationView from './ConversationView';
@@ -80,5 +81,28 @@ describe('ConversationView', () => {
 
     expect(screen.queryByTestId('conversation-departed')).not.toBeInTheDocument();
     expect(screen.getByLabelText('composer')).toBeInTheDocument();
+  });
+});
+
+describe('ConversationView in Japanese', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('counts a group and says who left, with names as text', async () => {
+    const hostile = '<img src=x onerror="alert(1)"> {{name}}';
+    await i18n.changeLanguage('ja');
+    renderView(
+      conversation({
+        kind: 'group',
+        participant_ids: ['me', 'ana'],
+        departed: [{ ...bob, display_name: hostile }],
+      }),
+    );
+    expect(screen.getByRole('main', { name: 'ダイレクトメッセージ' })).toBeInTheDocument();
+    expect(screen.getByTestId('conversation-title').textContent).toBe(`Ana、${hostile}`);
+    expect(screen.getByText('2人')).toBeInTheDocument();
+    expect(screen.getByText(`${hostile} さんはこのワークスペースにいません`)).toBeInTheDocument();
+    expect(document.querySelector('[onerror]')).toBeNull();
   });
 });

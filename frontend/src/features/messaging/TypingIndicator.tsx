@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { globalEventBus, type ServerEvent } from '@/lib/globalEventBus';
 import { useUserCache } from '@/stores/users';
-import { UNKNOWN_USER, TYPING_INDICATOR_TTL_MS } from '@/shared/constants';
+import { TYPING_INDICATOR_TTL_MS } from '@/shared/constants';
+import { displayNameOf } from '@/lib/userHelpers';
 
 interface Props {
   channelId: string;
@@ -63,7 +64,7 @@ export default function TypingIndicator({ channelId, currentUserId }: Props) {
 
   if (typingUsers.length === 0) return null;
 
-  const names = typingUsers.map((t) => getUser(t.userId)?.display_name || UNKNOWN_USER);
+  const names = typingUsers.map((t) => displayNameOf(getUser(t.userId)?.display_name));
 
   let text: string;
   if (names.length === 1) {

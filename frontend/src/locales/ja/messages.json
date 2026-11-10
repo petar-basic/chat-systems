@@ -213,5 +213,26 @@
     "moveFailed": "日時を変更できませんでした",
     "cancelFailed": "取り消せませんでした",
     "sendFailed": "送信できませんでした"
+  },
+  "conversation": {
+    "label": "ダイレクトメッセージ",
+    "back": "チャンネルに戻る",
+    "people": "{{count}}人",
+    "activeNow": "オンライン",
+    "departed": {
+      "separator": " さん、",
+      "one": "{{name}} さんはこのワークスペースにいません",
+      "many": "{{names}} さんと {{last}} さんはこのワークスペースにいません"
+    },
+    "offHours": {
+      "late": "{{name}} さんの現地時刻は {{time}} です（夜遅い時間です）。",
+      "early": "{{name}} さんの現地時刻は {{time}} です（早朝です）。"
+    }
+  },
+  "hoverCard": {
+    "paused": "通知を {{time}} まで一時停止中",
+    "localTime": "現地時刻 {{time}}",
+    "message": "メッセージ",
+    "huddle": "通話"
   }
 }

@@ -1,8 +1,8 @@
 import type { WorkspaceMember } from '../stores/workspace';
-import { UNKNOWN_USER } from '@/shared/constants';
+import i18n from '@/lib/i18n';
 
 export function displayNameOf(name: string | null | undefined): string {
-  return name && name.trim() ? name : UNKNOWN_USER;
+  return name && name.trim() ? name : i18n.t('common:unknownUser');
 }
 
 export const AVATAR_COLORS = [
@@ -39,7 +39,7 @@ export function matchesPerson(
 
 export function getUserDisplay(userId: string, members: WorkspaceMember[]) {
   const member = members.find((m) => m.user_id === userId);
-  const displayName = member?.display_name || UNKNOWN_USER;
+  const displayName = member?.display_name || i18n.t('common:unknownUser');
   const email = member?.email || '';
 
   return {

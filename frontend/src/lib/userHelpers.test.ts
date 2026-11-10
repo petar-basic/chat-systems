@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { matchesPerson } from './userHelpers';
+import { describe, it, expect, afterEach } from 'vitest';
+import i18n from '@/lib/i18n';
+import { displayNameOf, matchesPerson } from './userHelpers';
 
 const cleo = { display_name: 'Cleo Park', email: 'cleo@dev.local', title: 'Head of Finance' };
 const bob = { display_name: null, email: 'bob@dev.local', title: null };
@@ -17,5 +18,16 @@ describe('matchesPerson', () => {
 
   it('lets everyone through an empty search', () => {
     expect([cleo, bob].filter((p) => matchesPerson(p, '  '))).toEqual([cleo, bob]);
+  });
+});
+
+describe('displayNameOf in Japanese', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('calls someone without a name 不明なユーザー', async () => {
+    await i18n.changeLanguage('ja');
+    expect(displayNameOf('  ')).toBe('不明なユーザー');
   });
 });
