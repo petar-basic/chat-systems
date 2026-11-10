@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
+import i18n from '@/lib/i18n';
 import { conversationTitle, departedPartner, departureNote, otherParticipants } from './conversationHelpers';
 import type { Conversation } from '@/features/messaging/hooks/useConversations';
 
@@ -78,5 +79,25 @@ describe('conversationHelpers', () => {
   it('has nothing to say about a conversation everybody is still in', () => {
     expect(departedPartner(conversation({}), 'me')).toBeNull();
     expect(departureNote(conversation({}))).toBeNull();
+  });
+});
+
+describe('names in Japanese', () => {
+  const hostile = '<img src=x onerror="alert(1)"> {{name}}';
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('joins a group the Japanese way and says who left with さん, as text', async () => {
+    await i18n.changeLanguage('ja');
+    const crowd = conversation({ kind: 'group', participant_ids: ['me', 'a', 'b', 'c', 'd', 'e'] });
+    expect(conversationTitle(crowd, 'me', nameOf)).toBe('Alice Johnson、Bob Smith、Charlie Brown +2');
+    expect(departureNote(conversation({ departed: [gone('x', hostile)] }))).toBe(
+      `${hostile} さんはこのワークスペースにいません`,
+    );
+    expect(
+      departureNote(conversation({ departed: [gone('x', hostile), gone('y', 'Bea'), gone('z', 'Cid')] })),
+    ).toBe(`${hostile} さん、Bea さんと Cid さんはこのワークスペースにいません`);
   });
 });

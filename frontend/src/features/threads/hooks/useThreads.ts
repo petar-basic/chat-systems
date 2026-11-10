@@ -7,7 +7,7 @@ import { useCurrentApi } from '@/shared/hooks/useCurrentApi';
 import { logger } from '@/lib/logger';
 import { refusalOr } from '@/lib/errors';
 import { toast } from '@/shared/components/Toast';
-import { QUERY_KEYS, ErrorLabels } from '@/shared/constants';
+import { QUERY_KEYS } from '@/shared/constants';
 import { patchMessageById, claimReplyCount, newestFirst, upsertMessage } from '@/lib/messageCache';
 import { dropReply, oldestFirst, patchReply, placeReply, type ThreadPageOfReplies } from '@/lib/threadCache';
 import { shownInChannel } from '@/lib/messagePatch';
@@ -70,6 +70,7 @@ export const useMarkThreadRead = () => {
 };
 
 export const useFollowThread = (rootId: string) => {
+  const { t } = useTranslation('threads');
   const queryClient = useQueryClient();
   const apiClient = useCurrentApi();
   return useMutation({
@@ -82,7 +83,7 @@ export const useFollowThread = (rootId: string) => {
     onSuccess: (state) => queryClient.setQueryData(QUERY_KEYS.threadState(rootId), state),
     onError: (err) => {
       logger.error('useFollowThread', 'mutationFn', err);
-      toast.error(ErrorLabels.FollowFailed);
+      toast.error(t('toasts.followFailed'));
     },
   });
 };

@@ -10,7 +10,6 @@ export const ErrorLabels = {
   ListFailed: "Couldn't change the list",
   ListViewFailed: "Couldn't change that view",
   ListCommentFailed: "Couldn't save the comment",
-  FollowFailed: "Couldn't update the thread",
   AppConnectFailed: "Couldn't start connecting the app",
   UploadFailed: 'File upload failed',
   RestoreFailed: "Couldn't restore the workspace",
@@ -44,5 +43,3 @@ export const ActionLabels = {
   MarkedAllRead: 'Everything is marked read',
   CreateChannel: 'Create channel',
 } as const;
-
-export const UNKNOWN_USER = 'Unknown user';

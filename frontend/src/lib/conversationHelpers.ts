@@ -1,4 +1,5 @@
 import type { Conversation } from '@/features/messaging/hooks/useConversations';
+import i18n from '@/lib/i18n';
 import { displayNameOf } from './userHelpers';
 
 export function otherParticipants(conversation: Conversation, currentUserId: string | undefined) {
@@ -23,13 +24,17 @@ export function conversationTitle(
     present.length + departed.length > 0
       ? [...present.map((id) => displayNameOf(nameOf(id))), ...departed]
       : conversation.participant_ids.map((id) => displayNameOf(nameOf(id)));
-  if (names.length <= 3) return names.join(', ');
-  return `${names.slice(0, 3).join(', ')} +${names.length - 3}`;
+  const separator = i18n.t('common:listSeparator');
+  if (names.length <= 3) return names.join(separator);
+  return `${names.slice(0, 3).join(separator)} +${names.length - 3}`;
 }
 
 export function departureNote(conversation: Conversation): string | null {
   const names = conversation.departed.map((p) => displayNameOf(p.display_name));
   if (names.length === 0) return null;
-  if (names.length === 1) return `${names[0]} is no longer in this workspace`;
-  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]} are no longer in this workspace`;
+  if (names.length === 1) return i18n.t('messages:conversation.departed.one', { name: names[0] });
+  return i18n.t('messages:conversation.departed.many', {
+    names: names.slice(0, -1).join(i18n.t('messages:conversation.departed.separator')),
+    last: names[names.length - 1],
+  });
 }

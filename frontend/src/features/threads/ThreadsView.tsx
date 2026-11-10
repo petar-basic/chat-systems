@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Hash, Lock, Menu, MessageCircle, MessagesSquare } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { RichTextDisplay, MessageInput, asAttachments, useComposerAttachments } from '@/features/messaging';
@@ -52,6 +53,7 @@ export function ThreadsView({
   onOpenConversation,
   onOpenNav,
 }: Props) {
+  const { t } = useTranslation(['threads', 'channel']);
   const threads = useFollowedThreads(workspaceId);
   const markRead = useMarkThreadRead();
   const { getUser } = useUserCache();
@@ -88,8 +90,8 @@ export function ThreadsView({
     const channel = channels.find((c) => c.id === root.channel_id);
     if (channel) {
       return {
-        title: channel.name ?? 'channel',
-        alsoTo: `Also send to #${channel.name}`,
+        title: channel.name ?? t('view.channelFallback'),
+        alsoTo: t('view.alsoToChannel', { name: channel.name }),
         icon:
           channel.channel_type === 'private' ? (
             <Lock className="w-4 h-4 text-muted shrink-0" />
@@ -103,42 +105,40 @@ export function ThreadsView({
     return {
       title: conversation
         ? conversationTitle(conversation, currentUserId, (id) => getUser(id)?.display_name)
-        : 'Direct message',
-      alsoTo: 'Also send to the conversation',
+        : t('view.dmFallback'),
+      alsoTo: t('view.alsoToConversation'),
       icon: <MessageCircle className="w-4 h-4 text-muted shrink-0" />,
       open: () => onOpenConversation(root.channel_id),
     };
   };
 
   return (
-    <main className="flex-1 flex flex-col min-w-0" aria-label="Threads" data-qa="threads">
+    <main className="flex-1 flex flex-col min-w-0" aria-label={t('view.title')} data-qa="threads">
       <div className="h-14 px-4 flex items-center gap-2 border-b border-line/50 bg-surface/30 shrink-0">
         {onOpenNav && (
           <button
             onClick={onOpenNav}
-            aria-label="Open navigation"
-            data-tooltip="Open navigation"
+            aria-label={t('header.openNavigation', { ns: 'channel' })}
+            data-tooltip={t('header.openNavigation', { ns: 'channel' })}
             className="lg:hidden p-1.5 -ml-1 rounded-lg text-muted hover:text-fg hover:bg-raised/50"
           >
             <Menu className="w-5 h-5" />
           </button>
         )}
-        <h1 className="font-semibold text-fg">Threads</h1>
+        <h1 className="font-semibold text-fg">{t('view.title')}</h1>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-        {threads.isLoading && <p className="text-sm text-muted">Loading…</p>}
-        {threads.isError && <p className="text-sm text-danger">Couldn't load your threads.</p>}
+        {threads.isLoading && <p className="text-sm text-muted">{t('view.loading')}</p>}
+        {threads.isError && <p className="text-sm text-danger">{t('view.failed')}</p>}
         {threads.isSuccess && list.length === 0 && (
           <div
             className="flex flex-col items-center justify-center py-16 text-center"
             data-qa="threads-empty"
           >
             <MessagesSquare className="w-10 h-10 text-muted mb-3" />
-            <p className="text-fg-soft font-medium">No threads yet</p>
-            <p className="text-sm text-muted">
-              Threads you start, reply to or are mentioned in show up here.
-            </p>
+            <p className="text-fg-soft font-medium">{t('view.empty')}</p>
+            <p className="text-sm text-muted">{t('view.emptyHint')}</p>
           </div>
         )}
 
@@ -164,7 +164,7 @@ export function ThreadsView({
             disabled={threads.isFetchingNextPage}
             className="w-full py-2 text-sm text-accent hover:bg-raised/40 rounded-lg transition disabled:opacity-50"
           >
-            {threads.isFetchingNextPage ? 'Loading…' : 'Show more threads'}
+            {threads.isFetchingNextPage ? t('view.loading') : t('view.showMore')}
           </button>
         )}
       </div>
@@ -195,6 +195,7 @@ function ThreadCard({
   members,
   onOpenThread,
 }: CardProps) {
+  const { t } = useTranslation('threads');
   const { root, latest_replies: replies } = thread;
   const queryClient = useQueryClient();
   const sendReply = useSendThreadReply(root.id, root.channel_id, currentUserId);
@@ -231,7 +232,7 @@ function ThreadCard({
 
   return (
     <section
-      aria-label={`Thread in ${place.title}`}
+      aria-label={t('view.label', { place: place.title })}
       data-qa="thread-card"
       className="rounded-lg border border-line/60 bg-surface/40"
     >
@@ -246,7 +247,7 @@ function ThreadCard({
         </button>
         {fresh > 0 && (
           <span className="ml-auto text-xs px-1.5 rounded-full bg-accent/20 text-accent" data-qa="thread-new">
-            {fresh} new {fresh === 1 ? 'reply' : 'replies'}
+            {t('view.newReplies', { count: fresh })}
           </span>
         )}
       </header>
@@ -260,7 +261,7 @@ function ThreadCard({
               data-qa="thread-open"
               className="text-xs text-accent hover:underline"
             >
-              View {earlier} more {earlier === 1 ? 'reply' : 'replies'}
+              {t('view.moreReplies', { count: earlier })}
             </button>
           </li>
         )}
@@ -285,7 +286,7 @@ function ThreadCard({
         />
         <MessageInput
           channelName=""
-          placeholder="Reply…"
+          placeholder={t('view.reply')}
           members={members}
           channels={channels}
           draftKey={`thread:${root.id}`}
@@ -310,6 +311,7 @@ function ThreadLine({
   highlighted?: boolean;
   failure?: { onRetry: () => void; onDiscard: () => void };
 }) {
+  const { t } = useTranslation('messages');
   const { getUser } = useUserCache();
   const sender = getUser(message.user_id);
   const name = displayNameOf(sender?.display_name);
@@ -326,21 +328,21 @@ function ThreadLine({
         </div>
         {message.deleted_at ? (
           <p className="text-sm text-muted italic" data-qa="thread-root-deleted">
-            This message was deleted
+            {t('item.deleted')}
           </p>
         ) : (
           <RichTextDisplay content={message.content} attachments={message.metadata?.attachments} />
         )}
         {failure && (
           <div className="mt-1 flex items-center gap-2 text-xs text-danger" data-qa="message-failed">
-            <span>Failed to send.</span>
+            <span>{t('item.failed')}</span>
             <button
               type="button"
               onClick={failure.onRetry}
               data-qa="message-retry"
               className="font-semibold text-danger hover:text-danger underline"
             >
-              Retry
+              {t('item.retry')}
             </button>
             <button
               type="button"
@@ -348,7 +350,7 @@ function ThreadLine({
               data-qa="message-discard"
               className="font-semibold text-muted hover:text-fg underline"
             >
-              Discard
+              {t('item.discard')}
             </button>
           </div>
         )}

@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import { MessageSquare, Trash2 } from 'lucide-react';
@@ -42,6 +43,7 @@ interface Props {
 }
 
 export default function ThreadPanel({ parentMessage: opened, replyId, members, channels, onClose }: Props) {
+  const { t } = useTranslation(['threads', 'messages']);
   const parentMessage = useLiveMessage(opened);
   const {
     data: loaded = [],
@@ -154,7 +156,7 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
         data-message-pane
       >
         <PanelHeader
-          title="Thread"
+          title={t('panel.title')}
           icon={<MessageSquare className="h-4 w-4 text-muted" />}
           actions={
             threadState && (
@@ -166,7 +168,7 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
                 aria-pressed={threadState.following}
                 data-qa="thread-follow"
               >
-                {threadState.following ? 'Unfollow' : 'Follow'}
+                {threadState.following ? t('panel.unfollow') : t('panel.follow')}
               </Button>
             )
           }
@@ -187,7 +189,7 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
                   data-qa="thread-parent-deleted"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  This message was deleted
+                  {t('item.deleted', { ns: 'messages' })}
                 </p>
               ) : (
                 <RichTextDisplay
@@ -198,7 +200,7 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
             </div>
           </div>
           <div className="mt-2 text-xs text-muted" data-qa="thread-reply-count">
-            {replyCount} {replyCount === 1 ? 'reply' : 'replies'}
+            {t('item.replies', { ns: 'messages', count: replyCount })}
           </div>
         </div>
 
@@ -208,7 +210,7 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
               <Spinner className="text-accent" />
             </div>
           ) : replies.length === 0 ? (
-            <div className="text-center py-8 text-muted text-sm">No replies yet. Start the conversation!</div>
+            <div className="text-center py-8 text-muted text-sm">{t('panel.empty')}</div>
           ) : (
             <>
               {hasNextPage && (
@@ -220,7 +222,7 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
                     onClick={showEarlier}
                     data-qa="thread-show-earlier"
                   >
-                    Show earlier replies
+                    {t('panel.earlier')}
                   </Button>
                 </div>
               )}
@@ -260,12 +262,14 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
             </p>
           ) : isClosedThread(parentMessage, loaded, loading) ? (
             <p data-qa="thread-closed" className="px-4 py-3 text-sm text-muted">
-              This thread was deleted, so it takes no new replies.
+              {t('panel.deleted')}
             </p>
           ) : (
             <>
               <Checkbox
-                label={channel ? `Also send to #${channel.name}` : 'Also send to the conversation'}
+                label={
+                  channel ? t('view.alsoToChannel', { name: channel.name }) : t('view.alsoToConversation')
+                }
                 checked={alsoToChannel}
                 onChange={setAlsoToChannel}
                 dataQa="thread-also-to-channel"
@@ -274,7 +278,7 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
               <MessageInput
                 key={`thread:${parentMessage.id}`}
                 channelName=""
-                placeholder="Reply…"
+                placeholder={t('view.reply')}
                 autoFocus
                 members={members}
                 channels={channels}

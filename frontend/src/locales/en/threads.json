@@ -1,0 +1,31 @@
+{
+  "view": {
+    "title": "Threads",
+    "loading": "Loading…",
+    "failed": "Couldn't load your threads.",
+    "empty": "No threads yet",
+    "emptyHint": "Threads you start, reply to or are mentioned in show up here.",
+    "showMore": "Show more threads",
+    "label": "Thread in {{place}}",
+    "newReplies_one": "{{count}} new reply",
+    "newReplies_other": "{{count}} new replies",
+    "moreReplies_one": "View {{count}} more reply",
+    "moreReplies_other": "View {{count}} more replies",
+    "alsoToChannel": "Also send to #{{name}}",
+    "alsoToConversation": "Also send to the conversation",
+    "reply": "Reply…",
+    "channelFallback": "channel",
+    "dmFallback": "Direct message"
+  },
+  "panel": {
+    "title": "Thread",
+    "follow": "Follow",
+    "unfollow": "Unfollow",
+    "empty": "No replies yet. Start the conversation!",
+    "earlier": "Show earlier replies",
+    "deleted": "This thread was deleted, so it takes no new replies."
+  },
+  "toasts": {
+    "followFailed": "Couldn't update the thread"
+  }
+}

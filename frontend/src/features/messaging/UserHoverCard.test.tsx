@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import i18n from '@/lib/i18n';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import type { ReactNode } from 'react';
@@ -54,5 +55,26 @@ describe('UserHoverCard', () => {
 
     expect(screen.queryByTestId('hover-card-title')).not.toBeInTheDocument();
     expect(screen.queryByTestId('hover-card-pronouns')).not.toBeInTheDocument();
+  });
+});
+
+describe('UserHoverCard in Japanese', () => {
+  beforeEach(() => {
+    useWorkspaceStore.setState({
+      currentWorkspace: { id: 'ws-1', instanceUrl: 'http://localhost:3000' } as never,
+    });
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('names the presence and the buttons', async () => {
+    person({ title: null, pronouns: null });
+    await i18n.changeLanguage('ja');
+    renderCard();
+    expect(screen.getByText('オフライン')).toBeInTheDocument();
+    expect(screen.getByTestId('hover-card-message')).toHaveTextContent('メッセージ');
+    expect(screen.getByText('通話').closest('button')).toHaveAttribute('data-tooltip', '通話を開始');
   });
 });
