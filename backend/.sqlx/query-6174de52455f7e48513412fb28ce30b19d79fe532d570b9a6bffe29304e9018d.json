@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE workspaces w SET owner_id = $2\n             WHERE w.id = $1\n               AND NOT EXISTS (\n                   SELECT 1 FROM workspace_members wm JOIN users u ON u.id = wm.user_id\n                    WHERE wm.workspace_id = w.id AND wm.user_id = w.owner_id\n                      AND wm.role = 'owner' AND u.status = 'active'\n               )\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6174de52455f7e48513412fb28ce30b19d79fe532d570b9a6bffe29304e9018d"
+}

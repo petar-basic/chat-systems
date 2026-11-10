@@ -191,9 +191,10 @@ Standard auth flows. POST to their respective `/auth/*` endpoints.
 ### `InstanceAdminPage`
 Instance-admin user management for the active instance (route `/app/admin`). Instance-admin
 gated; redirects non-admins to `/app`.
-**Reads:** GET `/admin/users?limit=200`, GET `/admin/audit-log?limit=200`, GET `/admin/settings` (through `features/instance/hooks/useAdmin.ts`)
+**Reads:** GET `/admin/users?limit=200`, GET `/admin/workspaces?limit=200`, GET `/admin/workspaces/{id}/members`, GET `/admin/audit-log?limit=200`, GET `/admin/settings` (through `features/instance/hooks/useAdmin.ts`)
 **Writes:**
 - POST `/admin/users/{id}/suspend` / `/admin/users/{id}/activate` — toggle account status
+- POST `/admin/workspaces/{id}/owners` `{ user_id }` — the *Workspaces* tab (`features/instance/AdminWorkspaces`): each workspace with its owners, a suspended one marked and "No owner can sign in" when none is active; *Make an owner* picks from its active members who aren't owners
 - PATCH `/admin/users/{id}/instance-role` `{ is_instance_admin }` — grant/revoke instance admin
 - PATCH `/admin/settings` `{ email_code_sign_in }` — the *Email* tab's `EmailCodeSetting`, disabled while the instance has no SMTP
 
@@ -563,7 +564,9 @@ bottom. *Members* shows the invite form to admins only, since inviting is admin-
 invite it shows the invite's link with a copy button, and says whether the email went, was not
 sent because email is not set up, or could not be sent (`inviteMessage`). Above the members, `PendingInvites` lists the email invites still waiting to
 be used, each with *Copy invite link* (GET `/workspaces/{id}/invites/{invite_id}/link`, then the clipboard) and
-*Revoke* behind a confirmation. The invite page (`/invite/:token`) offers *Continue with SSO*
+*Revoke* behind a confirmation. An owner sees what they can do with the role above the list:
+the only owner is told to make someone else an owner first, and one of several gets *Step down*
+on their own row, which asks first and makes them an admin. The invite page (`/invite/:token`) offers *Continue with SSO*
 when the instance has it, starting `/api/auth/oidc/start?invite=<token>`, and so does the
 sign-in page when it was reached from an invite.
 
@@ -812,7 +815,7 @@ Token refresh is **not** a hook — `ApiClient` refreshes automatically on 401 /
 | `useDeletedWorkspaces()` | GET `/workspaces/deleted` | Soft-deleted workspaces |
 | `useRestoreWorkspace()` | POST `/workspaces/{id}/restore` | Restore mutation |
 | `useCreateWorkspace()` | POST `/workspaces` | Create workspace mutation |
-| `useLeaveWorkspace()` | DELETE `/workspaces/{id}/members/{userId}` with your own id | *Leave workspace…* in the workspace menu; an owner can't leave |
+| `useLeaveWorkspace()` | DELETE `/workspaces/{id}/members/{userId}` with your own id | *Leave workspace…* in the workspace menu; the only owner is told to make someone else an owner first, one of several can leave |
 | `useCreateChannel()` | POST `/workspaces/{id}/channels` | Create channel mutation |
 
 ### Messages

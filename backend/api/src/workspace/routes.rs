@@ -13,6 +13,7 @@ use super::details::{self, duplicate_channel_name, Details};
 use super::icon;
 use super::membership;
 use super::models::*;
+use super::ownership;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
 use crate::bots::{models::Scope, Caller};
@@ -340,27 +341,29 @@ async fn update_member_role(
         authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
     let target = authz::require_workspace_member(&state, ws_id, user_id).await?;
 
-    if !authz::outranks(&actor.role, &target.role) {
-        return Err(AppError::Forbidden(
-            "Cannot change the role of a member at or above your own level".into(),
-        ));
-    }
-    if !actor.role.has_at_least(&req.role) {
-        return Err(AppError::Forbidden(
-            "Cannot grant a role above your own level".into(),
-        ));
-    }
-    if target.role == WorkspaceRole::Owner && req.role != WorkspaceRole::Owner {
-        return Err(AppError::Forbidden(
-            "The workspace owner cannot be demoted".into(),
-        ));
-    }
-
-    let member = state
-        .workspace_service
-        .repo
-        .update_member_role(ws_id, user_id, &req.role)
-        .await?;
+    let member = if auth.user_id == user_id && actor.role == WorkspaceRole::Owner {
+        if req.role != WorkspaceRole::Admin {
+            return Err(AppError::Forbidden("An owner steps down to admin".into()));
+        }
+        ownership::step_down(&state, ws_id, user_id, &req.role).await?
+    } else {
+        if !authz::outranks(&actor.role, &target.role) {
+            return Err(AppError::Forbidden(
+                "Cannot change the role of a member at or above your own level".into(),
+            ));
+        }
+        if !actor.role.has_at_least(&req.role) {
+            return Err(AppError::Forbidden(
+                "Cannot grant a role above your own level".into(),
+            ));
+        }
+        let mut conn = state.pool.acquire().await?;
+        state
+            .workspace_service
+            .repo
+            .update_member_role(&mut conn, ws_id, user_id, &req.role)
+            .await?
+    };
 
     audit::record(
         &state,
@@ -385,11 +388,6 @@ async fn remove_member(
     Path((ws_id, user_id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<Json<StatusResponse>> {
     let target = authz::require_workspace_member(&state, ws_id, user_id).await?;
-    if target.role == WorkspaceRole::Owner {
-        return Err(AppError::Forbidden(
-            "The workspace owner cannot be removed".into(),
-        ));
-    }
     if auth.user_id != user_id {
         let actor =
             authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin)
@@ -400,7 +398,11 @@ async fn remove_member(
             ));
         }
     }
-    membership::detach(&state, ws_id, user_id).await?;
+    if target.role == WorkspaceRole::Owner {
+        ownership::leave(&state, ws_id, user_id).await?;
+    } else {
+        membership::detach(&state, ws_id, user_id).await?;
+    }
 
     audit::record(
         &state,
@@ -434,8 +436,18 @@ async fn create_invite(
     Path(ws_id): Path<Uuid>,
     Json(req): Json<CreateInviteRequest>,
 ) -> AppResult<Json<CreatedInvite>> {
-    authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
+    let actor =
+        authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
     req.validate()?;
+    if req
+        .role
+        .as_ref()
+        .is_some_and(|role| !actor.role.has_at_least(role))
+    {
+        return Err(AppError::Forbidden(
+            "Cannot invite someone to a role above your own".into(),
+        ));
+    }
     let lifetime = InviteLifetime::resolve(&req)?;
     let created = state
         .workspace_service

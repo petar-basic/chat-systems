@@ -249,6 +249,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/workspaces/{ws_id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin_list_workspace_people"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/workspaces/{ws_id}/owners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin_appoint_workspace_owner"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/apps/connections": {
         parameters: {
             query?: never;
@@ -3479,6 +3511,7 @@ export interface components {
             name: string;
             /** Format: uuid */
             owner_id: string;
+            owners: components["schemas"]["WorkspacePerson"][];
             slug: string;
         };
         AppDirectory: {
@@ -3514,6 +3547,10 @@ export interface components {
             /** Format: uuid */
             app_id: string;
             app_token: string;
+        };
+        AppointOwnerRequest: {
+            /** Format: uuid */
+            user_id: string;
         };
         ArchiveChannelsRequest: {
             channel_ids: string[];
@@ -4117,6 +4154,7 @@ export interface components {
                 name: string;
                 /** Format: uuid */
                 owner_id: string;
+                owners: components["schemas"]["WorkspacePerson"][];
                 slug: string;
             }[];
         };
@@ -4786,6 +4824,16 @@ export interface components {
                 use_count: number;
                 /** Format: uuid */
                 workspace_id: string;
+            }[];
+        };
+        DataList_WorkspacePerson: {
+            data: {
+                display_name?: string | null;
+                email: string;
+                role: components["schemas"]["WorkspaceRole"];
+                status: components["schemas"]["UserStatus"];
+                /** Format: uuid */
+                user_id: string;
             }[];
         };
         DataList_WorkspaceTheme: {
@@ -6418,6 +6466,14 @@ export interface components {
             /** Format: uuid */
             workspace_id: string;
         };
+        WorkspacePerson: {
+            display_name?: string | null;
+            email: string;
+            role: components["schemas"]["WorkspaceRole"];
+            status: components["schemas"]["UserStatus"];
+            /** Format: uuid */
+            user_id: string;
+        };
         WorkspaceProfile: {
             avatar_url?: string | null;
             bio?: string | null;
@@ -6811,6 +6867,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    admin_list_workspace_people: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_WorkspacePerson"];
+                };
+            };
+        };
+    };
+    admin_appoint_workspace_owner: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppointOwnerRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceMember"];
                 };
             };
         };

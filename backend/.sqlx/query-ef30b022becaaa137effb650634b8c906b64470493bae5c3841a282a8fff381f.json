@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COUNT(*) AS \"count!\"\n                 FROM workspace_members wm JOIN users u ON u.id = wm.user_id\n                WHERE wm.workspace_id = $1 AND wm.role = 'owner' AND wm.user_id <> $2\n                  AND u.status = 'active' AND NOT u.is_bot",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "ef30b022becaaa137effb650634b8c906b64470493bae5c3841a282a8fff381f"
+}

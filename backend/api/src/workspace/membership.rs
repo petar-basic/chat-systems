@@ -1,3 +1,4 @@
+use sqlx::PgConnection;
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
@@ -7,7 +8,7 @@ use super::repo::WorkspaceRepo;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz::{self, Stopped};
 use crate::hooks::models::DisabledHook;
-use crate::messaging::publisher::EventPublisher;
+use crate::messaging::publisher::{EventPublisher, Staged};
 use crate::state::AppState;
 use crate::workflows::repo::StoppedWorkflow;
 
@@ -89,43 +90,61 @@ pub async fn add_to_channel(
 /// Returns the channels they were dropped from, for callers that audit them.
 pub async fn detach(state: &AppState, ws_id: Uuid, user_id: Uuid) -> AppResult<Vec<Uuid>> {
     let mut tx = state.pool.begin().await?;
-    let dropped_channels = state
+    let detached = detach_in(state, &mut tx, ws_id, user_id).await?;
+    tx.commit().await?;
+    Ok(detached.settle(state, ws_id, user_id).await)
+}
+
+pub struct Detached {
+    channels: Vec<Uuid>,
+    staged: Vec<Staged>,
+}
+
+pub async fn detach_in(
+    state: &AppState,
+    conn: &mut PgConnection,
+    ws_id: Uuid,
+    user_id: Uuid,
+) -> AppResult<Detached> {
+    let channels = state
         .workspace_service
         .repo
-        .remove_member_in(&mut tx, ws_id, user_id)
+        .remove_member_in(conn, ws_id, user_id)
         .await?;
-    let mut staged = Vec::with_capacity(dropped_channels.len() + 1);
-    for channel_id in &dropped_channels {
+    let mut staged = Vec::with_capacity(channels.len() + 1);
+    for channel_id in &channels {
         staged.push(
             state
                 .publisher
-                .stage_channel_member_removed(&mut tx, *channel_id, ws_id, user_id)
+                .stage_channel_member_removed(conn, *channel_id, ws_id, user_id)
                 .await?,
         );
     }
     staged.push(
         state
             .publisher
-            .stage_workspace_member_removed(&mut tx, ws_id, user_id)
+            .stage_workspace_member_removed(conn, ws_id, user_id)
             .await?,
     );
-    tx.commit().await?;
+    Ok(Detached { channels, staged })
+}
 
-    if let Err(e) = state
-        .scheduled_repo
-        .cancel_pending_for_workspace(ws_id, user_id)
-        .await
-    {
-        tracing::warn!(
-            "failed to cancel scheduled messages of a removed member: {}",
-            e
-        );
+impl Detached {
+    pub async fn settle(self, state: &AppState, ws_id: Uuid, user_id: Uuid) -> Vec<Uuid> {
+        if let Err(e) = state
+            .scheduled_repo
+            .cancel_pending_for_workspace(ws_id, user_id)
+            .await
+        {
+            tracing::warn!(
+                "failed to cancel scheduled messages of a removed member: {}",
+                e
+            );
+        }
+        state.publisher.dispatch_all(self.staged).await;
+        stand_down(state, Some(ws_id), user_id, Stopped::LeftWorkspace).await;
+        self.channels
     }
-
-    state.publisher.dispatch_all(staged).await;
-    stand_down(state, Some(ws_id), user_id, Stopped::LeftWorkspace).await;
-
-    Ok(dropped_channels)
 }
 
 pub async fn stand_down(

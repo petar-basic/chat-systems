@@ -2678,3 +2678,24 @@ opened, because `currentChannel` is a copy taken when it is selected, so `useUpd
 now writes the answer into it the way `applyChannelArchived` does; and `/invite` answered with
 `<@id>`, which nothing renders, so it names the person as a mention token with the name from
 their account rather than the label that was typed.
+
+### [CS-121b] Ownership is handed over, never taken ✅ shipped
+`create_invite` holds an invite to the inviter's own role, the rule `update_member_role` already
+had, and `accept_invite` answers somebody already in the workspace with the membership they
+have before it claims a use, then inserts with `add_member_if_absent_tx`, so the link neither
+promotes nor demotes and a person in the workspace doesn't use it up. Stepping down and leaving
+live in `workspace::ownership`: one transaction locks the workspace row, counts the other owners
+whose accounts are active, refuses with "Make someone else an owner first" when there are none,
+and moves `owner_id` to the remaining owner who joined first. The ticket asked whether anything
+needs `owner_id` to be somebody still there: the Slack import makes its channels and emoji as
+`owner_id`, and a channel imported after its owner left would say it was created by somebody
+gone, so it moves. Leaving needed the removal inside that transaction, so `membership::detach`
+became `detach_in`, which stages, and `Detached::settle`, which cancels the scheduled messages,
+dispatches and stands the person's hooks down after the commit. An owner steps down to admin and
+no further, and still can't change another owner, which is Slack's rule for owners who are not
+the primary one; there is no primary owner here, `owner_id` is only who the workspace names.
+For a workspace whose owners are all gone the instance admin gets a *Workspaces* tab, which the
+page didn't have: `GET /admin/workspaces` now carries the owners with their account status, and
+`POST /admin/workspaces/{id}/owners` makes a member an owner, taking `owner_id` when it names
+nobody who is still an active owner, audited as a role change with `instance_admin: true`. The
+list query moved from the admin route into `WorkspaceRepo::list_for_instance`.

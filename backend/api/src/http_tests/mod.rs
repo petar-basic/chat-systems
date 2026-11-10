@@ -42,6 +42,7 @@ mod lists;
 mod message_location;
 mod messaging;
 mod notifications;
+mod ownership;
 mod polls;
 mod profile;
 mod scheduled;

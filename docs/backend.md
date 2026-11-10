@@ -247,18 +247,23 @@ feature — see `dm` below.)
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/members` | — | `{ data: MemberWithUser[] }` — name, photo, bio, title and pronouns as shown in that workspace (its own, else the account's), its status, `notifications_paused_until` (`null` unless their notifications are paused now), and the account's `timezone` (`null` until set) |
-| PATCH | `/workspaces/:ws_id/members/:user_id/role` | `{ role }` | `WorkspaceMember` |
-| DELETE | `/workspaces/:ws_id/members/:user_id` | — | `{ status: "removed" }` |
+| PATCH | `/workspaces/:ws_id/members/:user_id/role` | `{ role }` | `WorkspaceMember` — admins, for someone below them and to a role no higher than their own; an owner may step down to `admin` on their own row while another active owner remains, else 403 "Make someone else an owner first"; nobody demotes another owner |
+| DELETE | `/workspaces/:ws_id/members/:user_id` | — | `{ status: "removed" }` — yourself, or someone below you as an admin; an owner leaves only while another active owner remains, with the same 403 |
+
+When the owner `workspaces.owner_id` names steps down or leaves, it moves to the remaining
+active owner who joined first, in the same transaction, which locks the workspace row so two
+owners stepping down at once can't both go. The Slack import makes its channels and emoji as
+`owner_id`, so it names somebody still in the workspace.
 
 **Invites:**
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/invites` | — | `{ data: WorkspaceInvite[] }` |
-| POST | `/workspaces/:ws_id/invites` | `{ email?, role? }` | `CreatedInvite` — the invite plus `invite_url` (an email invite's registration link) and `email_status`: `sent`, `not_configured` (`SMTP_HOST` is empty) or `failed` (it could not be queued); `null` for a link invite |
+| POST | `/workspaces/:ws_id/invites` | `{ email?, role? }` | `CreatedInvite` — admins, for a role no higher than their own (an admin's `owner` invite is a 403); the invite plus `invite_url` (an email invite's registration link) and `email_status`: `sent`, `not_configured` (`SMTP_HOST` is empty) or `failed` (it could not be queued); `null` for a link invite |
 | GET | `/workspaces/:ws_id/invites/:invite_id/link` | — | `{ url }` — a fresh registration link for a pending email invite; 400 once it is used up or expired |
 | DELETE | `/workspaces/:ws_id/invites/:invite_id` | — | `{ status: "revoked" }` |
-| POST | `/invites/:token/accept` | — | `WorkspaceMember` |
+| POST | `/invites/:token/accept` | — | `WorkspaceMember` — somebody already in the workspace gets their membership back as it is, role included, and uses nothing up |
 
 An email invite's link carries a registration token that names the invite row
 (`invite_id`) and expires when the invite does. Every use of it loads the row, so revoking
@@ -1277,7 +1282,9 @@ false; it is true by default.
 | POST | `/admin/users/:user_id/suspend` | — | `{ status: "suspended" }` — also revokes sessions and app connections and turns off the person's hooks and workflows |
 | POST | `/admin/users/:user_id/activate` | — | `{ status: "activated" }` — an account with no password and no SSO link goes back to `pending`, waiting for its invite; SCIM `active: true` does the same |
 | PATCH | `/admin/users/:user_id/instance-role` | `{ role: "member" \| "workspace_creator" \| "admin" }` | `{ role }`; a 404 for an unknown user or a bot; audited `user.instance_role_changed` |
-| GET | `/admin/workspaces` | Query: `limit?, offset?` | `{ data: Workspace[] }` |
+| GET | `/admin/workspaces` | Query: `limit?, offset?` | `{ data: AdminWorkspace[] }` — `{ id, name, slug, owner_id, is_active, created_at, owners }`, `owners` each `{ user_id, display_name, email, role, status }` so a workspace whose owners are all suspended shows |
+| GET | `/admin/workspaces/:ws_id/members` | — | `{ data: WorkspacePerson[] }` — everyone in it but apps, with their account `status` |
+| POST | `/admin/workspaces/:ws_id/owners` | `{ user_id }` | `WorkspaceMember` — makes a member an owner, for a workspace whose owner is gone; 404 outside the workspace, 400 for an app or an account that isn't active; `owner_id` moves to them when it names nobody who is still an active owner; audited `workspace.role_changed` with `instance_admin: true` |
 | DELETE | `/admin/workspaces/:ws_id` | — | `{ status: "deleted" }` |
 | DELETE | `/admin/users/:user_id/data` | `{ hard_delete?: bool }` | `{ status: "erased", hard_delete, removed }` — either way the account is tombstoned, signed out and unlinked from SSO. `hard_delete` also removes what they wrote: their messages (a thread root someone else answered stays as an empty tombstone), every earlier version of them, the notifications that quote them, their reactions, poll votes, list comments, scheduled messages and *Later* items, and their files with the stored objects; `removed` counts `messages`, `edits`, `reactions`, `votes`, `comments`, `scheduled` and `files` |
 | GET | `/admin/scim/tokens` | — | `{ data: ScimToken[] }` |

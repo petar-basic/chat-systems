@@ -251,6 +251,9 @@ impl WorkspaceService {
             .find_invite_by_token(token)
             .await?
             .ok_or_else(|| AppError::NotFound("Invite not found or expired".into()))?;
+        if let Some(member) = self.repo.get_member(invite.workspace_id, user_id).await? {
+            return Ok((member, Vec::new()));
+        }
 
         // A row that escaped the expiry default is treated as expired, not as
         // eternal: fail closed on the one field that bounds this invite.
@@ -276,9 +279,22 @@ impl WorkspaceService {
             return Err(AppError::BadRequest("Invite has reached max uses".into()));
         }
 
-        let member =
-            WorkspaceRepo::add_member_tx(&mut tx, invite.workspace_id, user_id, &invite.role)
-                .await?;
+        let Some(member) = WorkspaceRepo::add_member_if_absent_tx(
+            &mut tx,
+            invite.workspace_id,
+            user_id,
+            &invite.role,
+        )
+        .await?
+        else {
+            tx.rollback().await?;
+            let member = self
+                .repo
+                .get_member(invite.workspace_id, user_id)
+                .await?
+                .ok_or_else(|| AppError::NotFound("Invite not found or expired".into()))?;
+            return Ok((member, Vec::new()));
+        };
 
         let staged = settle_in(&mut tx, invite.workspace_id, user_id).await?;
 

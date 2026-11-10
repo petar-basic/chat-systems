@@ -601,6 +601,76 @@
         }
       }
     },
+    "/admin/workspaces/{ws_id}/members": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "operationId": "admin_list_workspace_people",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_WorkspacePerson"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/workspaces/{ws_id}/owners": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "operationId": "admin_appoint_workspace_owner",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppointOwnerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceMember"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/apps/connections": {
       "post": {
         "tags": [
@@ -10032,7 +10102,8 @@
           "slug",
           "owner_id",
           "is_active",
-          "created_at"
+          "created_at",
+          "owners"
         ],
         "properties": {
           "created_at": {
@@ -10052,6 +10123,12 @@
           "owner_id": {
             "type": "string",
             "format": "uuid"
+          },
+          "owners": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspacePerson"
+            }
           },
           "slug": {
             "type": "string"
@@ -10211,6 +10288,18 @@
           },
           "app_token": {
             "type": "string"
+          }
+        }
+      },
+      "AppointOwnerRequest": {
+        "type": "object",
+        "required": [
+          "user_id"
+        ],
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
@@ -12441,7 +12530,8 @@
                 "slug",
                 "owner_id",
                 "is_active",
-                "created_at"
+                "created_at",
+                "owners"
               ],
               "properties": {
                 "created_at": {
@@ -12461,6 +12551,12 @@
                 "owner_id": {
                   "type": "string",
                   "format": "uuid"
+                },
+                "owners": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WorkspacePerson"
+                  }
                 },
                 "slug": {
                   "type": "string"
@@ -14892,6 +14988,47 @@
                   "format": "int32"
                 },
                 "workspace_id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          }
+        }
+      },
+      "DataList_WorkspacePerson": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "user_id",
+                "email",
+                "role",
+                "status"
+              ],
+              "properties": {
+                "display_name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "email": {
+                  "type": "string"
+                },
+                "role": {
+                  "$ref": "#/components/schemas/WorkspaceRole"
+                },
+                "status": {
+                  "$ref": "#/components/schemas/UserStatus"
+                },
+                "user_id": {
                   "type": "string",
                   "format": "uuid"
                 }
@@ -20905,6 +21042,36 @@
             "format": "uuid"
           },
           "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "WorkspacePerson": {
+        "type": "object",
+        "required": [
+          "user_id",
+          "email",
+          "role",
+          "status"
+        ],
+        "properties": {
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/WorkspaceRole"
+          },
+          "status": {
+            "$ref": "#/components/schemas/UserStatus"
+          },
+          "user_id": {
             "type": "string",
             "format": "uuid"
           }

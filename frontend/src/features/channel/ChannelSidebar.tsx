@@ -173,7 +173,7 @@ export default function ChannelSidebar({
           isWorkspaceAdmin={isWorkspaceAdmin}
           isInstanceAdmin={isInstanceAdmin}
           canUseWorkflows={!!currentUserRole && currentUserRole !== 'guest'}
-          canLeave={!!currentUserRole && currentUserRole !== 'owner'}
+          canLeave={!!currentUserRole}
           onOpenSettings={onOpenSettings}
           onInvite={onInvite}
           onOpenWorkflows={onOpenWorkflows}

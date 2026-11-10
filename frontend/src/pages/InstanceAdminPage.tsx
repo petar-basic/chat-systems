@@ -6,6 +6,7 @@ import { useInstanceStore } from '@/stores/instances';
 import { useCurrentUser } from '@/features/instance/hooks/useAuth';
 import {
   useAdminAuditLog,
+  useAdminWorkspaces,
   useAdminUsers,
   useSetInstanceRole,
   useSetUserStatus,
@@ -18,10 +19,16 @@ import { Select } from '@/shared/components/Form/Select';
 import { TestEmailCheck } from '@/features/setup/TestEmailCheck';
 import { EmailCodeSetting } from '@/features/setup/EmailCodeSetting';
 import { WorkspaceCreationSetting } from '@/features/setup/WorkspaceCreationSetting';
+import { AdminWorkspaces } from '@/features/instance/AdminWorkspaces';
 
-type AdminTab = 'users' | 'audit' | 'email';
+type AdminTab = 'users' | 'workspaces' | 'audit' | 'email';
 
-const TAB_LABELS: Record<AdminTab, string> = { users: 'Users', audit: 'Audit log', email: 'Email' };
+const TAB_LABELS: Record<AdminTab, string> = {
+  users: 'Users',
+  workspaces: 'Workspaces',
+  audit: 'Audit log',
+  email: 'Email',
+};
 
 const ROLE_LABELS: Record<InstanceRole, string> = {
   member: 'Member',
@@ -53,6 +60,7 @@ export default function InstanceAdminPage() {
 
   const usersQuery = useAdminUsers(isAdmin ? instanceUrl : null);
   const auditQuery = useAdminAuditLog(isAdmin && tab === 'audit' ? instanceUrl : null);
+  const workspacesQuery = useAdminWorkspaces(isAdmin && tab === 'workspaces' ? instanceUrl : null);
   const setRole = useSetInstanceRole(instanceUrl);
   const setStatus = useSetUserStatus(instanceUrl);
 
@@ -64,11 +72,12 @@ export default function InstanceAdminPage() {
   const entries = auditQuery.data ?? [];
   const loading = usersQuery.isLoading;
   const auditLoading = auditQuery.isLoading;
-  const refreshing = usersQuery.isFetching || auditQuery.isFetching;
+  const refreshing = usersQuery.isFetching || auditQuery.isFetching || workspacesQuery.isFetching;
   const error = [usersQuery.error, auditQuery.error, setRole.error, setStatus.error].find((e) => e != null);
 
   const refresh = () => {
     if (tab === 'audit') void auditQuery.refetch();
+    else if (tab === 'workspaces') void workspacesQuery.refetch();
     else void usersQuery.refetch();
   };
 
@@ -103,7 +112,7 @@ export default function InstanceAdminPage() {
           {instance && <p className="text-xs text-muted truncate">{instanceLabel(instance.url)}</p>}
         </div>
         <div className="flex items-center gap-1 bg-surface rounded-lg p-1 shrink-0">
-          {(['users', 'audit', 'email'] as const).map((value) => (
+          {(['users', 'workspaces', 'audit', 'email'] as const).map((value) => (
             <button
               key={value}
               data-qa={`admin-tab-${value}`}
@@ -133,7 +142,9 @@ export default function InstanceAdminPage() {
           </div>
         )}
 
-        {tab === 'email' ? (
+        {tab === 'workspaces' ? (
+          <AdminWorkspaces instanceUrl={instanceUrl} />
+        ) : tab === 'email' ? (
           <div className="max-w-2xl mx-auto bg-surface rounded-xl border border-line p-6 space-y-6">
             <TestEmailCheck instanceUrl={instanceUrl} />
             <EmailCodeSetting instanceUrl={instanceUrl} />

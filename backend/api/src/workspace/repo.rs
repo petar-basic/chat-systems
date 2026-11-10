@@ -1,8 +1,10 @@
 use chrono::{DateTime, Utc};
+use sqlx::types::Json;
 use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
 
 use super::models::*;
+use crate::auth::models::UserStatus;
 use crate::notifications::models::NotifyLevel;
 
 pub struct NewInvite<'a> {
@@ -456,6 +458,7 @@ impl WorkspaceRepo {
 
     pub async fn update_member_role(
         &self,
+        conn: &mut PgConnection,
         workspace_id: Uuid,
         user_id: Uuid,
         role: &WorkspaceRole,
@@ -469,7 +472,130 @@ impl WorkspaceRepo {
             user_id,
             role.clone() as WorkspaceRole
         )
-        .fetch_one(&self.pool)
+        .fetch_one(&mut *conn)
+        .await
+    }
+
+    pub async fn lock_owners(
+        &self,
+        conn: &mut PgConnection,
+        workspace_id: Uuid,
+        except: Uuid,
+    ) -> sqlx::Result<i64> {
+        sqlx::query!(
+            "SELECT id FROM workspaces WHERE id = $1 FOR UPDATE",
+            workspace_id
+        )
+        .fetch_optional(&mut *conn)
+        .await?;
+        sqlx::query_scalar!(
+            r#"SELECT COUNT(*) AS "count!"
+                 FROM workspace_members wm JOIN users u ON u.id = wm.user_id
+                WHERE wm.workspace_id = $1 AND wm.role = 'owner' AND wm.user_id <> $2
+                  AND u.status = 'active' AND NOT u.is_bot"#,
+            workspace_id,
+            except
+        )
+        .fetch_one(&mut *conn)
+        .await
+    }
+
+    pub async fn hand_over_owner_id(
+        &self,
+        conn: &mut PgConnection,
+        workspace_id: Uuid,
+        from: Uuid,
+    ) -> sqlx::Result<()> {
+        sqlx::query!(
+            r"
+            UPDATE workspaces w SET owner_id = next.user_id
+              FROM (SELECT wm.user_id
+                      FROM workspace_members wm JOIN users u ON u.id = wm.user_id
+                     WHERE wm.workspace_id = $1 AND wm.role = 'owner' AND wm.user_id <> $2
+                       AND u.status = 'active' AND NOT u.is_bot
+                     ORDER BY wm.joined_at, wm.user_id
+                     LIMIT 1) next
+             WHERE w.id = $1 AND w.owner_id = $2
+            ",
+            workspace_id,
+            from
+        )
+        .execute(&mut *conn)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn claim_owner_id(
+        &self,
+        conn: &mut PgConnection,
+        workspace_id: Uuid,
+        user_id: Uuid,
+    ) -> sqlx::Result<()> {
+        sqlx::query!(
+            r"
+            UPDATE workspaces w SET owner_id = $2
+             WHERE w.id = $1
+               AND NOT EXISTS (
+                   SELECT 1 FROM workspace_members wm JOIN users u ON u.id = wm.user_id
+                    WHERE wm.workspace_id = w.id AND wm.user_id = w.owner_id
+                      AND wm.role = 'owner' AND u.status = 'active'
+               )
+            ",
+            workspace_id,
+            user_id
+        )
+        .execute(&mut *conn)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn list_for_instance(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> sqlx::Result<Vec<AdminWorkspace>> {
+        sqlx::query_as!(
+            AdminWorkspace,
+            r#"
+            SELECT w.id, w.name, w.slug, w.owner_id, w.is_active AS "is_active!", w.created_at,
+                   COALESCE((
+                       SELECT jsonb_agg(jsonb_build_object(
+                                  'user_id', u.id,
+                                  'display_name', COALESCE(wm.display_name, u.display_name),
+                                  'email', u.email,
+                                  'role', wm.role,
+                                  'status', u.status
+                              ) ORDER BY wm.joined_at, u.id)
+                         FROM workspace_members wm JOIN users u ON u.id = wm.user_id
+                        WHERE wm.workspace_id = w.id AND wm.role = 'owner' AND NOT u.is_bot
+                   ), '[]'::jsonb) AS "owners!: Json<Vec<WorkspacePerson>>"
+              FROM workspaces w
+             ORDER BY w.created_at DESC
+             LIMIT $1 OFFSET $2
+            "#,
+            limit,
+            offset
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn people_for_instance(
+        &self,
+        workspace_id: Uuid,
+    ) -> sqlx::Result<Vec<WorkspacePerson>> {
+        sqlx::query_as!(
+            WorkspacePerson,
+            r#"
+            SELECT u.id AS user_id, COALESCE(wm.display_name, u.display_name) AS display_name,
+                   u.email, wm.role AS "role: WorkspaceRole", u.status AS "status: UserStatus"
+              FROM workspace_members wm JOIN users u ON u.id = wm.user_id
+             WHERE wm.workspace_id = $1 AND NOT u.is_bot
+             ORDER BY wm.joined_at, u.id
+            "#,
+            workspace_id
+        )
+        .fetch_all(&self.pool)
         .await
     }
 
