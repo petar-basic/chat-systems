@@ -6,6 +6,10 @@ pub fn same_origin(server: &Url, target: &Url) -> bool {
     target.scheme() == "about" || server.origin() == target.origin()
 }
 
+pub fn opens_outside(server: &Url, target: &Url) -> bool {
+    matches!(target.scheme(), "https" | "http" | "mailto") && !same_origin(server, target)
+}
+
 pub fn download_path(dir: &Path, suggested: &Path, url: &Url) -> PathBuf {
     let name = suggested
         .file_name()
@@ -70,6 +74,26 @@ mod tests {
             &server,
             &url("https://chat.example.com.evil.test/")
         ));
+    }
+
+    #[test]
+    fn a_link_elsewhere_opens_in_the_browser() {
+        let server = url("https://chat.example.com/");
+        assert!(opens_outside(&server, &url("https://example.com/docs")));
+        assert!(opens_outside(&server, &url("http://chat.example.com/")));
+        assert!(opens_outside(&server, &url("mailto:ana@example.com")));
+    }
+
+    #[test]
+    fn a_link_on_the_server_or_to_another_scheme_does_not() {
+        let server = url("https://chat.example.com/");
+        assert!(!opens_outside(
+            &server,
+            &url("https://chat.example.com/app/1/2")
+        ));
+        assert!(!opens_outside(&server, &url("about:blank")));
+        assert!(!opens_outside(&server, &url("file:///etc/passwd")));
+        assert!(!opens_outside(&server, &url("javascript:alert(1)")));
     }
 
     #[test]

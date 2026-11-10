@@ -16,6 +16,12 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ## [Unreleased]
 
+### Fixed
+
+- In the desktop app, clicking a link to another site in a message, a link preview, a bookmark
+  or a list opens it in your browser. On a Mac a plain click did nothing and only ⌘-click
+  opened it. This needs the desktop app on this release; the server does not change.
+
 ## [4.6.0] — 2026-11-10
 
 ### Upgrading from 4.5.0
