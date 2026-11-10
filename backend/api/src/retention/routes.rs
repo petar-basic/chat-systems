@@ -176,27 +176,29 @@ async fn announce(
     before: Option<ChannelOverride>,
     after: Option<ChannelOverride>,
 ) -> AppResult<()> {
-    let mut tx = state.pool.begin().await?;
-    let msg = state
-        .message_repo
-        .create_system_message_in(
-            &mut tx,
-            channel.id,
-            user_id,
-            &describe(after.as_ref()),
-            serde_json::json!({
-                "kind": "retention_changed",
-                "message_days": after.as_ref().and_then(|c| c.message_days),
-                "follows_workspace": after.is_none(),
-            }),
-        )
-        .await?;
-    let staged = state
-        .publisher
-        .stage_message_created(&mut tx, &msg, channel.workspace_id, &[])
-        .await?;
-    tx.commit().await?;
-    state.publisher.dispatch(staged).await;
+    if !channel.is_archived {
+        let mut tx = state.pool.begin().await?;
+        let msg = state
+            .message_repo
+            .create_system_message_in(
+                &mut tx,
+                channel.id,
+                user_id,
+                &describe(after.as_ref()),
+                serde_json::json!({
+                    "kind": "retention_changed",
+                    "message_days": after.as_ref().and_then(|c| c.message_days),
+                    "follows_workspace": after.is_none(),
+                }),
+            )
+            .await?;
+        let staged = state
+            .publisher
+            .stage_message_created(&mut tx, &msg, channel.workspace_id, &[])
+            .await?;
+        tx.commit().await?;
+        state.publisher.dispatch(staged).await;
+    }
 
     audit::record(
         state,

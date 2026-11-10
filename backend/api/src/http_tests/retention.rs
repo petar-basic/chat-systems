@@ -614,3 +614,52 @@ async fn each_workspace_audits_only_what_it_lost(pool: PgPool) {
         );
     }
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_archived_channel_changes_its_period_without_a_new_message(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "ret-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Retention WS").await;
+    let ch = seed_channel(&state, ws, owner_id, "old-project", false).await;
+    allow_channel_periods(&state, ws, owner_id, Some(365), true).await;
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/channels/{ch}"),
+        Some(&owner),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let before: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM messages WHERE channel_id = $1")
+        .bind(ch)
+        .fetch_one(&state.pool)
+        .await
+        .expect("count");
+
+    let (status, body) = send(
+        &app,
+        "PUT",
+        &format!("/api/channels/{ch}/retention"),
+        Some(&owner),
+        Some(json!({ "message_days": 7 })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["channel"]["message_days"], 7);
+
+    let after: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM messages WHERE channel_id = $1")
+        .bind(ch)
+        .fetch_one(&state.pool)
+        .await
+        .expect("count");
+    assert_eq!(after, before, "an archived channel's history stays closed");
+    let audited: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM audit_log WHERE action = 'retention.changed' AND details->>'channel_id' = $1",
+    )
+    .bind(ch.to_string())
+    .fetch_one(&state.pool)
+    .await
+    .expect("count");
+    assert_eq!(audited, 1, "the audit log still keeps both ends");
+}

@@ -2,20 +2,60 @@ use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
-use super::models::{Channel, ChannelMember, ChannelRole};
+use super::models::{Channel, ChannelMember, ChannelRole, ChannelType, WorkspaceRole};
 use super::repo::WorkspaceRepo;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
-use crate::authz::Stopped;
+use crate::authz::{self, Stopped};
 use crate::hooks::models::DisabledHook;
 use crate::messaging::publisher::EventPublisher;
 use crate::state::AppState;
 use crate::workflows::repo::StoppedWorkflow;
+
+pub async fn invite(
+    state: &AppState,
+    channel: &Channel,
+    actor: Uuid,
+    user_id: Uuid,
+    ip: &ClientIp,
+) -> AppResult<ChannelMember> {
+    authz::require_not_conversation(channel)?;
+    authz::require_not_archived(channel)?;
+    authz::require_workspace_role(state, channel.workspace_id, actor, &WorkspaceRole::Member)
+        .await?;
+    if channel.channel_type != ChannelType::Public
+        && !authz::can_moderate_channel(state, channel, actor).await
+    {
+        state
+            .workspace_service
+            .repo
+            .get_channel_member(channel.id, actor)
+            .await?
+            .ok_or_else(|| {
+                AppError::Forbidden("Only members of this channel can add people to it".into())
+            })?;
+    }
+    authz::require_workspace_member(state, channel.workspace_id, user_id).await?;
+    let member = add_to_channel(state, channel, user_id).await?;
+
+    audit::record(
+        state,
+        AuditEntry::new(AuditAction::ChannelMemberAdded, actor)
+            .workspace(channel.workspace_id)
+            .resource(channel.id)
+            .ip(ip)
+            .details(serde_json::json!({ "user_id": user_id })),
+    )
+    .await;
+
+    Ok(member)
+}
 
 pub async fn add_to_channel(
     state: &AppState,
     channel: &Channel,
     user_id: Uuid,
 ) -> AppResult<ChannelMember> {
+    authz::require_not_conversation(channel)?;
     let mut tx = state.pool.begin().await?;
     let Some(member) =
         WorkspaceRepo::add_channel_member_tx(&mut tx, channel.id, user_id, &ChannelRole::Member)

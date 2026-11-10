@@ -59,12 +59,14 @@ const channel = {
 function renderModal({
   of = channel,
   canModerate = true,
+  canEditAbout = false,
   initialTab = 'about',
   onOpenWorkflow,
   onOpenApp,
 }: {
   of?: Channel;
   canModerate?: boolean;
+  canEditAbout?: boolean;
   initialTab?: ChannelDetailsTab;
   onOpenWorkflow?: (id: string) => void;
   onOpenApp?: (app: AppRef) => void;
@@ -75,6 +77,7 @@ function renderModal({
       <ChannelDetailsModal
         channel={of}
         canModerate={canModerate}
+        canEditAbout={canEditAbout}
         initialTab={initialTab}
         onOpenWorkflow={onOpenWorkflow}
         onOpenApp={onOpenApp}
@@ -139,11 +142,26 @@ describe('ChannelDetailsModal', () => {
     expect(screen.getByTestId('channel-about-name')).toHaveValue('deploys');
   });
 
-  it('shows a member what the channel is about without letting them edit it', () => {
+  it('shows someone who may not post here what the channel is about without letting them edit it', () => {
     renderModal({ canModerate: false, initialTab: 'settings' });
     expect(tabs()).toEqual(['About', 'Integrations']);
     expect(screen.getByTestId('channel-about')).toHaveTextContent('Shipping');
     expect(screen.queryByTestId('channel-about-name')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('channel-about-topic')).not.toBeInTheDocument();
+  });
+
+  it('lets a member who posts here change the topic and description, never the name or the archive', async () => {
+    const onClose = renderModal({ canModerate: false, canEditAbout: true });
+    expect(tabs()).toEqual(['About', 'Integrations']);
+    expect(screen.queryByTestId('channel-about-name')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('channel-about-archive')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByTestId('channel-about-topic'), { target: { value: 'Releases' } });
+    fireEvent.change(screen.getByTestId('channel-about-description'), { target: { value: 'Where we ship' } });
+    fireEvent.click(screen.getByTestId('channel-about-save'));
+    await waitFor(() =>
+      expect(updateChannel).toHaveBeenCalledWith({ topic: 'Releases', description: 'Where we ship' }),
+    );
+    expect(onClose).toHaveBeenCalled();
   });
 
   it('saves the name, topic and description from About', async () => {

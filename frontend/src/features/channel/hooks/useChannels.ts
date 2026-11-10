@@ -156,8 +156,15 @@ export const useUpdateChannel = (workspaceId: string, channelId: string) => {
       apiClient.typed((c) =>
         c.PATCH('/channels/{ch_id}', { params: { path: { ch_id: channelId } }, body: patch }),
       ),
-    onSuccess: () => {
+    onSuccess: (updated) => {
+      queryClient.setQueryData<Channel>(QUERY_KEYS.channel(channelId), (channel) =>
+        channel ? { ...channel, ...updated } : channel,
+      );
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceChannels(workspaceId) });
+      const { currentChannel } = useWorkspaceStore.getState();
+      if (currentChannel?.id === channelId) {
+        useWorkspaceStore.setState({ currentChannel: { ...currentChannel, ...updated } });
+      }
     },
   });
 };

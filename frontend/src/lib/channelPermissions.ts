@@ -31,6 +31,16 @@ export function canPostInChannel(
   return canModerateChannel(workspaceRole, channelRole);
 }
 
+export function canEditChannelAbout(
+  settings: ChannelSettings | null | undefined,
+  workspaceRole: WorkspaceRole | null,
+  channelRole: ChannelRole | undefined,
+): boolean {
+  if (canModerateChannel(workspaceRole, channelRole)) return true;
+  if (!workspaceRole || workspaceRole === 'guest' || channelRole === undefined) return false;
+  return canPostInChannel(settings, workspaceRole, channelRole);
+}
+
 export function canAddChannelMembers(
   workspaceRole: WorkspaceRole | null,
   channelRole: ChannelRole | undefined,

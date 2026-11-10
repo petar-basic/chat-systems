@@ -274,8 +274,8 @@ one, and the role is the row's, not the token's.
 | GET | `/workspaces/:ws_id/channels/browse` | — | `{ data: BrowsableChannel[] }` — every public channel, and every archived private channel the caller is a member of, with `member_count`, `is_member` and `is_archived`; archived ones last, the private ones under the public ones, so an archived private channel, which the sidebar leaves out, can still be reached and unarchived (Members and up; Guests are refused) |
 | POST | `/workspaces/:ws_id/channels` | `{ name, channel_type?, description?, is_default?, post_policy? }` | `Channel` — Members and up; only admins when `settings.public_channel_creators` (or `private_channel_creators` for a private one) is `admins` |
 | GET | `/channels/:ch_id` | — | `Channel` |
-| PATCH | `/channels/:ch_id` | `{ name?, topic?, description?, post_policy?, allow_broadcast_mentions? }` | `Channel` — channel moderators; `post_policy` and `allow_broadcast_mentions` are merged into `settings` and each change is audited |
-| DELETE | `/channels/:ch_id` | — | `{ status: "archived" }` — channel moderators; posts a `channel_archived` system line and publishes `channel.updated`. An archived channel refuses every write with 403 until it is unarchived: posts, replies, reactions, scheduled messages, incoming webhooks, editing, deleting and pinning a message, its link previews, poll votes and closing, files, renaming and settings, adding, removing and re-roling members, bookmarks and starting a huddle |
+| PATCH | `/channels/:ch_id` | `{ name?, topic?, description?, post_policy?, allow_broadcast_mentions? }` | `Channel` — `topic` and `description` alone: a moderator, or a member of the channel with the Member role or above who may post in it (`authz::require_channel_edit`); anything else in the body needs a moderator. `post_policy` and `allow_broadcast_mentions` are merged into `settings` and each change is audited. Refused on a `dm` or `group_dm` |
+| DELETE | `/channels/:ch_id` | — | `{ status: "archived" }` — channel moderators; posts a `channel_archived` system line and publishes `channel.updated`; refused on a `dm` or `group_dm`. An archived channel refuses every write with 403 until it is unarchived: posts, replies, reactions, scheduled messages, incoming webhooks, editing, deleting and pinning a message, its link previews, poll votes and closing, files, renaming and settings, adding, removing and re-roling members, bookmarks and starting a huddle |
 | POST | `/channels/:ch_id/unarchive` | — | `{ status: "unarchived" }` — channel moderators; posts `channel_unarchived` and publishes `channel.updated` |
 | PATCH | `/channels/:ch_id/notifications` | `{ muted }` | `{ muted: bool }` — members only (403 otherwise) |
 
@@ -284,10 +284,14 @@ one, and the role is the row's, not the token's.
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/channels/:ch_id/members` | — | `{ data: ChannelMember[] }` — anyone who can read the channel; a private channel's to its members only, and any channel a guest is not in is refused |
-| POST | `/channels/:ch_id/members` | `{ user_id }` | `ChannelMember` |
+| POST | `/channels/:ch_id/members` | `{ user_id }` | `ChannelMember` — Members and up, unarchived channels; a private channel's members or moderators only; audited as `channel.member_added`. `/invite` is the same function, `membership::invite` |
 | POST | `/channels/:ch_id/join` | — | `ChannelMember` — self-join, public and unarchived channels only; idempotent |
 | PATCH | `/channels/:ch_id/members/:user_id/role` | `{ role: "member" \| "admin" }` | `ChannelMember` — channel moderators only |
-| DELETE | `/channels/:ch_id/members/:user_id` | — | `{ status: "removed" }` |
+| DELETE | `/channels/:ch_id/members/:user_id` | — | `{ status: "removed" }` — yourself, or anyone as a channel moderator |
+
+A `dm` or `group_dm` keeps the people and settings it was created with: adding, removing,
+leaving, the role route, archive, unarchive and `PATCH` all answer 403, for its participants and
+for workspace admins alike.
 
 **Channel bookmarks** (the link bar under the channel header):
 
@@ -349,7 +353,9 @@ A background dispatcher ticks every 15s and claims due rows with
 can run it without delivering a message twice. Delivery reuses the normal send path — mentions
 are expanded and `message.created` is published — and a failure is recorded on the row instead
 of retried. The author is checked again when it fires: a suspended account fails with
-`author_inactive`, a lost channel or workspace with `not_authorized`.
+`author_inactive`, a lost channel or workspace with `not_authorized`, and a DM whose other
+person left the workspace with `recipient_left`. The executor asks `authz::posting_blocked`,
+the same question the message route, `invoke` and a command's later answer ask.
 
 ---
 
@@ -549,7 +555,9 @@ Incoming/outgoing webhooks, bots and slash commands. A background task executes 
 Hook types: `incoming_webhook`, `outgoing_webhook`, `slash_command`
 
 Built-in commands run before any registered one and never leave the instance: `/away`,
-`/dnd`, `/topic`, `/invite`, `/shrug` and `/remind`. `/away` switches `manual_away` on or off. `/remind` understands `me in 30m to ship`,
+`/dnd`, `/topic`, `/invite`, `/shrug` and `/remind`. `/topic` and `/invite` run what
+`PATCH /channels/:ch_id` and `POST /channels/:ch_id/members` run, checks and audit row
+included; an `in_channel` answer where the caller may not post comes back ephemeral. `/away` switches `manual_away` on or off. `/remind` understands `me in 30m to ship`,
 `me at 15:00 to call back` and `me tomorrow at 9am standup`; clock times are resolved in the
 caller's own timezone and a time already past means tomorrow. Reminding somebody else needs
 workspace admin, the same rule `POST /workspaces/:ws_id/later` applies. A reminder lands in the person's *Later* list.

@@ -41,7 +41,7 @@ export default function ChannelHeader({
   onOpenApp,
 }: Props) {
   const { t } = useTranslation('channel');
-  const { canModerate } = useChannelModeration(channel?.id ?? null);
+  const { canModerate, canEditAbout } = useChannelModeration(channel?.id ?? null, channel?.settings);
   const { data: hookedChannels } = useHookedChannels(channel?.workspace_id ?? null);
   const [details, setDetails] = useState<ChannelDetailsTab | null>(null);
   const { data: members } = useChannelMembers(channel?.id ?? null);
@@ -208,6 +208,7 @@ export default function ChannelHeader({
             <ChannelDetailsModal
               channel={channel}
               canModerate={canModerate && !channel.is_archived}
+              canEditAbout={canEditAbout && !channel.is_archived}
               initialTab={details}
               onOpenWorkflow={onOpenWorkflow}
               onOpenApp={onOpenApp}

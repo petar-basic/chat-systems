@@ -19,6 +19,7 @@ pub enum DeliveryFailure {
     NotAuthorized,
     AuthorInactive,
     ChannelArchived,
+    RecipientLeft,
     WorkspaceUnavailable,
     ThreadGone,
     Internal(String),
@@ -30,6 +31,7 @@ impl DeliveryFailure {
             Self::NotAuthorized => "not_authorized",
             Self::AuthorInactive => "author_inactive",
             Self::ChannelArchived => "channel_archived",
+            Self::RecipientLeft => "recipient_left",
             Self::WorkspaceUnavailable => "workspace_unavailable",
             Self::ThreadGone => "thread_gone",
             Self::Internal(_) => "internal_error",
@@ -41,6 +43,7 @@ impl DeliveryFailure {
             Self::NotAuthorized => "You no longer have access to the destination.",
             Self::AuthorInactive => "Your account is suspended.",
             Self::ChannelArchived => "The channel has been archived.",
+            Self::RecipientLeft => "The person you wrote to has left the workspace.",
             Self::WorkspaceUnavailable => "The workspace is no longer available.",
             Self::ThreadGone => "The thread it replied to is gone.",
             Self::Internal(_) => "The server could not deliver it.",
@@ -133,11 +136,14 @@ async fn authorize_channel(
     let access = authz::require_channel_access(state, channel_id, scheduled.user_id)
         .await
         .map_err(|_| DeliveryFailure::NotAuthorized)?;
-    if access.channel.is_archived {
-        return Err(DeliveryFailure::ChannelArchived);
-    }
-    if !access.can_post() {
-        return Err(DeliveryFailure::NotAuthorized);
+    match authz::posting_blocked(state, &access)
+        .await
+        .map_err(internal)?
+    {
+        Some(authz::PostingBlocked::Archived) => return Err(DeliveryFailure::ChannelArchived),
+        Some(authz::PostingBlocked::Departed(_)) => return Err(DeliveryFailure::RecipientLeft),
+        Some(authz::PostingBlocked::ModeratorsOnly) => return Err(DeliveryFailure::NotAuthorized),
+        None => {}
     }
 
     let workspace = state

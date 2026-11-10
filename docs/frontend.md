@@ -222,8 +222,9 @@ sits in the ⋯ menu for everyone in the channel; below `sm` the toggles fold in
 *Integrations*.
 
 ### `channel/details/ChannelDetailsModal`
-A `SectionedModal` with *About* (name, topic, description and archive for a moderator, the
-topic and description as text for everyone else), *Settings* (announcement channel, whether
+A `SectionedModal` with *About* (name, topic, description and archive for a moderator, topic
+and description for a member who may post there (`canEditChannelAbout`), the two as text for
+everyone else), *Settings* (announcement channel, whether
 `@channel`, `@here` and `@everyone` work there, and message retention, moderators only), *Activity* (moderators only:
 `GET /channels/:id/analytics`, the messages, the members who posted and viewed in the last 30
 days, and the last message's day) and *Integrations*. *Integrations* reads

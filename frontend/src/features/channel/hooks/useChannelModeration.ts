@@ -4,6 +4,7 @@ import { useChannelMembers } from '@/features/channel/hooks/useChannels';
 import { useCurrentWorkspaceRole } from '@/features/workspace';
 import {
   canBroadcastInChannel,
+  canEditChannelAbout,
   canModerateChannel,
   canPostInChannel,
   type ChannelRole,
@@ -28,6 +29,7 @@ export function useChannelModeration(channelId: string | null, settings?: Channe
     myRole,
     resolved,
     canModerate: resolved && canModerateChannel(workspaceRole, myRole),
+    canEditAbout: resolved && canEditChannelAbout(settings, workspaceRole, myRole),
     // Optimistic while the role is still loading: a composer that appears and
     // then vanishes is worse than one that appears and refuses once.
     canPost: !resolved || canPostInChannel(settings, workspaceRole, myRole),

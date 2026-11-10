@@ -27,6 +27,7 @@ mod avatar;
 mod bots;
 mod broadcast_mentions;
 mod channel_context;
+mod channel_edits;
 mod channel_integrations;
 mod channels;
 mod commands;

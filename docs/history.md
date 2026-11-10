@@ -2645,3 +2645,26 @@ every id before archiving any, then archives each through the same function as *
 settings*, so each has its audit row and system message. The table took the columns of Slack's
 *Channels* tab when it was reviewed against it, *Viewed* among them; Slack has no list of
 quiet channels, only an Enterprise API that archives up to a hundred at once.
+
+## Wave 32a — What the third survey found
+
+### [CS-121a] A conversation stays between the people in it ✅ shipped
+The ticket kept the topic with moderators, the route's rule at the time. Slack lets anyone in a
+channel who may post there set its topic and description, guests aside, so that became the
+rule for the panel, `PATCH /channels/{id}` and `/topic` alike: a moderator, or a member of the
+channel with the Member role or above who passes `can_post`. A `PATCH` that carries a name, the
+posting policy or broadcast mentions is a settings change and still needs a moderator. A `dm`
+or `group_dm` refuses every change to its people and settings, leaving included, for its
+participants and for admins, with one message; Slack answers *add people* by starting a new
+group DM, which is a feature of its own and not here yet. The departure rule moved from
+`require_posting` into `authz::posting_blocked`, which says why a write is blocked, so the
+message route, `invoke`, a command's later answer and the scheduled executor ask the same
+question, and the executor can fail a DM to someone who left with `recipient_left` rather than
+`not_authorized`. `/invite` and the member route became one function, `membership::invite`,
+and `/topic` and the panel another, `workspace::about::update`, each writing the audit row the
+route wrote. Retention on an archived channel is saved and audited without a system message. Trying it
+in the app turned up two older faults: the header kept the topic it had when the channel was
+opened, because `currentChannel` is a copy taken when it is selected, so `useUpdateChannel`
+now writes the answer into it the way `applyChannelArchived` does; and `/invite` answered with
+`<@id>`, which nothing renders, so it names the person as a mention token with the name from
+their account rather than the label that was typed.

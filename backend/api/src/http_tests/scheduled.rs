@@ -562,6 +562,50 @@ async fn a_dm_from_a_removed_participant_is_not_delivered(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn a_dm_to_someone_who_left_the_workspace_says_who_is_missing(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "sched-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Departed WS").await;
+    let (partner_id, _) = seed(&state, "sched-partner", false).await;
+    add_ws_member(&state, ws_id, partner_id, "member").await;
+
+    let (_, conv) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/conversations"),
+        Some(&owner_token),
+        Some(json!({ "participant_ids": [partner_id] })),
+    )
+    .await;
+    let conv_id: Uuid = conv["id"].as_str().expect("id").parse().expect("uuid");
+    let scheduled = queue_due(&state, ws_id, owner_id, conv_id).await;
+
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/workspaces/{ws_id}/members/{partner_id}"),
+        Some(&owner_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let failure = deliver_now(&state, &scheduled).await.expect_err("refused");
+    assert_eq!(
+        failure,
+        crate::scheduled::executor::DeliveryFailure::RecipientLeft
+    );
+    assert_eq!(channel_message_count(&state, conv_id).await, 0);
+    let recorded: Option<String> =
+        sqlx::query_scalar("SELECT failure FROM scheduled_messages WHERE id = $1")
+            .bind(scheduled.id)
+            .fetch_one(&state.pool)
+            .await
+            .expect("row");
+    assert_eq!(recorded.as_deref(), Some("recipient_left"));
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_refused_delivery_tells_the_author(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "sched-owner", false).await;
