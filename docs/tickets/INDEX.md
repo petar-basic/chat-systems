@@ -24,8 +24,8 @@ Wave 27, which fixes what the 2026-10-28 survey of 3.6.0 found, shipped in 3.7.0
 feedback on 3.7.0 and CS-037, shipped in 4.0.0.
 After it, releases are bug fixes only for a while. Wave 29, a desktop app, shipped in 4.1.0. Wave 30,
 themes per workspace and the preferences a team from Slack looks for, shipped in 4.2.0. Wave 31, passkeys
-and emailed sign-in codes, shipped in 4.3.0. Wave 32, analytics for admins, shipped in 4.4.0. Wave 33
-(mobile apps, 5.0.0) is planned.
+and emailed sign-in codes, shipped in 4.3.0. Wave 32, analytics for admins, shipped in 4.4.0. Wave 32a,
+which fixes what the 2026-11-10 survey of 4.6.0 found, comes next, then Wave 33 (mobile apps, 5.0.0).
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -413,6 +413,37 @@ workspace, which channels carry the work, and which ones nobody posts in any mor
 | CS-120 ✅ | Workspace analytics | backend · frontend |
 | CS-121 ✅ | Channel analytics and quiet channels | backend · frontend |
 
+### Wave 32a — What the third survey found
+
+A third survey on 2026-11-10 read 4.6.0 (`1162971`) against the one of 3.6.0 and listed
+twenty-seven open findings and a dozen smaller ones. Every finding held when checked in the
+code, though four rest on reasoning the code cannot settle alone: the new message in the
+middle of the history (MSG-14) has not been seen in the app yet, how often a reader turns
+inactive (NOT-8) and the guess rate on emailed codes (SEC-12) are worked out from the
+constants, and a late click on a desktop banner (DSK-2) depends on how each OS delivers it.
+One smaller finding was dropped: the *Incoming huddle* row under a pause is the rule every
+notification follows, decided in Wave 27. A doubled unread count after a replay (RT-1), dropped
+in Wave 27 because it corrects itself, is back in: coming back to a workspace replays
+everything since you left, so it happens on every switch. The numbers carry a letter so the
+wave lands before Wave 33 without renumbering it. What lets somebody into a conversation, a
+role or a channel they should not have comes first.
+
+| # | Ticket | Area |
+|---|---|---|
+| CS-121a | A conversation stays between the people in it, and an archived channel stays read-only | backend |
+| CS-121b | Ownership is handed over, never taken | backend · frontend |
+| CS-121c | What someone built stops when they lose the right to it | backend · frontend |
+| CS-121d | A Slack import that respects what changed since the last run | backend |
+| CS-121e | A new message lands at the bottom | frontend |
+| CS-121f | Read when you read it, and a *New* line that knows what you read | frontend |
+| CS-121g | Threads that know where they are | frontend · backend |
+| CS-121h | Slash commands in every message box | frontend · backend |
+| CS-121i | Emailed codes with a ceiling, and instance roles that apply at once | backend · frontend · realtime |
+| CS-121j | Erase and export that cover everything about a person | backend |
+| CS-121k | The desktop app after signing out and after a reload | frontend · desktop |
+| CS-121l | The third survey's small things | realtime · frontend |
+| CS-121m | Notifications in the reader's language | backend · frontend |
+
 ### Wave 33 — Mobile apps
 
 Planned on 2026-11-04, to go out as 5.0.0, the major version because CS-122 moves every
@@ -480,5 +511,17 @@ Tickets that touch the same files, and the order that avoids rework:
 | `/auth/oidc/exchange` and the deep link | CS-109 ✅ → CS-118 → CS-124 → CS-125 |
 | the Tauri project's mobile targets | CS-123 → CS-125 → CS-126 |
 | `MessageInput.tsx` key handling | CS-114 |
-| `membership::detach`, `remove_member_in` and the conversation list | CS-117a ✅ |
+| `membership::detach`, `remove_member_in` and the conversation list | CS-117a ✅ → CS-121c |
+| `membership::add_to_channel` and the channel member routes in `workspace/routes.rs` | CS-121a |
+| invite, role and member-removal routes in `workspace/routes.rs`, `accept_invite` | CS-121b |
+| `commands/routes.rs` `invoke` and `commands/builtin.rs` | CS-121a → CS-121c → CS-121h |
+| `hooks/repo.rs` `enable`, `bot_apps` and `stand_down` | CS-121c |
+| Slack import reuse branch and `analytics/repo.rs` | CS-121d |
+| `lib/messageCache.ts`, `useMessages.ts` and `message.new` in `wsQuerySync.ts` | CS-121e → CS-121f |
+| `readOnScreen`, `MessageList` read boundary and unread hydration | CS-121f |
+| `ThreadPanel.tsx` and `ThreadsView.tsx` | CS-121f → CS-121g → CS-121h |
+| `useComposer`, `ConversationView` and `MessageInput.tsx` | CS-121h → CS-121l |
+| `auth/email_code_routes.rs`, instance-admin checks and `update_instance_role` | CS-121i |
+| `export/routes.rs` erase and `export/job.rs` | CS-121j |
+| `lib/notifications.ts` and the desktop report | CS-121k → CS-121m |
 | desktop `report_theme` | CS-112 |

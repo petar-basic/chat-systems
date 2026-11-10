@@ -21,6 +21,14 @@ by email in place of a password, both with the same second step after a password
 2026-11-04. Workspace analytics per day and week, a table of members, the channels with
 Slack's columns, quiet channels to archive at once, and a channel's own numbers for its admin.
 
+**Wave 32a — what the third survey found**, next (CS-121a – CS-121m): a survey of 4.6.0 on
+2026-11-10. DMs that gain nobody, `/invite` and `/topic` under their routes' rules, an owner
+role that is handed over and not taken, hooks, apps and invite links that stop with their
+creator, a Slack re-run that keeps admins' changes, new messages at the bottom after paging,
+reading only what is on screen, threads from archived channels, commands in DMs and threads,
+a ceiling on emailed codes, erase and export that cover everything, and the desktop app after
+signing out.
+
 Planned after it on 2026-11-04:
 
 - **Wave 33 — mobile apps**, 5.0.0 (CS-122 – CS-126): every route under `/api/v1`, a spike
