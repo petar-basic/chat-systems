@@ -11,11 +11,15 @@ ignore = [
     "RUSTSEC-2023-0071",
     # crypto-bigint 0.5.5 (timing variability in constant-time ops), fixed in 0.7.6.
     # Pulled in through elliptic-curve 0.13 by web-push 0.11 (jwt-simple, VAPID
-    # signing) and openidconnect 4.0 (p256/p384); both are their latest releases,
-    # so there is no upgrade path. openidconnect only verifies ID-token signatures
-    # with the provider's public keys, so no secret is involved. web-push signs one
+    # signing), its latest release, so there is no upgrade path. web-push signs one
     # VAPID JWT per push with our key inside the worker; recovering it would need
     # fine-grained timing of that signing, which isn't observable remotely.
-    # Drop this once web-push and openidconnect move to elliptic-curve 0.14.
+    # Drop this once web-push moves to elliptic-curve 0.14.
     "RUSTSEC-2026-0387",
+    # libsqlite3-sys 0.37 (bundled SQLite CVE-2026-119375), fixed in 0.39. Present
+    # only as a lock entry under sqlx's SQLite driver, which we never enable
+    # (postgres-only). Not in the build graph: `cargo tree -i libsqlite3-sys` is
+    # empty. sqlx 0.9.0 is its latest release and pins 0.37. Drop this once sqlx
+    # moves to libsqlite3-sys 0.39.
+    "RUSTSEC-2026-0459",
 ]
