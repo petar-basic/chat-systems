@@ -1,4 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import i18n from '@/lib/i18n';
+import { formatDateTime } from '@/lib/datetime';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ChannelDetailsModal, type ChannelDetailsTab } from './ChannelDetailsModal';
@@ -17,6 +19,7 @@ const deleteHook = vi.fn();
 let retention: ChannelRetention;
 let integrations: ChannelIntegrations;
 let analytics: ChannelAnalytics;
+let memberName = 'Ana';
 
 vi.mock('../hooks/useChannels', () => ({
   useUpdateChannel: () => ({ mutateAsync: updateChannel, isPending: false }),
@@ -34,7 +37,7 @@ vi.mock('@/features/workspace/hooks/useHooks', () => ({
   useHookedChannels: () => ({ data: new Set() }),
 }));
 vi.mock('@/features/workspace/hooks/useWorkspaces', () => ({
-  useWorkspaceMembers: () => ({ data: [{ user_id: 'u-ana', display_name: 'Ana' }] }),
+  useWorkspaceMembers: () => ({ data: [{ user_id: 'u-ana', display_name: memberName }] }),
   useWorkspaceChannels: () => ({ data: [] }),
 }));
 vi.mock('../hooks/useChannelIntegrations', () => ({
@@ -54,11 +57,13 @@ const channel = {
 } as unknown as Channel;
 
 function renderModal({
+  of = channel,
   canModerate = true,
   initialTab = 'about',
   onOpenWorkflow,
   onOpenApp,
 }: {
+  of?: Channel;
   canModerate?: boolean;
   initialTab?: ChannelDetailsTab;
   onOpenWorkflow?: (id: string) => void;
@@ -68,7 +73,7 @@ function renderModal({
   render(
     <QueryClientProvider client={new QueryClient()}>
       <ChannelDetailsModal
-        channel={channel}
+        channel={of}
         canModerate={canModerate}
         initialTab={initialTab}
         onOpenWorkflow={onOpenWorkflow}
@@ -84,6 +89,7 @@ const tabs = () => screen.getAllByRole('tab').map((tab) => tab.textContent);
 const save = () => fireEvent.click(screen.getByTestId('channel-settings-save'));
 
 beforeEach(() => {
+  memberName = 'Ana';
   updateChannel.mockReset().mockResolvedValue({});
   setRetention.mockReset().mockResolvedValue({});
   createHook.mockReset().mockResolvedValue({ id: 'h-new' });
@@ -317,5 +323,62 @@ describe('ChannelDetailsModal integrations', () => {
       { kind: 'slash_command', id: 'h-cmd' },
       { kind: 'workflow', id: 'w-1' },
     ]);
+  });
+});
+
+describe('ChannelDetailsModal in Japanese', () => {
+  const hostile = '<img src=x onerror="alert(1)"> {{name}}';
+
+  beforeEach(async () => {
+    await i18n.changeLanguage('ja');
+  });
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('names the tabs and asks before archiving the channel by its name, as text', () => {
+    renderModal({ of: { ...channel, name: hostile } });
+    expect(tabs()).toEqual(['概要', '設定', 'アクティビティ', '連携']);
+    fireEvent.click(screen.getByTestId('channel-about-archive'));
+    expect(screen.getByRole('heading', { name: `#${hostile} をアーカイブしますか?` })).toBeInTheDocument();
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
+
+  it('counts the days messages are kept', () => {
+    renderModal({ initialTab: 'settings' });
+    expect(screen.getByRole('option', { name: 'ワークスペースの設定（365 日間）' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: '無期限に保存' })).toBeInTheDocument();
+  });
+
+  it('says how long the workspace keeps messages when channels may not choose', () => {
+    retention = { overrides_allowed: false, workspace_message_days: 90, channel: null };
+    renderModal({ initialTab: 'settings' });
+    expect(screen.getByTestId('channel-retention-workspace').textContent).toBe(
+      'このチャンネルのメッセージはワークスペースの設定に従い、90 日間保存されます。',
+    );
+  });
+
+  it('says how many members there are', () => {
+    renderModal({ initialTab: 'activity' });
+    expect(screen.getAllByText('メンバー 6 人中')).toHaveLength(2);
+  });
+
+  it('names webhooks, workflows and who added them, as text', () => {
+    memberName = hostile;
+    integrations.incoming_webhooks[0].name = hostile;
+    integrations.workflows[0].name = hostile;
+    renderModal({ canModerate: false, initialTab: 'integrations', onOpenApp: vi.fn() });
+
+    const incoming = screen.getByTestId('channel-integration-incoming');
+    expect(
+      within(incoming).getByText(`追加: ${hostile} さん ・ ${formatDateTime('2026-10-20T10:00:00Z')}`),
+    ).toBeInTheDocument();
+    expect(within(incoming).getByRole('button', { name: `${hostile} の詳細` })).toBeInTheDocument();
+    expect(screen.getByText(`オン ・ 作成: ${hostile} さん`)).toBeInTheDocument();
+
+    fireEvent.click(within(incoming).getByRole('button', { name: `${hostile} を削除` }));
+    expect(screen.getByRole('heading', { name: `${hostile} を削除しますか?` })).toBeInTheDocument();
+    expect(within(incoming).getByRole('button', { name: `${hostile} の URL を再発行` })).toBeInTheDocument();
+    expect(document.querySelector('[onerror]')).toBeNull();
   });
 });

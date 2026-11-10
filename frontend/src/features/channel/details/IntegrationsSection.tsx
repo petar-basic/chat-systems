@@ -1,4 +1,5 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowDownToLine, ArrowUpFromLine, RefreshCw, SquareSlash, Trash2, Workflow } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
@@ -30,6 +31,7 @@ interface Props {
 }
 
 export function IntegrationsSection({ channel, onOpenWorkflow, onOpenApp }: Props) {
+  const { t } = useTranslation('channel');
   const instanceUrl = useWorkspaceStore((s) => s.currentWorkspace?.instanceUrl);
   const integrations = useChannelIntegrations(channel.id);
   const { data: members = [] } = useWorkspaceMembers(channel.workspace_id, instanceUrl);
@@ -58,10 +60,10 @@ export function IntegrationsSection({ channel, onOpenWorkflow, onOpenApp }: Prop
         variant="ghost"
         size="sm"
         onClick={() => onOpenApp(app)}
-        aria-label={`Details of ${name}`}
+        aria-label={t('details.integrations.detailsOf', { name })}
         data-qa="channel-integration-details"
       >
-        Details
+        {t('details.integrations.details')}
       </Button>
     );
 
@@ -79,7 +81,7 @@ export function IntegrationsSection({ channel, onOpenWorkflow, onOpenApp }: Prop
       show(hook.id, (await revealHook.mutateAsync(hook.id)).incoming_url);
       setName('');
     } catch (err: unknown) {
-      failWith('Failed to add the webhook')(err);
+      failWith(t('details.integrations.incoming.addFailed'))(err);
     }
   };
 
@@ -88,7 +90,7 @@ export function IntegrationsSection({ channel, onOpenWorkflow, onOpenApp }: Prop
     try {
       show(hookId, (await rotateHook.mutateAsync(hookId)).incoming_url);
     } catch (err: unknown) {
-      failWith('Failed to rotate the webhook')(err);
+      failWith(t('details.integrations.incoming.rotateFailed'))(err);
     }
   };
 
@@ -125,9 +127,9 @@ export function IntegrationsSection({ channel, onOpenWorkflow, onOpenApp }: Prop
 
       <Group
         icon={<ArrowDownToLine className="h-3.5 w-3.5" />}
-        title="Incoming webhooks"
-        hint="Post into this channel from anything that can send a little JSON."
-        empty={canManage ? null : 'None post into this channel.'}
+        title={t('details.integrations.incoming.title')}
+        hint={t('details.integrations.incoming.hint')}
+        empty={canManage ? null : t('details.integrations.incoming.empty')}
         count={incoming.length}
         qa="channel-integrations-incoming"
       >
@@ -147,11 +149,11 @@ export function IntegrationsSection({ channel, onOpenWorkflow, onOpenApp }: Prop
         {canManage && (
           <form onSubmit={handleAdd} noValidate className="flex items-end gap-2 pt-1">
             <TextInput
-              label="Webhook name"
+              label={t('details.integrations.incoming.nameLabel')}
               labelHidden
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Name, e.g. CI alerts"
+              placeholder={t('details.integrations.incoming.namePlaceholder')}
               dataQa="channel-webhook-name"
               className="flex-1"
             />
@@ -162,7 +164,7 @@ export function IntegrationsSection({ channel, onOpenWorkflow, onOpenApp }: Prop
               disabled={busy || !name.trim()}
               data-qa="channel-webhook-add"
             >
-              Add an incoming webhook
+              {t('details.integrations.incoming.add')}
             </Button>
           </form>
         )}
@@ -170,9 +172,9 @@ export function IntegrationsSection({ channel, onOpenWorkflow, onOpenApp }: Prop
 
       <Group
         icon={<ArrowUpFromLine className="h-3.5 w-3.5" />}
-        title="Outgoing webhooks"
-        hint="Every message here is also sent to a service outside this workspace."
-        empty="Nothing here is sent outside."
+        title={t('details.integrations.outgoing.title')}
+        hint={t('details.integrations.outgoing.hint')}
+        empty={t('details.integrations.outgoing.empty')}
         count={outgoing.length}
         qa="channel-integrations-outgoing"
       >
@@ -189,9 +191,9 @@ export function IntegrationsSection({ channel, onOpenWorkflow, onOpenApp }: Prop
 
       <Group
         icon={<SquareSlash className="h-3.5 w-3.5" />}
-        title="Slash commands"
-        hint="What you type after the command is sent to a service outside this workspace."
-        empty="No commands are set up for this channel."
+        title={t('details.integrations.commands.title')}
+        hint={t('details.integrations.commands.hint')}
+        empty={t('details.integrations.commands.empty')}
         count={commands.length}
         qa="channel-integrations-commands"
       >
@@ -208,9 +210,9 @@ export function IntegrationsSection({ channel, onOpenWorkflow, onOpenApp }: Prop
 
       <Group
         icon={<Workflow className="h-3.5 w-3.5" />}
-        title="Workflows"
-        hint="Workflows that start from this channel or post into it."
-        empty="No workflow uses this channel."
+        title={t('details.integrations.workflows.title')}
+        hint={t('details.integrations.workflows.hint')}
+        empty={t('details.integrations.workflows.empty')}
         count={workflows.length}
         qa="channel-integrations-workflows"
       >
@@ -218,7 +220,12 @@ export function IntegrationsSection({ channel, onOpenWorkflow, onOpenApp }: Prop
           <Row
             key={workflow.id}
             title={workflow.name}
-            detail={`${workflow.enabled ? 'On' : 'Off'} · built by ${nameOf(workflow.created_by)}`}
+            detail={t(
+              workflow.enabled ? 'details.integrations.workflows.on' : 'details.integrations.workflows.off',
+              {
+                name: nameOf(workflow.created_by),
+              },
+            )}
             qa="channel-integration-workflow"
             action={
               <>
@@ -230,7 +237,7 @@ export function IntegrationsSection({ channel, onOpenWorkflow, onOpenApp }: Prop
                     onClick={() => onOpenWorkflow(workflow.id)}
                     data-qa="channel-integration-workflow-open"
                   >
-                    Open
+                    {t('details.integrations.open')}
                   </Button>
                 )}
               </>
@@ -315,6 +322,7 @@ function IncomingRow({
   onRotate: () => void;
   onRemove: () => Promise<void>;
 }) {
+  const { t } = useTranslation('channel');
   const [confirmRemove, setConfirmRemove] = useState(false);
   return (
     <div className="rounded-lg border border-line/60 px-3 py-2" data-qa="channel-integration-incoming">
@@ -322,7 +330,10 @@ function IncomingRow({
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-medium text-fg-soft">{hook.name}</div>
           <div className="truncate text-xs text-muted">
-            Added by {author} · {formatDateTime(hook.created_at)}
+            {t('details.integrations.incoming.addedBy', {
+              name: author,
+              time: formatDateTime(hook.created_at),
+            })}
           </div>
           {hook.description && <div className="text-xs text-fg-dim">{hook.description}</div>}
         </div>
@@ -330,14 +341,14 @@ function IncomingRow({
         {canManage && (
           <>
             <IconButton
-              label={`Make a new URL for ${hook.name}`}
+              label={t('details.integrations.incoming.rotate', { name: hook.name })}
               icon={<RefreshCw className="h-4 w-4" />}
               onClick={onRotate}
               disabled={busy}
               data-qa="channel-webhook-rotate"
             />
             <IconButton
-              label={`Remove ${hook.name}`}
+              label={t('details.integrations.incoming.remove', { name: hook.name })}
               icon={<Trash2 className="h-4 w-4" />}
               tone="danger"
               onClick={() => setConfirmRemove(true)}
@@ -349,17 +360,19 @@ function IncomingRow({
       </div>
       {url && (
         <div data-qa="channel-webhook-url">
-          <CopyField label="Webhook URL" value={url} valueQa="channel-webhook-url-value" />
-          <p className="mt-1 text-xs text-muted">
-            Copy it now: it is not shown again. Anyone with it can post here.
-          </p>
+          <CopyField
+            label={t('details.integrations.incoming.url')}
+            value={url}
+            valueQa="channel-webhook-url-value"
+          />
+          <p className="mt-1 text-xs text-muted">{t('details.integrations.incoming.urlHint')}</p>
         </div>
       )}
       {confirmRemove && (
         <ConfirmDialog
-          title={`Remove ${hook.name}?`}
-          description="Anything still posting to its URL will be refused."
-          confirmLabel="Remove webhook"
+          title={t('details.integrations.incoming.removeTitle', { name: hook.name })}
+          description={t('details.integrations.incoming.removeDescription')}
+          confirmLabel={t('details.integrations.incoming.removeConfirm')}
           onConfirm={onRemove}
           onClose={() => setConfirmRemove(false)}
           dataQa="channel-webhook-remove-dialog"

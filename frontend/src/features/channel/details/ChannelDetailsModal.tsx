@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChartColumn, Info, Plug, SlidersHorizontal } from 'lucide-react';
 import { SectionedModal, type ModalSection } from '@/shared/components/Modal/SectionedModal';
 import type { Channel } from '@/stores/workspace';
@@ -10,18 +11,7 @@ import { ActivitySection } from './ActivitySection';
 
 export type ChannelDetailsTab = 'about' | 'settings' | 'activity' | 'integrations';
 
-const ABOUT: ModalSection<ChannelDetailsTab> = { key: 'about', label: 'About', Icon: Info };
-const SETTINGS: ModalSection<ChannelDetailsTab> = {
-  key: 'settings',
-  label: 'Settings',
-  Icon: SlidersHorizontal,
-};
-const ACTIVITY: ModalSection<ChannelDetailsTab> = { key: 'activity', label: 'Activity', Icon: ChartColumn };
-const INTEGRATIONS: ModalSection<ChannelDetailsTab> = {
-  key: 'integrations',
-  label: 'Integrations',
-  Icon: Plug,
-};
+const ICONS = { about: Info, settings: SlidersHorizontal, activity: ChartColumn, integrations: Plug };
 
 interface Props {
   channel: Channel;
@@ -40,13 +30,21 @@ export function ChannelDetailsModal({
   onOpenApp,
   onClose,
 }: Props) {
-  const sections = canModerate ? [ABOUT, SETTINGS, ACTIVITY, INTEGRATIONS] : [ABOUT, INTEGRATIONS];
+  const { t } = useTranslation('channel');
+  const keys: ChannelDetailsTab[] = canModerate
+    ? ['about', 'settings', 'activity', 'integrations']
+    : ['about', 'integrations'];
+  const sections: ModalSection<ChannelDetailsTab>[] = keys.map((key) => ({
+    key,
+    label: t(`details.tabs.${key}`),
+    Icon: ICONS[key],
+  }));
   const [chosen, setChosen] = useState(initialTab);
   const active = sections.some((s) => s.key === chosen) ? chosen : 'about';
 
   return (
     <SectionedModal
-      title={`#${channel.name ?? 'channel'}`}
+      title={`#${channel.name ?? t('details.fallbackName')}`}
       sections={sections}
       active={active}
       onSelect={setChosen}

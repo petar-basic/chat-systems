@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Archive } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog/ConfirmDialog';
@@ -19,9 +20,10 @@ export function AboutSection({ channel, canModerate, onClose }: Props) {
 }
 
 function AboutText({ channel }: { channel: Channel }) {
+  const { t } = useTranslation('channel');
   const rows = [
-    ['Topic', channel.topic],
-    ['Description', channel.description],
+    [t('details.about.topic'), channel.topic],
+    [t('details.about.description'), channel.description],
   ] as const;
   return (
     <dl className="space-y-4" data-qa="channel-about">
@@ -29,7 +31,7 @@ function AboutText({ channel }: { channel: Channel }) {
         <div key={label}>
           <dt className="text-xs font-medium uppercase tracking-wider text-muted">{label}</dt>
           <dd className={`mt-1 text-sm whitespace-pre-wrap ${value ? 'text-fg-soft' : 'text-muted'}`}>
-            {value || 'None yet'}
+            {value || t('details.about.noneYet')}
           </dd>
         </div>
       ))}
@@ -38,6 +40,7 @@ function AboutText({ channel }: { channel: Channel }) {
 }
 
 function AboutForm({ channel, onClose }: Omit<Props, 'canModerate'>) {
+  const { t } = useTranslation('channel');
   const [name, setName] = useState(channel.name ?? '');
   const [topic, setTopic] = useState(channel.topic ?? '');
   const [description, setDescription] = useState(channel.description ?? '');
@@ -58,7 +61,7 @@ function AboutForm({ channel, onClose }: Omit<Props, 'canModerate'>) {
       });
       onClose();
     } catch (err: unknown) {
-      setError((err as { message?: string })?.message || 'Failed to save the channel');
+      setError((err as { message?: string })?.message || t('details.saveFailed'));
     }
   };
 
@@ -71,7 +74,7 @@ function AboutForm({ channel, onClose }: Omit<Props, 'canModerate'>) {
     <>
       <form onSubmit={handleSave} noValidate className="space-y-4">
         <TextInput
-          label="Name"
+          label={t('details.about.name')}
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={80}
@@ -79,15 +82,15 @@ function AboutForm({ channel, onClose }: Omit<Props, 'canModerate'>) {
           required
         />
         <TextInput
-          label="Topic"
+          label={t('details.about.topic')}
           optional
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
-          placeholder="What is this channel about?"
+          placeholder={t('details.about.topicPlaceholder')}
           dataQa="channel-about-topic"
         />
         <TextArea
-          label="Description"
+          label={t('details.about.description')}
           optional
           value={description}
           onChange={(e) => setDescription(e.target.value)}
@@ -107,7 +110,7 @@ function AboutForm({ channel, onClose }: Omit<Props, 'canModerate'>) {
             data-qa="channel-about-archive"
             className="-ml-2.5 hover:text-danger"
           >
-            Archive channel
+            {t('details.about.archive')}
           </Button>
           <Button
             type="submit"
@@ -116,15 +119,15 @@ function AboutForm({ channel, onClose }: Omit<Props, 'canModerate'>) {
             disabled={!name.trim()}
             data-qa="channel-about-save"
           >
-            Save
+            {t('details.save')}
           </Button>
         </div>
       </form>
       {confirmArchive && (
         <ConfirmDialog
-          title={`Archive #${channel.name ?? 'channel'}?`}
-          description="It leaves the channel list and nobody can post in it, until an admin unarchives it. Its history stays readable."
-          confirmLabel="Archive channel"
+          title={t('details.about.archiveTitle', { name: channel.name ?? t('details.fallbackName') })}
+          description={t('details.about.archiveDescription')}
+          confirmLabel={t('details.about.archive')}
           onConfirm={handleArchive}
           onClose={() => setConfirmArchive(false)}
           dataQa="channel-about-archive-dialog"
