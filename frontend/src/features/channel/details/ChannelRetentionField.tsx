@@ -1,10 +1,12 @@
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { Select } from '@/shared/components/Form/Select';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import type { ChannelRetention } from '@/features/workspace';
 import { periodOf, type PeriodChoice } from './channelPeriod';
 
-function workspacePeriod(days: number | null | undefined) {
-  return days ? `${days} day${days === 1 ? '' : 's'}` : 'forever';
+function workspacePeriod(days: number | null | undefined, t: TFunction<'channel'>) {
+  return days ? t('details.retention.days', { count: days }) : t('details.retention.forever');
 }
 
 interface Props {
@@ -14,13 +16,14 @@ interface Props {
 }
 
 export function ChannelRetentionField({ retention, choice, onChange }: Props) {
-  const workspace = workspacePeriod(retention.workspace_message_days);
+  const { t } = useTranslation('channel');
+  const days = retention.workspace_message_days;
+  const workspace = workspacePeriod(days, t);
 
   if (!retention.overrides_allowed) {
     return (
       <p className="text-sm text-muted" data-qa="channel-retention-workspace">
-        Messages here follow the workspace and are kept{' '}
-        {workspace === 'forever' ? 'forever' : `for ${workspace}`}.
+        {days ? t('details.retention.followsDays', { count: days }) : t('details.retention.followsForever')}
       </p>
     );
   }
@@ -28,7 +31,7 @@ export function ChannelRetentionField({ retention, choice, onChange }: Props) {
   return (
     <div className="space-y-2" data-qa="channel-retention">
       <Select
-        label="Message retention"
+        label={t('details.retention.label')}
         value={choice.mode}
         onChange={(e) => {
           const mode = e.target.value;
@@ -36,19 +39,19 @@ export function ChannelRetentionField({ retention, choice, onChange }: Props) {
         }}
         dataQa="channel-retention-mode"
       >
-        <option value="workspace">Workspace default ({workspace})</option>
-        <option value="forever">Keep forever</option>
-        <option value="days">A number of days</option>
+        <option value="workspace">{t('details.retention.workspaceDefault', { period: workspace })}</option>
+        <option value="forever">{t('details.retention.keepForever')}</option>
+        <option value="days">{t('details.retention.someDays')}</option>
       </Select>
       {choice.mode === 'days' && (
         <TextInput
-          label="Days to keep messages"
+          label={t('details.retention.daysLabel')}
           type="number"
           min={1}
           inputMode="numeric"
           value={choice.days}
           onChange={(e) => onChange({ ...choice, days: e.target.value })}
-          error={periodOf(choice) === 'invalid' ? 'At least one day' : undefined}
+          error={periodOf(choice) === 'invalid' ? t('details.retention.atLeastOne') : undefined}
           dataQa="channel-retention-days"
           className="max-w-48"
         />

@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/shared/components/Button/Button';
 import { Checkbox } from '@/shared/components/Form/Checkbox';
 import type { Channel } from '@/stores/workspace';
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export function SettingsSection({ channel, onClose }: Props) {
+  const { t } = useTranslation('channel');
   const [announcementOnly, setAnnouncementOnly] = useState(channel.settings?.post_policy === 'moderators');
   const savedBroadcastMentions = channel.settings?.allow_broadcast_mentions !== false;
   const [broadcastMentions, setBroadcastMentions] = useState(savedBroadcastMentions);
@@ -41,22 +43,22 @@ export function SettingsSection({ channel, onClose }: Props) {
       if (retentionChanged && period !== undefined) await setRetention.mutateAsync(period);
       onClose();
     } catch (err: unknown) {
-      setError((err as { message?: string })?.message || 'Failed to save the channel');
+      setError((err as { message?: string })?.message || t('details.saveFailed'));
     }
   };
 
   return (
     <form onSubmit={handleSave} noValidate className="space-y-4">
       <Checkbox
-        label="Announcement channel"
-        description="Only workspace admins and this channel's admins can post. Everyone else can still read and react."
+        label={t('details.settings.announcement')}
+        description={t('details.settings.announcementHint')}
         checked={announcementOnly}
         onChange={setAnnouncementOnly}
         dataQa="channel-settings-announcement"
       />
       <Checkbox
-        label="Allow @channel, @here and @everyone"
-        description="Off means no one can notify the whole channel at once, admins included."
+        label={t('details.settings.broadcast')}
+        description={t('details.settings.broadcastHint')}
         checked={broadcastMentions}
         onChange={setBroadcastMentions}
         dataQa="channel-settings-broadcast-mentions"
@@ -77,7 +79,7 @@ export function SettingsSection({ channel, onClose }: Props) {
           disabled={period === 'invalid'}
           data-qa="channel-settings-save"
         >
-          Save
+          {t('details.save')}
         </Button>
       </div>
     </form>
