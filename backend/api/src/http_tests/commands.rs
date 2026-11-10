@@ -144,16 +144,16 @@ async fn dnd_and_topic_are_built_in_and_change_real_state(pool: PgPool) {
         .expect("channel");
     assert_eq!(channel.topic.as_deref(), Some("release week"));
 
-    let posted: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM messages WHERE channel_id = $1 AND metadata ? 'bot'",
-    )
-    .bind(ch_id)
-    .fetch_one(&state.pool)
-    .await
-    .expect("count");
+    let posted: Vec<(String, bool)> =
+        sqlx::query_as("SELECT content, metadata ? 'bot' FROM messages WHERE channel_id = $1")
+            .bind(ch_id)
+            .fetch_all(&state.pool)
+            .await
+            .expect("messages");
     assert_eq!(
-        posted, 1,
-        "the in-channel answer is a message from the command"
+        posted,
+        vec![("set the channel topic: release week".to_string(), false)],
+        "the channel hears the new topic from whoever set it, not from the command"
     );
 }
 

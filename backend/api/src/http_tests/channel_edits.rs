@@ -107,7 +107,7 @@ async fn bot_messages(state: &AppState, ch: Uuid) -> i64 {
 
 async fn said(state: &AppState, ch: Uuid) -> Vec<String> {
     let mut said: Vec<String> = sqlx::query_scalar(
-        "SELECT content FROM messages WHERE channel_id = $1 AND metadata->>'kind' LIKE 'channel_%'",
+        "SELECT content FROM messages WHERE channel_id = $1 AND metadata->>'kind' IN ('channel_renamed', 'channel_topic_changed', 'channel_description_changed')",
     )
     .bind(ch)
     .fetch_all(&state.pool)
@@ -338,10 +338,11 @@ async fn the_topic_command_follows_the_same_rule(pool: PgPool) {
         Some("release week")
     );
     assert_eq!(
-        bot_messages(&state, ch).await,
-        1,
+        said(&state, ch).await,
+        vec!["set the channel topic: release week".to_string()],
         "only bob's change was announced"
     );
+    assert_eq!(bot_messages(&state, ch).await, 0);
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
