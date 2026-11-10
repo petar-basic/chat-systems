@@ -87,7 +87,8 @@
     "refresh": "プレビューを更新",
     "refreshShort": "更新",
     "remove": "プレビューを削除",
-    "play": "{{title}} を再生"
+    "play": "{{title}} を再生",
+    "asOf": "{{time}} 時点"
   },
   "history": {
     "title": "編集履歴",
@@ -106,7 +107,8 @@
     "markUnreadFailed": "未読にできませんでした",
     "pinFailed": "ピン留めを変更できませんでした",
     "reactionFailed": "リアクションを変更できませんでした",
-    "linkCopied": "リンクをコピーしました"
+    "linkCopied": "リンクをコピーしました",
+    "saved": "「後で」に保存しました"
   },
   "composer": {
     "placeholder": "#{{name}} へのメッセージ",
@@ -174,6 +176,8 @@
   },
   "forward": {
     "title": "メッセージを転送",
+    "from": "投稿者: {{author}} さん ・ 投稿先: {{origin}}",
+    "someone": "不明なユーザー",
     "files": "📎 ファイルも一緒に転送されます",
     "comment": "コメント",
     "commentPlaceholder": "コメントを追加（任意）",

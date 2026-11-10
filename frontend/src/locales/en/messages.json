@@ -89,7 +89,8 @@
     "refresh": "Refresh preview",
     "refreshShort": "Refresh",
     "remove": "Remove preview",
-    "play": "Play {{title}}"
+    "play": "Play {{title}}",
+    "asOf": "As of {{time}}"
   },
   "history": {
     "title": "Edit history",
@@ -108,7 +109,8 @@
     "markUnreadFailed": "Couldn't mark the message unread",
     "pinFailed": "Couldn't update the pin",
     "reactionFailed": "Couldn't update the reaction",
-    "linkCopied": "Link copied to clipboard"
+    "linkCopied": "Link copied to clipboard",
+    "saved": "Saved for later"
   },
   "composer": {
     "placeholder": "Message #{{name}}",
@@ -177,6 +179,8 @@
   },
   "forward": {
     "title": "Forward message",
+    "from": "From {{author}} in {{origin}}",
+    "someone": "Somebody",
     "files": "📎 Files are forwarded too",
     "comment": "Comment",
     "commentPlaceholder": "Add a comment (optional)",

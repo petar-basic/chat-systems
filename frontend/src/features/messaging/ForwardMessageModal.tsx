@@ -87,7 +87,7 @@ export default function ForwardMessageModal({
     <Modal title={t('forward.title')} onClose={onClose} dataQa="forward-modal">
       <div className="rounded-lg border border-line/60 bg-raised/30 px-3 py-2">
         <div className="text-xs text-muted mb-1">
-          From {source.authorName} in {source.origin}
+          {t('forward.from', { author: source.authorName, origin: source.origin })}
         </div>
         <div className="text-sm text-fg-dim line-clamp-3 whitespace-pre-wrap" data-qa="forward-preview">
           {source.content}

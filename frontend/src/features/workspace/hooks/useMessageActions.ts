@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Channel, Message } from '@/stores/workspace';
 import type { Conversation, ForwardSource } from '@/features/messaging';
 import { useLaterActions } from '@/features/later';
@@ -24,17 +25,21 @@ export function useMessageActions({
   userId,
   getUser,
 }: Args) {
+  const { t } = useTranslation('messages');
   const later = useLaterActions(workspaceId, currentWsInstanceUrl);
   const [forwarding, setForwarding] = useState<ForwardSource | null>(null);
 
   const handleSaveMessage = useCallback(
     (message: Message) => {
-      later.save.mutate({ messageId: message.id }, { onSuccess: () => toast.success('Saved for later') });
+      later.save.mutate({ messageId: message.id }, { onSuccess: () => toast.success(t('toasts.saved')) });
     },
-    [later.save],
+    [later.save, t],
   );
 
-  const authorNameOf = useCallback((id: string) => getUser(id)?.display_name || 'Somebody', [getUser]);
+  const authorNameOf = useCallback(
+    (id: string) => getUser(id)?.display_name || t('forward.someone'),
+    [getUser, t],
+  );
 
   const handleForwardMessage = useCallback(
     (message: Message) => {
@@ -49,10 +54,11 @@ export function useMessageActions({
           conversations,
           userId,
           (id) => getUser(id)?.display_name,
+          t('scheduled.leftChannel'),
         ),
       });
     },
-    [authorNameOf, channels, conversations, getUser, userId],
+    [authorNameOf, channels, conversations, getUser, userId, t],
   );
 
   return {

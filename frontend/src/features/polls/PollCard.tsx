@@ -80,7 +80,7 @@ export function PollCard({ message, poll, currentUserId, keyVoteRef }: Props) {
           </p>
           <p className="text-xs text-muted">
             {poll.multiple_choice ? t('card.any') : t('card.one')}
-            {poll.anonymous ? ' · Anonymous' : ''}
+            {poll.anonymous ? t('card.anonymous') : ''}
           </p>
         </div>
       </div>

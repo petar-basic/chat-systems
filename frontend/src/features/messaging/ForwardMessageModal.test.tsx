@@ -38,4 +38,22 @@ describe('ForwardMessageModal in Japanese', () => {
     fireEvent.change(search, { target: { value: 'nowhere' } });
     expect(screen.getByText('該当するものがありません。')).toBeInTheDocument();
   });
+
+  it('in Japanese says who wrote it and where, with both as text', async () => {
+    const hostile = '<img src=x onerror="alert(1)"> {{name}}';
+    await i18n.changeLanguage('ja');
+    render(
+      <ForwardMessageModal
+        source={{ ...source, authorName: hostile, origin: `#${hostile}` }}
+        channels={[]}
+        conversations={[]}
+        currentUserId="me"
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('forward-preview').previousElementSibling?.textContent).toBe(
+      `投稿者: ${hostile} さん ・ 投稿先: #${hostile}`,
+    );
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
 });

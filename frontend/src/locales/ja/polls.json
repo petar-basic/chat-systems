@@ -26,6 +26,7 @@
     "label": "投票: {{question}}",
     "one": "1つ選択",
     "any": "複数選択可",
+    "anonymous": " · 匿名",
     "key": "キーボードの {{n}}",
     "votes_other": "{{count}}票",
     "closed": "{{votes}} · 締め切り済み",

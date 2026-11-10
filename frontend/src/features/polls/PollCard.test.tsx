@@ -227,4 +227,10 @@ describe('PollCard in Japanese', () => {
     expect(screen.getByTestId('poll-footer').textContent).toBe('2票 · 締め切り済み');
     expect(document.querySelector('[onerror]')).toBeNull();
   });
+
+  it('marks an anonymous poll', async () => {
+    await i18n.changeLanguage('ja');
+    renderCard(pollOf({ anonymous: true, multiple_choice: true }));
+    expect((await screen.findByText(/複数選択可/)).textContent).toBe('複数選択可 · 匿名');
+  });
 });

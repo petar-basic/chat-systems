@@ -114,4 +114,10 @@ describe('LinkPreviews in Japanese', () => {
     expect(screen.getByRole('button', { name: 'プレビューを削除' })).toBeInTheDocument();
     expect(document.querySelector('[onerror]')).toBeNull();
   });
+
+  it('says when an app preview was fetched', async () => {
+    await i18n.changeLanguage('ja');
+    render(<LinkPreviews unfurls={[jira]} onRefresh={vi.fn()} />);
+    expect(screen.getByText(/ 時点$/)).toBeInTheDocument();
+  });
 });

@@ -26,6 +26,7 @@
     "label": "Poll: {{question}}",
     "one": "Choose one",
     "any": "Choose any",
+    "anonymous": " · Anonymous",
     "key": "{{n}} on the keyboard",
     "votes_one": "{{count}} vote",
     "votes_other": "{{count}} votes",
