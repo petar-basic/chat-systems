@@ -11,7 +11,7 @@ use super::common::*;
 #[test_macros::db_test(migrations = "../migrations")]
 async fn a_write_budget_is_spent_per_user_and_per_class(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
-    let (owner_id, _, token) = seed_and_login(&app, &state, "limit-owner", false).await;
+    let (owner_id, _, token) = seed_and_login(&app, &state, "limit-owner", true).await;
 
     for i in 0..5 {
         let (status, body) = send(
@@ -59,7 +59,7 @@ async fn a_write_budget_is_spent_per_user_and_per_class(pool: PgPool) {
         "spending the workspace budget must not stop them writing: {body:?}"
     );
 
-    let (_, _, other_token) = seed_and_login(&app, &state, "limit-other", false).await;
+    let (_, _, other_token) = seed_and_login(&app, &state, "limit-other", true).await;
     let (status, body) = send(
         &app,
         "POST",

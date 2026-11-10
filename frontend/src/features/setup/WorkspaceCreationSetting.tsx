@@ -26,17 +26,17 @@ export function WorkspaceCreationSetting({ instanceUrl }: Props) {
         }}
         options={[
           {
-            value: 'everyone',
-            label: 'Everyone',
-            description: 'Anyone who can sign in can start a workspace.',
-            dataQa: 'workspace-creation-everyone',
-          },
-          {
             value: 'creators',
             label: 'Workspace creators and admins',
             description:
               'Give the Workspace creator role to the people who start workspaces. Everyone else joins the ones they are invited to.',
             dataQa: 'workspace-creation-creators',
+          },
+          {
+            value: 'everyone',
+            label: 'Everyone',
+            description: 'Anyone who can sign in can start a workspace.',
+            dataQa: 'workspace-creation-everyone',
           },
         ]}
       />

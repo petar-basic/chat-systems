@@ -1252,7 +1252,9 @@ leaving a channel forgets it and deleting a section returns its channels to *Cha
 Instance-level administration. Requires the `admin` instance role. The roles are a
 ladder: a `member` signs in and joins the workspaces they are invited to, a
 `workspace_creator` can also create workspaces (and import a Slack export into a
-new one) without any of the admin panel, and an `admin` has all of it.
+new one) without any of the admin panel, and an `admin` has all of it. A member
+creates workspaces too only when an admin sets `workspace_creation_restricted` to
+false; it is true by default.
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|

@@ -20,21 +20,15 @@ test('an admin keeps workspace creation to the people they choose', async ({ bro
 
   try {
     await login(bob, 'bob@dev.local');
-    await expect(bob.getByRole('button', { name: CREATE })).toBeVisible();
+    await expect(bob.getByTestId('workspace-tile').first()).toBeVisible();
+    await expect(bob.getByRole('button', { name: CREATE })).toHaveCount(0);
+    const refused = await bobApi.post(`${API}/workspaces`, { data: { name: `Shadow ${Date.now()}` } });
+    expect(refused.status()).toBe(403);
 
     await login(adminPage, 'admin@dev.local');
     await adminPage.goto('/app/admin');
     const setting = adminPage.getByTestId('workspace-creation-setting');
-    await expect(setting.getByRole('radio', { name: 'Everyone' })).toBeChecked();
-    await setting.getByText('Workspace creators and admins').click();
     await expect(setting.getByRole('radio', { name: 'Workspace creators and admins' })).toBeChecked();
-    const info = await (await admin.get(`${API}/instance/info`)).json();
-    expect(info.workspace_creation_restricted).toBe(true);
-
-    await reloadRail(bob);
-    await expect(bob.getByRole('button', { name: CREATE })).toHaveCount(0);
-    const refused = await bobApi.post(`${API}/workspaces`, { data: { name: `Shadow ${Date.now()}` } });
-    expect(refused.status()).toBe(403);
 
     const role = adminPage.getByLabel('Instance role for Bob', { exact: false });
     await expect(role).toHaveValue('member');
@@ -43,9 +37,19 @@ test('an admin keeps workspace creation to the people they choose', async ({ bro
 
     await reloadRail(bob);
     await expect(bob.getByRole('button', { name: CREATE })).toBeVisible();
+
+    await role.selectOption('member');
+    await expect(role).toHaveValue('member');
+    await setting.getByText('Everyone', { exact: true }).click();
+    await expect(setting.getByRole('radio', { name: 'Everyone' })).toBeChecked();
+    const info = await (await admin.get(`${API}/instance/info`)).json();
+    expect(info.workspace_creation_restricted).toBe(false);
+
+    await reloadRail(bob);
+    await expect(bob.getByRole('button', { name: CREATE })).toBeVisible();
   } finally {
     await admin.patch(`${API}/admin/users/${bobId}/instance-role`, { data: { role: 'member' } });
-    await admin.patch(`${API}/admin/settings`, { data: { workspace_creation_restricted: false } });
+    await admin.patch(`${API}/admin/settings`, { data: { workspace_creation_restricted: true } });
     await admin.dispose();
     await bobApi.dispose();
     await bobContext.close();

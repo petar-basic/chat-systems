@@ -54,13 +54,13 @@ left in a file is one somebody can read.
 
 ### Who creates workspaces
 
-By default anyone who can sign in can create a workspace. For a company that wants its
-workspaces run by the people it chose, *Instance admin → Users → Who can create workspaces*
-switches to *Workspace creators and admins*. Then give the *Workspace creator* role in the same
-table to the people who start workspaces: it allows creating workspaces and importing a Slack
-export into a new one, and opens nothing of the admin panel. Everyone else joins the
-workspaces they are invited to, and the app stops offering them *Create workspace*. The switch
-is live and audited; it needs no restart.
+By default only instance admins and people with the *Workspace creator* role can create a
+workspace, so the first admin decides who starts them. Give the role in *Instance admin →
+Users*: it allows creating workspaces and importing a Slack export into a new one, and opens
+nothing of the admin panel. Everyone else joins the workspaces they are invited to, and the app
+does not offer them *Create workspace*. For an instance where anyone who signs in may start a
+workspace, *Instance admin → Users → Who can create workspaces* switches to *Everyone*. The
+switch is live and audited; it needs no restart.
 
 ## Single sign-on
 
@@ -1022,6 +1022,15 @@ key that is not listed is refused, so the order of the steps matters:
 
 To cut a leaked key off at once, skip the wait in step 3: everyone still on it signs in again,
 and nobody else does.
+
+## Upgrade note: only creators and admins create workspaces
+
+The upgrade turns *Who can create workspaces* to *Workspace creators and admins* on every
+instance, including one where an admin had already chosen *Everyone*. After it, members no
+longer see *Create workspace*, and creating a workspace or importing a Slack export into a new
+one is refused for them; their workspaces and everything in them stay as they were. Give the
+*Workspace creator* role in *Instance admin → Users* to the people who start workspaces, or
+switch *Who can create workspaces* back to *Everyone* to keep things as they were.
 
 ## Audit log
 

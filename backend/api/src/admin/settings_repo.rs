@@ -21,7 +21,7 @@ impl InstanceSettingsRepo {
         let on = sqlx::query_scalar!("SELECT workspace_creation_restricted FROM instance_settings")
             .fetch_optional(&self.pool)
             .await?;
-        Ok(on.unwrap_or(false))
+        Ok(on.unwrap_or(true))
     }
 
     pub async fn update(
@@ -31,7 +31,7 @@ impl InstanceSettingsRepo {
     ) -> sqlx::Result<()> {
         sqlx::query!(
             "INSERT INTO instance_settings (id, email_code_sign_in, workspace_creation_restricted)
-             VALUES (TRUE, COALESCE($1, TRUE), COALESCE($2, FALSE))
+             VALUES (TRUE, COALESCE($1, TRUE), COALESCE($2, TRUE))
              ON CONFLICT (id) DO UPDATE
                 SET email_code_sign_in = COALESCE($1, instance_settings.email_code_sign_in),
                     workspace_creation_restricted =
