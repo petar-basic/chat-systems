@@ -7,6 +7,8 @@ export type AdminUser = components['schemas']['AdminUser'];
 export type EmailTest = components['schemas']['EmailTest'];
 export type InstanceSettings = components['schemas']['InstanceSettings'];
 export type InstanceRole = components['schemas']['InstanceRole'];
+export type AdminWorkspace = components['schemas']['AdminWorkspace'];
+export type WorkspacePerson = components['schemas']['WorkspacePerson'];
 
 const PAGE = 200;
 
@@ -97,6 +99,52 @@ export const useUpdateInstanceSettings = (instanceUrl: string | null) => {
     onSuccess: (settings) => {
       queryClient.setQueryData<InstanceSettings>(QUERY_KEYS.adminSettings(instanceUrl ?? ''), settings);
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.instanceInfo(instanceUrl ?? '') });
+    },
+  });
+};
+
+export const useAdminWorkspaces = (instanceUrl: string | null) =>
+  useQuery({
+    queryKey: QUERY_KEYS.adminWorkspaces(instanceUrl ?? ''),
+    queryFn: async () => {
+      if (!instanceUrl) throw new Error('No instance');
+      const res = await getApiForInstance(instanceUrl).typed((c) =>
+        c.GET('/admin/workspaces', { params: { query: { limit: PAGE } } }),
+      );
+      return res.data;
+    },
+    enabled: !!instanceUrl,
+    staleTime: 1000 * 30,
+  });
+
+export const useAdminWorkspacePeople = (instanceUrl: string | null, workspaceId: string) =>
+  useQuery({
+    queryKey: QUERY_KEYS.adminWorkspacePeople(instanceUrl ?? '', workspaceId),
+    queryFn: async () => {
+      if (!instanceUrl) throw new Error('No instance');
+      const res = await getApiForInstance(instanceUrl).typed((c) =>
+        c.GET('/admin/workspaces/{ws_id}/members', { params: { path: { ws_id: workspaceId } } }),
+      );
+      return res.data;
+    },
+    enabled: !!instanceUrl,
+  });
+
+export const useAppointOwner = (instanceUrl: string | null) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workspaceId, userId }: { workspaceId: string; userId: string }) =>
+      getApiForInstance(instanceUrl).typed((c) =>
+        c.POST('/admin/workspaces/{ws_id}/owners', {
+          params: { path: { ws_id: workspaceId } },
+          body: { user_id: userId },
+        }),
+      ),
+    onSuccess: (_, { workspaceId }) => {
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.adminWorkspaces(instanceUrl ?? '') });
+      void queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.adminWorkspacePeople(instanceUrl ?? '', workspaceId),
+      });
     },
   });
 };

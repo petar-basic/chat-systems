@@ -35,6 +35,7 @@ function MemberRow({
   member,
   actorRole,
   isSelf,
+  canStepDown,
   canHandleData,
   onChangeRole,
   onRemove,
@@ -45,6 +46,7 @@ function MemberRow({
   member: WorkspaceMember;
   actorRole: string | null;
   isSelf: boolean;
+  canStepDown: boolean;
   canHandleData: boolean;
   onChangeRole: (userId: string, role: WorkspaceRole) => void;
   onRemove: (userId: string) => void;
@@ -55,6 +57,7 @@ function MemberRow({
   const { displayName, email } = getUserDisplay(member.user_id, [member]);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [confirmErase, setConfirmErase] = useState(false);
+  const [confirmStepDown, setConfirmStepDown] = useState(false);
 
   const actorLevel = actorRole ? (ROLE_LEVEL[actorRole] ?? 0) : 0;
   const targetLevel = ROLE_LEVEL[member.role] ?? 0;
@@ -137,6 +140,30 @@ function MemberRow({
             </button>
           </div>
         )}
+        {confirmStepDown && (
+          <div className="mt-1 flex items-center gap-2 text-xs">
+            <span className="text-fg-soft">
+              Step down to admin? Only an owner can make you an owner again.
+            </span>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                onChangeRole(member.user_id, 'admin');
+                setConfirmStepDown(false);
+              }}
+              data-qa="member-step-down-confirm"
+            >
+              Step down
+            </Button>
+            <button
+              onClick={() => setConfirmStepDown(false)}
+              className="text-muted hover:text-fg transition cursor-pointer"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
       </div>
       {canHandleData && !isSelf && !member.is_bot && (
         <div className="flex items-center gap-0.5 shrink-0">
@@ -206,6 +233,16 @@ function MemberRow({
         <div className="flex items-center gap-1.5 text-xs text-muted">
           {roleIcon()}
           <span>{roleName}</span>
+          {isSelf && canStepDown && !confirmStepDown && (
+            <button
+              onClick={() => setConfirmStepDown(true)}
+              disabled={busy}
+              data-qa="member-step-down"
+              className="ml-1 px-2 py-0.5 rounded text-xs text-muted hover:text-fg hover:bg-raised transition cursor-pointer disabled:opacity-50"
+            >
+              Step down
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -257,6 +294,9 @@ export function MembersSection({ workspaceId, openInvite, isInstanceAdmin }: Pro
   });
 
   const isAdmin = actorRole === 'admin' || actorRole === 'owner';
+  const otherOwners = members.filter(
+    (m) => m.role === 'owner' && !m.is_bot && m.user_id !== currentUserId,
+  ).length;
   const [showInvite, setShowInvite] = useState(openInvite);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<WorkspaceRole>('member');
@@ -384,6 +424,13 @@ export function MembersSection({ workspaceId, openInvite, isInstanceAdmin }: Pro
                 {members.length} member{members.length !== 1 ? 's' : ''}
               </span>
             </div>
+            {actorRole === 'owner' && (
+              <div className="px-4 pb-2 text-xs text-muted" data-qa="owner-note">
+                {otherOwners > 0
+                  ? 'Another owner remains, so you can step down to admin or leave the workspace.'
+                  : "You're the only owner. To step down or leave, first make someone else an owner: pick Owner in their row."}
+              </div>
+            )}
             {manageError && <div className="px-4 pb-1 text-xs text-danger">{manageError}</div>}
             {notice && (
               <div className="px-4 pb-1 text-xs text-success" data-qa="member-data-notice">
@@ -396,6 +443,7 @@ export function MembersSection({ workspaceId, openInvite, isInstanceAdmin }: Pro
                 member={m}
                 actorRole={actorRole}
                 isSelf={m.user_id === currentUserId}
+                canStepDown={m.role === 'owner' && otherOwners > 0}
                 canHandleData={isInstanceAdmin}
                 busy={changeRole.isPending || removeMember.isPending || startExport.isPending}
                 onChangeRole={(userId, role) => changeRole.mutate({ userId, role })}

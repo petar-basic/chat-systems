@@ -4,6 +4,7 @@ use shared_common::errors::{AppError, AppResult};
 use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
 
+use crate::auth::models::UserStatus;
 use crate::notifications::models::NotifyLevel;
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -78,6 +79,27 @@ pub struct MemberWithUser {
     pub notifications_paused_until: Option<DateTime<Utc>>,
     pub timezone: Option<String>,
     pub is_bot: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct WorkspacePerson {
+    pub user_id: Uuid,
+    pub display_name: Option<String>,
+    pub email: String,
+    pub role: WorkspaceRole,
+    pub status: UserStatus,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct AdminWorkspace {
+    pub id: Uuid,
+    pub name: String,
+    pub slug: String,
+    pub owner_id: Uuid,
+    pub is_active: bool,
+    pub created_at: DateTime<Utc>,
+    #[schema(value_type = Vec<WorkspacePerson>)]
+    pub owners: sqlx::types::Json<Vec<WorkspacePerson>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

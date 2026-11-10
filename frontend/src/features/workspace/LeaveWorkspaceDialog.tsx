@@ -9,6 +9,9 @@ interface Props {
   onClose: () => void;
 }
 
+const LEAVING =
+  'You leave every channel and stop getting its messages. To come back, somebody has to invite you again.';
+
 export function LeaveWorkspaceDialog({ workspace, onClose }: Props) {
   const userId = useInstanceStore((s) => s.instances.find((i) => i.url === workspace.instanceUrl)?.user.id);
   const { data: members } = useWorkspaceMembers(workspace.id, workspace.instanceUrl);
@@ -25,17 +28,20 @@ export function LeaveWorkspaceDialog({ workspace, onClose }: Props) {
   };
 
   const owner = role === 'owner';
+  const onlyOwner = owner && !members?.some((m) => m.role === 'owner' && m.user_id !== userId);
 
   return (
     <ConfirmDialog
       title={`Leave ${workspace.name}?`}
       description={
-        owner
-          ? `You own ${workspace.name}, and an owner can't leave it.`
-          : 'You leave every channel and stop getting its messages. To come back, somebody has to invite you again.'
+        onlyOwner
+          ? `You're the only owner of ${workspace.name}. Make someone else an owner in Members first, then you can leave.`
+          : owner
+            ? `${LEAVING} The other owners keep running ${workspace.name}.`
+            : LEAVING
       }
       confirmLabel="Leave workspace"
-      confirmDisabled={!role || owner}
+      confirmDisabled={!role || onlyOwner}
       onConfirm={confirm}
       onClose={onClose}
       dataQa="leave-workspace-dialog"

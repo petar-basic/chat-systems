@@ -16,6 +16,8 @@ use crate::dto::{DataList, StatusResponse};
 use crate::middleware::{admin_middleware, AuthUser};
 use crate::pagination::PageQuery;
 use crate::state::AppState;
+use crate::workspace::models::{AdminWorkspace, WorkspaceMember, WorkspacePerson, WorkspaceRole};
+use crate::workspace::ownership;
 
 pub fn router() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new()
@@ -29,6 +31,8 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(activate_user))
         .routes(routes!(update_instance_role))
         .routes(routes!(list_workspaces))
+        .routes(routes!(list_workspace_people))
+        .routes(routes!(appoint_workspace_owner))
         .routes(routes!(delete_workspace))
         .layer(middleware::from_fn(admin_middleware))
 }
@@ -70,16 +74,6 @@ pub struct UpdateInstanceSettings {
 #[derive(Debug, Serialize, ToSchema)]
 pub struct InstanceRoleResponse {
     pub role: InstanceRole,
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-pub struct AdminWorkspace {
-    pub id: Uuid,
-    pub name: String,
-    pub slug: String,
-    pub owner_id: Uuid,
-    pub is_active: bool,
-    pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
 #[utoipa::path(get, path = "/admin/health", tag = "admin", responses((status = 200, body = AdminHealth)))]
@@ -341,17 +335,61 @@ async fn list_workspaces(
     State(state): State<Arc<AppState>>,
     Query(params): Query<PageQuery>,
 ) -> AppResult<Json<DataList<AdminWorkspace>>> {
-    let data = sqlx::query_as!(
-        AdminWorkspace,
-        r#"SELECT id, name, slug, owner_id, is_active AS "is_active!", created_at
-             FROM workspaces ORDER BY created_at DESC LIMIT $1 OFFSET $2"#,
-        params.limit(),
-        params.offset()
-    )
-    .fetch_all(&state.pool)
-    .await?;
-
+    let data = state
+        .workspace_service
+        .repo
+        .list_for_instance(params.limit(), params.offset())
+        .await?;
     Ok(Json(DataList { data }))
+}
+
+#[utoipa::path(
+    operation_id = "admin_list_workspace_people",
+    get, path = "/admin/workspaces/{ws_id}/members", tag = "admin", responses((status = 200, body = DataList<WorkspacePerson>)))]
+async fn list_workspace_people(
+    State(state): State<Arc<AppState>>,
+    Path(ws_id): Path<Uuid>,
+) -> AppResult<Json<DataList<WorkspacePerson>>> {
+    let people = state
+        .workspace_service
+        .repo
+        .people_for_instance(ws_id)
+        .await?;
+    Ok(Json(people.into()))
+}
+
+#[derive(Debug, serde::Deserialize, ToSchema)]
+pub struct AppointOwnerRequest {
+    pub user_id: Uuid,
+}
+
+#[utoipa::path(
+    operation_id = "admin_appoint_workspace_owner",
+    post, path = "/admin/workspaces/{ws_id}/owners", tag = "admin", request_body = AppointOwnerRequest, responses((status = 200, body = WorkspaceMember)))]
+async fn appoint_workspace_owner(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    ip: ClientIp,
+    Path(ws_id): Path<Uuid>,
+    Json(body): Json<AppointOwnerRequest>,
+) -> AppResult<Json<WorkspaceMember>> {
+    let appointed = ownership::appoint(&state, ws_id, body.user_id).await?;
+    if appointed.was != WorkspaceRole::Owner {
+        audit::record(
+            &state,
+            AuditEntry::new(AuditAction::WorkspaceRoleChanged, auth.user_id)
+                .workspace(ws_id)
+                .resource(body.user_id)
+                .ip(&ip)
+                .details(serde_json::json!({
+                    "from": appointed.was,
+                    "to": WorkspaceRole::Owner,
+                    "instance_admin": true,
+                })),
+        )
+        .await;
+    }
+    Ok(Json(appointed.member))
 }
 
 #[utoipa::path(

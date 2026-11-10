@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, name, slug, owner_id, is_active AS \"is_active!\", created_at\n             FROM workspaces ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+  "query": "\n            SELECT w.id, w.name, w.slug, w.owner_id, w.is_active AS \"is_active!\", w.created_at,\n                   COALESCE((\n                       SELECT jsonb_agg(jsonb_build_object(\n                                  'user_id', u.id,\n                                  'display_name', COALESCE(wm.display_name, u.display_name),\n                                  'email', u.email,\n                                  'role', wm.role,\n                                  'status', u.status\n                              ) ORDER BY wm.joined_at, u.id)\n                         FROM workspace_members wm JOIN users u ON u.id = wm.user_id\n                        WHERE wm.workspace_id = w.id AND wm.role = 'owner' AND NOT u.is_bot\n                   ), '[]'::jsonb) AS \"owners!: Json<Vec<WorkspacePerson>>\"\n              FROM workspaces w\n             ORDER BY w.created_at DESC\n             LIMIT $1 OFFSET $2\n            ",
   "describe": {
     "columns": [
       {
@@ -68,6 +68,12 @@
             "name": "created_at"
           }
         }
+      },
+      {
+        "ordinal": 6,
+        "name": "owners!: Json<Vec<WorkspacePerson>>",
+        "type_info": "Jsonb",
+        "origin": "Expression"
       }
     ],
     "parameters": {
@@ -82,8 +88,9 @@
       false,
       false,
       true,
-      false
+      false,
+      null
     ]
   },
-  "hash": "11061cd1bacc20fc9fdb8cf47131b31973dca9f6e18b45610c3fcfabc822c565"
+  "hash": "84111c7fe0c8d1fc7735bf1d607692614963552fdc09e2c3182b24aaa54b970a"
 }

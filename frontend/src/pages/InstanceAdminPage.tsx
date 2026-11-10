@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { useNavigate } from 'react-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { UserX, UserCheck, ArrowLeft, RefreshCw } from 'lucide-react';
 import { useInstanceStore } from '@/stores/instances';
 import { useCurrentUser } from '@/features/instance/hooks/useAuth';
@@ -18,10 +19,17 @@ import { Select } from '@/shared/components/Form/Select';
 import { TestEmailCheck } from '@/features/setup/TestEmailCheck';
 import { EmailCodeSetting } from '@/features/setup/EmailCodeSetting';
 import { WorkspaceCreationSetting } from '@/features/setup/WorkspaceCreationSetting';
+import { AdminWorkspaces } from '@/features/instance/AdminWorkspaces';
+import { QUERY_KEYS } from '@/shared/constants';
 
-type AdminTab = 'users' | 'audit' | 'email';
+type AdminTab = 'users' | 'workspaces' | 'audit' | 'email';
 
-const TAB_LABELS: Record<AdminTab, string> = { users: 'Users', audit: 'Audit log', email: 'Email' };
+const TAB_LABELS: Record<AdminTab, string> = {
+  users: 'Users',
+  workspaces: 'Workspaces',
+  audit: 'Audit log',
+  email: 'Email',
+};
 
 const ROLE_LABELS: Record<InstanceRole, string> = {
   member: 'Member',
@@ -43,6 +51,7 @@ function instanceLabel(url: string) {
 
 export default function InstanceAdminPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { data: currentUser } = useCurrentUser();
   const { instances, activeInstanceUrl } = useInstanceStore();
   const [tab, setTab] = useState<AdminTab>('users');
@@ -69,6 +78,8 @@ export default function InstanceAdminPage() {
 
   const refresh = () => {
     if (tab === 'audit') void auditQuery.refetch();
+    else if (tab === 'workspaces')
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.adminWorkspaces(instanceUrl ?? '') });
     else void usersQuery.refetch();
   };
 
@@ -103,7 +114,7 @@ export default function InstanceAdminPage() {
           {instance && <p className="text-xs text-muted truncate">{instanceLabel(instance.url)}</p>}
         </div>
         <div className="flex items-center gap-1 bg-surface rounded-lg p-1 shrink-0">
-          {(['users', 'audit', 'email'] as const).map((value) => (
+          {(['users', 'workspaces', 'audit', 'email'] as const).map((value) => (
             <button
               key={value}
               data-qa={`admin-tab-${value}`}
@@ -133,7 +144,9 @@ export default function InstanceAdminPage() {
           </div>
         )}
 
-        {tab === 'email' ? (
+        {tab === 'workspaces' ? (
+          <AdminWorkspaces instanceUrl={instanceUrl} />
+        ) : tab === 'email' ? (
           <div className="max-w-2xl mx-auto bg-surface rounded-xl border border-line p-6 space-y-6">
             <TestEmailCheck instanceUrl={instanceUrl} />
             <EmailCodeSetting instanceUrl={instanceUrl} />

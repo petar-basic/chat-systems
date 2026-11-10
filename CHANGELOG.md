@@ -26,6 +26,11 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   topic", the same for the description, and "renamed the channel from “a” to “b”". Everyone
   viewing the channel sees the new name, topic, description and settings at once, without a
   reload.
+- An owner can step down to admin, or leave the workspace, while another owner remains, in
+  *Members* and *Leave workspace…*. The only owner is told to make someone else an owner first.
+- *Instance admin → Workspaces* lists every workspace with its owners and marks one whose
+  owners are all suspended. *Make an owner* makes one of its members an owner, and it is in the
+  audit log.
 - *Add people* in a DM or group DM starts a group conversation with everyone in it plus the
   people you pick, as in Slack; the conversation you were in stays as it is. Starting a group
   with people who already have one opens that one instead of a second.
@@ -35,6 +40,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - Nobody can add people to a direct message or a group DM, remove or promote anyone in it,
   leave it, archive it, rename it or set its topic, workspace admins included. Before, a
   participant or an admin could add somebody, who then read the whole conversation.
+- An admin can't make an invite for the owner role, and opening an invite link as somebody
+  already in the workspace keeps the role they have. Before, an admin could make themselves an
+  owner through the API, and an owner or a guest who opened a member link became a member.
 - `/invite` follows the rules of adding someone in *Channel details*: guests can't, an archived
   channel takes nobody, and it is in the audit log.
 

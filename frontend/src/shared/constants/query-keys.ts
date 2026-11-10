@@ -89,6 +89,9 @@ export const QUERY_KEYS = {
   adminUsers: (instanceUrl: string) => ['admin', 'users', instanceUrl] as const,
   adminAuditLog: (instanceUrl: string) => ['admin', 'audit-log', instanceUrl] as const,
   adminSettings: (instanceUrl: string) => ['admin', 'settings', instanceUrl] as const,
+  adminWorkspaces: (instanceUrl: string) => ['admin', 'workspaces', instanceUrl] as const,
+  adminWorkspacePeople: (instanceUrl: string, workspaceId: string) =>
+    ['admin', 'workspaces', instanceUrl, workspaceId, 'members'] as const,
 
   editHistory: (messageId: string) => ['edit-history', messageId] as const,
 
