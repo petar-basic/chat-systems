@@ -51,7 +51,8 @@ describe('CreateChannelModal in Japanese', () => {
       />,
     );
     expect(screen.getByRole('heading', { name: 'チャンネルを作成' })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: /^公開/ })).toBeChecked();
+    expect(screen.getByRole('radio', { name: /^パブリック/ })).toBeChecked();
+    expect(screen.getByRole('radio', { name: /^プライベート/ })).not.toBeChecked();
     expect(screen.getByText('招待された人だけが閲覧・参加できます。')).toBeInTheDocument();
     expect(
       screen.getByText('ワークスペースとこのチャンネルの管理者だけが投稿できます。'),
