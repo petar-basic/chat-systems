@@ -1243,3 +1243,203 @@ async fn a_pending_invite_hands_out_its_link_to_admins_until_revoked(pool: PgPoo
     .await;
     assert_ne!(status, StatusCode::OK, "a copied link dies with its invite");
 }
+
+async fn restrict_creation(app: &axum::Router, admin: &str, on: bool) {
+    let (status, settings) = send(
+        app,
+        "PATCH",
+        "/api/admin/settings",
+        Some(admin),
+        Some(json!({ "workspace_creation_restricted": on })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{settings:?}");
+    assert_eq!(settings["workspace_creation_restricted"], on);
+}
+
+async fn create(app: &axum::Router, token: &str) -> (StatusCode, serde_json::Value) {
+    send(
+        app,
+        "POST",
+        "/api/workspaces",
+        Some(token),
+        Some(json!({ "name": format!("Team {}", uuid_suffix()) })),
+    )
+    .await
+}
+
+async fn set_role(app: &axum::Router, admin: &str, user_id: uuid::Uuid, role: &str) {
+    let (status, body) = send(
+        app,
+        "PATCH",
+        &format!("/api/admin/users/{user_id}/instance-role"),
+        Some(admin),
+        Some(json!({ "role": role })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["role"], role);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn anyone_creates_a_workspace_until_an_admin_restricts_it(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (_, _, admin) = seed_and_login(&app, &state, "restrict-admin", true).await;
+    let (_, _, member) = seed_and_login(&app, &state, "restrict-member", false).await;
+
+    let (_, info) = send(&app, "GET", "/api/instance/info", None, None).await;
+    assert_eq!(info["workspace_creation_restricted"], false);
+    let (status, body) = create(&app, &member).await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+
+    restrict_creation(&app, &admin, true).await;
+    let (_, info) = send(&app, "GET", "/api/instance/info", None, None).await;
+    assert_eq!(info["workspace_creation_restricted"], true);
+
+    let before: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM workspaces")
+        .fetch_one(&state.pool)
+        .await
+        .expect("count");
+    let (status, body) = create(&app, &member).await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "{body:?}");
+    let after: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM workspaces")
+        .fetch_one(&state.pool)
+        .await
+        .expect("count");
+    assert_eq!(before, after, "a refused member leaves no workspace behind");
+
+    let (status, body) = create(&app, &admin).await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "an instance admin still can: {body:?}"
+    );
+
+    restrict_creation(&app, &admin, false).await;
+    let (status, body) = create(&app, &member).await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "lifting it lets members again: {body:?}"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_workspace_creator_creates_without_being_an_admin(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (_, _, admin) = seed_and_login(&app, &state, "creator-admin", true).await;
+    let (creator_id, _, creator) = seed_and_login(&app, &state, "creator-user", false).await;
+    restrict_creation(&app, &admin, true).await;
+
+    let (status, _) = create(&app, &creator).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+
+    set_role(&app, &admin, creator_id, "workspace_creator").await;
+    let (_, me) = send(&app, "GET", "/api/users/me", Some(&creator), None).await;
+    assert_eq!(me["instance_role"], "workspace_creator");
+    let (_, users) = send(&app, "GET", "/api/admin/users", Some(&admin), None).await;
+    let listed = users["data"]
+        .as_array()
+        .expect("users")
+        .iter()
+        .find(|u| u["id"] == creator_id.to_string())
+        .expect("the creator is listed");
+    assert_eq!(listed["instance_role"], "workspace_creator");
+
+    let (status, body) = create(&app, &creator).await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    let (status, _) = send(&app, "GET", "/api/admin/users", Some(&creator), None).await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "creating workspaces opens nothing of the admin panel"
+    );
+
+    set_role(&app, &admin, creator_id, "member").await;
+    let (status, _) = create(&app, &creator).await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "taking the role back takes the right"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_admin_role_replaces_the_creator_role(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (_, _, admin) = seed_and_login(&app, &state, "ladder-admin", true).await;
+    let (user_id, _) = seed(&state, "ladder-user", false).await;
+
+    set_role(&app, &admin, user_id, "workspace_creator").await;
+    set_role(&app, &admin, user_id, "admin").await;
+    let (admin_flag, creator_flag): (bool, bool) =
+        sqlx::query_as("SELECT is_instance_admin, workspace_creator FROM users WHERE id = $1")
+            .bind(user_id)
+            .fetch_one(&state.pool)
+            .await
+            .expect("user");
+    assert!(admin_flag && !creator_flag, "one role at a time");
+
+    let (status, _) = send(
+        &app,
+        "PATCH",
+        &format!("/api/admin/users/{}/instance-role", uuid::Uuid::new_v4()),
+        Some(&admin),
+        Some(json!({ "role": "admin" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = send(
+        &app,
+        "PATCH",
+        &format!("/api/admin/users/{user_id}/instance-role"),
+        Some(&admin),
+        Some(json!({ "role": "owner" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_settings_change_touches_only_the_setting_it_names(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (_, _, admin) = seed_and_login(&app, &state, "settings-partial", true).await;
+
+    restrict_creation(&app, &admin, true).await;
+    let (_, settings) = send(&app, "GET", "/api/admin/settings", Some(&admin), None).await;
+    assert_eq!(settings["email_code_sign_in"], true);
+    assert_eq!(settings["workspace_creation_restricted"], true);
+
+    let (status, settings) = send(
+        &app,
+        "PATCH",
+        "/api/admin/settings",
+        Some(&admin),
+        Some(json!({ "email_code_sign_in": false })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(settings["email_code_sign_in"], false);
+    assert_eq!(settings["workspace_creation_restricted"], true);
+
+    let (status, _) = send(
+        &app,
+        "PATCH",
+        "/api/admin/settings",
+        Some(&admin),
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+
+    let (_, _, member) = seed_and_login(&app, &state, "settings-member", false).await;
+    let (status, _) = send(
+        &app,
+        "PATCH",
+        "/api/admin/settings",
+        Some(&member),
+        Some(json!({ "workspace_creation_restricted": false })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+}

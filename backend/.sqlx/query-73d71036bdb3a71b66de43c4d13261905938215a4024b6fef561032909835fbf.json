@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE users SET is_instance_admin = $1, workspace_creator = $2, updated_at = NOW()\n          WHERE id = $3 AND NOT is_bot",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bool",
+        "Bool",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "73d71036bdb3a71b66de43c4d13261905938215a4024b6fef561032909835fbf"
+}

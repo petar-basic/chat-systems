@@ -16,6 +16,7 @@ import {
   useCurrentWorkspaceRole,
   useSettingsDialog,
   useWorkspaceController,
+  useWorkspaceCreation,
 } from '@/features/workspace';
 import {
   ChannelSidebar,
@@ -54,6 +55,7 @@ import { desktopShell } from '@/lib/desktopShell';
 export default function WorkspacePage() {
   const c = useWorkspaceController();
   const { panel, currentWorkspace, currentChannel, user } = c;
+  const mayCreate = Object.values(useWorkspaceCreation()).some(Boolean);
   const activeConversation = c.conversations.find((conv) => conv.id === c.currentConversationId);
 
   useActiveHuddlesSync(currentWorkspace?.id, currentWorkspace?.instanceUrl);
@@ -397,7 +399,9 @@ export default function WorkspacePage() {
                     <div data-qa="no-workspaces" className="contents">
                       <LayoutGrid className="w-12 h-12 text-faint" />
                       <p className="text-lg font-medium">{EmptyLabels.NoWorkspaces}</p>
-                      <p className="text-sm">{EmptyLabels.NoWorkspacesHint}</p>
+                      <p className="text-sm">
+                        {mayCreate ? EmptyLabels.NoWorkspacesHint : EmptyLabels.NoWorkspacesInviteHint}
+                      </p>
                     </div>
                   ) : !c.channelsPending && c.channels.length === 0 ? (
                     <>
@@ -449,7 +453,7 @@ export default function WorkspacePage() {
         {settings.dialog && currentWorkspace && (
           <WorkspaceSettingsModal
             workspace={currentWorkspace}
-            viewer={{ role, isInstanceAdmin: user?.is_instance_admin ?? false }}
+            viewer={{ role, isInstanceAdmin: user?.instance_role === 'admin' }}
             initial={settings.dialog.section}
             inviting={settings.dialog.inviting}
             app={settings.dialog.app}

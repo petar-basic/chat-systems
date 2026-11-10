@@ -3467,7 +3467,7 @@ export interface components {
             email: string;
             /** Format: uuid */
             id: string;
-            is_instance_admin: boolean;
+            instance_role: components["schemas"]["InstanceRole"];
             status: string;
         };
         AdminWorkspace: {
@@ -4103,7 +4103,7 @@ export interface components {
                 email: string;
                 /** Format: uuid */
                 id: string;
-                is_instance_admin: boolean;
+                instance_role: components["schemas"]["InstanceRole"];
                 status: string;
             }[];
         };
@@ -5136,13 +5136,17 @@ export interface components {
             name: string;
             setup_required: boolean;
             sso_enabled: boolean;
+            workspace_creation_restricted: boolean;
         };
+        /** @enum {string} */
+        InstanceRole: "member" | "workspace_creator" | "admin";
         InstanceRoleResponse: {
-            is_instance_admin: boolean;
+            role: components["schemas"]["InstanceRole"];
         };
         InstanceSettings: {
             email_code_sign_in: boolean;
             email_configured: boolean;
+            workspace_creation_restricted: boolean;
         };
         InstanceStats: {
             /** Format: int64 */
@@ -6144,10 +6148,11 @@ export interface components {
             is_active: boolean;
         };
         UpdateInstanceRoleRequest: {
-            is_instance_admin: boolean;
+            role: components["schemas"]["InstanceRole"];
         };
         UpdateInstanceSettings: {
-            email_code_sign_in: boolean;
+            email_code_sign_in?: boolean | null;
+            workspace_creation_restricted?: boolean | null;
         };
         UpdateItemRequest: {
             values: {
@@ -6271,7 +6276,7 @@ export interface components {
             email: string;
             /** Format: uuid */
             id: string;
-            is_instance_admin: boolean;
+            instance_role: components["schemas"]["InstanceRole"];
             pronouns?: string | null;
             status: components["schemas"]["UserStatus"];
             timezone?: string | null;

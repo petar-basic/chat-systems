@@ -17,12 +17,28 @@ impl InstanceSettingsRepo {
         Ok(on.unwrap_or(true))
     }
 
-    pub async fn set_email_code_sign_in(&self, on: bool) -> sqlx::Result<()> {
+    pub async fn workspace_creation_restricted(&self) -> sqlx::Result<bool> {
+        let on = sqlx::query_scalar!("SELECT workspace_creation_restricted FROM instance_settings")
+            .fetch_optional(&self.pool)
+            .await?;
+        Ok(on.unwrap_or(false))
+    }
+
+    pub async fn update(
+        &self,
+        email_code_sign_in: Option<bool>,
+        workspace_creation_restricted: Option<bool>,
+    ) -> sqlx::Result<()> {
         sqlx::query!(
-            "INSERT INTO instance_settings (id, email_code_sign_in) VALUES (TRUE, $1)
+            "INSERT INTO instance_settings (id, email_code_sign_in, workspace_creation_restricted)
+             VALUES (TRUE, COALESCE($1, TRUE), COALESCE($2, FALSE))
              ON CONFLICT (id) DO UPDATE
-                SET email_code_sign_in = EXCLUDED.email_code_sign_in, updated_at = NOW()",
-            on
+                SET email_code_sign_in = COALESCE($1, instance_settings.email_code_sign_in),
+                    workspace_creation_restricted =
+                        COALESCE($2, instance_settings.workspace_creation_restricted),
+                    updated_at = NOW()",
+            email_code_sign_in,
+            workspace_creation_restricted
         )
         .execute(&self.pool)
         .await?;

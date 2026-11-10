@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, email, display_name, status::text AS \"status!\",\n                  is_instance_admin AS \"is_instance_admin!\", created_at\n             FROM users WHERE NOT is_bot ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+  "query": "SELECT id, email, display_name, status::text AS \"status!\",\n                  is_instance_admin AS \"is_instance_admin!\",\n                  workspace_creator AS \"workspace_creator!\", created_at\n             FROM users WHERE NOT is_bot ORDER BY created_at DESC LIMIT $1 OFFSET $2",
   "describe": {
     "columns": [
       {
@@ -55,6 +55,17 @@
       },
       {
         "ordinal": 5,
+        "name": "workspace_creator!",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "workspace_creator"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -77,8 +88,9 @@
       true,
       null,
       true,
+      false,
       false
     ]
   },
-  "hash": "d9491831c111b18c58b80f566cf90090ab58f4b60d75984570b39a43cdc329fe"
+  "hash": "1553caf13fc380d4d55b42c1812d49ef4b7266ffd1873041054a1425bb565c7e"
 }

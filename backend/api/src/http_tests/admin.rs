@@ -228,11 +228,11 @@ async fn update_instance_role_as_admin_returns_200(pool: PgPool) {
         "PATCH",
         &uri,
         Some(&token),
-        Some(json!({ "is_instance_admin": true })),
+        Some(json!({ "role": "admin" })),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "update_instance_role: {body:?}");
-    assert_eq!(body["is_instance_admin"], true, "role body: {body:?}");
+    assert_eq!(body["role"], "admin", "role body: {body:?}");
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
@@ -252,14 +252,7 @@ async fn update_instance_role_without_token_returns_401(pool: PgPool) {
     let (target_id, _target_email) = seed(&state, "role-noauth", false).await;
 
     let uri = format!("/api/admin/users/{target_id}/instance-role");
-    let (status, _body) = send(
-        &app,
-        "PATCH",
-        &uri,
-        None,
-        Some(json!({ "is_instance_admin": true })),
-    )
-    .await;
+    let (status, _body) = send(&app, "PATCH", &uri, None, Some(json!({ "role": "admin" }))).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
@@ -275,7 +268,7 @@ async fn update_instance_role_as_non_admin_returns_403(pool: PgPool) {
         "PATCH",
         &uri,
         Some(&token),
-        Some(json!({ "is_instance_admin": true })),
+        Some(json!({ "role": "admin" })),
     )
     .await;
     assert_eq!(status, StatusCode::FORBIDDEN);

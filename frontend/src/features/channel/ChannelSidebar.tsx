@@ -108,7 +108,7 @@ export default function ChannelSidebar({
   const navigate = useNavigate();
   const { instances, activeInstanceUrl } = useInstanceStore();
   const currentInstance = instances.find((i) => i.url === activeInstanceUrl);
-  const isInstanceAdmin = currentInstance?.user.is_instance_admin ?? false;
+  const isInstanceAdmin = currentInstance?.user.instance_role === 'admin';
   const isWorkspaceAdmin = currentUserRole === 'admin' || currentUserRole === 'owner';
   const otherMembers = workspaceMembers.filter((m) => m.user_id !== currentUserId);
   const creatableKinds = creatableChannelKinds(currentUserRole, currentWorkspace?.settings);

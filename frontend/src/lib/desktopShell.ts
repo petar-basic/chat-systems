@@ -45,6 +45,7 @@ export interface DesktopShell {
   startPasskey?: () => void;
   reportTheme?: (theme: 'light' | 'dark') => void;
   reportColours?: (colours: DesktopColours | null) => void;
+  reportCreation?: (allowed: boolean) => void;
   onCommand: (handler: (command: DesktopCommand) => void) => () => void;
 }
 

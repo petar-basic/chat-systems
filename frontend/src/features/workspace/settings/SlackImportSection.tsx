@@ -14,6 +14,7 @@ import {
 } from '@/features/workspace/hooks/useSlackImport';
 import { Checkbox } from '@/shared/components/Form/Checkbox';
 import { TextInput } from '@/shared/components/Form/TextInput';
+import { canCreateOn, useWorkspaceCreation } from '../hooks/useWorkspaceCreation';
 
 interface Props {
   workspaceId: string;
@@ -120,6 +121,7 @@ export function SlackImportSection({ workspaceId, instanceUrl }: Props) {
   const start = useStartSlackImport(workspaceId, instanceUrl);
   const retry = useRetrySlackImport(workspaceId, instanceUrl);
   const fileRef = useRef<HTMLInputElement>(null);
+  const mayCreate = canCreateOn(useWorkspaceCreation(), instanceUrl);
 
   const [archive, setArchive] = useState<File | null>(null);
   const [dryRun, setDryRun] = useState(true);
@@ -132,7 +134,7 @@ export function SlackImportSection({ workspaceId, instanceUrl }: Props) {
       setError('Choose the .zip Slack gave you');
       return;
     }
-    if (intoNew && !newName.trim()) {
+    if (intoNew && mayCreate && !newName.trim()) {
       setError('Name the workspace to import into');
       return;
     }
@@ -141,7 +143,7 @@ export function SlackImportSection({ workspaceId, instanceUrl }: Props) {
       await start.mutateAsync({
         archive,
         dryRun,
-        newWorkspaceName: intoNew ? newName.trim() : undefined,
+        newWorkspaceName: intoNew && mayCreate ? newName.trim() : undefined,
       });
       setArchive(null);
       if (fileRef.current) fileRef.current.value = '';
@@ -174,14 +176,16 @@ export function SlackImportSection({ workspaceId, instanceUrl }: Props) {
           className="w-full text-xs text-fg-dim file:mr-2 file:px-2 file:py-1 file:rounded file:border-0 file:bg-raised file:text-fg-soft hover:file:bg-elevated file:cursor-pointer"
         />
 
-        <Checkbox
-          label="Import into a new workspace"
-          checked={intoNew}
-          onChange={setIntoNew}
-          dataQa="slack-import-into-new"
-        />
+        {mayCreate && (
+          <Checkbox
+            label="Import into a new workspace"
+            checked={intoNew}
+            onChange={setIntoNew}
+            dataQa="slack-import-into-new"
+          />
+        )}
 
-        {intoNew && (
+        {intoNew && mayCreate && (
           <TextInput
             label="New workspace name"
             labelHidden

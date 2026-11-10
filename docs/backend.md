@@ -191,9 +191,9 @@ Handles user identity — login, registration, JWT, and profile.
 | POST | `/auth/reset-password` | `{ token, password }` | `{ status: "reset" }` — the password is checked before the link is spent, so a too-short one leaves it usable |
 | GET | `/auth/oidc/start` | Query: `invite?` | Redirect to the provider. With `invite` (an email invite's link token), the callback redeems it for the account that signed in, activates it if it was waiting on the invite, and lands on `/app/:ws_id`; a link for another address lands back on `/invite/:token`. With `client=desktop&nonce=` (16–128 URL-safe characters) the callback sets no cookies: it stores a single-use code for a minute and sends the browser to `/sso/desktop?code=…&nonce=…`, which hands both to the desktop app |
 | POST | `/auth/oidc/exchange` | `{ code }` | `{ landing }` and the auth cookies, for the desktop app's own window. The code works once, within its minute, on the server that issued it; anything else is a 401 |
-| GET | `/instance/info` | — | `{ name, icon_url, sso_enabled, email_code_sign_in, max_upload_bytes, setup_required }` — `email_code_sign_in` is the admin's switch and an instance that can send email |
+| GET | `/instance/info` | — | `{ name, icon_url, sso_enabled, email_code_sign_in, max_upload_bytes, setup_required, workspace_creation_restricted }` — `email_code_sign_in` is the admin's switch and an instance that can send email; `workspace_creation_restricted` says only workspace creators and instance admins may create workspaces |
 | POST | `/setup` | `{ token, display_name, email, password, workspace_name }` | `{ session: AuthSession, workspace_id }` and the auth cookies; 403 for a wrong token, 409 once an instance admin exists |
-| GET | `/users/me` | JWT | `UserPublic` — `timezone` is `null` until the person or their browser sets one; the notification schedule and `/remind` read `null` as UTC |
+| GET | `/users/me` | JWT | `UserPublic` — `instance_role` is `member`, `workspace_creator` or `admin`; `timezone` is `null` until the person or their browser sets one; the notification schedule and `/remind` read `null` as UTC |
 | PATCH | `/users/me` | `{ display_name?, avatar_url?, bio?, title?, pronouns?, timezone? }` | `UserPublic` — `title` is at most 100 characters and `pronouns` 30, trimmed, `""` clearing either; a `timezone` Postgres does not know (`pg_timezone_names`) is a 422 and nothing is saved; replacing or clearing a photo stored under `avatars/` deletes the old object |
 | POST | `/users/me/avatar` | multipart `file`: PNG, JPEG, GIF or WebP, at most 10 MB | `UserPublic` with the new `avatar_url` — the photo is sniffed, decoded and stripped of metadata (one wider than 720 px is stored at 720), saved as `avatars/{user_id}/{uuid}.{ext}` with no `files` row, so retention never sees it, and set on the account; the previous one is deleted |
 | PATCH | `/users/me/password` | `{ current_password, new_password }` | `{ status: "password_changed" }` |
@@ -234,7 +234,7 @@ feature — see `dm` below.)
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/workspaces` | — | `{ data: Workspace[] }` |
-| POST | `/workspaces` | `{ name, description? }` | `Workspace` |
+| POST | `/workspaces` | `{ name, description? }` | `Workspace` — a 403 for a `member` while the instance restricts workspace creation |
 | GET | `/workspaces/:ws_id` | — | `Workspace` |
 | PATCH | `/workspaces/:ws_id` | `{ name?, description?, icon_url?, link_previews?, workflow_builders?, broadcast_mentions?, public_channel_creators?, private_channel_creators? }` | `Workspace` — admins; each is merged into `settings`. `link_previews` defaults to on; the four rules are `members` (the default) or `admins`. `icon_url: ""` removes the icon; a replaced or removed stored icon is deleted |
 | POST | `/workspaces/:ws_id/icon` | multipart `file`, as `/users/me/avatar` | `Workspace` with the new `icon_url` — admins; processed like a photo and stored as `icons/{ws_id}/{uuid}.{ext}`, outside `files` and retention, readable by the workspace's members; the previous icon is deleted, and so is the icon on a hard delete |
@@ -719,7 +719,7 @@ writes its counters as it goes so a run that takes an hour has something to show
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | POST | `/workspaces/{ws_id}/slack-imports` | multipart: `archive` (the zip), `dry_run` | `ImportRun` — status `pending`; workspace admins only |
-| POST | `/slack-imports` | multipart: `archive`, `workspace_name`, `dry_run` | Creates the workspace, then queues — an export *is* a workspace, and there is nothing to import into yet. The name is the caller's: Slack writes it into the file name and nowhere inside the archive, not even the manifest |
+| POST | `/slack-imports` | multipart: `archive`, `workspace_name`, `dry_run` | Creates the workspace, then queues — an export *is* a workspace, and there is nothing to import into yet. The name is the caller's: Slack writes it into the file name and nowhere inside the archive, not even the manifest. Restricted like `POST /workspaces` |
 | GET | `/workspaces/{ws_id}/slack-imports` | — | `{ data: ImportRun[] }` — the last 20 runs |
 | GET | `/slack-imports/{import_id}` | — | `ImportRun` — status, live counts, what was skipped, and `retryable` |
 | POST | `/workspaces/{ws_id}/slack-imports/{import_id}/retry` | — | `ImportRun` back to `pending`, its report cleared; workspace admins only. Only a `failed` run whose archive is still stored (`retryable`) can be retried, otherwise `409` |
@@ -1249,19 +1249,22 @@ leaving a channel forgets it and deleting a section returns its channels to *Cha
 
 ### admin
 
-Instance-level administration. Requires `is_instance_admin = true`.
+Instance-level administration. Requires the `admin` instance role. The roles are a
+ladder: a `member` signs in and joins the workspaces they are invited to, a
+`workspace_creator` can also create workspaces (and import a Slack export into a
+new one) without any of the admin panel, and an `admin` has all of it.
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/admin/health` | — | `{ status, service, version }` |
 | GET | `/admin/stats` | — | `{ users, workspaces, messages, files }` |
 | POST | `/admin/email/test` | — | `{ sent_to, error }`: sent now to the caller's address; `error` says in words why it did not go |
-| GET | `/admin/settings` | — | `{ email_code_sign_in, email_configured }` |
-| PATCH | `/admin/settings` | `{ email_code_sign_in }` | the same; audited `instance.settings_changed` |
-| GET | `/admin/users` | Query: `limit?, offset?` | `{ data: User[] }` |
+| GET | `/admin/settings` | — | `{ email_code_sign_in, email_configured, workspace_creation_restricted }` |
+| PATCH | `/admin/settings` | `{ email_code_sign_in?, workspace_creation_restricted? }` | the same; changes only the settings it names (none is a 422); audited `instance.settings_changed` with what changed |
+| GET | `/admin/users` | Query: `limit?, offset?` | `{ data: AdminUser[] }` — `{ id, email, display_name, status, instance_role, created_at }` |
 | POST | `/admin/users/:user_id/suspend` | — | `{ status: "suspended" }` — also revokes sessions and app connections and turns off the person's hooks and workflows |
 | POST | `/admin/users/:user_id/activate` | — | `{ status: "activated" }` — an account with no password and no SSO link goes back to `pending`, waiting for its invite; SCIM `active: true` does the same |
-| PATCH | `/admin/users/:user_id/instance-role` | `{ is_instance_admin: bool }` | `{ is_instance_admin: bool }` |
+| PATCH | `/admin/users/:user_id/instance-role` | `{ role: "member" \| "workspace_creator" \| "admin" }` | `{ role }`; a 404 for an unknown user or a bot; audited `user.instance_role_changed` |
 | GET | `/admin/workspaces` | Query: `limit?, offset?` | `{ data: Workspace[] }` |
 | DELETE | `/admin/workspaces/:ws_id` | — | `{ status: "deleted" }` |
 | DELETE | `/admin/users/:user_id/data` | `{ hard_delete?: bool }` | `{ status: "erased", hard_delete, removed }` — either way the account is tombstoned, signed out and unlinked from SSO. `hard_delete` also removes what they wrote: their messages (a thread root someone else answered stays as an empty tombstone), every earlier version of them, the notifications that quote them, their reactions, poll votes, list comments, scheduled messages and *Later* items, and their files with the stored objects; `removed` counts `messages`, `edits`, `reactions`, `votes`, `comments`, `scheduled` and `files` |

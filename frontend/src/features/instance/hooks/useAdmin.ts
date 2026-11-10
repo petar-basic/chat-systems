@@ -6,6 +6,7 @@ import { QUERY_KEYS } from '@/shared/constants';
 export type AdminUser = components['schemas']['AdminUser'];
 export type EmailTest = components['schemas']['EmailTest'];
 export type InstanceSettings = components['schemas']['InstanceSettings'];
+export type InstanceRole = components['schemas']['InstanceRole'];
 
 const PAGE = 200;
 
@@ -45,17 +46,15 @@ export const useSetInstanceRole = (instanceUrl: string | null) => {
   const queryClient = useQueryClient();
   const key = QUERY_KEYS.adminUsers(instanceUrl ?? '');
   return useMutation({
-    mutationFn: async ({ userId, isAdmin }: { userId: string; isAdmin: boolean }) =>
+    mutationFn: async ({ userId, role }: { userId: string; role: InstanceRole }) =>
       getApiForInstance(instanceUrl).typed((c) =>
         c.PATCH('/admin/users/{user_id}/instance-role', {
           params: { path: { user_id: userId } },
-          body: { is_instance_admin: isAdmin },
+          body: { role },
         }),
       ),
-    onSuccess: (_, { userId, isAdmin }) => {
-      queryClient.setQueryData<AdminUser[]>(key, (old) =>
-        patchUser(old, userId, { is_instance_admin: isAdmin }),
-      );
+    onSuccess: ({ role }, { userId }) => {
+      queryClient.setQueryData<AdminUser[]>(key, (old) => patchUser(old, userId, { instance_role: role }));
     },
   });
 };

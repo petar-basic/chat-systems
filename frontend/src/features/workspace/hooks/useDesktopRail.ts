@@ -2,6 +2,7 @@ import { useEffect, useEffectEvent, useState } from 'react';
 import type { Workspace } from '@/stores/workspace';
 import { instanceManager } from '@/lib/instances';
 import { railIcon } from '@/lib/railIcon';
+import { canCreateOn } from './useWorkspaceCreation';
 import type { DesktopCommand, DesktopShell, DesktopWorkspace } from '@/lib/desktopShell';
 
 interface Rail {
@@ -9,6 +10,7 @@ interface Rail {
   deletedWorkspaces: Workspace[];
   unreadByWorkspace: Record<string, number>;
   currentWorkspaceId: string | undefined;
+  creation: Record<string, boolean>;
   onSelectWorkspace: (ws: Workspace) => void;
   onCreateWorkspace: (instanceUrl: string) => void;
   onLeaveWorkspace: (ws: Workspace) => void;
@@ -18,6 +20,7 @@ export function useDesktopRail(shell: DesktopShell | null, rail: Rail) {
   const origin = instanceManager.normalize(window.location.origin);
   const own = (ws: Workspace) => instanceManager.normalize(ws.instanceUrl) === origin;
   const [icons, setIcons] = useState<Record<string, string>>({});
+  const canCreate = canCreateOn(rail.creation, origin);
 
   const toReport = (ws: Workspace, deleted: boolean): DesktopWorkspace => ({
     id: ws.id,
@@ -53,9 +56,14 @@ export function useDesktopRail(shell: DesktopShell | null, rail: Rail) {
     sendReport();
   }, [reportKey]);
 
+  const sendCreation = useEffectEvent(() => shell?.reportCreation?.(canCreate));
+  useEffect(() => {
+    sendCreation();
+  }, [shell, canCreate]);
+
   const answer = useEffectEvent((command: DesktopCommand) => {
     if (command.kind === 'create-workspace') {
-      rail.onCreateWorkspace(origin);
+      if (canCreate) rail.onCreateWorkspace(origin);
       return;
     }
     if (command.kind !== 'open-workspace' && command.kind !== 'leave-workspace') return;

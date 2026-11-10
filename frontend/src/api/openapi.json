@@ -9995,7 +9995,7 @@
           "id",
           "email",
           "status",
-          "is_instance_admin",
+          "instance_role",
           "created_at"
         ],
         "properties": {
@@ -10016,8 +10016,8 @@
             "type": "string",
             "format": "uuid"
           },
-          "is_instance_admin": {
-            "type": "boolean"
+          "instance_role": {
+            "$ref": "#/components/schemas/InstanceRole"
           },
           "status": {
             "type": "string"
@@ -12393,7 +12393,7 @@
                 "id",
                 "email",
                 "status",
-                "is_instance_admin",
+                "instance_role",
                 "created_at"
               ],
               "properties": {
@@ -12414,8 +12414,8 @@
                   "type": "string",
                   "format": "uuid"
                 },
-                "is_instance_admin": {
-                  "type": "boolean"
+                "instance_role": {
+                  "$ref": "#/components/schemas/InstanceRole"
                 },
                 "status": {
                   "type": "string"
@@ -16119,7 +16119,8 @@
           "sso_enabled",
           "email_code_sign_in",
           "max_upload_bytes",
-          "setup_required"
+          "setup_required",
+          "workspace_creation_restricted"
         ],
         "properties": {
           "email_code_sign_in": {
@@ -16144,17 +16145,28 @@
           },
           "sso_enabled": {
             "type": "boolean"
+          },
+          "workspace_creation_restricted": {
+            "type": "boolean"
           }
         }
+      },
+      "InstanceRole": {
+        "type": "string",
+        "enum": [
+          "member",
+          "workspace_creator",
+          "admin"
+        ]
       },
       "InstanceRoleResponse": {
         "type": "object",
         "required": [
-          "is_instance_admin"
+          "role"
         ],
         "properties": {
-          "is_instance_admin": {
-            "type": "boolean"
+          "role": {
+            "$ref": "#/components/schemas/InstanceRole"
           }
         }
       },
@@ -16162,13 +16174,17 @@
         "type": "object",
         "required": [
           "email_code_sign_in",
-          "email_configured"
+          "email_configured",
+          "workspace_creation_restricted"
         ],
         "properties": {
           "email_code_sign_in": {
             "type": "boolean"
           },
           "email_configured": {
+            "type": "boolean"
+          },
+          "workspace_creation_restricted": {
             "type": "boolean"
           }
         }
@@ -19800,22 +19816,28 @@
       "UpdateInstanceRoleRequest": {
         "type": "object",
         "required": [
-          "is_instance_admin"
+          "role"
         ],
         "properties": {
-          "is_instance_admin": {
-            "type": "boolean"
+          "role": {
+            "$ref": "#/components/schemas/InstanceRole"
           }
         }
       },
       "UpdateInstanceSettings": {
         "type": "object",
-        "required": [
-          "email_code_sign_in"
-        ],
         "properties": {
           "email_code_sign_in": {
-            "type": "boolean"
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "workspace_creation_restricted": {
+            "type": [
+              "boolean",
+              "null"
+            ]
           }
         }
       },
@@ -20340,7 +20362,7 @@
           "id",
           "email",
           "status",
-          "is_instance_admin",
+          "instance_role",
           "created_at"
         ],
         "properties": {
@@ -20373,8 +20395,8 @@
             "type": "string",
             "format": "uuid"
           },
-          "is_instance_admin": {
-            "type": "boolean"
+          "instance_role": {
+            "$ref": "#/components/schemas/InstanceRole"
           },
           "pronouns": {
             "type": [

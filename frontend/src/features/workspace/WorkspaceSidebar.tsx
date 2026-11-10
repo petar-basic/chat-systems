@@ -14,6 +14,8 @@ import { workspaceInitials } from './workspaceTile';
 import { WorkspaceIcon } from './components/WorkspaceIcon';
 import { useDesktopRail } from './hooks/useDesktopRail';
 import { desktopShell } from '@/lib/desktopShell';
+import { toUserMessage } from '@/lib/errors';
+import { useWorkspaceCreation } from './hooks/useWorkspaceCreation';
 
 interface Props {
   workspaces: Workspace[];
@@ -43,18 +45,30 @@ export default function WorkspaceSidebar({
   const [showNewWs, setShowNewWs] = useState(false);
   const [newWsName, setNewWsName] = useState('');
   const [newWsInstanceUrl, setNewWsInstanceUrl] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const creation = useWorkspaceCreation();
 
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
-    if (!newWsName.trim() || !newWsInstanceUrl) return;
-    await onCreateWorkspace(newWsName.trim(), newWsInstanceUrl);
-    setNewWsName('');
-    setShowNewWs(false);
+    if (!newWsName.trim() || !newWsInstanceUrl || creating) return;
+    setCreating(true);
+    setCreateError(null);
+    try {
+      await onCreateWorkspace(newWsName.trim(), newWsInstanceUrl);
+      setNewWsName('');
+      setShowNewWs(false);
+    } catch (err) {
+      setCreateError(toUserMessage(err, t('create.failed')));
+    } finally {
+      setCreating(false);
+    }
   };
 
   const openCreateModal = (instanceUrl: string) => {
     setNewWsInstanceUrl(instanceUrl);
     setNewWsName('');
+    setCreateError(null);
     setShowNewWs(true);
   };
 
@@ -64,6 +78,7 @@ export default function WorkspaceSidebar({
     deletedWorkspaces,
     unreadByWorkspace,
     currentWorkspaceId,
+    creation,
     onSelectWorkspace,
     onCreateWorkspace: openCreateModal,
     onLeaveWorkspace,
@@ -211,15 +226,18 @@ export default function WorkspaceSidebar({
                   </button>
                 ))}
 
-                <button
-                  onClick={() => openCreateModal(group.instance.url)}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center bg-surface text-muted hover:bg-raised hover:text-fg transition cursor-pointer"
-                  data-tooltip={t('rail.create', { server: instanceLabel(group.instance.url) })}
-                  data-tooltip-side="right"
-                  aria-label={t('rail.create', { server: instanceLabel(group.instance.url) })}
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
+                {creation[group.instance.url] && (
+                  <button
+                    onClick={() => openCreateModal(group.instance.url)}
+                    className="w-10 h-10 rounded-xl flex items-center justify-center bg-surface text-muted hover:bg-raised hover:text-fg transition cursor-pointer"
+                    data-tooltip={t('rail.create', { server: instanceLabel(group.instance.url) })}
+                    data-tooltip-side="right"
+                    aria-label={t('rail.create', { server: instanceLabel(group.instance.url) })}
+                    data-qa="create-workspace"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -248,7 +266,7 @@ export default function WorkspaceSidebar({
           onSubmit={handleCreate}
           dismissLabel={t('cancel', { ns: 'common' })}
           actions={
-            <Button type="submit" variant="primary">
+            <Button type="submit" variant="primary" loading={creating}>
               {t('create.submit')}
             </Button>
           }
@@ -280,6 +298,11 @@ export default function WorkspaceSidebar({
             required
             data-autofocus
           />
+          {createError && (
+            <p className="mt-3 text-sm text-danger" role="alert" data-qa="create-workspace-error">
+              {createError}
+            </p>
+          )}
         </Modal>
       )}
     </>

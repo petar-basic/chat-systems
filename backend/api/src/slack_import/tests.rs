@@ -1035,6 +1035,55 @@ async fn an_export_can_make_the_workspace_it_lands_in(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn a_restricted_instance_keeps_a_member_from_importing_into_a_new_workspace(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, token) = seed_and_login(&app, &state, "import-restricted", false).await;
+    let ws = seed_workspace(&state, owner_id, "Already Here").await;
+    state
+        .instance_settings_repo
+        .update(None, Some(true))
+        .await
+        .expect("restrict");
+
+    let fixture = Fixture::write();
+    let archive = zip_of(&fixture.root);
+    let bytes = std::fs::read(&archive).expect("read the zip");
+    let _ = std::fs::remove_file(&archive);
+
+    let (status, body) = send_multipart_named(
+        &app,
+        "/api/slack-imports",
+        &token,
+        &bytes,
+        false,
+        Some("Shadow Workspace"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "{body:?}");
+    let made: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM workspaces WHERE name = 'Shadow Workspace'")
+            .fetch_one(&state.pool)
+            .await
+            .expect("count");
+    assert_eq!(made, 0);
+
+    let (status, body) = send_multipart_named(
+        &app,
+        &format!("/api/workspaces/{ws}/slack-imports"),
+        &token,
+        &bytes,
+        false,
+        None,
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "the workspace's own admin still imports into it: {body:?}"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn an_import_into_a_new_workspace_needs_a_name(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_owner_id, _, token) = seed_and_login(&app, &state, "import-noname", false).await;

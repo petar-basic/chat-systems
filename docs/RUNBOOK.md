@@ -52,6 +52,16 @@ account on start if it does not exist, and no token is printed. Once the instanc
 remove `ADMIN_PASSWORD` from `.env`: it is read only to create the account, and a password
 left in a file is one somebody can read.
 
+### Who creates workspaces
+
+By default anyone who can sign in can create a workspace. For a company that wants its
+workspaces run by the people it chose, *Instance admin → Users → Who can create workspaces*
+switches to *Workspace creators and admins*. Then give the *Workspace creator* role in the same
+table to the people who start workspaces: it allows creating workspaces and importing a Slack
+export into a new one, and opens nothing of the admin panel. Everyone else joins the
+workspaces they are invited to, and the app stops offering them *Create workspace*. The switch
+is live and audited; it needs no restart.
+
 ## Single sign-on
 
 SSO is off until `OIDC_ISSUER` is set. Register `<PUBLIC_URL>/api/auth/oidc/callback` as the

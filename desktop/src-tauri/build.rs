@@ -8,6 +8,7 @@ fn main() {
             "report_workspaces",
             "report_theme",
             "report_colours",
+            "report_creation",
             "notify",
             "rail_menu",
             "rail_hint",

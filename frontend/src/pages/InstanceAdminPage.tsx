@@ -10,16 +10,28 @@ import {
   useSetInstanceRole,
   useSetUserStatus,
   type AdminUser,
+  type InstanceRole,
 } from '@/features/instance/hooks/useAdmin';
 import AuditLogTable from '@/features/workspace/components/AuditLogTable';
 import { toUserMessage } from '@/lib/errors';
 import { Select } from '@/shared/components/Form/Select';
 import { TestEmailCheck } from '@/features/setup/TestEmailCheck';
 import { EmailCodeSetting } from '@/features/setup/EmailCodeSetting';
+import { WorkspaceCreationSetting } from '@/features/setup/WorkspaceCreationSetting';
 
 type AdminTab = 'users' | 'audit' | 'email';
 
 const TAB_LABELS: Record<AdminTab, string> = { users: 'Users', audit: 'Audit log', email: 'Email' };
+
+const ROLE_LABELS: Record<InstanceRole, string> = {
+  member: 'Member',
+  workspace_creator: 'Workspace creator',
+  admin: 'Instance admin',
+};
+
+function isInstanceRole(value: string): value is InstanceRole {
+  return value in ROLE_LABELS;
+}
 
 function instanceLabel(url: string) {
   try {
@@ -37,7 +49,7 @@ export default function InstanceAdminPage() {
 
   const instance = instances.find((i) => i.url === activeInstanceUrl);
   const instanceUrl = activeInstanceUrl ?? null;
-  const isAdmin = !!currentUser?.is_instance_admin;
+  const isAdmin = currentUser?.instance_role === 'admin';
 
   const usersQuery = useAdminUsers(isAdmin ? instanceUrl : null);
   const auditQuery = useAdminAuditLog(isAdmin && tab === 'audit' ? instanceUrl : null);
@@ -60,9 +72,9 @@ export default function InstanceAdminPage() {
     else void usersQuery.refetch();
   };
 
-  const handleRoleChange = (user: AdminUser, isInstanceAdmin: boolean) => {
-    if (user.id === currentUser?.id) return;
-    setRole.mutate({ userId: user.id, isAdmin: isInstanceAdmin });
+  const handleRoleChange = (user: AdminUser, role: string) => {
+    if (user.id === currentUser?.id || !isInstanceRole(role) || role === user.instance_role) return;
+    setRole.mutate({ userId: user.id, role });
   };
 
   const handleToggleStatus = (user: AdminUser) => {
@@ -73,7 +85,7 @@ export default function InstanceAdminPage() {
   const roleBusy = (user: AdminUser) => setRole.isPending && setRole.variables?.userId === user.id;
   const statusBusy = (user: AdminUser) => setStatus.isPending && setStatus.variables?.userId === user.id;
 
-  if (!currentUser?.is_instance_admin) return null;
+  if (!isAdmin) return null;
 
   return (
     <div className="h-screen bg-app text-fg flex flex-col">
@@ -136,6 +148,9 @@ export default function InstanceAdminPage() {
           </div>
         ) : (
           <div className="max-w-4xl mx-auto">
+            <div className="mb-6 bg-surface rounded-xl border border-line p-4 sm:p-6">
+              <WorkspaceCreationSetting instanceUrl={instanceUrl} />
+            </div>
             <div className="mb-4 text-sm text-muted">{users.length} users on this instance</div>
 
             <div className="bg-surface rounded-xl border border-line overflow-x-auto">
@@ -189,13 +204,17 @@ export default function InstanceAdminPage() {
                               label={`Instance role for ${user.display_name || user.email}`}
                               labelHidden
                               compact
-                              value={user.is_instance_admin ? 'admin' : 'user'}
-                              onChange={(e) => handleRoleChange(user, e.target.value === 'admin')}
+                              value={user.instance_role}
+                              onChange={(e) => handleRoleChange(user, e.target.value)}
                               disabled={isSelf}
-                              className="w-40"
+                              className="w-44"
+                              dataQa="instance-role-select"
                             >
-                              <option value="user">User</option>
-                              <option value="admin">Instance admin</option>
+                              {Object.entries(ROLE_LABELS).map(([role, label]) => (
+                                <option key={role} value={role}>
+                                  {label}
+                                </option>
+                              ))}
                             </Select>
                           )}
                         </td>

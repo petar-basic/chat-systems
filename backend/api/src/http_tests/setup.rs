@@ -106,7 +106,7 @@ async fn the_setup_token_works_once(pool: PgPool) {
         "a refused attempt keeps the token: {body}"
     );
     assert_eq!(body["session"]["user"]["email"], json!(email));
-    assert_eq!(body["session"]["user"]["is_instance_admin"], json!(true));
+    assert_eq!(body["session"]["user"]["instance_role"], json!("admin"));
     assert!(!setup_required(&app).await);
 
     let access = body["session"]["access_token"].as_str().unwrap();

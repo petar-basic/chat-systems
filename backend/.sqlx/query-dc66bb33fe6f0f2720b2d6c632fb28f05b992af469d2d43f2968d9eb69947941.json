@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            UPDATE users\n            SET password_hash = $2, display_name = $3, status = 'active', updated_at = NOW()\n            WHERE id = $1\n            RETURNING id, email, password_hash, display_name, avatar_url, bio, title, pronouns, timezone,\n                   status AS \"status: UserStatus\",\n                   is_instance_admin AS \"is_instance_admin!\", created_at, updated_at\n            ",
+  "query": "SELECT id, email, password_hash, display_name, avatar_url, bio, title, pronouns, timezone,\n                   status AS \"status: UserStatus\",\n                   is_instance_admin AS \"is_instance_admin!\", workspace_creator AS \"workspace_creator!\",\n                   created_at, updated_at\n                 FROM users WHERE email = lower($1) AND NOT is_bot",
   "describe": {
     "columns": [
       {
@@ -137,6 +137,17 @@
       },
       {
         "ordinal": 11,
+        "name": "workspace_creator!",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "workspace_creator"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -147,7 +158,7 @@
         }
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -160,9 +171,7 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Varchar",
-        "Varchar"
+        "Text"
       ]
     },
     "nullable": [
@@ -178,8 +187,9 @@
       false,
       true,
       false,
+      false,
       false
     ]
   },
-  "hash": "f15a7479ffa8482a281bef63f644d15ede3c1b2945f58bb673c5a98cf35fb87f"
+  "hash": "dc66bb33fe6f0f2720b2d6c632fb28f05b992af469d2d43f2968d9eb69947941"
 }
