@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { useNavigate } from 'react-router';
-import { useQueryClient } from '@tanstack/react-query';
 import { UserX, UserCheck, ArrowLeft, RefreshCw } from 'lucide-react';
 import { useInstanceStore } from '@/stores/instances';
 import { useCurrentUser } from '@/features/instance/hooks/useAuth';
 import {
   useAdminAuditLog,
+  useAdminWorkspaces,
   useAdminUsers,
   useSetInstanceRole,
   useSetUserStatus,
@@ -20,7 +20,6 @@ import { TestEmailCheck } from '@/features/setup/TestEmailCheck';
 import { EmailCodeSetting } from '@/features/setup/EmailCodeSetting';
 import { WorkspaceCreationSetting } from '@/features/setup/WorkspaceCreationSetting';
 import { AdminWorkspaces } from '@/features/instance/AdminWorkspaces';
-import { QUERY_KEYS } from '@/shared/constants';
 
 type AdminTab = 'users' | 'workspaces' | 'audit' | 'email';
 
@@ -51,7 +50,6 @@ function instanceLabel(url: string) {
 
 export default function InstanceAdminPage() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const { data: currentUser } = useCurrentUser();
   const { instances, activeInstanceUrl } = useInstanceStore();
   const [tab, setTab] = useState<AdminTab>('users');
@@ -62,6 +60,7 @@ export default function InstanceAdminPage() {
 
   const usersQuery = useAdminUsers(isAdmin ? instanceUrl : null);
   const auditQuery = useAdminAuditLog(isAdmin && tab === 'audit' ? instanceUrl : null);
+  const workspacesQuery = useAdminWorkspaces(isAdmin && tab === 'workspaces' ? instanceUrl : null);
   const setRole = useSetInstanceRole(instanceUrl);
   const setStatus = useSetUserStatus(instanceUrl);
 
@@ -73,13 +72,12 @@ export default function InstanceAdminPage() {
   const entries = auditQuery.data ?? [];
   const loading = usersQuery.isLoading;
   const auditLoading = auditQuery.isLoading;
-  const refreshing = usersQuery.isFetching || auditQuery.isFetching;
+  const refreshing = usersQuery.isFetching || auditQuery.isFetching || workspacesQuery.isFetching;
   const error = [usersQuery.error, auditQuery.error, setRole.error, setStatus.error].find((e) => e != null);
 
   const refresh = () => {
     if (tab === 'audit') void auditQuery.refetch();
-    else if (tab === 'workspaces')
-      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.adminWorkspaces(instanceUrl ?? '') });
+    else if (tab === 'workspaces') void workspacesQuery.refetch();
     else void usersQuery.refetch();
   };
 

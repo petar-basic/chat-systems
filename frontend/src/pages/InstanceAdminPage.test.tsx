@@ -37,6 +37,7 @@ vi.mock('@/stores/instances', () => ({
 vi.mock('@/features/instance/hooks/useAdmin', () => ({
   useAdminUsers: () => ({ data: admin.users, isLoading: false, isFetching: false, error: null }),
   useAdminAuditLog: () => ({ data: [], isLoading: false, isFetching: false, error: null }),
+  useAdminWorkspaces: () => ({ data: [], isLoading: false, isFetching: false, error: null }),
   useSetInstanceRole: () => ({ mutate: admin.mutate, isPending: false, error: null }),
   useSetUserStatus: () => ({ mutate: vi.fn(), isPending: false, error: null }),
 }));
