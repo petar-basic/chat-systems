@@ -1,0 +1,45 @@
+{
+  "dialog": {
+    "title": "Create a poll",
+    "submit": "Create poll",
+    "question": "Question",
+    "questionPlaceholder": "Lunch Thursday or Friday?",
+    "options": "Options",
+    "option": "Option {{n}}",
+    "removeOption": "Remove option {{n}}",
+    "reorderHint": "Drag to reorder, or Alt + ↑ / ↓ in an option.",
+    "addOption": "Add option",
+    "answers": "Answers",
+    "single": "One answer",
+    "singleHint": "Each person picks one option.",
+    "multiple": "Any number",
+    "multipleHint": "Each person picks as many as they like.",
+    "anonymous": "Anonymous",
+    "anonymousHint": "Everyone sees the counts; nobody, you included, sees who voted for what.",
+    "closes": "Closes",
+    "closesHint": "Leave empty to keep it open until you close it.",
+    "needQuestion": "Ask a question.",
+    "needOptions": "Give at least {{min}} options.",
+    "failed": "Couldn't create the poll"
+  },
+  "card": {
+    "label": "Poll: {{question}}",
+    "one": "Choose one",
+    "any": "Choose any",
+    "key": "{{n}} on the keyboard",
+    "votes_one": "{{count}} vote",
+    "votes_other": "{{count}} votes",
+    "closed": "{{votes}} · Closed",
+    "closes": "{{votes}} · closes {{time}}",
+    "close": "Close poll"
+  },
+  "problems": {
+    "usage": "Try /poll \"Lunch?\" \"Thursday\" \"Friday\", or /poll alone for the dialog",
+    "unclosed": "A quote is not closed",
+    "count": "A poll needs {{min}} to {{max}} options"
+  },
+  "toasts": {
+    "voteFailed": "Couldn't record your vote",
+    "closeFailed": "Couldn't close the poll"
+  }
+}

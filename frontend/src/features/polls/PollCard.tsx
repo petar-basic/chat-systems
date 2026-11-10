@@ -1,10 +1,12 @@
 import { useEffect, type RefObject } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BarChart3, Check } from 'lucide-react';
 import type { Message } from '@/stores/workspace';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useChannelArchived } from '@/lib/channelArchive';
 import { useUserCache } from '@/stores/users';
 import { displayNameOf } from '@/lib/userHelpers';
+import type { TFunction } from 'i18next';
 import { formatDateTime } from '@/lib/datetime';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { Button } from '@/shared/components/Button/Button';
@@ -27,14 +29,15 @@ function nextChoice(poll: PollSummary, mine: string[], optionId: string): string
   return poll.options.map((option) => option.id).filter((id) => id === optionId || mine.includes(id));
 }
 
-function footerText(poll: PollSummary): string {
-  const votes = `${poll.voters} ${poll.voters === 1 ? 'vote' : 'votes'}`;
-  if (poll.closed_at) return `${votes} · Closed`;
-  if (poll.closes_at) return `${votes} · closes ${formatDateTime(poll.closes_at)}`;
+function footerText(poll: PollSummary, t: TFunction<'polls'>): string {
+  const votes = t('card.votes', { count: poll.voters });
+  if (poll.closed_at) return t('card.closed', { votes });
+  if (poll.closes_at) return t('card.closes', { votes, time: formatDateTime(poll.closes_at) });
   return votes;
 }
 
 export function PollCard({ message, poll, currentUserId, keyVoteRef }: Props) {
+  const { t } = useTranslation('polls');
   const instanceUrl = useWorkspaceStore((s) => s.currentWorkspace?.instanceUrl);
   const { getUser } = useUserCache();
   const mine = useMyVote(poll.id, instanceUrl).data ?? [];
@@ -66,7 +69,7 @@ export function PollCard({ message, poll, currentUserId, keyVoteRef }: Props) {
     <div
       data-qa="poll-card"
       className="mt-1 max-w-md rounded-xl border border-line bg-surface p-3"
-      aria-label={`Poll: ${poll.question}`}
+      aria-label={t('card.label', { question: poll.question })}
       role="group"
     >
       <div className="flex items-start gap-2">
@@ -76,7 +79,7 @@ export function PollCard({ message, poll, currentUserId, keyVoteRef }: Props) {
             {poll.question}
           </p>
           <p className="text-xs text-muted">
-            {poll.multiple_choice ? 'Choose any' : 'Choose one'}
+            {poll.multiple_choice ? t('card.any') : t('card.one')}
             {poll.anonymous ? ' · Anonymous' : ''}
           </p>
         </div>
@@ -95,7 +98,7 @@ export function PollCard({ message, poll, currentUserId, keyVoteRef }: Props) {
                 disabled={locked}
                 onClick={() => choose(option.id)}
                 data-qa="poll-option"
-                data-tooltip={locked ? undefined : `${index + 1} on the keyboard`}
+                data-tooltip={locked ? undefined : t('card.key', { n: index + 1 })}
                 className={`relative flex w-full items-center gap-2 overflow-hidden rounded-lg border px-3 py-2 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:cursor-default ${
                   chosen
                     ? 'border-purple-500 text-fg'
@@ -139,11 +142,11 @@ export function PollCard({ message, poll, currentUserId, keyVoteRef }: Props) {
 
       <div className="mt-2 flex items-center justify-between gap-2">
         <span className="text-xs text-muted" data-qa="poll-footer">
-          {footerText(poll)}
+          {footerText(poll, t)}
         </span>
         {!locked && poll.created_by === currentUserId && (
           <Button size="sm" variant="ghost" loading={close.isPending} onClick={() => close.mutate()}>
-            Close poll
+            {t('card.close')}
           </Button>
         )}
       </div>

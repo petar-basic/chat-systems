@@ -39,7 +39,14 @@ import { useUserGroups } from '@/features/workspace';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { FilePicker } from '@/shared/components/Form/FilePicker';
-import { PollDialog, type PollTarget, parsePollCommand, useCreatePoll } from '@/features/polls';
+import {
+  MAX_OPTIONS,
+  MIN_OPTIONS,
+  PollDialog,
+  type PollTarget,
+  parsePollCommand,
+  useCreatePoll,
+} from '@/features/polls';
 import { ShortcutMenu } from '@/features/workflows';
 
 const MentionNode = Mention.extend({
@@ -105,7 +112,7 @@ export default function MessageInput({
   shortcutChannelId,
   slashCommands = false,
 }: Props) {
-  const { t } = useTranslation(['messages', 'common']);
+  const { t } = useTranslation(['messages', 'common', 'polls']);
   const attachmentsRef = useRef(attachments);
   const allowEmptyRef = useRef(allowEmpty);
   useEffect(() => {
@@ -318,7 +325,9 @@ export default function MessageInput({
       const markdown = editor.storage.markdown.getMarkdown().trim();
       const pollCommand = pollTarget && !editing ? parsePollCommand(markdown) : null;
       if (pollCommand?.kind === 'invalid') {
-        toast.error(pollCommand.message);
+        toast.error(
+          t(`problems.${pollCommand.problem}`, { ns: 'polls', min: MIN_OPTIONS, max: MAX_OPTIONS }),
+        );
         return;
       }
       if (pollCommand) {

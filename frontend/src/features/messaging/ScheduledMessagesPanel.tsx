@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { Button } from '@/shared/components/Button/Button';
 import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
@@ -28,13 +29,15 @@ interface Props {
   onClose: () => void;
 }
 
-const FAILURES: Record<string, string> = {
-  not_authorized: 'You can no longer post there.',
-  author_inactive: 'Your account was suspended.',
-  channel_archived: 'The channel was archived.',
-  workspace_unavailable: 'The workspace is no longer available.',
-  thread_gone: 'The thread it replied to is gone.',
-};
+const FAILURES = [
+  'not_authorized',
+  'author_inactive',
+  'channel_archived',
+  'workspace_unavailable',
+  'thread_gone',
+] as const;
+
+const failureKey = (failure: string) => FAILURES.find((known) => known === failure) ?? 'unknown';
 
 function ScheduledRow({
   scheduled,
@@ -51,6 +54,7 @@ function ScheduledRow({
   onReschedule: (sendAt: Date) => Promise<void>;
   onSendNow: () => void;
 }) {
+  const { t } = useTranslation(['messages', 'common']);
   const [editingTime, setEditingTime] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -79,14 +83,15 @@ function ScheduledRow({
           </div>
           {scheduled.attachment_ids.length > 0 && (
             <div className="text-xs text-muted mt-0.5" data-qa="scheduled-files">
-              📎{' '}
-              {scheduled.attachment_ids.length === 1 ? '1 file' : `${scheduled.attachment_ids.length} files`}
+              📎 {t('scheduled.files', { count: scheduled.attachment_ids.length })}
             </div>
           )}
           {scheduled.failure ? (
             <div className="text-xs text-danger mt-1 flex items-start gap-1" data-qa="scheduled-failure">
               <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-px" />
-              <span>Not sent. {FAILURES[scheduled.failure] ?? 'The server could not deliver it.'}</span>
+              <span>
+                {t('scheduled.notSent', { reason: t(`scheduled.reasons.${failureKey(scheduled.failure)}`) })}
+              </span>
             </div>
           ) : (
             <div className="text-xs text-accent-soft mt-1" data-qa="scheduled-time">
@@ -105,8 +110,8 @@ function ScheduledRow({
               setEditingTime(toLocalInputValue(sendAt));
             }}
             disabled={busy}
-            aria-label={`Reschedule message for ${target}`}
-            data-tooltip="Reschedule"
+            aria-label={t('scheduled.rescheduleLabel', { target })}
+            data-tooltip={t('scheduled.reschedule')}
             data-qa="scheduled-reschedule"
             className="p-1.5 rounded text-muted hover:text-fg hover:bg-raised transition cursor-pointer disabled:opacity-50"
           >
@@ -116,8 +121,12 @@ function ScheduledRow({
         <button
           onClick={onCancel}
           disabled={busy}
-          aria-label={`${scheduled.failure ? 'Remove' : 'Cancel'} message for ${target}`}
-          data-tooltip={scheduled.failure ? 'Remove' : 'Cancel'}
+          aria-label={
+            scheduled.failure
+              ? t('scheduled.removeLabel', { target })
+              : t('scheduled.cancelLabel', { target })
+          }
+          data-tooltip={scheduled.failure ? t('scheduled.remove') : t('scheduled.cancel')}
           data-qa="scheduled-cancel"
           className="p-1.5 rounded text-muted hover:text-danger hover:bg-raised transition cursor-pointer disabled:opacity-50"
         >
@@ -133,7 +142,7 @@ function ScheduledRow({
             disabled={busy}
             data-qa="scheduled-send-now"
           >
-            Send now
+            {t('scheduled.sendNow')}
           </Button>
         </div>
       )}
@@ -141,7 +150,7 @@ function ScheduledRow({
       {editingTime !== null && (
         <div className="mt-2">
           <TextInput
-            label="New time"
+            label={t('scheduled.newTime')}
             labelHidden
             compact
             type="datetime-local"
@@ -163,7 +172,7 @@ function ScheduledRow({
               onClick={() => setEditingTime(null)}
               className="px-2 py-1 text-xs text-muted hover:text-fg transition cursor-pointer"
             >
-              Cancel
+              {t('cancel', { ns: 'common' })}
             </button>
             <Button
               variant="primary"
@@ -171,11 +180,11 @@ function ScheduledRow({
               onClick={async () => {
                 const at = new Date(editingTime);
                 if (!editingTime || Number.isNaN(at.getTime())) {
-                  setError('Pick a date and time first');
+                  setError(t('schedule.needTime'));
                   return;
                 }
                 if (at.getTime() <= Date.now()) {
-                  setError('That time has already passed');
+                  setError(t('schedule.past'));
                   return;
                 }
                 setError(null);
@@ -184,7 +193,7 @@ function ScheduledRow({
                   await onReschedule(at);
                   setEditingTime(null);
                 } catch (err) {
-                  setError(toUserMessage(err, 'Failed to move that message'));
+                  setError(toUserMessage(err, t('scheduled.moveFailed')));
                 } finally {
                   setSaving(false);
                 }
@@ -192,7 +201,7 @@ function ScheduledRow({
               disabled={saving}
               data-qa="scheduled-reschedule-submit"
             >
-              Move
+              {t('scheduled.move')}
             </Button>
           </div>
         </div>
@@ -208,6 +217,7 @@ export default function ScheduledMessagesPanel({
   conversations,
   onClose,
 }: Props) {
+  const { t } = useTranslation('messages');
   const { data: scheduled = [], isLoading } = useScheduledMessages(workspaceId, instanceUrl);
   const cancelScheduled = useCancelScheduledMessage(workspaceId, instanceUrl);
   const reschedule = useRescheduleMessage(workspaceId, instanceUrl);
@@ -225,8 +235,9 @@ export default function ScheduledMessagesPanel({
       conversations,
       currentUserId ?? undefined,
       (id) => getUser(id)?.display_name,
+      t('scheduled.leftChannel'),
     );
-    return message.thread_parent_id ? `${label} · thread` : label;
+    return message.thread_parent_id ? t('scheduled.thread', { target: label }) : label;
   };
 
   const failWith = (fallback: string) => (err: unknown) =>
@@ -237,7 +248,11 @@ export default function ScheduledMessagesPanel({
       className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-surface border-l border-line/50 flex flex-col"
       data-qa="scheduled-panel"
     >
-      <PanelHeader title="Scheduled" icon={<Clock className="h-4 w-4 text-muted" />} onClose={onClose} />
+      <PanelHeader
+        title={t('scheduled.title')}
+        icon={<Clock className="h-4 w-4 text-muted" />}
+        onClose={onClose}
+      />
 
       <div className="flex-1 overflow-y-auto">
         {error && <div className="px-4 py-2 text-xs text-danger">{error}</div>}
@@ -248,7 +263,7 @@ export default function ScheduledMessagesPanel({
           </div>
         ) : scheduled.length === 0 ? (
           <div className="text-center py-10 px-6 text-sm text-muted" data-qa="scheduled-empty">
-            Nothing is waiting to be sent. Write a message, then pick the clock next to Send.
+            {t('scheduled.empty')}
           </div>
         ) : (
           scheduled.map((message) => (
@@ -259,7 +274,7 @@ export default function ScheduledMessagesPanel({
               busy={busy}
               onCancel={() => {
                 setError(null);
-                cancelScheduled.mutate(message.id, { onError: failWith('Failed to cancel') });
+                cancelScheduled.mutate(message.id, { onError: failWith(t('scheduled.cancelFailed')) });
               }}
               onReschedule={async (sendAt) => {
                 setError(null);
@@ -267,7 +282,7 @@ export default function ScheduledMessagesPanel({
               }}
               onSendNow={() => {
                 setError(null);
-                sendNow.mutate(message.id, { onError: failWith('Failed to send') });
+                sendNow.mutate(message.id, { onError: failWith(t('scheduled.sendFailed')) });
               }}
             />
           ))

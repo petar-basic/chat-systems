@@ -4,8 +4,6 @@ export const ErrorLabels = {
   SidebarSaveFailed: "Couldn't save your sidebar",
   AppSaveFailed: "Couldn't save the app",
   LaterFailed: "Couldn't update Later",
-  VoteFailed: "Couldn't record your vote",
-  PollCloseFailed: "Couldn't close the poll",
   ListCellFailed: "Couldn't save that cell",
   ListItemFailed: "Couldn't change that item",
   ListColumnFailed: "Couldn't change that column",

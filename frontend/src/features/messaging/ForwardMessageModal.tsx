@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { toUserMessage } from '@/lib/errors';
 import { Hash, MessageSquare, Search } from 'lucide-react';
@@ -35,6 +36,7 @@ export default function ForwardMessageModal({
   instanceUrl,
   onClose,
 }: Props) {
+  const { t } = useTranslation('messages');
   const { getUser } = useUserCache();
   const [query, setQuery] = useState('');
   const [comment, setComment] = useState('');
@@ -75,14 +77,14 @@ export default function ForwardMessageModal({
       );
       onClose();
     } catch (err) {
-      setError(toUserMessage(err, 'Failed to forward that message'));
+      setError(toUserMessage(err, t('forward.failed')));
     } finally {
       setSending(false);
     }
   };
 
   return (
-    <Modal title="Forward message" onClose={onClose} dataQa="forward-modal">
+    <Modal title={t('forward.title')} onClose={onClose} dataQa="forward-modal">
       <div className="rounded-lg border border-line/60 bg-raised/30 px-3 py-2">
         <div className="text-xs text-muted mb-1">
           From {source.authorName} in {source.origin}
@@ -90,25 +92,25 @@ export default function ForwardMessageModal({
         <div className="text-sm text-fg-dim line-clamp-3 whitespace-pre-wrap" data-qa="forward-preview">
           {source.content}
         </div>
-        {source.hasAttachments && <div className="mt-1 text-xs text-muted">📎 Files are forwarded too</div>}
+        {source.hasAttachments && <div className="mt-1 text-xs text-muted">{t('forward.files')}</div>}
       </div>
 
       <div className="mt-3 space-y-2">
         <TextInput
-          label="Comment"
+          label={t('forward.comment')}
           labelHidden
           value={comment}
           onChange={(e) => setComment(e.target.value)}
-          placeholder="Add a comment (optional)"
+          placeholder={t('forward.commentPlaceholder')}
           dataQa="forward-comment"
         />
         <TextInput
-          label="Search for somewhere to forward to"
+          label={t('forward.search')}
           labelHidden
           leading={<Search className="h-4 w-4" />}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search channels and people"
+          placeholder={t('forward.searchPlaceholder')}
           dataQa="forward-search"
         />
         {error && (
@@ -120,7 +122,7 @@ export default function ForwardMessageModal({
 
       <div className="-mx-3 mt-2">
         {targets.length === 0 ? (
-          <p className="px-3 py-6 text-center text-sm text-muted">Nothing matches that.</p>
+          <p className="px-3 py-6 text-center text-sm text-muted">{t('forward.none')}</p>
         ) : (
           targets.map((target) => (
             <button

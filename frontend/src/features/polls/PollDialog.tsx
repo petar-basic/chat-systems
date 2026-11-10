@@ -1,4 +1,5 @@
 import { useState, type DragEvent, type FormEvent, type KeyboardEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { GripVertical, Plus, X } from 'lucide-react';
 import { Modal } from '@/shared/components/Modal/Modal';
 import { Button } from '@/shared/components/Button/Button';
@@ -29,6 +30,7 @@ interface Row {
 const blankRow = (): Row => ({ key: crypto.randomUUID(), label: '' });
 
 export function PollDialog({ target, onClose }: Props) {
+  const { t } = useTranslation(['polls', 'common']);
   const [question, setQuestion] = useState('');
   const [rows, setRows] = useState<Row[]>(() => [blankRow(), blankRow()]);
   const [multiple, setMultiple] = useState(false);
@@ -45,11 +47,11 @@ export function PollDialog({ target, onClose }: Props) {
     e.preventDefault();
     const options = rows.map((row) => row.label.trim()).filter(Boolean);
     if (!question.trim()) {
-      setError('Ask a question.');
+      setError(t('dialog.needQuestion'));
       return;
     }
     if (options.length < MIN_OPTIONS) {
-      setError(`Give at least ${MIN_OPTIONS} options.`);
+      setError(t('dialog.needOptions', { min: MIN_OPTIONS }));
       return;
     }
     setError(null);
@@ -64,7 +66,7 @@ export function PollDialog({ target, onClose }: Props) {
       },
       {
         onSuccess: onClose,
-        onError: (err) => setError(toUserMessage(err, "Couldn't create the poll")),
+        onError: (err) => setError(toUserMessage(err, t('dialog.failed'))),
       },
     );
   };
@@ -83,26 +85,26 @@ export function PollDialog({ target, onClose }: Props) {
 
   return (
     <Modal
-      title="Create a poll"
+      title={t('dialog.title')}
       onClose={onClose}
       dataQa="poll-dialog"
       onSubmit={handleSubmit}
-      dismissLabel="Cancel"
+      dismissLabel={t('cancel', { ns: 'common' })}
       actions={
         <Button type="submit" variant="primary" loading={create.isPending} data-qa="poll-dialog-submit">
-          Create poll
+          {t('dialog.submit')}
         </Button>
       }
     >
       <div className="space-y-5">
         <TextInput
-          label="Question"
+          label={t('dialog.question')}
           value={question}
           onChange={(e) => {
             setQuestion(e.target.value);
             if (error) setError(null);
           }}
-          placeholder="Lunch Thursday or Friday?"
+          placeholder={t('dialog.questionPlaceholder')}
           maxLength={QUESTION_MAX}
           counter
           error={error}
@@ -112,7 +114,7 @@ export function PollDialog({ target, onClose }: Props) {
         />
 
         <fieldset>
-          <legend className="mb-1.5 text-sm font-medium text-fg-dim">Options</legend>
+          <legend className="mb-1.5 text-sm font-medium text-fg-dim">{t('dialog.options')}</legend>
           <ol className="space-y-2">
             {rows.map((row, index) => (
               <li
@@ -127,19 +129,19 @@ export function PollDialog({ target, onClose }: Props) {
               >
                 <GripVertical className="h-4 w-4 shrink-0 cursor-grab text-faint" aria-hidden="true" />
                 <TextInput
-                  label={`Option ${index + 1}`}
+                  label={t('dialog.option', { n: index + 1 })}
                   labelHidden
                   value={row.label}
                   onChange={(e) => setLabel(index, e.target.value)}
                   onKeyDown={onOptionKey(index)}
-                  placeholder={`Option ${index + 1}`}
+                  placeholder={t('dialog.option', { n: index + 1 })}
                   maxLength={OPTION_MAX}
                   autoComplete="off"
                   className="flex-1"
                   dataQa={`poll-dialog-option-${index}`}
                 />
                 <IconButton
-                  label={`Remove option ${index + 1}`}
+                  label={t('dialog.removeOption', { n: index + 1 })}
                   icon={<X className="h-4 w-4" />}
                   tone="danger"
                   disabled={rows.length <= MIN_OPTIONS}
@@ -148,7 +150,7 @@ export function PollDialog({ target, onClose }: Props) {
               </li>
             ))}
           </ol>
-          <p className="mt-1.5 text-xs text-muted">Drag to reorder, or Alt + ↑ / ↓ in an option.</p>
+          <p className="mt-1.5 text-xs text-muted">{t('dialog.reorderHint')}</p>
           {rows.length < MAX_OPTIONS && (
             <Button
               size="sm"
@@ -158,41 +160,41 @@ export function PollDialog({ target, onClose }: Props) {
               className="mt-1"
               data-qa="poll-dialog-add-option"
             >
-              Add option
+              {t('dialog.addOption')}
             </Button>
           )}
         </fieldset>
 
         <RadioCards
-          label="Answers"
+          label={t('dialog.answers')}
           value={multiple ? 'multiple' : 'single'}
           onChange={(value) => setMultiple(value === 'multiple')}
           options={[
-            { value: 'single', label: 'One answer', description: 'Each person picks one option.' },
+            { value: 'single', label: t('dialog.single'), description: t('dialog.singleHint') },
             {
               value: 'multiple',
-              label: 'Any number',
-              description: 'Each person picks as many as they like.',
+              label: t('dialog.multiple'),
+              description: t('dialog.multipleHint'),
               dataQa: 'poll-dialog-multiple',
             },
           ]}
         />
 
         <Checkbox
-          label="Anonymous"
-          description="Everyone sees the counts; nobody, you included, sees who voted for what."
+          label={t('dialog.anonymous')}
+          description={t('dialog.anonymousHint')}
           checked={anonymous}
           onChange={setAnonymous}
           dataQa="poll-dialog-anonymous"
         />
 
         <TextInput
-          label="Closes"
+          label={t('dialog.closes')}
           optional
           type="datetime-local"
           value={closesAt}
           onChange={(e) => setClosesAt(e.target.value)}
-          hint="Leave empty to keep it open until you close it."
+          hint={t('dialog.closesHint')}
           dataQa="poll-dialog-closes"
         />
       </div>

@@ -1,0 +1,44 @@
+{
+  "dialog": {
+    "title": "投票を作成",
+    "submit": "作成",
+    "question": "質問",
+    "questionPlaceholder": "例: 週末どこ行く？",
+    "options": "選択肢",
+    "option": "選択肢 {{n}}",
+    "removeOption": "選択肢 {{n}} を削除",
+    "reorderHint": "ドラッグ、または選択肢の中で Alt + ↑ / ↓ で並べ替えられます。",
+    "addOption": "選択肢を追加",
+    "answers": "回答方法",
+    "single": "1つだけ",
+    "singleHint": "1人1つの選択肢を選びます。",
+    "multiple": "いくつでも",
+    "multipleHint": "1人がいくつでも選べます。",
+    "anonymous": "匿名",
+    "anonymousHint": "票数は全員に見えますが、誰が何に投票したかは、あなたも含めて誰にも見えません。",
+    "closes": "締め切り",
+    "closesHint": "空欄にすると、自分で締め切るまで受け付けます。",
+    "needQuestion": "質問を入力してください。",
+    "needOptions": "選択肢を {{min}}つ以上入力してください。",
+    "failed": "投票を作成できませんでした"
+  },
+  "card": {
+    "label": "投票: {{question}}",
+    "one": "1つ選択",
+    "any": "複数選択可",
+    "key": "キーボードの {{n}}",
+    "votes_other": "{{count}}票",
+    "closed": "{{votes}} · 締め切り済み",
+    "closes": "{{votes}} · {{time}} に締め切り",
+    "close": "投票を締め切る"
+  },
+  "problems": {
+    "usage": "/poll \"週末どこ行く？\" \"映画\" \"キャンプ\" のように入力するか、/poll だけで投票作成画面を開いてください",
+    "unclosed": "引用符（\"）が閉じていません",
+    "count": "選択肢は {{min}}〜{{max}}個にしてください"
+  },
+  "toasts": {
+    "voteFailed": "投票できませんでした",
+    "closeFailed": "投票を締め切れませんでした"
+  }
+}

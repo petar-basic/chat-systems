@@ -33,11 +33,11 @@ describe('parsePollCommand', () => {
     expect(parsePollCommand('/poll Lunch? Thursday Friday')).toMatchObject({ kind: 'invalid' });
     expect(parsePollCommand('/poll "Lunch?" "Thursday')).toEqual({
       kind: 'invalid',
-      message: 'A quote is not closed',
+      problem: 'unclosed',
     });
     expect(parsePollCommand('/poll "Lunch?" "Thursday"')).toEqual({
       kind: 'invalid',
-      message: 'A poll needs 2 to 10 options',
+      problem: 'count',
     });
     const eleven = Array.from({ length: 11 }, (_, i) => `"${i}"`).join(' ');
     expect(parsePollCommand(`/poll "Q" ${eleven}`)).toMatchObject({ kind: 'invalid' });

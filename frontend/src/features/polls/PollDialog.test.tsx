@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import i18n from '@/lib/i18n';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { PollDialog } from './PollDialog';
 import { moveRow } from './pollCommand';
@@ -89,5 +90,21 @@ describe('moveRow', () => {
     expect(moveRow(['a', 'b', 'c'], 2, 0)).toEqual(['c', 'a', 'b']);
     expect(moveRow(['a', 'b', 'c'], 0, -1)).toEqual(['a', 'b', 'c']);
     expect(moveRow(['a', 'b', 'c'], 2, 3)).toEqual(['a', 'b', 'c']);
+  });
+});
+
+describe('PollDialog in Japanese', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('names the form and asks for a question first', async () => {
+    await i18n.changeLanguage('ja');
+    renderDialog();
+    expect(screen.getByRole('heading', { name: '投票を作成' })).toBeInTheDocument();
+    expect(screen.getByLabelText(/質問/)).toHaveAttribute('placeholder', '例: 週末どこ行く？');
+    expect(screen.getByRole('radio', { name: /1つだけ/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '作成' }));
+    expect(await screen.findByText('質問を入力してください。')).toBeInTheDocument();
   });
 });
