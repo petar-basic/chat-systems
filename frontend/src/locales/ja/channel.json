@@ -15,5 +15,93 @@
     "files": "ファイル",
     "notifications": "通知設定",
     "details": "チャンネル詳細"
+  },
+  "details": {
+    "tabs": {
+      "about": "概要",
+      "settings": "設定",
+      "activity": "アクティビティ",
+      "integrations": "連携"
+    },
+    "fallbackName": "チャンネル",
+    "save": "保存",
+    "saveFailed": "チャンネルを保存できませんでした。",
+    "about": {
+      "topic": "トピック",
+      "description": "説明",
+      "noneYet": "未設定",
+      "name": "名前",
+      "topicPlaceholder": "どのような内容のチャンネルですか？",
+      "archive": "チャンネルをアーカイブ",
+      "archiveTitle": "#{{name}} をアーカイブしますか?",
+      "archiveDescription": "そのチャンネルはチャンネルリストから外れ、管理者がアーカイブを解除するまで、誰も投稿することはできません。過去の履歴は引き続き閲覧可能です。"
+    },
+    "settings": {
+      "announcement": "告知用チャンネル",
+      "announcementHint": "ワークスペースとこのチャンネルの管理者だけが投稿できます。それ以外の人も、閲覧とリアクションはできます。",
+      "broadcast": "@channel、@here、@everyone を許可",
+      "broadcastHint": "オフにすると、管理者も含めて誰も、チャンネル全員にまとめて通知できなくなります。"
+    },
+    "retention": {
+      "label": "メッセージの保存期間",
+      "workspaceDefault": "ワークスペースの設定（{{period}}）",
+      "forever": "無期限",
+      "days_other": "{{count}} 日間",
+      "keepForever": "無期限に保存",
+      "someDays": "日数を指定",
+      "daysLabel": "保存する日数",
+      "atLeastOne": "1 日以上を指定してください",
+      "followsForever": "このチャンネルのメッセージはワークスペースの設定に従い、無期限に保存されます。",
+      "followsDays_other": "このチャンネルのメッセージはワークスペースの設定に従い、{{count}} 日間保存されます。"
+    },
+    "activity": {
+      "range": "{{from}} – {{to}}。件数だけを集計し、書かれた内容は含みません。",
+      "messages": "メッセージ数",
+      "posters": "投稿したメンバー",
+      "viewers": "閲覧したメンバー",
+      "ofMembers": "メンバー {{members}} 人中",
+      "last": "最後のメッセージ",
+      "noneYet": "まだありません"
+    },
+    "integrations": {
+      "details": "詳細",
+      "detailsOf": "{{name}} の詳細",
+      "open": "開く",
+      "incoming": {
+        "title": "Incoming Webhook",
+        "hint": "JSON を送信できるサービスやツールから、このチャンネルに投稿できます。",
+        "empty": "このチャンネルに投稿している Incoming Webhook はありません。",
+        "nameLabel": "Webhook の名前",
+        "namePlaceholder": "名前（例: CI 通知）",
+        "add": "Incoming Webhookを追加",
+        "addedBy": "追加: {{name}} さん ・ {{time}}",
+        "rotate": "{{name}} の URL を再発行",
+        "remove": "{{name}} を削除",
+        "url": "Webhook URL",
+        "urlHint": "今すぐコピーしてください。二度と表示されません。このURLを知っている人は誰でも、ここに投稿できます。",
+        "removeTitle": "{{name}} を削除しますか?",
+        "removeDescription": "この URL への投稿は、今後すべて拒否されます。",
+        "removeConfirm": "Webhook を削除",
+        "addFailed": "Webhook を追加できませんでした。",
+        "rotateFailed": "Webhook の URL を再発行できませんでした。"
+      },
+      "outgoing": {
+        "title": "Outgoing Webhook",
+        "hint": "このチャンネルのすべてのメッセージが、ワークスペースの外のサービスにも送信されます。",
+        "empty": "外部に送信している Webhook はありません。"
+      },
+      "commands": {
+        "title": "スラッシュコマンド",
+        "hint": "コマンドの後に入力した内容が、ワークスペースの外のサービスに送信されます。",
+        "empty": "このチャンネルで使えるコマンドはありません。"
+      },
+      "workflows": {
+        "title": "ワークフロー",
+        "hint": "このチャンネルから始まる、またはこのチャンネルに投稿するワークフローです。",
+        "empty": "このチャンネルを使うワークフローはありません。",
+        "on": "オン ・ 作成: {{name}} さん",
+        "off": "オフ ・ 作成: {{name}} さん"
+      }
+    }
   }
 }

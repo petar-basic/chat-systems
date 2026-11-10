@@ -15,5 +15,95 @@
     "files": "Files",
     "notifications": "Notification settings",
     "details": "Channel details"
+  },
+  "details": {
+    "tabs": {
+      "about": "About",
+      "settings": "Settings",
+      "activity": "Activity",
+      "integrations": "Integrations"
+    },
+    "fallbackName": "channel",
+    "save": "Save",
+    "saveFailed": "Failed to save the channel",
+    "about": {
+      "topic": "Topic",
+      "description": "Description",
+      "noneYet": "None yet",
+      "name": "Name",
+      "topicPlaceholder": "What is this channel about?",
+      "archive": "Archive channel",
+      "archiveTitle": "Archive #{{name}}?",
+      "archiveDescription": "It leaves the channel list and nobody can post in it, until an admin unarchives it. Its history stays readable."
+    },
+    "settings": {
+      "announcement": "Announcement channel",
+      "announcementHint": "Only workspace admins and this channel's admins can post. Everyone else can still read and react.",
+      "broadcast": "Allow @channel, @here and @everyone",
+      "broadcastHint": "Off means no one can notify the whole channel at once, admins included."
+    },
+    "retention": {
+      "label": "Message retention",
+      "workspaceDefault": "Workspace default ({{period}})",
+      "forever": "forever",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days",
+      "keepForever": "Keep forever",
+      "someDays": "A number of days",
+      "daysLabel": "Days to keep messages",
+      "atLeastOne": "At least one day",
+      "followsForever": "Messages here follow the workspace and are kept forever.",
+      "followsDays_one": "Messages here follow the workspace and are kept for {{count}} day.",
+      "followsDays_other": "Messages here follow the workspace and are kept for {{count}} days."
+    },
+    "activity": {
+      "range": "{{from}} – {{to}}. Counts only, never what anyone wrote.",
+      "messages": "Messages",
+      "posters": "Members who posted",
+      "viewers": "Members who viewed",
+      "ofMembers": "of {{members}} members",
+      "last": "Last message",
+      "noneYet": "None yet"
+    },
+    "integrations": {
+      "details": "Details",
+      "detailsOf": "Details of {{name}}",
+      "open": "Open",
+      "incoming": {
+        "title": "Incoming webhooks",
+        "hint": "Post into this channel from anything that can send a little JSON.",
+        "empty": "None post into this channel.",
+        "nameLabel": "Webhook name",
+        "namePlaceholder": "Name, e.g. CI alerts",
+        "add": "Add an incoming webhook",
+        "addedBy": "Added by {{name}} · {{time}}",
+        "rotate": "Make a new URL for {{name}}",
+        "remove": "Remove {{name}}",
+        "url": "Webhook URL",
+        "urlHint": "Copy it now: it is not shown again. Anyone with it can post here.",
+        "removeTitle": "Remove {{name}}?",
+        "removeDescription": "Anything still posting to its URL will be refused.",
+        "removeConfirm": "Remove webhook",
+        "addFailed": "Failed to add the webhook",
+        "rotateFailed": "Failed to rotate the webhook"
+      },
+      "outgoing": {
+        "title": "Outgoing webhooks",
+        "hint": "Every message here is also sent to a service outside this workspace.",
+        "empty": "Nothing here is sent outside."
+      },
+      "commands": {
+        "title": "Slash commands",
+        "hint": "What you type after the command is sent to a service outside this workspace.",
+        "empty": "No commands are set up for this channel."
+      },
+      "workflows": {
+        "title": "Workflows",
+        "hint": "Workflows that start from this channel or post into it.",
+        "empty": "No workflow uses this channel.",
+        "on": "On · built by {{name}}",
+        "off": "Off · built by {{name}}"
+      }
+    }
   }
 }
