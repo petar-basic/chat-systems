@@ -24,7 +24,7 @@ async fn list_workspaces_requires_auth_and_returns_data(pool: PgPool) {
 #[test_macros::db_test(migrations = "../migrations")]
 async fn create_workspace_happy_path(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
-    let (_, _, token) = seed_and_login(&app, &state, "ws-create", false).await;
+    let (_, _, token) = seed_and_login(&app, &state, "ws-create", true).await;
 
     let (status, body) = send(
         &app,
@@ -55,7 +55,7 @@ async fn create_workspace_rejects_unauthenticated(pool: PgPool) {
 #[test_macros::db_test(migrations = "../migrations")]
 async fn create_workspace_rejects_blank_name(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
-    let (_, _, token) = seed_and_login(&app, &state, "ws-blank", false).await;
+    let (_, _, token) = seed_and_login(&app, &state, "ws-blank", true).await;
 
     let (status, _) = send(
         &app,
@@ -1282,17 +1282,13 @@ async fn set_role(app: &axum::Router, admin: &str, user_id: uuid::Uuid, role: &s
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
-async fn anyone_creates_a_workspace_until_an_admin_restricts_it(pool: PgPool) {
+async fn only_creators_and_admins_create_a_workspace_until_an_admin_opens_it_to_everyone(
+    pool: PgPool,
+) {
     let (app, state) = app_and_state(pool).await;
     let (_, _, admin) = seed_and_login(&app, &state, "restrict-admin", true).await;
     let (_, _, member) = seed_and_login(&app, &state, "restrict-member", false).await;
 
-    let (_, info) = send(&app, "GET", "/api/instance/info", None, None).await;
-    assert_eq!(info["workspace_creation_restricted"], false);
-    let (status, body) = create(&app, &member).await;
-    assert_eq!(status, StatusCode::OK, "{body:?}");
-
-    restrict_creation(&app, &admin, true).await;
     let (_, info) = send(&app, "GET", "/api/instance/info", None, None).await;
     assert_eq!(info["workspace_creation_restricted"], true);
 
@@ -1309,18 +1305,24 @@ async fn anyone_creates_a_workspace_until_an_admin_restricts_it(pool: PgPool) {
     assert_eq!(before, after, "a refused member leaves no workspace behind");
 
     let (status, body) = create(&app, &admin).await;
-    assert_eq!(
-        status,
-        StatusCode::OK,
-        "an instance admin still can: {body:?}"
-    );
+    assert_eq!(status, StatusCode::OK, "an instance admin can: {body:?}");
 
     restrict_creation(&app, &admin, false).await;
+    let (_, info) = send(&app, "GET", "/api/instance/info", None, None).await;
+    assert_eq!(info["workspace_creation_restricted"], false);
     let (status, body) = create(&app, &member).await;
     assert_eq!(
         status,
         StatusCode::OK,
-        "lifting it lets members again: {body:?}"
+        "opening it to everyone lets members: {body:?}"
+    );
+
+    restrict_creation(&app, &admin, true).await;
+    let (status, body) = create(&app, &member).await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "and closing it again stops them: {body:?}"
     );
 }
 
@@ -1329,7 +1331,6 @@ async fn a_workspace_creator_creates_without_being_an_admin(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_, _, admin) = seed_and_login(&app, &state, "creator-admin", true).await;
     let (creator_id, _, creator) = seed_and_login(&app, &state, "creator-user", false).await;
-    restrict_creation(&app, &admin, true).await;
 
     let (status, _) = create(&app, &creator).await;
     assert_eq!(status, StatusCode::FORBIDDEN);
@@ -1405,10 +1406,10 @@ async fn a_settings_change_touches_only_the_setting_it_names(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_, _, admin) = seed_and_login(&app, &state, "settings-partial", true).await;
 
-    restrict_creation(&app, &admin, true).await;
+    restrict_creation(&app, &admin, false).await;
     let (_, settings) = send(&app, "GET", "/api/admin/settings", Some(&admin), None).await;
     assert_eq!(settings["email_code_sign_in"], true);
-    assert_eq!(settings["workspace_creation_restricted"], true);
+    assert_eq!(settings["workspace_creation_restricted"], false);
 
     let (status, settings) = send(
         &app,
@@ -1420,7 +1421,7 @@ async fn a_settings_change_touches_only_the_setting_it_names(pool: PgPool) {
     .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(settings["email_code_sign_in"], false);
-    assert_eq!(settings["workspace_creation_restricted"], true);
+    assert_eq!(settings["workspace_creation_restricted"], false);
 
     let (status, _) = send(
         &app,
@@ -1438,7 +1439,7 @@ async fn a_settings_change_touches_only_the_setting_it_names(pool: PgPool) {
         "PATCH",
         "/api/admin/settings",
         Some(&member),
-        Some(json!({ "workspace_creation_restricted": false })),
+        Some(json!({ "workspace_creation_restricted": true })),
     )
     .await;
     assert_eq!(status, StatusCode::FORBIDDEN);

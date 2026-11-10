@@ -18,12 +18,13 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ### Added
 
-- An instance admin can decide who creates workspaces: *Instance admin → Users → Who can create
-  workspaces*. With *Workspace creators and admins*, only people with the new *Workspace
-  creator* role, or instance admins, can create a workspace or import a Slack export into a new
-  one; everyone else joins the workspaces they are invited to, and the rail, the desktop app
-  and the empty start page stop offering to create one. The role gives no access to the admin
-  panel. Nothing changes until the switch is turned.
+- Only instance admins and people with the new *Workspace creator* role can create a workspace
+  or import a Slack export into a new one; everyone else joins the workspaces they are invited
+  to, and the rail, the desktop app and the empty start page stop offering to create one. The
+  role is given in *Instance admin → Users* and opens nothing of the admin panel. *Who can
+  create workspaces → Everyone* in the same place lets anyone who signs in start one again.
+  The upgrade applies this to every instance; see the
+  [upgrade note](docs/RUNBOOK.md#upgrade-note-only-creators-and-admins-create-workspaces).
 
 ### Fixed
 
