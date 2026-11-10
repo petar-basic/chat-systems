@@ -369,6 +369,7 @@ fn load_server<R: Runtime>(
                 .permission("allow-report-theme")
                 .permission("allow-report-colours")
                 .permission("allow-report-creation")
+                .permission("allow-open-link")
                 .permission("allow-press-menu-keys")
                 .permission("core:window:allow-start-dragging")
                 .permission("core:window:allow-internal-toggle-maximize"),
@@ -800,6 +801,19 @@ fn report_creation(app: AppHandle, webview: Webview, allowed: bool) -> Result<()
 }
 
 #[tauri::command]
+fn open_link(app: AppHandle, webview: Webview, url: String) -> Result<(), String> {
+    let server = server_of(&app, &webview)?;
+    let origin = Url::parse(&server.url).map_err(|e| e.to_string())?;
+    let target = Url::parse(&url).map_err(|e| e.to_string())?;
+    if !navigation::opens_outside(&origin, &target) {
+        return Err("Only a link to somewhere else opens in the browser".into());
+    }
+    app.opener()
+        .open_url(target.as_str(), None::<&str>)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn report_theme(app: AppHandle, webview: Webview, theme: Theme) -> Result<(), String> {
     let server = server_of(&app, &webview)?;
     app.state::<Themes>()
@@ -1094,6 +1108,7 @@ pub fn run() {
             report_theme,
             report_colours,
             report_creation,
+            open_link,
             notify,
             rail_menu,
             rail_hint,

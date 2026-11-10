@@ -9,6 +9,7 @@ fn main() {
             "report_theme",
             "report_colours",
             "report_creation",
+            "open_link",
             "notify",
             "rail_menu",
             "rail_hint",
