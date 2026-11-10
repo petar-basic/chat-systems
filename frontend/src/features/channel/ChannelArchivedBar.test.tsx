@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import i18n from '@/lib/i18n';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ChannelArchivedBar } from './ChannelArchivedBar';
 import type { Channel } from '@/stores/workspace';
@@ -29,5 +30,29 @@ describe('ChannelArchivedBar', () => {
     fireEvent.click(screen.getByTestId('channel-unarchive'));
 
     expect(unarchive).toHaveBeenCalledWith('c1', expect.anything());
+  });
+});
+
+describe('ChannelArchivedBar in Japanese', () => {
+  const hostile = '<img src=x onerror="alert(1)"> {{name}}';
+  beforeEach(async () => {
+    await i18n.changeLanguage('ja');
+  });
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('says the channel is archived, naming it as text', () => {
+    render(<ChannelArchivedBar channel={{ ...channel, name: hostile }} canUnarchive={false} />);
+    expect(screen.getByTestId('channel-archived').textContent).toBe(
+      `#${hostile} はアーカイブされています。過去の履歴は閲覧できますが、新しい投稿はできません。`,
+    );
+    expect(screen.getByText(`#${hostile}`)).toHaveClass('font-semibold');
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
+
+  it('offers to unarchive', () => {
+    render(<ChannelArchivedBar channel={channel} canUnarchive />);
+    expect(screen.getByTestId('channel-unarchive')).toHaveTextContent('アーカイブを解除');
   });
 });

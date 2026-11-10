@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import i18n from '@/lib/i18n';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import ChannelFilesPanel from './ChannelFilesPanel';
 
@@ -19,12 +20,14 @@ vi.mock('@/features/channel/hooks/useChannelFiles', () => ({
   useChannelFileSearch: (_workspaceId: string | undefined, _channelId: string, name: string) => {
     names.push(name);
     return {
-      data: name
-        ? [
-            { ...file('3', 'Q3 budget.xlsx', 'application/vnd.ms-excel'), kind: 'spreadsheet' },
-            { ...file('4', 'budget-chart.png', 'image/png'), kind: 'image' },
-          ]
-        : undefined,
+      data: name.startsWith('<')
+        ? []
+        : name
+          ? [
+              { ...file('3', 'Q3 budget.xlsx', 'application/vnd.ms-excel'), kind: 'spreadsheet' },
+              { ...file('4', 'budget-chart.png', 'image/png'), kind: 'image' },
+            ]
+          : undefined,
       isLoading: false,
       isError: false,
     };
@@ -79,5 +82,34 @@ describe('ChannelFilesPanel', () => {
     fireEvent.click(screen.getByTestId('channel-files-tab-document'));
     expect(screen.queryByRole('button', { name: 'budget-chart.png' })).toBeNull();
     expect(screen.getByTestId('channel-file-row')).toHaveTextContent('Q3 budget.xlsx');
+  });
+});
+
+describe('ChannelFilesPanel in Japanese', () => {
+  const hostile = '<img src=x onerror="alert(1)"> {{name}}';
+  beforeEach(async () => {
+    await i18n.changeLanguage('ja');
+  });
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('names the tabs and the files to download', () => {
+    render(<ChannelFilesPanel channelId="ch" onClose={vi.fn()} onNavigate={vi.fn()} />);
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+      'すべて',
+      '画像',
+      '動画',
+      '音声',
+      '文書',
+    ]);
+    expect(screen.getByRole('link', { name: 'plan.pdf をダウンロード' })).toBeInTheDocument();
+  });
+
+  it('repeats a name that matched nothing, as text', async () => {
+    render(<ChannelFilesPanel channelId="ch" onClose={vi.fn()} onNavigate={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('ファイル名で絞り込む'), { target: { value: hostile } });
+    expect(await screen.findByText(`「${hostile}」に一致するファイルはありません`)).toBeInTheDocument();
+    expect(document.querySelector('[onerror]')).toBeNull();
   });
 });

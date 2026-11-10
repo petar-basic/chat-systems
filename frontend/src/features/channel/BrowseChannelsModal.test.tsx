@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import i18n from '@/lib/i18n';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import BrowseChannelsModal from './BrowseChannelsModal';
 import type { BrowsableChannel } from '@/features/channel/hooks/useChannels';
@@ -170,5 +171,35 @@ describe('BrowseChannelsModal', () => {
     await waitFor(() => expect(leaveMutate).toHaveBeenCalledWith('ch-joined'));
     expect(props.onOpenChannel).not.toHaveBeenCalled();
     expect(props.onClose).not.toHaveBeenCalled();
+  });
+});
+
+describe('BrowseChannelsModal in Japanese', () => {
+  const hostile = '<img src=x onerror="alert(1)"> {{name}}';
+  beforeEach(async () => {
+    listed = channels;
+    await i18n.changeLanguage('ja');
+  });
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('counts channels and members, and names a channel to join as text', () => {
+    listed = [{ ...channels[0], name: hostile }, channels[1]];
+    renderModal();
+    expect(screen.getByTestId('browse-channels-count').textContent).toBe('チャンネル 2 件');
+    expect(screen.getByRole('button', { name: `${hostile} に参加` })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'general から退出' })).toBeInTheDocument();
+    expect(screen.getByText(hostile)).toBeInTheDocument();
+    expect(screen.getByText('メンバー 3 人 ・ pixels and pushback')).toBeInTheDocument();
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
+
+  it('marks an archived private channel', () => {
+    listed = [{ ...channels[0], channel_type: 'private', is_archived: true }];
+    renderModal();
+    expect(screen.getByTestId('browse-channel-archived').textContent).toBe(
+      'アーカイブ済みのプライベートチャンネル ・ ',
+    );
   });
 });

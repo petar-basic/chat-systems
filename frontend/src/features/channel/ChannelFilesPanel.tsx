@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import { Download, Files, Search } from 'lucide-react';
 import {
@@ -16,13 +17,7 @@ import { formatBytes } from '@/lib/fileSize';
 import { ImageGallery } from '@/features/messaging';
 import { fileKind, isRenderableImage } from '@/lib/fileKinds';
 
-const TABS: { kind: FileKindFilter | null; label: string }[] = [
-  { kind: null, label: 'All' },
-  { kind: 'image', label: 'Images' },
-  { kind: 'video', label: 'Videos' },
-  { kind: 'audio', label: 'Audio' },
-  { kind: 'document', label: 'Documents' },
-];
+const TABS: (FileKindFilter | null)[] = [null, 'image', 'video', 'audio', 'document'];
 
 interface Props {
   channelId: string;
@@ -43,6 +38,7 @@ function shortDate(value: string) {
 }
 
 export default function ChannelFilesPanel({ channelId, onClose, onNavigate }: Props) {
+  const { t } = useTranslation('channel');
   const [kind, setKind] = useState<FileKindFilter | null>(null);
   const { data, isLoading, isError, hasNextPage, fetchNextPage, isFetchingNextPage } = useChannelFiles(
     channelId,
@@ -68,47 +64,49 @@ export default function ChannelFilesPanel({ channelId, onClose, onNavigate }: Pr
       className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-surface border-l border-line/50 flex flex-col"
       data-qa="channel-files-panel"
     >
-      <PanelHeader title="Files" icon={<Files className="h-4 w-4 text-muted" />} onClose={onClose} />
+      <PanelHeader
+        title={t('header.files')}
+        icon={<Files className="h-4 w-4 text-muted" />}
+        onClose={onClose}
+      />
 
       <div className="flex gap-1 overflow-x-auto border-b border-line/50 px-3 py-2" role="tablist">
         {TABS.map((tab) => (
           <button
-            key={tab.label}
+            key={tab ?? 'all'}
             role="tab"
-            aria-selected={kind === tab.kind}
-            data-qa={`channel-files-tab-${tab.kind ?? 'all'}`}
-            onClick={() => setKind(tab.kind)}
+            aria-selected={kind === tab}
+            data-qa={`channel-files-tab-${tab ?? 'all'}`}
+            onClick={() => setKind(tab)}
             className={`shrink-0 rounded-full px-2.5 py-1 text-xs transition ${
-              kind === tab.kind ? 'bg-purple-600 text-white' : 'text-fg-dim hover:bg-raised'
+              kind === tab ? 'bg-purple-600 text-white' : 'text-fg-dim hover:bg-raised'
             }`}
           >
-            {tab.label}
+            {t(`files.tabs.${tab ?? 'all'}`)}
           </button>
         ))}
       </div>
 
       <div className="border-b border-line/50 px-3 py-2">
         <TextInput
-          label="Filter files by name"
+          label={t('files.filterLabel')}
           labelHidden
           compact
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Filter by name"
+          placeholder={t('files.filterPlaceholder')}
           leading={<Search className="h-3.5 w-3.5" />}
           dataQa="channel-files-filter"
         />
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {loading && <p className="p-4 text-sm text-muted">Loading…</p>}
-        {failed && <p className="p-4 text-sm text-danger">Couldn't load the files.</p>}
+        {loading && <p className="p-4 text-sm text-muted">{t('files.loading')}</p>}
+        {failed && <p className="p-4 text-sm text-danger">{t('files.failed')}</p>}
         {!loading && !failed && files.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-muted px-4 text-center">
             <Files className="w-8 h-8 mb-2 text-faint" />
-            <p className="text-sm">
-              {filtering ? <>No files named like &ldquo;{wanted}&rdquo;</> : 'Nothing shared here yet'}
-            </p>
+            <p className="text-sm">{filtering ? t('files.noMatch', { name: wanted }) : t('files.empty')}</p>
           </div>
         )}
 
@@ -144,7 +142,7 @@ export default function ChannelFilesPanel({ channelId, onClose, onNavigate }: Pr
             disabled={isFetchingNextPage}
             className="w-full py-3 text-xs text-accent hover:underline disabled:opacity-50"
           >
-            {isFetchingNextPage ? 'Loading…' : 'Load more'}
+            {isFetchingNextPage ? t('files.loading') : t('files.loadMore')}
           </button>
         )}
       </div>
@@ -166,6 +164,7 @@ export default function ChannelFilesPanel({ channelId, onClose, onNavigate }: Pr
 }
 
 function FileRow({ file, onNavigate }: { file: ChannelFile; onNavigate: (messageId: string) => void }) {
+  const { t } = useTranslation('channel');
   const { getUser } = useUserCache();
   const kind = fileKind(file.mime_type, file.filename);
   const Icon = kind.icon;
@@ -181,7 +180,7 @@ function FileRow({ file, onNavigate }: { file: ChannelFile; onNavigate: (message
         type="button"
         onClick={() => onNavigate(file.message_id)}
         className="min-w-0 flex-1 text-left"
-        data-tooltip="Show in conversation"
+        data-tooltip={t('files.showInConversation')}
       >
         <span className="block truncate text-sm text-fg-soft">{file.filename}</span>
         <span className="block truncate text-xs text-muted">
@@ -192,7 +191,7 @@ function FileRow({ file, onNavigate }: { file: ChannelFile; onNavigate: (message
       <a
         href={file.url}
         download={file.filename}
-        aria-label={`Download ${file.filename}`}
+        aria-label={t('files.download', { name: file.filename })}
         className="shrink-0 rounded p-1 text-muted hover:bg-raised hover:text-fg-dim"
       >
         <Download className="h-4 w-4" />
