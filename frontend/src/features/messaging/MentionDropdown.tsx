@@ -1,4 +1,5 @@
 import { forwardRef, useImperativeHandle, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AtSign, Hash, Megaphone, Users } from 'lucide-react';
 
 export interface MentionItem {
@@ -19,6 +20,7 @@ export interface MentionDropdownHandle {
 }
 
 export const MentionDropdown = forwardRef<MentionDropdownHandle, Props>(({ items, command }, ref) => {
+  const { t } = useTranslation('messages');
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   const [prevItems, setPrevItems] = useState(items);
@@ -50,7 +52,7 @@ export const MentionDropdown = forwardRef<MentionDropdownHandle, Props>(({ items
   if (!items.length) {
     return (
       <div className="bg-surface border border-line rounded-lg shadow-xl px-3 py-2 text-xs text-muted w-52">
-        No results
+        {t('mentions.none')}
       </div>
     );
   }

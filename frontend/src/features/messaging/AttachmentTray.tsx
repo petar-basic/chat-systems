@@ -1,7 +1,8 @@
 import { AlertCircle, RotateCw, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { formatBytes } from '@/lib/fileSize';
 import type { PendingAttachment } from './useComposerAttachments';
-import { fileKind } from '@/lib/fileKinds';
+import { fileKind, kindOf } from '@/lib/fileKinds';
 
 interface Props {
   items: PendingAttachment[];
@@ -42,7 +43,9 @@ function TrayItem({
   onRemove: () => void;
   onRetry: () => void;
 }) {
+  const { t } = useTranslation(['messages', 'common']);
   const kind = fileKind(item.mimeType, item.name);
+  const kindName = kindOf(item.mimeType, item.name);
   const Icon = kind.icon;
   return (
     <div
@@ -61,7 +64,7 @@ function TrayItem({
           <span className="min-w-0">
             <span className="block truncate text-sm text-fg-soft">{item.name}</span>
             <span className="block text-xs text-muted">
-              {kind.label} · {formatBytes(item.size)}
+              {t(`fileKinds.${kindName}`, { ns: 'common' })} · {formatBytes(item.size)}
             </span>
           </span>
         </div>
@@ -70,7 +73,7 @@ function TrayItem({
         <div className="absolute inset-x-0 bottom-0 h-1 bg-black/30">
           <div
             role="progressbar"
-            aria-label={`Uploading ${item.name}`}
+            aria-label={t('tray.uploading', { name: item.name })}
             aria-valuenow={Math.round(item.progress * 100)}
             aria-valuemin={0}
             aria-valuemax={100}
@@ -83,8 +86,8 @@ function TrayItem({
         <button
           type="button"
           onClick={onRetry}
-          aria-label={`Retry uploading ${item.name}`}
-          data-tooltip={item.error ?? 'Upload failed'}
+          aria-label={t('tray.retry', { name: item.name })}
+          data-tooltip={item.error ?? t('tray.failed')}
           data-qa="attachment-tray-retry"
           className="group/retry absolute inset-0 flex items-center justify-center bg-black/60 text-danger hover:text-white"
         >
@@ -95,8 +98,8 @@ function TrayItem({
       <button
         type="button"
         onClick={onRemove}
-        aria-label={`Remove ${item.name}`}
-        data-tooltip={`Remove ${item.name}`}
+        aria-label={t('attachments.remove', { name: item.name })}
+        data-tooltip={t('attachments.remove', { name: item.name })}
         data-qa="attachment-tray-remove"
         className="absolute right-1 top-1 rounded-full bg-black/70 p-0.5 text-white opacity-80 transition hover:opacity-100"
       >

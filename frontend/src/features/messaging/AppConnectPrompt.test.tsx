@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import i18n from '@/lib/i18n';
 import { AppConnectPrompt } from './AppConnectPrompt';
 
 const connect = vi.fn();
@@ -49,5 +50,26 @@ describe('AppConnectPrompt', () => {
     ];
     render(<AppConnectPrompt providers={['jira', 'github']} messageId="m-4" />);
     expect(screen.queryByTestId('app-connect-prompt')).not.toBeInTheDocument();
+  });
+});
+
+describe('AppConnectPrompt in Japanese', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('asks to connect the app by name, with the name as text', async () => {
+    const provider = '<img src=x onerror="alert(1)"> {{name}}';
+    apps = [];
+    await i18n.changeLanguage('ja');
+    render(<AppConnectPrompt providers={[provider]} messageId="m-9" />);
+    expect(screen.getByText('· あなたにだけ表示されています')).toBeInTheDocument();
+    expect(
+      screen.getByText(`このリンクのプレビューを表示するには、${provider} のアカウントを接続してください。`),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: `${provider} を接続` })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '今はしない' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '今後は表示しない' })).toBeInTheDocument();
+    expect(document.querySelector('[onerror]')).toBeNull();
   });
 });

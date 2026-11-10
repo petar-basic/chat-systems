@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
+import i18n from '@/lib/i18n';
 import { asksBeforeBroadcast, buildMentionItems, matchesMention } from './mentionItems';
+
+const en = i18n.getFixedT('en', 'messages');
+const ja = i18n.getFixedT('ja', 'messages');
 import type { Channel, WorkspaceMember } from '@/stores/workspace';
 
 const members = [
@@ -17,6 +21,7 @@ describe('matchesMention', () => {
       ] as WorkspaceMember[],
       [],
       true,
+      en,
     );
 
     expect(items.filter((i) => matchesMention(i, 'finance')).map((i) => i.label)).toEqual(['Cleo']);
@@ -28,33 +33,33 @@ describe('matchesMention', () => {
 
 describe('buildMentionItems', () => {
   it('offers @channel, @here and @everyone above the people', () => {
-    const items = buildMentionItems(members, channels, false);
+    const items = buildMentionItems(members, channels, false, en);
 
     expect(items.slice(0, 3).map((i) => i.label)).toEqual(['channel', 'here', 'everyone']);
     expect(items.slice(0, 3).every((i) => i.type === 'broadcast')).toBe(true);
   });
 
   it('leaves broadcasts out of direct messages, where they mean nothing', () => {
-    const items = buildMentionItems(members, channels, true);
+    const items = buildMentionItems(members, channels, true, en);
 
     expect(items.some((i) => i.type === 'broadcast')).toBe(false);
   });
 
   it('falls back to the email when a member has no display name', () => {
-    const items = buildMentionItems(members, channels, true);
+    const items = buildMentionItems(members, channels, true, en);
 
     expect(items.map((i) => i.label)).toEqual(['Alice Johnson', 'bob@dev.local', 'general']);
   });
 
   it('leaves broadcasts out for someone the channel or workspace would refuse', () => {
-    const items = buildMentionItems(members, channels, false, [], false);
+    const items = buildMentionItems(members, channels, false, en, [], false);
 
     expect(items.some((i) => i.type === 'broadcast')).toBe(false);
     expect(items.map((i) => i.label)).toEqual(['Alice Johnson', 'bob@dev.local', 'general']);
   });
 
   it('keeps the ids the backend expands on', () => {
-    const broadcasts = buildMentionItems([], [], false);
+    const broadcasts = buildMentionItems([], [], false, en);
 
     expect(broadcasts.map((i) => i.id)).toEqual(['channel', 'here', 'everyone']);
   });
@@ -73,14 +78,28 @@ describe('group mentions', () => {
   ];
 
   it('offers a group with the prefix that keeps it out of the user id space', () => {
-    const items = buildMentionItems([], [], false, groups);
+    const items = buildMentionItems([], [], false, en, groups);
     const group = items.find((i) => i.type === 'group');
     expect(group).toMatchObject({ id: 'group:g1', label: 'backend', hint: '3 people' });
   });
 
   it('offers no group in a DM, where there is no channel to fan out through', () => {
-    const items = buildMentionItems([], [], true, groups);
+    const items = buildMentionItems([], [], true, en, groups);
     expect(items.some((i) => i.type === 'group')).toBe(false);
+  });
+});
+
+describe('buildMentionItems in Japanese', () => {
+  it('explains the broadcasts and counts a group in Japanese', () => {
+    const items = buildMentionItems([], [], false, ja, [
+      { id: 'g1', handle: 'backend', name: 'Backend', description: null, member_count: 3, is_member: true },
+    ]);
+    expect(items.slice(0, 3).map((i) => i.hint)).toEqual([
+      'このチャンネルの全員',
+      '今オンラインの人',
+      'このチャンネルの全員',
+    ]);
+    expect(items.find((i) => i.type === 'group')?.hint).toBe('3人');
   });
 });
 

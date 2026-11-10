@@ -1,24 +1,28 @@
+import type { TFunction } from 'i18next';
 import type { MentionItem } from './MentionDropdown';
 import type { Channel, WorkspaceMember } from '@/stores/workspace';
 import type { UserGroup } from '@/features/workspace';
 import { BROADCAST_CONFIRM_ABOVE } from '@/shared/constants';
 import { mentionsEveryone } from '@/lib/mentions';
 
-export const BROADCAST_MENTIONS: MentionItem[] = [
-  { id: 'channel', label: 'channel', type: 'broadcast', hint: 'everyone in here' },
-  { id: 'here', label: 'here', type: 'broadcast', hint: 'those online now' },
-  { id: 'everyone', label: 'everyone', type: 'broadcast', hint: 'everyone in here' },
-];
+function broadcastMentions(t: TFunction<'messages'>): MentionItem[] {
+  return [
+    { id: 'channel', label: 'channel', type: 'broadcast', hint: t('mentions.channel') },
+    { id: 'here', label: 'here', type: 'broadcast', hint: t('mentions.here') },
+    { id: 'everyone', label: 'everyone', type: 'broadcast', hint: t('mentions.channel') },
+  ];
+}
 
 export function buildMentionItems(
   members: WorkspaceMember[],
   channels: Channel[],
   isDm: boolean,
+  t: TFunction<'messages'>,
   groups: UserGroup[] = [],
   canBroadcast = true,
 ): MentionItem[] {
   return [
-    ...(isDm || !canBroadcast ? [] : BROADCAST_MENTIONS),
+    ...(isDm || !canBroadcast ? [] : broadcastMentions(t)),
     // A group is only meaningful where it can fan out, and a DM has no channel
     // membership to intersect with.
     ...(isDm
@@ -29,7 +33,7 @@ export function buildMentionItems(
           id: `group:${g.id}`,
           label: g.handle,
           type: 'group' as const,
-          hint: `${g.member_count} ${g.member_count === 1 ? 'person' : 'people'}`,
+          hint: t('mentions.groupSize', { count: g.member_count }),
         }))),
     ...members.map((m) => ({
       id: m.user_id,

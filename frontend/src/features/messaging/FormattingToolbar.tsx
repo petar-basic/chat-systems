@@ -1,4 +1,5 @@
 import type { Editor } from '@tiptap/react';
+import { useTranslation } from 'react-i18next';
 import { useEditorState } from '@tiptap/react';
 import { Bold, Italic, Underline, Strikethrough, Code, Code2, List, ListOrdered, Quote } from 'lucide-react';
 import { isApplePlatform, shortcutLabel } from '@/features/navigation';
@@ -38,6 +39,7 @@ function Divider() {
 }
 
 export default function FormattingToolbar({ editor }: Props) {
+  const { t } = useTranslation('messages');
   const apple = isApplePlatform();
   const activeMarks = useEditorState({
     editor,
@@ -56,46 +58,58 @@ export default function FormattingToolbar({ editor }: Props) {
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleBold().run()}
         active={activeMarks?.bold}
-        label={`Bold (${shortcutLabel(['mod', 'B'], apple)})`}
+        label={t('toolbar.bold', { keys: shortcutLabel(['mod', 'B'], apple) })}
       >
         <Bold className="w-3.5 h-3.5" />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleItalic().run()}
         active={activeMarks?.italic}
-        label={`Italic (${shortcutLabel(['mod', 'I'], apple)})`}
+        label={t('toolbar.italic', { keys: shortcutLabel(['mod', 'I'], apple) })}
       >
         <Italic className="w-3.5 h-3.5" />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleUnderline().run()}
         active={activeMarks?.underline}
-        label={`Underline (${shortcutLabel(['mod', 'U'], apple)})`}
+        label={t('toolbar.underline', { keys: shortcutLabel(['mod', 'U'], apple) })}
       >
         <Underline className="w-3.5 h-3.5" />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleStrike().run()}
         active={activeMarks?.strike}
-        label="Strikethrough"
+        label={t('toolbar.strike')}
       >
         <Strikethrough className="w-3.5 h-3.5" />
       </ToolbarButton>
       <Divider />
-      <ToolbarButton onClick={() => editor.chain().focus().toggleCode().run()} label="Inline code">
+      <ToolbarButton onClick={() => editor.chain().focus().toggleCode().run()} label={t('toolbar.code')}>
         <Code className="w-3.5 h-3.5" />
       </ToolbarButton>
-      <ToolbarButton onClick={() => editor.chain().focus().toggleCodeBlock().run()} label="Code block">
+      <ToolbarButton
+        onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+        label={t('toolbar.codeBlock')}
+      >
         <Code2 className="w-3.5 h-3.5" />
       </ToolbarButton>
       <Divider />
-      <ToolbarButton onClick={() => editor.chain().focus().toggleBulletList().run()} label="Bullet list">
+      <ToolbarButton
+        onClick={() => editor.chain().focus().toggleBulletList().run()}
+        label={t('toolbar.bullets')}
+      >
         <List className="w-3.5 h-3.5" />
       </ToolbarButton>
-      <ToolbarButton onClick={() => editor.chain().focus().toggleOrderedList().run()} label="Ordered list">
+      <ToolbarButton
+        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        label={t('toolbar.numbers')}
+      >
         <ListOrdered className="w-3.5 h-3.5" />
       </ToolbarButton>
-      <ToolbarButton onClick={() => editor.chain().focus().toggleBlockquote().run()} label="Quote">
+      <ToolbarButton
+        onClick={() => editor.chain().focus().toggleBlockquote().run()}
+        label={t('toolbar.quote')}
+      >
         <Quote className="w-3.5 h-3.5" />
       </ToolbarButton>
     </div>

@@ -109,5 +109,70 @@
     "pinFailed": "Couldn't update the pin",
     "reactionFailed": "Couldn't update the reaction",
     "linkCopied": "Link copied to clipboard"
+  },
+  "composer": {
+    "placeholder": "Message #{{name}}",
+    "placeholderDm": "Message {{name}}",
+    "upload": "Upload file",
+    "poll": "Create a poll",
+    "showFormatting": "Show formatting",
+    "hideFormatting": "Hide formatting",
+    "emoji": "Insert emoji",
+    "sendHint": "Send ({{keys}})",
+    "send": "Send",
+    "save": "Save",
+    "broadcastTitle": "This notifies {{count}} people. Send anyway?",
+    "waitForUploads": "Wait for the files to finish uploading",
+    "uploadFailed": "A file did not upload. Retry it or remove it first",
+    "pollFailed": "Couldn't create the poll"
+  },
+  "schedule": {
+    "label": "Schedule message",
+    "hint": "Send later",
+    "inAnHour": "In an hour",
+    "tomorrow": "Tomorrow at 9:00",
+    "monday": "Monday at 9:00",
+    "pickTime": "Pick a time",
+    "submit": "Schedule",
+    "needTime": "Pick a date and time first",
+    "past": "That time has already passed",
+    "scheduled": "Scheduled for {{time}}",
+    "failed": "Could not schedule that message"
+  },
+  "toolbar": {
+    "bold": "Bold ({{keys}})",
+    "italic": "Italic ({{keys}})",
+    "underline": "Underline ({{keys}})",
+    "strike": "Strikethrough",
+    "code": "Inline code",
+    "codeBlock": "Code block",
+    "bullets": "Bullet list",
+    "numbers": "Ordered list",
+    "quote": "Quote"
+  },
+  "tray": {
+    "uploading": "Uploading {{name}}",
+    "retry": "Retry uploading {{name}}",
+    "failed": "Upload failed"
+  },
+  "mentions": {
+    "none": "No results",
+    "channel": "everyone in here",
+    "here": "those online now",
+    "groupSize_one": "{{count}} person",
+    "groupSize_other": "{{count}} people",
+    "commands": "Commands"
+  },
+  "typing": {
+    "one": "{{name}} is typing...",
+    "two": "{{first}} and {{second}} are typing...",
+    "many": "{{name}} and {{count}} others are typing..."
+  },
+  "appPrompt": {
+    "onlyYou": "· Only visible to you",
+    "hint": "Connect your {{app}} account to show a preview of this link.",
+    "connect": "Connect {{app}}",
+    "notNow": "Not now",
+    "never": "Never ask me again"
   }
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/shared/components/Button/Button';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useAppActions, useApps, type AppProvider } from '@/features/workspace';
@@ -16,6 +17,7 @@ function wasDismissed(messageId: string): boolean {
 }
 
 export function AppConnectPrompt({ providers, messageId }: { providers: string[]; messageId: string }) {
+  const { t } = useTranslation('messages');
   const workspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id);
   const actions = useAppActions(workspaceId);
   const { data } = useApps(workspaceId);
@@ -45,11 +47,9 @@ export function AppConnectPrompt({ providers, messageId }: { providers: string[]
           <div className="flex items-center gap-1.5 text-xs text-muted">
             <AppIcon provider={provider} />
             <span className="font-medium text-fg-dim">{appName(provider)}</span>
-            <span>· Only visible to you</span>
+            <span>{t('appPrompt.onlyYou')}</span>
           </div>
-          <p className="mt-1 text-sm text-fg-soft">
-            Connect your {appName(provider)} account to show a preview of this link.
-          </p>
+          <p className="mt-1 text-sm text-fg-soft">{t('appPrompt.hint', { app: appName(provider) })}</p>
           <div className="mt-2 flex flex-wrap gap-2">
             <Button
               variant="primary"
@@ -59,17 +59,17 @@ export function AppConnectPrompt({ providers, messageId }: { providers: string[]
               }
               disabled={actions.connect.isPending}
             >
-              Connect {appName(provider)}
+              {t('appPrompt.connect', { app: appName(provider) })}
             </Button>
             <Button size="sm" onClick={notNow}>
-              Not now
+              {t('appPrompt.notNow')}
             </Button>
             <Button
               size="sm"
               onClick={() => actions.prompts.mutate({ provider: provider as AppProvider, off: true })}
               disabled={actions.prompts.isPending}
             >
-              Never ask me again
+              {t('appPrompt.never')}
             </Button>
           </div>
         </div>
