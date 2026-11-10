@@ -16,6 +16,19 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ## [Unreleased]
 
+## [4.6.0] — 2026-11-10
+
+### Upgrading from 4.5.0
+
+- Set `VERSION=4.6.0`, pull both images and restart `api`, `realtime`, `worker` and `frontend`
+  together. The `api` runs two small migrations on start. After them only instance admins and
+  workspace creators can create workspaces, on every instance; give the *Workspace creator*
+  role, or switch *Who can create workspaces* to *Everyone*, as the
+  [upgrade note](docs/RUNBOOK.md#upgrade-note-only-creators-and-admins-create-workspaces)
+  describes. The desktop app updates itself to 4.6.0 within six hours, or at its next start.
+  Until it does, its menus still offer *Create workspace* to members, and the server refuses
+  it with a message.
+
 ### Added
 
 - Only instance admins and people with the new *Workspace creator* role can create a workspace
@@ -25,6 +38,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   create workspaces → Everyone* in the same place lets anyone who signs in start one again.
   The upgrade applies this to every instance; see the
   [upgrade note](docs/RUNBOOK.md#upgrade-note-only-creators-and-admins-create-workspaces).
+- The sidebar, its dialogs, the workspace rail, the desktop top bar, the messages and the
+  composer are in Japanese too.
 
 ### Fixed
 
@@ -41,6 +56,10 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - A message that arrives in the open channel or conversation while the app is in the background
   is marked read when you come back to the app, as in Slack, so its notification and the badge
   clear instead of waiting until you switch away and back.
+- With four or more people typing, *someone is typing* counts all of them instead of leaving
+  some out.
+- In Japanese, the error under the default notification level in *Preferences* calls
+  notification settings by the same name as the rest of the app.
 
 ## [4.5.0] — 2026-11-09
 
