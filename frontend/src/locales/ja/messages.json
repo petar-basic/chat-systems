@@ -206,6 +206,7 @@
       "not_authorized": "その場所には、もう投稿できません。",
       "author_inactive": "あなたのアカウントは停止されています。",
       "channel_archived": "チャンネルがアーカイブされました。",
+      "recipient_left": "送信先の人は、ワークスペースから退出しました。",
       "workspace_unavailable": "ワークスペースが利用できなくなりました。",
       "thread_gone": "返信先のスレッドがなくなりました。",
       "unknown": "サーバーが配信できませんでした。"
@@ -219,6 +220,7 @@
     "back": "チャンネルに戻る",
     "people": "{{count}}人",
     "activeNow": "オンライン",
+    "addPeople": "メンバーを追加",
     "departed": {
       "separator": " さん、",
       "one": "{{name}} さんはこのワークスペースにいません",
@@ -233,6 +235,7 @@
     "paused": "通知を {{time}} まで一時停止中",
     "localTime": "現地時刻 {{time}}",
     "message": "メッセージ",
-    "huddle": "通話"
+    "huddle": "通話",
+    "left": "このワークスペースにはもういません"
   }
 }
