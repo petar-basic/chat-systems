@@ -42,6 +42,10 @@ export interface MessagesResponse {
 
 export type MessagesInfiniteData = InfiniteData<MessagesResponse>;
 
+export function eachPageOldestFirst(data: MessagesInfiniteData): MessagesInfiniteData {
+  return { ...data, pages: data.pages.map((page) => ({ ...page, data: [...page.data].reverse() })) };
+}
+
 export function messagesOldestFirst(data: MessagesInfiniteData | undefined): Message[] {
   if (!data) return [];
   return [...data.pages].reverse().flatMap((page) => page.data);
@@ -96,10 +100,7 @@ export const useMessages = (channelId: string | null, markReadIn?: string) => {
     initialPageParam: undefined as string | undefined,
     enabled: !!channelId,
     staleTime: 0,
-    select: (data) => ({
-      ...data,
-      pages: data.pages.map((page) => ({ ...page, data: [...page.data].reverse() })),
-    }),
+    select: eachPageOldestFirst,
   });
 };
 

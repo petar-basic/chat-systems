@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  eachPageOldestFirst,
   olderMessagesCursor,
   messagesOldestFirst,
   type MessagesInfiniteData,
@@ -81,7 +82,9 @@ describe('a message added to a channel that has loaded more than one page', () =
     data: Array.from({ length: 10 }, (_, i) => message(`old-${i}`, BASE - (MESSAGES_PAGE_SIZE + i) * 1000)),
   };
   const two = cache([newest, older]);
-  const lastRow = (data: MessagesInfiniteData | undefined) => messagesOldestFirst(data).at(-1)?.id;
+  const shown = (data: MessagesInfiniteData | undefined) =>
+    messagesOldestFirst(data && eachPageOldestFirst(data));
+  const lastRow = (data: MessagesInfiniteData | undefined) => shown(data).at(-1)?.id;
 
   it('is the last row when it is sent', () => {
     const sent = { ...message('client-1', BASE + 60_000), pending: true };
@@ -98,7 +101,7 @@ describe('a message added to a channel that has loaded more than one page', () =
     );
 
     expect(lastRow(confirmed)).toBe('server-1');
-    expect(messagesOldestFirst(confirmed).filter((m) => m.id === 'client-1')).toEqual([]);
+    expect(shown(confirmed).filter((m) => m.id === 'client-1')).toEqual([]);
   });
 
   it('is the last row when somebody else sends it', () => {
@@ -111,7 +114,7 @@ describe('a message added to a channel that has loaded more than one page', () =
 
   it('keeps the history above it in order', () => {
     const arrived = upsertMessage(two, message('theirs', BASE + 30_000), newestFirst);
-    const timestamps = messagesOldestFirst(arrived).map((m) => Date.parse(m.created_at));
+    const timestamps = shown(arrived).map((m) => Date.parse(m.created_at));
 
     expect([...timestamps].sort((x, y) => x - y)).toEqual(timestamps);
   });
