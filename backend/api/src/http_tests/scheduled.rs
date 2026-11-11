@@ -626,9 +626,11 @@ async fn a_refused_delivery_tells_the_author(pool: PgPool) {
         .list_for_user(owner_id, ws_id, 50, 0)
         .await
         .expect("list notifications");
-    let told = notifications
-        .iter()
-        .any(|n| n.title == "Scheduled message was not delivered");
+    let told = notifications.iter().any(|n| {
+        n.data.notice == Some(crate::notifications::models::SystemNotice::NotDelivered)
+            && n.data.failure.as_deref() == Some("channel_archived")
+            && n.body.is_none()
+    });
     assert!(
         told,
         "a message that evaporates without a word is worse than one that fails loudly"

@@ -173,16 +173,8 @@ pub async fn stand_down(
             tracing::warn!("could not turn off the hooks of a stopped creator: {}", e);
             Vec::new()
         });
-    let because = match why {
-        Stopped::Inactive => "the person who built it was suspended",
-        Stopped::LeftWorkspace | Stopped::LostChannel => {
-            "the person who built it left the workspace"
-        }
-        Stopped::Demoted => "the person who built it is no longer allowed to",
-    };
     let workflows =
-        crate::workflows::service::stop_creators_workflows(state, workspace_id, user_id, because)
-            .await;
+        crate::workflows::service::stop_creators_workflows(state, workspace_id, user_id, why).await;
     let (apps, invites) = if matches!(why, Stopped::Inactive | Stopped::LeftWorkspace) {
         let apps = state
             .bot_repo

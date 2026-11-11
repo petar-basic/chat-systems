@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import { IconButton } from '@/shared/components/IconButton/IconButton';
 import { Button } from '@/shared/components/Button/Button';
@@ -26,6 +27,7 @@ import {
   type AppNotification,
   type NotificationKind,
 } from './hooks/useNotifications';
+import { notificationText } from './notificationText';
 import { flattenMentions } from '@/lib/mentions';
 import { currentPause } from '@/lib/pause';
 import { usePauseLabel } from './hooks/usePauseLabel';
@@ -91,6 +93,8 @@ function NotificationRow({
   onOpenMessage?: (messageId: string, thread?: boolean) => void;
   onOpenItem: (listId: string, itemId: string) => void;
 }) {
+  const { t } = useTranslation(['notifications', 'messages']);
+  const text = notificationText(t, notification.notification_type, notification.data, notification.body);
   const isNavigable =
     !!(notification.channel_id && notification.message_id) ||
     !!(notification.list_id && notification.item_id);
@@ -119,10 +123,12 @@ function NotificationRow({
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2 mb-0.5">
-          <span className="text-xs font-semibold text-fg-soft truncate">{notification.title}</span>
+          <span className="text-xs font-semibold text-fg-soft truncate" data-qa="notification-title">
+            {text.title}
+          </span>
           <span className="text-xs text-muted shrink-0">{formatRelativeTime(notification.created_at)}</span>
         </div>
-        <p className="text-xs text-muted line-clamp-2">{flattenMentions(notification.body)}</p>
+        <p className="text-xs text-muted line-clamp-2">{flattenMentions(text.body)}</p>
       </div>
       {!notification.is_read && <div className="mt-1.5 w-2 h-2 rounded-full bg-purple-500 shrink-0" />}
     </button>

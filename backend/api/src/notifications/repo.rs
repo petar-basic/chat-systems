@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use sqlx::types::Json;
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -19,25 +20,23 @@ impl NotificationRepo {
         user_id: Uuid,
         workspace_id: Uuid,
         notification_type: &NotificationType,
-        title: &str,
         body: Option<&str>,
-        data: &serde_json::Value,
+        data: &NotificationData,
     ) -> sqlx::Result<Option<Notification>> {
         sqlx::query_as!(
             Notification,
             r#"
-            INSERT INTO notifications (user_id, workspace_id, notification_type, title, body, data)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO notifications (user_id, workspace_id, notification_type, body, data)
+            VALUES ($1, $2, $3, $4, $5)
             ON CONFLICT DO NOTHING
             RETURNING id, user_id, workspace_id, notification_type AS "notification_type: NotificationType",
-                   title, body, data AS "data!", is_read AS "is_read!", created_at
+                   body, data AS "data!: Json<NotificationData>", is_read AS "is_read!", created_at
             "#,
             user_id,
             workspace_id,
             notification_type.clone() as NotificationType,
-            title,
             body,
-            data
+            Json(data) as _
         )
         .fetch_optional(&self.pool)
         .await
@@ -54,7 +53,7 @@ impl NotificationRepo {
             Notification,
             r#"
             SELECT id, user_id, workspace_id, notification_type AS "notification_type: NotificationType",
-                   title, body, data AS "data!", is_read AS "is_read!", created_at
+                   body, data AS "data!: Json<NotificationData>", is_read AS "is_read!", created_at
               FROM notifications
              WHERE user_id = $1 AND workspace_id = $2
              ORDER BY created_at DESC
@@ -505,13 +504,16 @@ mod tests {
         let workspace_id = insert_workspace(&pool, user_id, "notif-ws").await;
         let repo = NotificationRepo::new(pool.clone());
 
-        let data = serde_json::json!({ "message_id": "abc" });
+        let data = NotificationData {
+            message_id: Some(Uuid::new_v4()),
+            sender_name: Some("Ana".into()),
+            ..Default::default()
+        };
         let created = repo
             .create(
                 user_id,
                 workspace_id,
                 &NotificationType::Dm,
-                "New DM",
                 Some("hello there"),
                 &data,
             )
@@ -522,7 +524,7 @@ mod tests {
         assert_eq!(created.user_id, user_id);
         assert_eq!(created.workspace_id, workspace_id);
         assert_eq!(created.notification_type, NotificationType::Dm);
-        assert_eq!(created.title, "New DM");
+        assert_eq!(created.data.0, data);
         assert_eq!(created.body.as_deref(), Some("hello there"));
         assert!(
             !created.is_read,
@@ -588,9 +590,11 @@ mod tests {
             user_id,
             workspace_id,
             &NotificationType::Mention,
-            "You were mentioned",
             Some("in A"),
-            &serde_json::json!({ "channel_id": channel_a.to_string() }),
+            &NotificationData {
+                channel_id: Some(channel_a),
+                ..Default::default()
+            },
         )
         .await
         .expect("create A");
@@ -598,9 +602,11 @@ mod tests {
             user_id,
             workspace_id,
             &NotificationType::Mention,
-            "You were mentioned",
             Some("in B"),
-            &serde_json::json!({ "channel_id": channel_b.to_string() }),
+            &NotificationData {
+                channel_id: Some(channel_b),
+                ..Default::default()
+            },
         )
         .await
         .expect("create B");
@@ -609,9 +615,12 @@ mod tests {
             user_id,
             workspace_id,
             &NotificationType::Reply,
-            "New reply",
             Some("in a thread of A"),
-            &serde_json::json!({ "channel_id": channel_a.to_string(), "thread_parent_id": root.to_string() }),
+            &NotificationData {
+                channel_id: Some(channel_a),
+                thread_parent_id: Some(root),
+                ..Default::default()
+            },
         )
         .await
         .expect("create thread reply");

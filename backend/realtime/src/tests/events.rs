@@ -339,12 +339,12 @@ async fn notification_push_delivers_to_target_user(pool: PgPool) {
     let (_target_conn, mut target_rx) = fake_conn(&cm, target);
     let (_other_conn, mut other_rx) = fake_conn(&cm, other);
 
+    let channel = Uuid::new_v4();
     let payload = json!({
         "user_id": target.to_string(),
-        "channel_id": Uuid::new_v4().to_string(),
-        "title": "New message",
         "body": "you've got mail",
         "kind": "mention",
+        "data": { "channel_id": channel, "sender_name": "Ana" },
     });
     crate::event_consumer::handle_event("notification.push", &payload, &cm).await;
 
@@ -353,10 +353,12 @@ async fn notification_push_delivers_to_target_user(pool: PgPool) {
         frame.get("type").and_then(|t| t.as_str()),
         Some("notification")
     );
-    assert_eq!(
-        frame.get("title").and_then(|t| t.as_str()),
-        Some("New message")
+    assert!(
+        frame.get("title").is_none(),
+        "the reader's client writes the title"
     );
+    assert_eq!(frame["data"]["channel_id"], channel.to_string());
+    assert_eq!(frame["data"]["sender_name"], "Ana");
     assert_eq!(
         frame.get("body").and_then(|b| b.as_str()),
         Some("you've got mail")
@@ -375,19 +377,29 @@ async fn list_notification_carries_the_item(pool: PgPool) {
 
     let payload = json!({
         "user_id": target,
-        "list_id": list,
-        "item_id": item,
-        "title": "Ana assigned you to Fix login",
-        "body": "in Launch plan",
         "kind": "list",
+        "data": { "list_id": list, "item_id": item, "item_title": "Fix login", "assigned": true },
     });
     crate::event_consumer::handle_event("notification.push", &payload, &cm).await;
 
     let frame = next_json(&mut rx).expect("target should receive notification");
     assert_eq!(frame["kind"], "list");
-    assert_eq!(frame["list_id"], list.to_string());
-    assert_eq!(frame["item_id"], item.to_string());
-    assert!(frame["message_id"].is_null());
+    assert_eq!(frame["data"]["list_id"], list.to_string());
+    assert_eq!(frame["data"]["item_id"], item.to_string());
+    assert_eq!(frame["data"]["assigned"], true);
+    assert!(frame["data"].get("message_id").is_none());
+    assert!(frame["body"].is_null());
+
+    let (_bare_conn, mut bare_rx) = fake_conn(&cm, target);
+    crate::event_consumer::handle_event(
+        "notification.push",
+        &json!({ "user_id": target, "kind": "reminder", "data": "not an object" }),
+        &cm,
+    )
+    .await;
+    let _ = next_json(&mut rx);
+    let bare = next_json(&mut bare_rx).expect("a frame with whatever data could be read");
+    assert_eq!(bare["data"], json!({}));
 }
 
 #[test_macros::db_test(migrations = "../migrations")]

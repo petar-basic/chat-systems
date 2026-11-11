@@ -14505,7 +14505,6 @@
                 "user_id",
                 "workspace_id",
                 "notification_type",
-                "title",
                 "data",
                 "is_read",
                 "created_at"
@@ -14521,7 +14520,9 @@
                   "type": "string",
                   "format": "date-time"
                 },
-                "data": {},
+                "data": {
+                  "$ref": "#/components/schemas/NotificationData"
+                },
                 "id": {
                   "type": "string",
                   "format": "uuid"
@@ -14531,9 +14532,6 @@
                 },
                 "notification_type": {
                   "$ref": "#/components/schemas/NotificationType"
-                },
-                "title": {
-                  "type": "string"
                 },
                 "user_id": {
                   "type": "string",
@@ -17800,7 +17798,6 @@
           "user_id",
           "workspace_id",
           "notification_type",
-          "title",
           "data",
           "is_read",
           "created_at"
@@ -17816,7 +17813,9 @@
             "type": "string",
             "format": "date-time"
           },
-          "data": {},
+          "data": {
+            "$ref": "#/components/schemas/NotificationData"
+          },
           "id": {
             "type": "string",
             "format": "uuid"
@@ -17827,9 +17826,6 @@
           "notification_type": {
             "$ref": "#/components/schemas/NotificationType"
           },
-          "title": {
-            "type": "string"
-          },
           "user_id": {
             "type": "string",
             "format": "uuid"
@@ -17837,6 +17833,162 @@
           "workspace_id": {
             "type": "string",
             "format": "uuid"
+          }
+        }
+      },
+      "NotificationData": {
+        "type": "object",
+        "properties": {
+          "app_request": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "assigned": {
+            "type": "boolean"
+          },
+          "channel_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "channel_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "failure": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "from_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "huddle_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "in_channel": {
+            "type": "boolean"
+          },
+          "item_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "item_title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "keyword": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "later_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "list_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "list_title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "message_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "notice": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SystemNotice"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requested_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "scheduled_message_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "sender_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "stopped": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Stopped"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "thread_parent_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "workflow_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "workflow_name": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -19459,6 +19611,15 @@
           }
         ]
       },
+      "Stopped": {
+        "type": "string",
+        "enum": [
+          "inactive",
+          "left_workspace",
+          "lost_channel",
+          "demoted"
+        ]
+      },
       "SubmitFormRequest": {
         "type": "object",
         "required": [
@@ -19523,6 +19684,14 @@
             "type": "string"
           }
         }
+      },
+      "SystemNotice": {
+        "type": "string",
+        "enum": [
+          "workflow_stopped",
+          "app_requested",
+          "not_delivered"
+        ]
       },
       "TextSize": {
         "type": "string",

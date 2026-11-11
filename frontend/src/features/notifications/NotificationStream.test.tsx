@@ -5,7 +5,9 @@ import { globalEventBus } from '@/lib/globalEventBus';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useInstanceStore } from '@/stores/instances';
 import { QUERY_KEYS } from '@/shared/constants';
+import i18n from '@/lib/i18n';
 import { NotificationStream } from './NotificationStream';
+import type { NotificationData } from './notificationText';
 
 const navigate = vi.fn();
 const playMessageSound = vi.fn();
@@ -26,18 +28,19 @@ vi.mock('@/lib/readOnScreen', async (importOriginal) => ({
 
 let queryClient: QueryClient;
 
-function frame(kind: string, channelId = 'ch-1') {
+function frame(kind: string, channelId = 'ch-1', data: NotificationData = {}) {
   return {
     type: 'notification' as const,
-    workspace_id: 'ws-1',
-    channel_id: channelId,
-    message_id: 'm-1' as string | null,
-    thread_parent_id: null as string | null,
-    list_id: null as string | null,
-    item_id: null as string | null,
-    title: 'Ana in #general',
-    body: 'deploy finished',
+    workspace_id: 'ws-1' as string | null,
     kind,
+    body: 'deploy finished' as string | null,
+    data: {
+      channel_id: channelId,
+      message_id: 'm-1',
+      sender_name: 'Ana',
+      channel_name: 'general',
+      ...data,
+    } as NotificationData,
   };
 }
 
@@ -88,7 +91,7 @@ describe('NotificationStream', () => {
     globalEventBus.emit({ ...frame('mention'), body: '@[Tom Becker](u-1) can you look?' });
 
     expect(showNotification).toHaveBeenCalledWith(
-      '🔔 Ana in #general',
+      '🔔 You were mentioned',
       '@Tom Becker can you look?',
       'ch-1',
       expect.any(Function),
@@ -124,7 +127,7 @@ describe('NotificationStream', () => {
   });
 
   it('keeps a mention in a thread off the channel badge', () => {
-    globalEventBus.emit({ ...frame('mention'), thread_parent_id: 'root-1' });
+    globalEventBus.emit(frame('mention', 'ch-1', { thread_parent_id: 'root-1' }));
 
     expect(useWorkspaceStore.getState().mentionChannels.has('ch-1')).toBe(false);
   });
@@ -138,7 +141,7 @@ describe('NotificationStream', () => {
   });
 
   it('opens a reply in its thread', () => {
-    globalEventBus.emit({ ...frame('reply'), thread_parent_id: 'root-1' });
+    globalEventBus.emit(frame('reply', 'ch-1', { thread_parent_id: 'root-1' }));
 
     const onClick = showNotification.mock.calls[0][3] as () => void;
     onClick();
@@ -158,7 +161,7 @@ describe('NotificationStream', () => {
 
     expect(useWorkspaceStore.getState().mentionChannels.has('ch-1')).toBe(true);
     expect(showNotification).toHaveBeenCalledWith(
-      '🔔 Ana in #general',
+      '🔔 You were mentioned',
       'deploy finished',
       'ch-1',
       expect.any(Function),
@@ -170,17 +173,36 @@ describe('NotificationStream', () => {
     useWorkspaceStore.setState({ currentChannel: { id: 'ch-1' } as never });
 
     globalEventBus.emit({
-      ...frame('list'),
-      message_id: null,
-      list_id: 'l-1',
-      item_id: 'i-1',
-      title: 'Ana assigned you to Fix login',
-      body: 'in Launch plan',
+      ...frame('list', 'ch-1', {
+        message_id: null,
+        list_id: 'l-1',
+        item_id: 'i-1',
+        item_title: 'Fix login',
+        list_title: 'Launch plan',
+        assigned: true,
+      }),
+      body: null,
     });
 
     expect(playMessageSound).toHaveBeenCalledTimes(1);
+    expect(showNotification.mock.calls[0][0]).toBe('Ana assigned you to Fix login');
+    expect(showNotification.mock.calls[0][1]).toBe('in Launch plan');
     const onClick = showNotification.mock.calls[0][3] as () => void;
     onClick();
     expect(navigate).toHaveBeenCalledWith('/app/ws-1/lists/l-1?item=i-1');
+  });
+
+  it('writes the banner in the language the app is in, English where a string is missing', async () => {
+    i18n.addResource('ja', 'notifications', 'activity.mention', 'メンションされました');
+    await i18n.changeLanguage('ja');
+    try {
+      globalEventBus.emit(frame('mention'));
+      globalEventBus.emit(frame('keyword', 'ch-2', { keyword: 'deploy', channel_name: 'ops' }));
+    } finally {
+      await i18n.changeLanguage('en');
+    }
+
+    expect(showNotification.mock.calls[0][0]).toBe('🔔 メンションされました');
+    expect(showNotification.mock.calls[1][0]).toBe('Matched "deploy" in #ops');
   });
 });

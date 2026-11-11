@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO notifications (user_id, workspace_id, notification_type, title, body, data)\n            VALUES ($1, $2, $3, $4, $5, $6)\n            ON CONFLICT DO NOTHING\n            RETURNING id, user_id, workspace_id, notification_type AS \"notification_type: NotificationType\",\n                   title, body, data AS \"data!\", is_read AS \"is_read!\", created_at\n            ",
+  "query": "\n            SELECT id, user_id, workspace_id, notification_type AS \"notification_type: NotificationType\",\n                   body, data AS \"data!: Json<NotificationData>\", is_read AS \"is_read!\", created_at\n              FROM notifications\n             WHERE user_id = $1 AND workspace_id = $2\n             ORDER BY created_at DESC\n             LIMIT $3 OFFSET $4\n            ",
   "describe": {
     "columns": [
       {
@@ -66,17 +66,6 @@
       },
       {
         "ordinal": 4,
-        "name": "title",
-        "type_info": "Varchar",
-        "origin": {
-          "Table": {
-            "table": "notifications",
-            "name": "title"
-          }
-        }
-      },
-      {
-        "ordinal": 5,
         "name": "body",
         "type_info": "Text",
         "origin": {
@@ -87,8 +76,8 @@
         }
       },
       {
-        "ordinal": 6,
-        "name": "data!",
+        "ordinal": 5,
+        "name": "data!: Json<NotificationData>",
         "type_info": "Jsonb",
         "origin": {
           "Table": {
@@ -98,7 +87,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 6,
         "name": "is_read!",
         "type_info": "Bool",
         "origin": {
@@ -109,7 +98,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 7,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -124,31 +113,11 @@
       "Left": [
         "Uuid",
         "Uuid",
-        {
-          "Custom": {
-            "name": "notification_type",
-            "kind": {
-              "Enum": [
-                "mention",
-                "dm",
-                "reply",
-                "reaction",
-                "call",
-                "reminder",
-                "system",
-                "keyword",
-                "list"
-              ]
-            }
-          }
-        },
-        "Varchar",
-        "Text",
-        "Jsonb"
+        "Int8",
+        "Int8"
       ]
     },
     "nullable": [
-      false,
       false,
       false,
       false,
@@ -159,5 +128,5 @@
       false
     ]
   },
-  "hash": "3ebf05812fd50788286fa56c1a7482fbdc385d8002b008e0d47695402baa3232"
+  "hash": "80fbe9fa2cb19331da78f94fecd1dcee49dc0abb4dc6593c758f4472803de30a"
 }

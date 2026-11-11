@@ -1,0 +1,30 @@
+{
+  "activity": {
+    "someone": "Somebody",
+    "untitled": "Untitled",
+    "mention": "You were mentioned",
+    "reply": "New reply in a thread",
+    "keyword": "Matched \"{{keyword}}\"",
+    "keywordIn": "Matched \"{{keyword}}\" in #{{channel}}",
+    "message": "{{sender}} in #{{channel}}",
+    "listAssigned": "{{sender}} assigned you to {{item}}",
+    "listMentioned": "{{sender}} mentioned you on {{item}}",
+    "listIn": "in {{list}}"
+  },
+  "email": {
+    "mentioned": "You were mentioned",
+    "mentionedTimes": "You were mentioned {{count}} times",
+    "aDirectMessage": "You have a direct message",
+    "mentions_one": "{{count}} mention",
+    "mentions_other": "{{count}} mentions",
+    "directMessages_one": "{{count}} direct message",
+    "directMessages_other": "{{count}} direct messages",
+    "youHave": "You have {{things}}",
+    "youHaveBoth": "You have {{mentions}} and {{directMessages}}",
+    "whileAway": "{{summary}} while you were away.",
+    "from": "From: {{people}}",
+    "in": "In: {{places}}",
+    "openIt": "Open it: {{link}}",
+    "openWorkspace": "Open the workspace: {{link}}"
+  }
+}

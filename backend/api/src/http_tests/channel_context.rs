@@ -4,7 +4,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::common::*;
-use crate::notifications::models::NotificationType;
+use crate::notifications::models::{NotificationData, NotificationType};
 use crate::state::AppState;
 use crate::workspace::models::ChannelRole;
 
@@ -210,9 +210,12 @@ async fn the_first_page_carries_the_read_mark_when_asked(pool: PgPool) {
                 member_id,
                 ws,
                 &NotificationType::Mention,
-                "You were mentioned",
                 None,
-                &json!({ "channel_id": in_channel, "message_id": message }),
+                &NotificationData {
+                    channel_id: Some(in_channel),
+                    message_id: Some(message),
+                    ..Default::default()
+                },
             )
             .await
             .unwrap();

@@ -3,6 +3,7 @@ use std::sync::Arc;
 use tracing::{info, warn};
 
 use super::models::DueReminder;
+use crate::notifications::models::NotificationData;
 use crate::state::AppState;
 
 const CHECK_EVERY: std::time::Duration = std::time::Duration::from_secs(30);
@@ -65,20 +66,19 @@ async fn deliver(state: &AppState, reminder: &DueReminder) {
         );
         return;
     }
-    let body = reminder
-        .text
-        .clone()
-        .unwrap_or_else(|| "A message you saved for later".to_string());
-    let event = serde_json::json!({
-        "user_id": reminder.user_id.to_string(),
-        "workspace_id": reminder.workspace_id.to_string(),
-        "channel_id": reminder.channel_id,
-        "message_id": reminder.message_id,
-        "later_id": reminder.id,
-        "title": "Reminder",
-        "body": body,
-        "kind": "reminder",
-    });
+    let data = NotificationData {
+        channel_id: reminder.channel_id,
+        message_id: reminder.message_id,
+        later_id: Some(reminder.id),
+        ..Default::default()
+    };
+    let event = crate::notifications::push_event(
+        reminder.user_id,
+        reminder.workspace_id,
+        "reminder",
+        reminder.text.as_deref(),
+        &data,
+    );
     // The claim already stamped it; put it back if it never went out, so a
     // claim followed by a failure is a retry rather than a loss.
     if let Err(e) = state.publisher.publish("notification.push", event).await {

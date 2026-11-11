@@ -31,6 +31,7 @@ jobs:
           filters: |
             backend:
               - 'backend/**'
+              - 'frontend/src/locales/en/notifications.json'
               - '.github/workflows/ci.yml'
             frontend:
               - 'frontend/**'

@@ -4704,12 +4704,11 @@ export interface components {
                 body?: string | null;
                 /** Format: date-time */
                 created_at: string;
-                data: unknown;
+                data: components["schemas"]["NotificationData"];
                 /** Format: uuid */
                 id: string;
                 is_read: boolean;
                 notification_type: components["schemas"]["NotificationType"];
-                title: string;
                 /** Format: uuid */
                 user_id: string;
                 /** Format: uuid */
@@ -5627,16 +5626,51 @@ export interface components {
             body?: string | null;
             /** Format: date-time */
             created_at: string;
-            data: unknown;
+            data: components["schemas"]["NotificationData"];
             /** Format: uuid */
             id: string;
             is_read: boolean;
             notification_type: components["schemas"]["NotificationType"];
-            title: string;
             /** Format: uuid */
             user_id: string;
             /** Format: uuid */
             workspace_id: string;
+        };
+        NotificationData: {
+            app_request?: string | null;
+            assigned?: boolean;
+            /** Format: uuid */
+            channel_id?: string | null;
+            channel_name?: string | null;
+            failure?: string | null;
+            /** Format: uuid */
+            from_user_id?: string | null;
+            /** Format: uuid */
+            huddle_id?: string | null;
+            in_channel?: boolean;
+            /** Format: uuid */
+            item_id?: string | null;
+            item_title?: string | null;
+            keyword?: string | null;
+            /** Format: uuid */
+            later_id?: string | null;
+            /** Format: uuid */
+            list_id?: string | null;
+            list_title?: string | null;
+            /** Format: uuid */
+            message_id?: string | null;
+            notice?: components["schemas"]["SystemNotice"] | null;
+            /** Format: uuid */
+            requested_by?: string | null;
+            /** Format: uuid */
+            scheduled_message_id?: string | null;
+            sender_name?: string | null;
+            stopped?: components["schemas"]["Stopped"] | null;
+            /** Format: uuid */
+            thread_parent_id?: string | null;
+            /** Format: uuid */
+            workflow_id?: string | null;
+            workflow_name?: string | null;
         };
         NotificationSchedule: {
             days: number[];
@@ -6102,6 +6136,8 @@ export interface components {
             /** @enum {string} */
             type: "update_list_item";
         };
+        /** @enum {string} */
+        Stopped: "inactive" | "left_workspace" | "lost_channel" | "demoted";
         SubmitFormRequest: {
             answers: {
                 [key: string]: string;
@@ -6120,6 +6156,8 @@ export interface components {
             auth: string;
             p256dh: string;
         };
+        /** @enum {string} */
+        SystemNotice: "workflow_stopped" | "app_requested" | "not_delivered";
         /** @enum {string} */
         TextSize: "90" | "100" | "112" | "125";
         Theme: {
