@@ -101,7 +101,7 @@ async fn create_hook(
             ));
         }
 
-        let channel_ids = parse_channel_ids(&config)?;
+        let channel_ids = parse_channel_ids(&req.hook_type, &config)?;
         for channel_id in &channel_ids {
             require_hook_channel(&state, ws_id, *channel_id, &req.hook_type, auth.user_id).await?;
         }
@@ -143,7 +143,7 @@ async fn create_hook(
 
         // Scoped like an outgoing webhook, because it is one: invoking it sends
         // what somebody typed to a third-party URL.
-        let channel_ids = parse_channel_ids(&config)?;
+        let channel_ids = parse_channel_ids(&req.hook_type, &config)?;
         for channel_id in &channel_ids {
             require_hook_channel(&state, ws_id, *channel_id, &req.hook_type, auth.user_id).await?;
         }
@@ -238,7 +238,9 @@ async fn require_hook_maker(state: &AppState, hook: &Hook, user_id: Uuid) -> App
     require_hook_role(state, hook.workspace_id, &hook.hook_type, user_id).await?;
     let channel_ids = match hook.hook_type {
         HookType::IncomingWebhook => bound_channel(&hook.config).into_iter().collect(),
-        HookType::OutgoingWebhook | HookType::SlashCommand => parse_channel_ids(&hook.config)?,
+        HookType::OutgoingWebhook | HookType::SlashCommand => {
+            parse_channel_ids(&hook.hook_type, &hook.config)?
+        }
     };
     for channel_id in channel_ids {
         require_hook_channel(
@@ -276,20 +278,17 @@ fn bound_channel(config: &serde_json::Value) -> Option<Uuid> {
         .and_then(|s| s.parse::<Uuid>().ok())
 }
 
-fn parse_channel_ids(config: &serde_json::Value) -> AppResult<Vec<Uuid>> {
+fn parse_channel_ids(hook_type: &HookType, config: &serde_json::Value) -> AppResult<Vec<Uuid>> {
     let raw = config
         .get("channel_ids")
         .and_then(|v| v.as_array())
+        .filter(|ids| !ids.is_empty())
         .ok_or_else(|| {
-            AppError::Validation(
-                "outgoing_webhook requires a non-empty channel_ids array in config".into(),
-            )
+            AppError::Validation(format!(
+                "{} requires a non-empty channel_ids array in config",
+                hook_type.as_str()
+            ))
         })?;
-    if raw.is_empty() {
-        return Err(AppError::Validation(
-            "outgoing_webhook requires a non-empty channel_ids array in config".into(),
-        ));
-    }
     raw.iter()
         .map(|v| {
             v.as_str()

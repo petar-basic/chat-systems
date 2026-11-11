@@ -666,7 +666,14 @@ or link previews until it is opened.
 `enterOutcome` decides each press: an open mention, emoji or command picker keeps Enter, and so
 do a list and a code block; otherwise ⌘Enter or Ctrl+Enter always sends, and Enter sends or puts
 in the line break Shift+Enter does. The send button's title and *Keyboard shortcuts* name the
-keys that send (`sendKeys`, `newLineKeys`). *Mark as read* chooses where a channel opens:
+keys that send (`sendKeys`, `newLineKeys`). An emoticon becomes its emoji once a space or tab
+follows it (`EMOTICON_RULE`), never a newline: TipTap runs input rules on Enter as a typed `\n`,
+and a rule that matched it would take the keypress. One that ends the message when it is sent
+is converted by `convertTrailingEmoticon`, so `thanks :)` and Enter sends `thanks 🙂`; neither
+touches code. The emoji picker holds Enter only while it shows emoji
+(`editor.storage.emojiSuggestion.open`), not for every `:` followed by text.
+A composer's unsent text is kept per place and per signed-in person (`stores/drafts.ts` keys it
+`<user id>:<place>`), so someone else who signs in on the same browser sees none of it. *Mark as read* chooses where a channel opens:
 where you left off, under the unread line, or at the newest message, with no line; opening a
 channel marks it read either way.
 
@@ -977,7 +984,7 @@ Message types the client **sends**: `subscribe`, `channel.join`, `channel.leave`
 A build writes `version.json` (`{ version }`, from `APP_VERSION` or the build time) and
 compiles the same id in as `import.meta.env.VITE_BUILD_ID`. nginx serves `index.html` and
 `version.json` with `Cache-Control: no-cache`; the hashed assets stay immutable.
-- `watchForNewBuild(running, onNew)` fetches `/version.json` when the tab comes back, when the network does, and every ten minutes; a different version shows `NewVersionBanner` (*A new version is available*, *Reload*) at the top of the workspace page. A dev build (`dev`) does not watch
+- `watchForNewBuild(running, onNew)` fetches `/version.json` when the tab comes back, when the network does, and every ten minutes; a different version shows `NewVersionBanner` (*A new version is available*, *Reload*) at the top of every signed-in page: `SignedInLayout` in `App` wraps the workspace page, *Instance admin* and the app-connect callback, so the banner and its watch outlive moving between them. A dev build (`dev`) does not watch
 - `reloadWhenChunksAreGone()` (in `main.tsx`) reloads once on `vite:preloadError`, the error a lazy page or the emoji picker raises when its chunk is gone; a second failure within a minute is left to surface instead of looping, and so is one where `sessionStorage` cannot remember the reload
 - The release image copies the previous release's chunks in beside its own (`PREVIOUS_IMAGE` build argument, the list in `release-assets.txt`), so a tab opened before a deploy keeps loading for one release
 

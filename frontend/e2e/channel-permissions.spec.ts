@@ -39,7 +39,7 @@ test('a channel admin can rename their channel while a plain member cannot', asy
     await page.locator('[data-qa="channel-actions-more"]').click();
     await page.locator('[data-qa="channel-details-open"]').click();
     await expect(page.locator('[data-qa="channel-details-modal"]')).toBeVisible();
-    await expect(page.locator('[data-qa="channel-about"]')).toBeVisible();
+    await expect(page.locator('[data-qa="channel-about-topic"]')).toBeVisible();
     await expect(page.locator('[data-qa="channel-about-name"]')).toHaveCount(0);
     await expect(page.locator('[data-qa="channel-details-tab-settings"]')).toHaveCount(0);
     await page.keyboard.press('Escape');

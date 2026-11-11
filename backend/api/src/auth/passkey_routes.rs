@@ -483,10 +483,12 @@ async fn confirm_presence(state: &AppState, user: &User, proof: &PresenceProof) 
     .await?;
 
     if let Some(password) = proof.password.as_deref().filter(|p| !p.is_empty()) {
-        let matches = user
-            .password_hash
-            .as_deref()
-            .is_some_and(|hash| AuthService::verify_password(password, hash).unwrap_or(false));
+        let matches = match user.password_hash.as_deref() {
+            Some(hash) => AuthService::verify_password(password, hash)
+                .await
+                .unwrap_or(false),
+            None => false,
+        };
         if matches {
             return Ok(());
         }

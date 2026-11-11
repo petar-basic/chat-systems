@@ -12,6 +12,7 @@ import { useDisplayStore } from '@/stores/display';
 import Placeholder from '@tiptap/extension-placeholder';
 import Mention from '@tiptap/extension-mention';
 import { createEditorExtensions } from '@/lib/tiptapExtensions';
+import { convertTrailingEmoticon } from '@/lib/emojiShortcodes';
 import { createMentionSuggestion, mentionSuggestionPluginKey } from './mentionSuggestion';
 import { emojiSuggestionPluginKey } from './emojiSuggestion';
 import { CommandSuggestion } from './commandSuggestion';
@@ -184,12 +185,11 @@ export default function MessageInput({
           const press = (mod: boolean) => {
             const mention = mentionSuggestionPluginKey.getState(this.editor.state) as
               { active?: boolean } | undefined;
-            const emoji = emojiSuggestionPluginKey.getState(this.editor.state) as
-              { active?: boolean } | undefined;
+            const emoji = this.editor.storage.emojiSuggestion;
             const command = this.editor.storage.commandSuggestion;
             const outcome = enterOutcome(useDisplayStore.getState().enterKey, {
               mod,
-              picking: !!mention?.active || !!emoji?.active || (!!command?.open && !command.exact),
+              picking: !!mention?.active || !!emoji?.open || (!!command?.open && !command.exact),
               inBlock: this.editor.isActive('codeBlock') || this.editor.isActive('listItem'),
             });
             if (outcome === 'default') return false;
@@ -284,6 +284,7 @@ export default function MessageInput({
   const handleSchedule = useCallback(
     async (sendAt: Date) => {
       if (!editor || !scheduleTarget) return;
+      convertTrailingEmoticon(editor);
       const markdown = editor.storage.markdown.getMarkdown().trim();
       const files = attachments?.items.filter((item) => item.status === 'ready') ?? [];
       if (!markdown && files.length === 0) return;
@@ -325,6 +326,7 @@ export default function MessageInput({
   const handleSend = useCallback(
     async (confirmed = false) => {
       if (!editor) return;
+      convertTrailingEmoticon(editor);
       const markdown = editor.storage.markdown.getMarkdown().trim();
       const pollCommand = pollTarget && !editing ? parsePollCommand(markdown) : null;
       if (pollCommand?.kind === 'invalid') {

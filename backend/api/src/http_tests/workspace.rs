@@ -770,7 +770,9 @@ async fn an_email_invite_only_works_for_the_address_it_was_issued_to(pool: PgPoo
         "a forwarded invite must not let a different account in: {body:?}"
     );
 
-    let hash = crate::auth::service::AuthService::hash_password(PASSWORD).expect("hash");
+    let hash = crate::auth::service::AuthService::hash_password(PASSWORD)
+        .await
+        .expect("hash");
     state
         .auth_service
         .repo()

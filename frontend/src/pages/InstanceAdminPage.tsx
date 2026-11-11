@@ -97,7 +97,7 @@ export default function InstanceAdminPage() {
   if (!isAdmin) return null;
 
   return (
-    <div className="h-screen bg-app text-fg flex flex-col">
+    <div className="flex-1 min-h-0 bg-app text-fg flex flex-col">
       <div className="border-b border-surface px-4 sm:px-6 py-4 flex flex-wrap items-center gap-3 sm:gap-4">
         <button
           onClick={() => navigate('/app')}
@@ -135,7 +135,7 @@ export default function InstanceAdminPage() {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+      <div className="relative flex-1 overflow-y-auto p-4 sm:p-6">
         {error && (
           <div className="bg-red-500/10 border border-red-500/30 text-danger px-4 py-3 rounded-lg mb-4 text-sm">
             {toUserMessage(error)}

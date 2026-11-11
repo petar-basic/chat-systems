@@ -1,7 +1,8 @@
-import { Extension, InputRule } from '@tiptap/core';
-import type { EditorState } from '@tiptap/pm/state';
+import { Extension, InputRule, type Editor } from '@tiptap/core';
+import { Selection, type EditorState } from '@tiptap/pm/state';
+import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
 
-import { EMOTICON_RULE, emoticonToEmoji } from './emoticons';
+import { EMOTICON_RULE, TRAILING_EMOTICON, emoticonToEmoji } from './emoticons';
 
 interface ShortcodeData {
   emojis: Record<string, { skins: { native: string }[] }>;
@@ -39,6 +40,24 @@ function isVerbatim(state: EditorState, pos: number): boolean {
   const $pos = state.doc.resolve(pos);
   if ($pos.parent.type.spec.code) return true;
   return !!state.schema.marks.code?.isInSet($pos.marks());
+}
+
+function leafText(node: ProseMirrorNode): string {
+  return node.type.name === 'hardBreak' ? '\n' : '\ufffc';
+}
+
+export function convertTrailingEmoticon(editor: Editor): void {
+  const { state } = editor;
+  const end = Selection.atEnd(state.doc).from;
+  const $end = state.doc.resolve(end);
+  if (!$end.parent.isTextblock) return;
+  const before = $end.parent.textBetween(0, $end.parentOffset, undefined, leafText);
+  const match = before.match(TRAILING_EMOTICON);
+  const emoji = match ? emoticonToEmoji(match[2]) : undefined;
+  if (!match || !emoji) return;
+  const from = end - match[2].length;
+  if (isVerbatim(state, from + 1)) return;
+  editor.view.dispatch(state.tr.insertText(emoji, from, end));
 }
 
 export const EmojiShortcodes = Extension.create({

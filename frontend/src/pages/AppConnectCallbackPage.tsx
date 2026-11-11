@@ -43,7 +43,10 @@ export default function AppConnectCallbackPage() {
   }, [code, state, denied, navigate]);
 
   return (
-    <div className="h-dvh flex items-center justify-center bg-app text-fg p-6" data-qa="app-connect-callback">
+    <div
+      className="flex-1 flex items-center justify-center bg-app text-fg p-6"
+      data-qa="app-connect-callback"
+    >
       {error ? (
         <div className="max-w-sm text-center space-y-3">
           <p className="text-fg-soft">{error}</p>
