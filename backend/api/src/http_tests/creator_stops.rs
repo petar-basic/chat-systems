@@ -321,7 +321,7 @@ async fn an_app_stops_with_its_creator_and_an_admin_turns_it_back_on(pool: PgPoo
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner) = seed_and_login(&app, &state, "app-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Apps").await;
-    let ch = seed_channel(&state, ws, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws, owner_id, "lobby", false).await;
     let (admin_id, _, admin) = seed_and_login(&app, &state, "app-admin", false).await;
     add_ws_member(&state, ws, admin_id, "admin").await;
     let bot = make_bot(&app, &admin, ws, "Echo").await;
@@ -390,7 +390,7 @@ async fn suspending_or_deprovisioning_an_apps_creator_stops_it(pool: PgPool) {
     let (_, _, instance_admin) = seed_and_login(&app, &state, "app-instance-admin", true).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "app-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Apps").await;
-    let ch = seed_channel(&state, ws, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws, owner_id, "lobby", false).await;
     let (suspended_id, _, suspended) = seed_and_login(&app, &state, "app-suspended", false).await;
     let (leaver_id, _, leaver) = seed_and_login(&app, &state, "app-leaver", false).await;
     add_ws_member(&state, ws, suspended_id, "admin").await;
