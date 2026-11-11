@@ -1,0 +1,83 @@
+{
+  "panel": {
+    "title": "検索",
+    "tabs": {
+      "messages": "メッセージ",
+      "files": "ファイル"
+    },
+    "label": {
+      "messages": "メッセージを検索",
+      "files": "ファイルを検索"
+    },
+    "placeholder": {
+      "messages": "メッセージを検索…",
+      "files": "ファイルを検索…"
+    },
+    "hint": {
+      "messages": "from:@名前 in:#チャンネル has:file before:2026-10-01 after: on: で絞り込めます",
+      "files": "from:@名前 in:#チャンネル type:pdf before:2026-10-01 after: on: で絞り込めます"
+    },
+    "clear": "検索語を消去",
+    "results_other": "{{count}} 件",
+    "resultsMore": "{{count}} 件以上",
+    "clearFilters": "絞り込みを解除",
+    "failed": "検索できませんでした。",
+    "noneFor": {
+      "messages": "「{{query}}」に一致するメッセージはありません",
+      "files": "「{{query}}」に一致するファイルはありません"
+    },
+    "noneForFiltered": {
+      "messages": "この条件で「{{query}}」に一致するメッセージはありません",
+      "files": "この条件で「{{query}}」に一致するファイルはありません"
+    },
+    "noneFiltered": {
+      "messages": "この条件に一致するメッセージはありません",
+      "files": "この条件に一致するファイルはありません"
+    },
+    "showMore": "さらに表示",
+    "empty": {
+      "messages": "このワークスペースのすべてのメッセージを検索できます",
+      "files": "ファイル名の一部で検索できます"
+    },
+    "tip": {
+      "messages": "上の絞り込みを使うか、<code>from:@名前</code>、<code>in:#チャンネル</code>、<code>has:file</code>、<code>after:2026-10-01</code> のように入力して絞り込めます",
+      "files": "上の絞り込みを使うか、<code>from:@名前</code>、<code>in:#チャンネル</code>、<code>type:pdf</code>、<code>after:2026-10-01</code> のように入力して絞り込めます"
+    },
+    "directMessage": "ダイレクトメッセージ",
+    "openInGallery": "ギャラリーで開く",
+    "showInConversation": "会話で表示",
+    "download": "{{name}} をダウンロード"
+  },
+  "filters": {
+    "from": "送信者",
+    "in": "場所",
+    "has": "含むもの",
+    "type": "種類",
+    "date": "日付",
+    "remove": "「{{filter}}」の絞り込みを解除",
+    "findPerson": "メンバーを探す",
+    "nobody": "該当するメンバーがいません",
+    "findPlace": "チャンネルや会話を探す",
+    "nothing": "一致するものがありません",
+    "hasValues": {
+      "file": "ファイル",
+      "image": "画像",
+      "link": "リンク"
+    },
+    "otherKind": "その他",
+    "today": "今日",
+    "yesterday": "昨日",
+    "last7": "過去 7 日間",
+    "last30": "過去 30 日間",
+    "on": "指定日",
+    "after": "この日より後",
+    "before": "この日より前",
+    "onDate": "{{date}}",
+    "afterDate": "{{date}} より後",
+    "beforeDate": "{{date}} より前",
+    "between": "{{after}} より後、{{before}} より前",
+    "you": "自分",
+    "conversation": "会話",
+    "channelFallback": "チャンネル"
+  }
+}

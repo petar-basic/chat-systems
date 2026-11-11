@@ -1,4 +1,5 @@
 import { Download } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { components } from '@/api/schema';
 import { useUserCache } from '@/stores/users';
 import { displayNameOf } from '@/lib/userHelpers';
@@ -49,6 +50,7 @@ function Snippet({ parts }: { parts: SnippetPart[] }) {
 }
 
 export function FileHit({ hit, query, context, onOpen }: Props) {
+  const { t } = useTranslation('search');
   const { getUser } = useUserCache();
   const kind = FILE_KINDS[hit.kind];
   const Icon = kind.icon;
@@ -66,7 +68,7 @@ export function FileHit({ hit, query, context, onOpen }: Props) {
         type="button"
         onClick={onOpen}
         disabled={!onOpen}
-        data-tooltip={preview ? 'Open in the gallery' : 'Show in conversation'}
+        data-tooltip={preview ? t('panel.openInGallery') : t('panel.showInConversation')}
         className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left disabled:cursor-default"
       >
         {preview ? (
@@ -95,7 +97,7 @@ export function FileHit({ hit, query, context, onOpen }: Props) {
       <a
         href={hit.url}
         download={hit.filename}
-        aria-label={`Download ${hit.filename}`}
+        aria-label={t('panel.download', { name: hit.filename })}
         className="absolute right-2 rounded p-1 text-muted opacity-0 transition hover:bg-raised hover:text-fg-dim focus:opacity-100 group-hover:opacity-100"
       >
         <Download className="h-4 w-4" />

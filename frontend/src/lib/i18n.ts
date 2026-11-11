@@ -9,6 +9,7 @@ import enHuddle from '@/locales/en/huddle.json';
 import enNotifications from '@/locales/en/notifications.json';
 import enPolls from '@/locales/en/polls.json';
 import enProfile from '@/locales/en/profile.json';
+import enSearch from '@/locales/en/search.json';
 import enSidebar from '@/locales/en/sidebar.json';
 import enThreads from '@/locales/en/threads.json';
 import enWorkspace from '@/locales/en/workspace.json';
@@ -20,6 +21,7 @@ import jaHuddle from '@/locales/ja/huddle.json';
 import jaNotifications from '@/locales/ja/notifications.json';
 import jaPolls from '@/locales/ja/polls.json';
 import jaProfile from '@/locales/ja/profile.json';
+import jaSearch from '@/locales/ja/search.json';
 import jaSidebar from '@/locales/ja/sidebar.json';
 import jaThreads from '@/locales/ja/threads.json';
 import jaWorkspace from '@/locales/ja/workspace.json';
@@ -44,6 +46,7 @@ export const resources = {
     notifications: enNotifications,
     polls: enPolls,
     profile: enProfile,
+    search: enSearch,
     sidebar: enSidebar,
     threads: enThreads,
     workspace: enWorkspace,
@@ -57,6 +60,7 @@ export const resources = {
     notifications: jaNotifications,
     polls: jaPolls,
     profile: jaProfile,
+    search: jaSearch,
     sidebar: jaSidebar,
     threads: jaThreads,
     workspace: jaWorkspace,
@@ -132,6 +136,7 @@ export const i18nOptions = {
     'notifications',
     'polls',
     'profile',
+    'search',
     'sidebar',
     'threads',
     'workspace',

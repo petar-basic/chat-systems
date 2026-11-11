@@ -1,19 +1,20 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChevronDown, Hash, Lock, MessageSquare, X } from 'lucide-react';
 import { AnchoredPopover } from '@/shared/components/Popover/AnchoredPopover';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { displayNameOf } from '@/lib/userHelpers';
 import {
-  HAS_LABELS,
+  HAS_FILTERS,
   dateLabel,
   dayKey,
+  hasLabel,
   kindLabel,
   memberName,
   placeName,
   setDate,
   shiftDay,
   type FilterContext,
-  type HasFilter,
   type SearchFilters,
   type SearchTab,
 } from './searchFilters';
@@ -48,6 +49,7 @@ function Chip({
   anchorRef: React.RefObject<HTMLButtonElement | null>;
   qa: string;
 }) {
+  const { t } = useTranslation('search');
   return (
     <span
       className={`inline-flex items-center rounded-full border text-xs transition ${
@@ -74,8 +76,8 @@ function Chip({
         <button
           type="button"
           onClick={onClear}
-          aria-label={`Remove the ${label.toLowerCase()} filter`}
-          data-tooltip={`Remove the ${label.toLowerCase()} filter`}
+          aria-label={t('filters.remove', { filter: label.toLowerCase() })}
+          data-tooltip={t('filters.remove', { filter: label.toLowerCase() })}
           className="-ml-1 mr-1 rounded-full p-0.5 text-muted hover:bg-raised hover:text-fg cursor-pointer"
         >
           <X className="h-3 w-3" />
@@ -121,6 +123,7 @@ function FilterInput({
 }
 
 function PeopleList({ ctx, onPick }: { ctx: FilterContext; onPick: (userId: string) => void }) {
+  const { t } = useTranslation('search');
   const [term, setTerm] = useState('');
   const people = useMemo(() => {
     const wanted = term.trim().toLowerCase();
@@ -130,19 +133,20 @@ function PeopleList({ ctx, onPick }: { ctx: FilterContext; onPick: (userId: stri
   }, [ctx.members, term]);
   return (
     <>
-      <FilterInput value={term} onChange={setTerm} label="Find a person" />
+      <FilterInput value={term} onChange={setTerm} label={t('filters.findPerson')} />
       {people.map((m) => (
         <Option key={m.user_id} onSelect={() => onPick(m.user_id)}>
           <Avatar userId={m.user_id} name={displayNameOf(m.display_name)} size="xs" />
           <span className="truncate">{memberName(ctx, m.user_id)}</span>
         </Option>
       ))}
-      {people.length === 0 && <p className="px-3 py-1.5 text-sm text-muted">Nobody matches</p>}
+      {people.length === 0 && <p className="px-3 py-1.5 text-sm text-muted">{t('filters.nobody')}</p>}
     </>
   );
 }
 
 function PlaceList({ ctx, onPick }: { ctx: FilterContext; onPick: (placeId: string) => void }) {
+  const { t } = useTranslation('search');
   const [term, setTerm] = useState('');
   const places = useMemo(() => {
     const wanted = term.trim().toLowerCase();
@@ -157,7 +161,7 @@ function PlaceList({ ctx, onPick }: { ctx: FilterContext; onPick: (placeId: stri
   }, [ctx, term]);
   return (
     <>
-      <FilterInput value={term} onChange={setTerm} label="Find a channel or conversation" />
+      <FilterInput value={term} onChange={setTerm} label={t('filters.findPlace')} />
       {places.map((place) => (
         <Option key={place.id} onSelect={() => onPick(place.id)}>
           {place.kind === 'dm' ? (
@@ -170,7 +174,7 @@ function PlaceList({ ctx, onPick }: { ctx: FilterContext; onPick: (placeId: stri
           <span className="truncate">{place.kind === 'dm' ? place.name : place.name.slice(1)}</span>
         </Option>
       ))}
-      {places.length === 0 && <p className="px-3 py-1.5 text-sm text-muted">Nothing matches</p>}
+      {places.length === 0 && <p className="px-3 py-1.5 text-sm text-muted">{t('filters.nothing')}</p>}
     </>
   );
 }
@@ -188,17 +192,18 @@ function DateChoices({
   onPreset: (date: DateFilter) => void;
   onCustom: (date: DateFilter) => void;
 }) {
+  const { t } = useTranslation('search');
   const now = dayKey(today);
   const presets = [
-    { label: 'Today', date: { on: now } },
-    { label: 'Yesterday', date: { on: shiftDay(now, -1) } },
-    { label: 'Last 7 days', date: { after: shiftDay(now, -7) } },
-    { label: 'Last 30 days', date: { after: shiftDay(now, -30) } },
+    { label: t('filters.today'), date: { on: now } },
+    { label: t('filters.yesterday'), date: { on: shiftDay(now, -1) } },
+    { label: t('filters.last7'), date: { after: shiftDay(now, -7) } },
+    { label: t('filters.last30'), date: { after: shiftDay(now, -30) } },
   ];
   const fields = [
-    { key: 'on', label: 'On' },
-    { key: 'after', label: 'After' },
-    { key: 'before', label: 'Before' },
+    { key: 'on', label: t('filters.on') },
+    { key: 'after', label: t('filters.after') },
+    { key: 'before', label: t('filters.before') },
   ] as const;
   return (
     <>
@@ -233,6 +238,7 @@ function DateChoices({
 }
 
 export function SearchFilterBar({ filters, onChange, context, tab }: Props) {
+  const { t } = useTranslation('search');
   const [open, setOpen] = useState<Picker | null>(null);
   const anchors = {
     from: useRef<HTMLButtonElement>(null),
@@ -250,32 +256,32 @@ export function SearchFilterBar({ filters, onChange, context, tab }: Props) {
   const chips: { picker: Picker; label: string; value: string | null; clear: SearchFilters }[] = [
     {
       picker: 'from',
-      label: 'From',
+      label: t('filters.from'),
       value: filters.from ? memberName(context, filters.from) : null,
       clear: { ...filters, from: undefined },
     },
     {
       picker: 'in',
-      label: 'In',
+      label: t('filters.in'),
       value: filters.in ? placeName(context, filters.in) : null,
       clear: { ...filters, in: undefined },
     },
     tab === 'files'
       ? {
           picker: 'type',
-          label: 'Type',
+          label: t('filters.type'),
           value: filters.kind ? kindLabel(filters.kind) : null,
           clear: { ...filters, kind: undefined },
         }
       : {
           picker: 'has',
-          label: 'Has',
-          value: filters.has ? HAS_LABELS[filters.has] : null,
+          label: t('filters.has'),
+          value: filters.has ? hasLabel(filters.has) : null,
           clear: { ...filters, has: undefined },
         },
     {
       picker: 'date',
-      label: 'Date',
+      label: t('filters.date'),
       value: dateLabel(filters),
       clear: setDate(filters, { after: undefined, before: undefined }),
     },
@@ -306,9 +312,9 @@ export function SearchFilterBar({ filters, onChange, context, tab }: Props) {
           {open === 'from' && <PeopleList ctx={context} onPick={(from) => pick({ ...filters, from })} />}
           {open === 'in' && <PlaceList ctx={context} onPick={(place) => pick({ ...filters, in: place })} />}
           {open === 'has' &&
-            (Object.keys(HAS_LABELS) as HasFilter[]).map((has) => (
+            HAS_FILTERS.map((has) => (
               <Option key={has} onSelect={() => pick({ ...filters, has })}>
-                {HAS_LABELS[has]}
+                {hasLabel(has)}
               </Option>
             ))}
           {open === 'type' &&
