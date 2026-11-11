@@ -87,4 +87,11 @@ describe('UserHoverCard in Japanese', () => {
     expect(screen.getByTestId('hover-card-message')).toHaveTextContent('メッセージ');
     expect(screen.getByText('通話').closest('button')).toHaveAttribute('data-tooltip', '通話を開始');
   });
+
+  it('says someone who left is no longer here', async () => {
+    person({ left: true });
+    await i18n.changeLanguage('ja');
+    renderCard();
+    expect(screen.getByTestId('hover-card-left').textContent).toBe('このワークスペースにはもういません');
+  });
 });

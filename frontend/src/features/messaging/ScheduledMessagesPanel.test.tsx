@@ -79,4 +79,13 @@ describe('ScheduledMessagesPanel in Japanese', () => {
     expect(screen.getAllByRole('button', { name: '今すぐ送信' })).toHaveLength(2);
     expect(document.querySelector('[onerror]')).toBeNull();
   });
+
+  it('says why a message to someone who left was not sent', async () => {
+    scheduled = [message({ id: 's-1', failure: 'recipient_left' })];
+    await i18n.changeLanguage('ja');
+    renderPanel();
+    expect(screen.getByTestId('scheduled-failure').textContent).toBe(
+      '送信されませんでした。送信先の人は、ワークスペースから退出しました。',
+    );
+  });
 });
