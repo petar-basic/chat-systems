@@ -400,6 +400,13 @@ pub(crate) async fn handle_event_for(
             };
             cm.send_to_user(audience, uid, &framed(&frame)).await;
         }
+        "user.instance_role_changed" => {
+            let (Some(uid), Some(role)) = (field("user_id"), text("role")) else {
+                return;
+            };
+            let frame = ServerFrame::InstanceRoleChanged { role };
+            cm.send_to_user(audience, uid, &framed(&frame)).await;
+        }
         "later.updated" => {
             let (Some(uid), Some(workspace_id)) = (field("user_id"), field("workspace_id")) else {
                 return;

@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COALESCE(\n                   (SELECT w.name FROM workspace_invites i\n                      JOIN workspaces w ON w.id = i.workspace_id\n                     WHERE i.email = lower($1) AND w.deleted_at IS NULL\n                     ORDER BY i.created_at DESC LIMIT 1),\n                   (SELECT w.name FROM workspace_members m\n                      JOIN users u ON u.id = m.user_id\n                      JOIN workspaces w ON w.id = m.workspace_id\n                     WHERE u.email = lower($1) AND w.deleted_at IS NULL\n                     ORDER BY m.joined_at LIMIT 1)\n               ) AS name",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Varchar",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "3a2eb8579fb44abe8cf5a4adee3a7c173d22b0e34221f4ae5ba0e7ae9ce7ed59"
+}

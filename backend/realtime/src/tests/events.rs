@@ -707,6 +707,33 @@ async fn later_updated_reaches_only_its_owner(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn a_new_instance_role_reaches_every_socket_of_the_person(pool: PgPool) {
+    let cm = manager(pool).await;
+    let person = Uuid::new_v4();
+    let other = Uuid::new_v4();
+    let (_laptop, mut laptop_rx) = fake_conn(&cm, person);
+    let (_desktop, mut desktop_rx) = fake_conn(&cm, person);
+    let (_other_conn, mut other_rx) = fake_conn(&cm, other);
+
+    let event = "user.instance_role_changed";
+    let published_on = format!("events:{}", event.split('.').next().unwrap_or_default());
+    assert!(
+        crate::event_consumer::SUBSCRIBED_CHANNELS.contains(&published_on.as_str()),
+        "the gateway listens where the api publishes it"
+    );
+
+    let payload = json!({ "user_id": person.to_string(), "role": "workspace_creator" });
+    crate::event_consumer::handle_event(event, &payload, &cm).await;
+
+    for rx in [&mut laptop_rx, &mut desktop_rx] {
+        let frame = next_json(rx).expect("each socket hears it");
+        assert_eq!(frame["type"], "user.instance_role_changed");
+        assert_eq!(frame["role"], "workspace_creator");
+    }
+    assert!(next_json(&mut other_rx).is_none());
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_command_answer_reaches_only_whoever_ran_it(pool: PgPool) {
     let cm = manager(pool).await;
     let caller = Uuid::new_v4();

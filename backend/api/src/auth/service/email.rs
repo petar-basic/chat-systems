@@ -51,6 +51,24 @@ impl AuthService {
             .await
     }
 
+    pub(crate) async fn send_invite_expired(
+        &self,
+        to_email: &str,
+        workspace_name: Option<&str>,
+    ) -> AppResult<()> {
+        let instance = &self.config.instance_name;
+        let body = match workspace_name {
+            Some(workspace) => format!(
+                "Somebody asked for a way into this account on {instance}.\n\nYour invitation to {workspace} has expired, so there is no way in yet. Ask an admin of {workspace} to invite you again, and open the link in that email.\n"
+            ),
+            None => format!(
+                "Somebody asked for a way into this account on {instance}.\n\nYour invitation has expired, so there is no way in yet. Ask an admin of the workspace that invited you to invite you again, and open the link in that email.\n"
+            ),
+        };
+        self.queue_email(to_email, "Your invitation has expired", &body, None)
+            .await
+    }
+
     pub(crate) async fn send_sign_in_code(
         &self,
         to_email: &str,

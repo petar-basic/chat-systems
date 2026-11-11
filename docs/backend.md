@@ -99,7 +99,12 @@ in `main.rs`.
   five. The code stands in for the password only, so `second_factor` runs after it as after a
   password, and the code is spent when the whole sign-in is: a 409 for the TOTP step leaves it
   usable for the retry, and a passkey second step spends it when the passkey is accepted. Off
-  while the instance has no SMTP, and switchable in `instance_settings`.
+  while the instance has no SMTP, and switchable in `instance_settings`. Wrong codes are also
+  counted per account for a day (`failures`, `failures_since`), which a new code does not reset:
+  after 20 (`DAILY_CEILING`) every code is refused and none is sent until the day is over, so
+  five tries a code times five codes a quarter-hour does not add up to ~960 guesses a day.
+  Asking for a code answers as soon as the limits pass, and the lookup, hashing and sending run
+  in a task of their own, so an active account and an unknown address take the same time.
 - **Secrets at rest.** Connected apps' client secrets and tokens and TOTP secrets are sealed
   with ChaCha20-Poly1305 by `sealed/`, under a per-purpose key derived from `SECRETS_KEYS`
   (a list of `id:base64` keys, the first one current). Each row stores the key id beside the
@@ -109,7 +114,7 @@ in `main.rs`.
   never trusted from the body — and re-checked against the DB on every WebSocket
   subscribe/join.
 - **Rate limiting.** A shared Redis fixed-window limiter (`rate_limit.rs`) guards auth
-  endpoints (per-email and per-IP on login and on checking an emailed code, per-email on forgot-password, per-email and per-IP on asking for a code) and incoming
+  endpoints (per-email and per-IP on login, the same under keys of its own on checking an emailed code so guessing codes does not lock the password out, per-email on forgot-password, per-email and per-IP on asking for a code) and incoming
   webhooks (per-token). A per-user `write_rate_limit` middleware caps write methods on the
   messaging and files routers (120 writes / 60s per user).
 - **Error handling.** `AppError` (`shared/common`) maps to status codes; 500-class errors
@@ -186,7 +191,7 @@ Handles user identity — login, registration, JWT, and profile.
 | POST | `/auth/refresh` | `{ refresh_token }` (or refresh cookie / Bearer) | `AuthSession` |
 | POST | `/auth/logout` | refresh cookie | `{ status: "logged_out" }` |
 | POST | `/auth/forgot-password` | `{ email }` | `{ status: "sent" }` whoever asks; a password account gets a reset link, an account still waiting on its invite gets that invite again, and an SSO account is told to sign in with SSO |
-| POST | `/auth/email-code` | `{ email }` | `{ status: "sent" }` whoever asks, as forgot-password: a password account gets a six-digit code (audited `email_code.sent`), an account still waiting on its invite gets the invite again, and an SSO account is told to sign in with SSO. Five a quarter-hour per address; 400 while the option is off |
+| POST | `/auth/email-code` | `{ email }` | `{ status: "sent" }` whoever asks, as forgot-password: a password account gets a six-digit code (audited `email_code.sent`) unless it is past the day's ceiling, an account still waiting on its invite gets the invite again, or an email saying it expired and to ask the workspace's admins when none is live, and an SSO account is told to sign in with SSO. Five a quarter-hour per address; 400 while the option is off |
 | POST | `/auth/email-code/verify` | `{ email, code, totp_code? }` | `AuthSession` and the auth cookies, audited `email_code.used`. The 409 answers of `/auth/login` follow it for an account with a second factor. A wrong, expired, used or replaced code is a 401; the fifth wrong try is audited `email_code.exhausted` and the code takes no more |
 | POST | `/auth/reset-password` | `{ token, password }` | `{ status: "reset" }` — the password is checked before the link is spent, so a too-short one leaves it usable |
 | GET | `/auth/oidc/start` | Query: `invite?` | Redirect to the provider. With `invite` (an email invite's link token), the callback redeems it for the account that signed in, activates it if it was waiting on the invite, and lands on `/app/:ws_id`; a link for another address lands back on `/invite/:token`. With `client=desktop&nonce=` (16–128 URL-safe characters) the callback sets no cookies: it stores a single-use code for a minute and sends the browser to `/sso/desktop?code=…&nonce=…`, which hands both to the desktop app |
@@ -1301,7 +1306,9 @@ leaving a channel forgets it and deleting a section returns its channels to *Cha
 
 ### admin
 
-Instance-level administration. Requires the `admin` instance role. The roles are a
+Instance-level administration. Requires the `admin` instance role, read from `users` on each
+request whose token claims it (`auth_middleware`), so a demoted admin is refused at once with
+the token they hold; the same holds for every other instance-admin check. The roles are a
 ladder: a `member` signs in and joins the workspaces they are invited to, a
 `workspace_creator` can also create workspaces (and import a Slack export into a
 new one) without any of the admin panel, and an `admin` has all of it. A member
@@ -1318,7 +1325,7 @@ false; it is true by default.
 | GET | `/admin/users` | Query: `limit?, offset?` | `{ data: AdminUser[] }` — `{ id, email, display_name, status, instance_role, created_at }` |
 | POST | `/admin/users/:user_id/suspend` | — | `{ status: "suspended" }` — also revokes sessions and app connections and turns off the person's hooks and workflows |
 | POST | `/admin/users/:user_id/activate` | — | `{ status: "activated" }` — an account with no password and no SSO link goes back to `pending`, waiting for its invite; SCIM `active: true` does the same |
-| PATCH | `/admin/users/:user_id/instance-role` | `{ role: "member" \| "workspace_creator" \| "admin" }` | `{ role }`; a 404 for an unknown user or a bot; audited `user.instance_role_changed` |
+| PATCH | `/admin/users/:user_id/instance-role` | `{ role: "member" \| "workspace_creator" \| "admin" }` | `{ role }`; a 404 for an unknown user or a bot; audited `user.instance_role_changed`, and an `user.instance_role_changed { role }` frame goes to every socket of the person |
 | GET | `/admin/workspaces` | Query: `limit?, offset?` | `{ data: AdminWorkspace[] }` — `{ id, name, slug, owner_id, is_active, created_at, owners }`, `owners` each `{ user_id, display_name, email, role, status }` so a workspace whose owners are all suspended shows |
 | GET | `/admin/workspaces/:ws_id/members` | — | `{ data: WorkspacePerson[] }` — everyone in it but apps, with their account `status` |
 | POST | `/admin/workspaces/:ws_id/owners` | `{ user_id }` | `WorkspaceMember` — makes a member an owner, for a workspace whose owner is gone; 404 outside the workspace, 400 for an app or an account that isn't active; `owner_id` moves to them when it names nobody who is still an active owner; audited `workspace.role_changed` with `instance_admin: true` |

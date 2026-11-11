@@ -10,6 +10,7 @@ use uuid::Uuid;
 use shared_common::errors::AppError;
 use shared_common::session_keys::VerifyingKeys;
 
+use crate::auth::repo::UserRepo;
 use crate::bots::models::BotToken;
 use crate::bots::repo::BotRepo;
 
@@ -127,9 +128,17 @@ pub async fn auth_middleware(request: Request, next: Next) -> Result<Response, A
         }
     }
 
+    let is_instance_admin = claims.is_instance_admin
+        && parts
+            .extensions
+            .get::<UserRepo>()
+            .ok_or_else(|| AppError::Internal("User lookup not configured".into()))?
+            .is_instance_admin(claims.sub)
+            .await?;
+
     let auth_user = AuthUser {
         user_id: claims.sub,
-        is_instance_admin: claims.is_instance_admin,
+        is_instance_admin,
         jti: claims.jti,
         bot: None,
     };

@@ -45,7 +45,7 @@ export class ApiClient {
   private memoryToken: string | null = null;
   private refreshToken: string | null = null;
 
-  private refreshPromise: Promise<boolean> | null = null;
+  private refreshPromise: Promise<RefreshData | null> | null = null;
   private typedClient: Client<paths> | null = null;
 
   onSessionExpired: (() => void) | null = null;
@@ -134,20 +134,15 @@ export class ApiClient {
     return {};
   }
 
-  private refresh(): Promise<boolean> {
-    if (this.refreshPromise) {
-      return this.refreshPromise;
-    }
-    this.refreshPromise = this.performRefresh()
-      .then((data) => data !== null)
-      .finally(() => {
-        this.refreshPromise = null;
-      });
-    return this.refreshPromise;
+  private async refresh(): Promise<boolean> {
+    return (await this.refreshSession()) !== null;
   }
 
-  async refreshSession(): Promise<RefreshData | null> {
-    return this.performRefresh();
+  refreshSession(): Promise<RefreshData | null> {
+    this.refreshPromise ??= this.performRefresh().finally(() => {
+      this.refreshPromise = null;
+    });
+    return this.refreshPromise;
   }
 
   private async performRefresh(): Promise<RefreshData | null> {

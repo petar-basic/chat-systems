@@ -325,6 +325,14 @@ async fn update_instance_role(
             .details(serde_json::json!({ "role": body.role })),
     )
     .await;
+    let told = serde_json::json!({ "user_id": user_id, "role": body.role });
+    if let Err(e) = state
+        .publisher
+        .publish("user.instance_role_changed", told)
+        .await
+    {
+        tracing::warn!("failed to tell {user_id} their instance role changed: {e}");
+    }
     Ok(Json(InstanceRoleResponse { role: body.role }))
 }
 

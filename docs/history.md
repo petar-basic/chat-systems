@@ -2839,3 +2839,30 @@ in a DM answering only its caller with nothing sent to the other person; `/shrug
 posting a reply there; a registered command answering a thread and its channel separately, an
 `in_channel` answer landing live in its card, and a reconnect turning the channel's wait into
 *No answer from /qaslow*.
+
+### [CS-121i] Emailed codes with a ceiling, and instance roles that apply at once ✅ shipped
+A code took five tries, a new one reset them, an address could ask five times a quarter-hour,
+and checking a code shared the password's limiter: about 960 guesses a day at a six-digit code,
+with no total, and the password locked out while it went on. Wrong codes are now counted per
+account for a day on `email_sign_in_codes` (`failures`, `failures_since`), which `replace` does
+not touch; past 20 every code is refused and the request sends nothing while still answering
+"sent". Checking a code goes through `limit_tries` with keys of its own. Asking for a code used
+to hash and queue before answering for an active account and answer at once for an unknown
+one; it now answers when the limits pass and does the rest in a spawned task, so the HTTP tests
+wait for the email instead of reading the outbox at once. `resend_invite` did nothing without a
+live invite, which is every Slack-imported person and anyone whose invite lapsed; it now emails
+that the invitation expired, naming the workspace of the latest invite or membership. Admin
+routes read `is_instance_admin` from the access token, so a demotion took up to the token's 15
+minutes; `auth_middleware` now confirms the claim against `users` when the token makes it, one
+query for admins only, and that covers every instance-admin check, not just `/admin`. A role
+change sends `user.instance_role_changed` to the person's sockets; the client refreshes its session
+and instance user, so *Create workspace* follows at once. `refreshSession` now shares a refresh
+already in flight, since refresh tokens rotate and two at once would spend the same one.
+The frame was first called `instance_role.changed`, which the api publishes on
+`events:instance_role`, a channel the gateway does not listen to; it rides `events:user` as
+`user.instance_role_changed`, and the realtime test now checks the channel too. Checked by hand:
+an active and an unknown address answering in the same few milliseconds; a 20th wrong code
+refusing the right one and the next request sending nothing, and codes working again once the
+day is aged; code guesses counted under their own key; the expired-invite email from *Email me
+a code* and from *Forgot password*; a demoted admin's held token getting 403 from `/admin`; and
+*Create workspace* appearing and going on the rail of a signed-in member as the role changed.

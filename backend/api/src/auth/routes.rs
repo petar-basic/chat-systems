@@ -144,13 +144,22 @@ pub(crate) async fn limit_sign_in(
     ip: Option<&str>,
     email: &str,
 ) -> AppResult<()> {
-    let key = format!("rate_limit:login:{}", email.to_lowercase());
+    limit_tries(state, "login", ip, email).await
+}
+
+pub(crate) async fn limit_tries(
+    state: &AppState,
+    kind: &str,
+    ip: Option<&str>,
+    email: &str,
+) -> AppResult<()> {
+    let key = format!("rate_limit:{kind}:{}", email.to_lowercase());
     let window = state.config.login_attempts_window_secs;
     check_rate_limit(state, &key, state.config.login_attempts_per_email, window).await?;
     if let Some(ip) = ip {
         check_rate_limit(
             state,
-            &format!("rate_limit:login_ip:{ip}"),
+            &format!("rate_limit:{kind}_ip:{ip}"),
             state.config.login_attempts_per_ip,
             window,
         )

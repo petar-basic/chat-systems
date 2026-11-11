@@ -808,6 +808,25 @@ impl WorkspaceRepo {
         .await
     }
 
+    pub async fn workspace_that_invited(&self, email: &str) -> sqlx::Result<Option<String>> {
+        sqlx::query_scalar!(
+            r#"SELECT COALESCE(
+                   (SELECT w.name FROM workspace_invites i
+                      JOIN workspaces w ON w.id = i.workspace_id
+                     WHERE i.email = lower($1) AND w.deleted_at IS NULL
+                     ORDER BY i.created_at DESC LIMIT 1),
+                   (SELECT w.name FROM workspace_members m
+                      JOIN users u ON u.id = m.user_id
+                      JOIN workspaces w ON w.id = m.workspace_id
+                     WHERE u.email = lower($1) AND w.deleted_at IS NULL
+                     ORDER BY m.joined_at LIMIT 1)
+               ) AS name"#,
+            email
+        )
+        .fetch_one(&self.pool)
+        .await
+    }
+
     pub async fn delete_link_invites_by(
         &self,
         workspace_id: Option<Uuid>,

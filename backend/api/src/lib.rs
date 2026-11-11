@@ -222,6 +222,7 @@ pub fn build_app(state: Arc<AppState>) -> Router {
         .layer(axum::middleware::from_fn(metrics::track_metrics))
         .layer(Extension(revocation))
         .layer(Extension(state.bot_repo.clone()))
+        .layer(Extension(state.auth_service.repo().clone()))
         .layer(Extension(SessionVerifier(verifier)))
         .layer(shared_common::cors::cors_layer(&cors_origins))
         .layer(CompressionLayer::new())
