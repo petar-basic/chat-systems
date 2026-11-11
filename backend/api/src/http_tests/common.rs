@@ -79,13 +79,14 @@ pub fn unique_email(prefix: &str) -> String {
 /// Every seeded account uses the same password, and Argon2 costs tens of
 /// milliseconds by design. Hashing it once per process takes that cost out of
 /// several hundred tests.
-fn seeded_password_hash() -> &'static str {
-    static HASH: std::sync::OnceLock<String> = std::sync::OnceLock::new();
-    HASH.get_or_init(|| AuthService::hash_password(PASSWORD).expect("hash"))
+async fn seeded_password_hash() -> &'static str {
+    static HASH: tokio::sync::OnceCell<String> = tokio::sync::OnceCell::const_new();
+    HASH.get_or_init(|| async { AuthService::hash_password(PASSWORD).await.expect("hash") })
+        .await
 }
 
 pub async fn seed_user(state: &AppState, email: &str, is_admin: bool) -> Uuid {
-    let hash = seeded_password_hash();
+    let hash = seeded_password_hash().await;
     let user = state
         .auth_service
         .repo()

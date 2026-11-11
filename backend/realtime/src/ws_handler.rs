@@ -17,6 +17,7 @@ use crate::connection_manager::{ConnectionManager, WRITER_CHANNEL_CAP};
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(30);
 const PONG_TIMEOUT: Duration = Duration::from_secs(90);
+const ACTIVITY_GRACE: Duration = Duration::from_secs(5);
 
 /// Inbound frames are cheap for the client and not for us: every subscribe,
 /// join and typing frame costs a database round trip. Bound them per socket.
@@ -235,8 +236,12 @@ pub(crate) async fn renew_activity(
     last_pong: Instant,
 ) {
     if inbound.active {
-        cm.activity_set(user_id, conn_id, last_pong.elapsed() <= HEARTBEAT_INTERVAL)
-            .await;
+        cm.activity_set(
+            user_id,
+            conn_id,
+            last_pong.elapsed() <= HEARTBEAT_INTERVAL + ACTIVITY_GRACE,
+        )
+        .await;
     }
 }
 

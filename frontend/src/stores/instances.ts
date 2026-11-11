@@ -87,6 +87,15 @@ function saveTokens(url: string, access: string | null, refresh: string | null) 
   }
 }
 
+export function currentUserOf(
+  state: Pick<InstancesState, 'instances' | 'activeInstanceUrl'>,
+): InstanceUser | null {
+  const active = state.activeInstanceUrl
+    ? state.instances.find((i) => i.url === state.activeInstanceUrl)
+    : undefined;
+  return active?.user ?? state.instances[0]?.user ?? null;
+}
+
 interface InstancesState {
   instances: InstanceConfig[];
   activeInstanceUrl: string | null;

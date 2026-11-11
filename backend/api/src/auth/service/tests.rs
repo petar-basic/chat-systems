@@ -38,21 +38,27 @@ fn dummy_user() -> User {
     }
 }
 
-#[test]
-fn hash_password_verifies_correct_and_rejects_wrong() {
+#[tokio::test]
+async fn hash_password_verifies_correct_and_rejects_wrong() {
     let password = "correct horse battery staple";
-    let hash = AuthService::hash_password(password).expect("hashing should succeed");
+    let hash = AuthService::hash_password(password)
+        .await
+        .expect("hashing should succeed");
 
     assert_ne!(hash, password);
     assert!(hash.starts_with("$argon2"), "expected an argon2 PHC string");
 
     assert!(
-        AuthService::verify_password(password, &hash).expect("verify should not error"),
+        AuthService::verify_password(password, &hash)
+            .await
+            .expect("verify should not error"),
         "correct password must verify true"
     );
 
     assert!(
-        !AuthService::verify_password("wrong password", &hash).expect("verify should not error"),
+        !AuthService::verify_password("wrong password", &hash)
+            .await
+            .expect("verify should not error"),
         "wrong password must verify false"
     );
 }
@@ -120,7 +126,9 @@ async fn generate_tokens_stamps_token_type() {
 async fn refresh_rotation_is_single_use(pool: PgPool) {
     let service = AuthService::new(UserRepo::new(pool), test_config());
 
-    let hash = AuthService::hash_password("hunter2hunter2").expect("hash");
+    let hash = AuthService::hash_password("hunter2hunter2")
+        .await
+        .expect("hash");
     let created = service
         .repo()
         .create("rotate@test.local", Some(&hash), Some("Rotator"), false)
@@ -173,7 +181,9 @@ fn rotated_config() -> AppConfig {
 #[test_macros::db_test(migrations = "../migrations")]
 async fn a_session_survives_a_new_signing_key_and_the_old_one_retiring(pool: PgPool) {
     let before = AuthService::new(UserRepo::new(pool.clone()), test_config());
-    let hash = AuthService::hash_password("hunter2hunter2").expect("hash");
+    let hash = AuthService::hash_password("hunter2hunter2")
+        .await
+        .expect("hash");
     let created = before
         .repo()
         .create("keys@test.local", Some(&hash), Some("Keys"), false)
@@ -250,7 +260,9 @@ async fn reset_password_is_single_use_and_revokes_refresh_tokens(pool: PgPool) {
     let db = pool.clone();
     let service = AuthService::new(UserRepo::new(pool), test_config());
 
-    let old_hash = AuthService::hash_password("oldpassword123").expect("hash");
+    let old_hash = AuthService::hash_password("oldpassword123")
+        .await
+        .expect("hash");
     let created = service
         .repo()
         .create("reset@test.local", Some(&old_hash), Some("Resetter"), false)
@@ -321,11 +333,15 @@ async fn reset_password_is_single_use_and_revokes_refresh_tokens(pool: PgPool) {
         .expect("user exists");
     let stored = after.password_hash.expect("password hash set");
     assert!(
-        AuthService::verify_password("brandnewpw123", &stored).expect("verify new"),
+        AuthService::verify_password("brandnewpw123", &stored)
+            .await
+            .expect("verify new"),
         "password must be rotated to the new value"
     );
     assert!(
-        !AuthService::verify_password("oldpassword123", &stored).expect("verify old"),
+        !AuthService::verify_password("oldpassword123", &stored)
+            .await
+            .expect("verify old"),
         "old password must no longer verify after reset"
     );
 
@@ -358,11 +374,13 @@ async fn reset_password_is_single_use_and_revokes_refresh_tokens(pool: PgPool) {
     let stored_after_replay = after_replay.password_hash.expect("password hash set");
     assert!(
         AuthService::verify_password("brandnewpw123", &stored_after_replay)
+            .await
             .expect("verify still-new"),
         "a rejected replay must not rotate the password"
     );
     assert!(
         !AuthService::verify_password("anotherpw456", &stored_after_replay)
+            .await
             .expect("verify replay pw"),
         "the replay's new password must never have been applied"
     );
@@ -372,7 +390,9 @@ async fn reset_password_is_single_use_and_revokes_refresh_tokens(pool: PgPool) {
 async fn reset_token_is_rejected_by_refresh_and_tagged_reset(pool: PgPool) {
     let service = AuthService::new(UserRepo::new(pool), test_config());
 
-    let hash = AuthService::hash_password("confusion123").expect("hash");
+    let hash = AuthService::hash_password("confusion123")
+        .await
+        .expect("hash");
     let created = service
         .repo()
         .create("confuse@test.local", Some(&hash), Some("Confuser"), false)
@@ -428,7 +448,9 @@ async fn forgot_password_does_not_leak_email_existence(pool: PgPool) {
         "no reset token may be created for a non-existent email"
     );
 
-    let hash = AuthService::hash_password("enumerate123").expect("hash");
+    let hash = AuthService::hash_password("enumerate123")
+        .await
+        .expect("hash");
     let created = service
         .repo()
         .create("real@test.local", Some(&hash), Some("Real"), false)
@@ -513,7 +535,9 @@ async fn bootstrap_admin_creates_active_admin_and_is_idempotent(pool: PgPool) {
         .clone()
         .expect("bootstrapped admin must have a password hash");
     assert!(
-        AuthService::verify_password("bootstrap-admin-pw", &stored).expect("verify admin password"),
+        AuthService::verify_password("bootstrap-admin-pw", &stored)
+            .await
+            .expect("verify admin password"),
         "bootstrapped admin's stored hash must verify the configured password"
     );
 
@@ -586,7 +610,9 @@ async fn registration_token_round_trips_and_rejects_other_token_types(pool: PgPo
     assert_eq!(verified.sub, invited.id);
     assert_eq!(verified.invite_id, Some(invite_id));
 
-    let hash = AuthService::hash_password("regtokenpw123").expect("hash");
+    let hash = AuthService::hash_password("regtokenpw123")
+        .await
+        .expect("hash");
     let active = service
         .repo()
         .activate(invited.id, &hash, "Invitee")
@@ -671,7 +697,9 @@ async fn complete_registration_activates_pending_then_rejects_already_active(poo
         .password_hash
         .expect("completed user must have a password hash");
     assert!(
-        AuthService::verify_password("completepw123", &stored).expect("verify completed pw"),
+        AuthService::verify_password("completepw123", &stored)
+            .await
+            .expect("verify completed pw"),
         "the supplied password must be hashed + stored"
     );
 
@@ -694,11 +722,15 @@ async fn complete_registration_activates_pending_then_rejects_already_active(poo
         .expect("user exists");
     let unchanged_hash = unchanged.password_hash.expect("password still set");
     assert!(
-        AuthService::verify_password("completepw123", &unchanged_hash).expect("verify original pw"),
+        AuthService::verify_password("completepw123", &unchanged_hash)
+            .await
+            .expect("verify original pw"),
         "a rejected re-completion must leave the original password intact"
     );
     assert!(
-        !AuthService::verify_password("anotherpw456", &unchanged_hash).expect("verify rejected pw"),
+        !AuthService::verify_password("anotherpw456", &unchanged_hash)
+            .await
+            .expect("verify rejected pw"),
         "the rejected re-completion's password must never have been applied"
     );
 }
@@ -758,7 +790,9 @@ async fn provision_user_creates_pending_and_is_idempotent(pool: PgPool) {
 async fn generate_tokens_persists_findable_refresh_token(pool: PgPool) {
     let service = AuthService::new(UserRepo::new(pool), test_config());
 
-    let hash = AuthService::hash_password("persistpw123").expect("hash");
+    let hash = AuthService::hash_password("persistpw123")
+        .await
+        .expect("hash");
     let created = service
         .repo()
         .create("persist@test.local", Some(&hash), Some("Persister"), false)

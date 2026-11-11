@@ -96,6 +96,21 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ### Fixed
 
+- Someone reading a channel without typing no longer gets a push on their phone for what they
+  are looking at now and then: a heartbeat answer that comes back a moment later than the one
+  before keeps them active.
+- Enter sends a message that ends in an emoticon, as `thanks 🙂`. Enter and ⌘Enter used to turn
+  the emoticon into its emoji and start a new line, and send nothing. Enter still picks from the
+  emoji list while it shows emoji.
+- *Instance admin* no longer scrolls the whole window behind its user table.
+- *A new version is available* shows on *Instance admin* too, not only in a workspace.
+- Unsent messages belong to the person who wrote them: someone else signing in on the same
+  browser no longer finds them in the composer.
+- Registering a slash command without channels says *slash_command requires a non-empty
+  channel_ids array in config*, not the same for an outgoing webhook.
+- Checking a password or a sign-in code no longer holds up other requests on the same server
+  thread, which could make a sign-in code request answer *Authentication is temporarily
+  unavailable*.
 - Messages from someone who has left the workspace keep their name and photo, as in Slack, in
   channels, threads, DMs, search and the sidebar, instead of *Unknown user*. Their profile card
   says *No longer in this workspace* and has no *Message* or *Huddle*. People who left before

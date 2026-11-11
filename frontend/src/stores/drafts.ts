@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { currentUserOf, useInstanceStore } from './instances';
 
 const STORAGE_KEY = 'chat_drafts';
 
@@ -10,11 +11,15 @@ function load(): Record<string, string> {
   }
 }
 
+function ownKey(place: string): string {
+  return `${currentUserOf(useInstanceStore.getState())?.id ?? ''}:${place}`;
+}
+
 interface DraftState {
   drafts: Record<string, string>;
-  getDraft: (key: string) => string;
-  setDraft: (key: string, value: string) => void;
-  clearDraft: (key: string) => void;
+  getDraft: (place: string) => string;
+  setDraft: (place: string, value: string) => void;
+  clearDraft: (place: string) => void;
 }
 
 export const useDraftStore = create<DraftState>((set, get) => {
@@ -23,15 +28,17 @@ export const useDraftStore = create<DraftState>((set, get) => {
 
   return {
     drafts: load(),
-    getDraft: (key) => get().drafts[key] ?? '',
-    setDraft: (key, value) => {
+    getDraft: (place) => get().drafts[ownKey(place)] ?? '',
+    setDraft: (place, value) => {
+      const key = ownKey(place);
       const next = { ...get().drafts };
       if (value.trim()) next[key] = value;
       else delete next[key];
       set({ drafts: next });
       persist(next);
     },
-    clearDraft: (key) => {
+    clearDraft: (place) => {
+      const key = ownKey(place);
       if (!(key in get().drafts)) return;
       const next = { ...get().drafts };
       delete next[key];

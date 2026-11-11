@@ -158,7 +158,10 @@ pub(crate) async fn check_code(
         .await?
         .ok_or_else(wrong_code)?;
 
-    if !AuthService::verify_password(code.trim(), &attempt.code_hash).unwrap_or(false) {
+    if !AuthService::verify_password(code.trim(), &attempt.code_hash)
+        .await
+        .unwrap_or(false)
+    {
         state.email_code_repo.record_failure(user.id).await?;
         if attempt.attempts >= MAX_TRIES {
             audit::record(
@@ -204,7 +207,7 @@ pub(crate) async fn spend_code(
 
 async fn send_code(state: &AppState, user: &User, ip: &ClientIp) -> AppResult<()> {
     let code = format!("{:06}", rand::rng().random_range(0..1_000_000u32));
-    let hash = AuthService::hash_password(&code)?;
+    let hash = AuthService::hash_password(&code).await?;
     state
         .email_code_repo
         .replace(user.id, &hash, CODE_LIFETIME_MINS)

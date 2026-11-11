@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient } from '@/lib/queryClient';
@@ -16,6 +16,7 @@ import { isSessionExpired } from '@/lib/errors';
 import { registerWorker } from '@/lib/push';
 import { applyLanguage } from '@/lib/i18n';
 import { useEmptyRailWhenSignedOut } from '@/lib/desktopRail';
+import NewVersionBanner from '@/features/instance/NewVersionBanner';
 
 const Router = BrowserRouter;
 
@@ -29,9 +30,9 @@ const DesktopSsoPage = lazy(() => import('@/pages/DesktopSsoPage'));
 const InstanceAdminPage = lazy(() => import('@/pages/InstanceAdminPage'));
 const AppConnectCallbackPage = lazy(() => import('@/pages/AppConnectCallbackPage'));
 
-function SplashScreen() {
+function SplashScreen({ height = 'h-screen' }: { height?: string }) {
   return (
-    <div className="h-screen flex flex-col items-center justify-center bg-app">
+    <div className={`${height} flex flex-col items-center justify-center bg-app`}>
       <div className="w-12 h-12 rounded-2xl bg-purple-600 flex items-center justify-center text-2xl font-bold text-white mb-4">
         C
       </div>
@@ -47,6 +48,21 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (!hydrated) return <SplashScreen />;
   if (instances.length === 0) return <Navigate to="/add-instance" replace />;
   return <>{children}</>;
+}
+
+function SignedInLayout() {
+  return (
+    <ProtectedRoute>
+      <div className="h-dvh flex flex-col bg-app">
+        <NewVersionBanner />
+        <div className="flex-1 min-h-0 flex flex-col">
+          <Suspense fallback={<SplashScreen height="flex-1" />}>
+            <Outlet />
+          </Suspense>
+        </div>
+      </div>
+    </ProtectedRoute>
+  );
 }
 
 function AppContent() {
@@ -103,86 +119,18 @@ function AppContent() {
           <Route path="/sso/complete" element={<DesktopSsoPage step="complete" />} />
           <Route path="/passkey/desktop" element={<DesktopSsoPage step="passkey" />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
-          <Route
-            path="/oauth/apps/callback"
-            element={
-              <ProtectedRoute>
-                <AppConnectCallbackPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/app/admin"
-            element={
-              <ProtectedRoute>
-                <InstanceAdminPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/app/:workspaceId/c/:conversationId/:messageId"
-            element={
-              <ProtectedRoute>
-                <WorkspacePage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/app/:workspaceId/c/:conversationId"
-            element={
-              <ProtectedRoute>
-                <WorkspacePage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/app/:workspaceId/unreads"
-            element={
-              <ProtectedRoute>
-                <WorkspacePage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/app/:workspaceId/threads"
-            element={
-              <ProtectedRoute>
-                <WorkspacePage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/app/:workspaceId/lists/:listId"
-            element={
-              <ProtectedRoute>
-                <WorkspacePage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/app/:workspaceId/:channelId/:messageId"
-            element={
-              <ProtectedRoute>
-                <WorkspacePage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/app/:workspaceId/:channelId"
-            element={
-              <ProtectedRoute>
-                <WorkspacePage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/app/:workspaceId?"
-            element={
-              <ProtectedRoute>
-                <WorkspacePage />
-              </ProtectedRoute>
-            }
-          />
+          <Route element={<SignedInLayout />}>
+            <Route path="/oauth/apps/callback" element={<AppConnectCallbackPage />} />
+            <Route path="/app/admin" element={<InstanceAdminPage />} />
+            <Route path="/app/:workspaceId/c/:conversationId/:messageId" element={<WorkspacePage />} />
+            <Route path="/app/:workspaceId/c/:conversationId" element={<WorkspacePage />} />
+            <Route path="/app/:workspaceId/unreads" element={<WorkspacePage />} />
+            <Route path="/app/:workspaceId/threads" element={<WorkspacePage />} />
+            <Route path="/app/:workspaceId/lists/:listId" element={<WorkspacePage />} />
+            <Route path="/app/:workspaceId/:channelId/:messageId" element={<WorkspacePage />} />
+            <Route path="/app/:workspaceId/:channelId" element={<WorkspacePage />} />
+            <Route path="/app/:workspaceId?" element={<WorkspacePage />} />
+          </Route>
           <Route
             path="/"
             element={<Navigate to={instances.length === 0 ? '/add-instance' : '/app'} replace />}

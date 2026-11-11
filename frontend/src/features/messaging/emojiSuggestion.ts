@@ -8,11 +8,25 @@ import { useCustomEmojiStore } from '@/stores/customEmoji';
 import { EmojiSuggestionDropdown, type EmojiSuggestionHandle } from './EmojiSuggestionDropdown';
 import { placeSuggestion } from './suggestionPosition';
 
+declare module '@tiptap/core' {
+  interface Storage {
+    emojiSuggestion: EmojiSuggestionStorage;
+  }
+}
+
+interface EmojiSuggestionStorage {
+  open: boolean;
+}
+
 export const emojiSuggestionPluginKey = new PluginKey('emojiSuggestion');
 
-export const EmojiSuggestion = Extension.create({
+export const EmojiSuggestion = Extension.create<Record<string, never>, EmojiSuggestionStorage>({
   name: 'emojiSuggestion',
+  addStorage() {
+    return { open: false };
+  },
   addProseMirrorPlugins() {
+    const storage = this.storage;
     return [
       Suggestion<EmojiSuggestionItem>({
         editor: this.editor,
@@ -43,6 +57,7 @@ export const EmojiSuggestion = Extension.create({
 
           return {
             onStart(props) {
+              storage.open = props.items.length > 0;
               container = document.createElement('div');
               container.style.cssText = 'position:fixed;z-index:9999;pointer-events:auto';
               document.body.appendChild(container);
@@ -56,12 +71,14 @@ export const EmojiSuggestion = Extension.create({
             },
 
             onUpdate(props) {
+              storage.open = props.items.length > 0;
               renderer.updateProps(props);
               placeSuggestion(container, props.clientRect?.(), 260);
             },
 
             onKeyDown(props) {
               if (props.event.key === 'Escape') {
+                storage.open = false;
                 container.remove();
                 renderer.destroy();
                 return true;
@@ -70,6 +87,7 @@ export const EmojiSuggestion = Extension.create({
             },
 
             onExit() {
+              storage.open = false;
               container.remove();
               renderer.destroy();
             },
