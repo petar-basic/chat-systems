@@ -34,6 +34,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - *Add people* in a DM or group DM starts a group conversation with everyone in it plus the
   people you pick, as in Slack; the conversation you were in stays as it is. Starting a group
   with people who already have one opens that one instead of a second.
+- Sending a message while scrolled up in a channel takes you down to it, as in Slack. A message
+  from somebody else still waits behind *New messages*.
 
 ### Security
 
@@ -74,6 +76,11 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - Archiving or unarchiving a DM says that a direct message keeps its settings, instead of that
   only moderators can do it.
 - Changing an archived channel's message retention no longer posts a message into it.
+- Once you have scrolled back past the newest 50 messages of a channel, a message you send, one
+  that arrives and a thread reply sent to the channel too appear at the bottom, instead of a
+  page or more up the history until the window was refocused.
+- *New messages* goes all the way to the newest message instead of stopping short of it after a
+  long jump, and shows for a message that arrives just after older messages have loaded.
 
 ## [4.6.0] — 2026-11-10
 

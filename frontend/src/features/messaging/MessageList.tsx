@@ -25,6 +25,7 @@ import { useMessageActions } from './hooks/useMessageActions';
 import { formatDaySeparator } from './messageGrouping';
 import { QueryState } from '@/shared/components/QueryState/QueryState';
 import { QUERY_KEYS } from '@/shared/constants';
+import { useCurrentUser } from '@/features/instance';
 
 interface Props {
   channelId: string;
@@ -139,8 +140,12 @@ export default function MessageList({
 
   useEffect(() => () => releaseUnread(channelId), [channelId]);
 
+  const { data: me } = useCurrentUser();
+  const lastMessage = messages.at(-1);
+  const followKey = lastMessage && me && lastMessage.user_id === me.id ? lastMessage.id : undefined;
+
   const [roving] = useState(createRovingStore);
-  const lastMessageId = messages.at(-1)?.id ?? null;
+  const lastMessageId = lastMessage?.id ?? null;
   useEffect(() => {
     roving.setFallback(lastMessageId);
   }, [roving, lastMessageId]);
@@ -227,6 +232,7 @@ export default function MessageList({
             scrollToAlign={scrollTarget === dividerKey ? 'start' : 'center'}
             markerKey={dividerKey}
             stickKey={channelId}
+            followKey={followKey}
             onScrollToKeyHandled={() => setScrollTarget(undefined)}
             qa="message-list"
             ariaLabel={t('list.label')}

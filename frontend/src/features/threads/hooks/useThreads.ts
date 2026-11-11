@@ -169,7 +169,7 @@ export const useSendThreadReply = (parentMessageId: string, channelId: string, u
       placeReply(queryClient, sent, id);
       if (shownInChannel(sent)) {
         queryClient.setQueryData<MessagesInfiniteData>(QUERY_KEYS.messages(channelId), (old) =>
-          upsertMessage(old, sent, 'lastPage', newestFirst),
+          upsertMessage(old, sent, newestFirst),
         );
       }
       if (!claimReplyCount(newMessage.id)) return;

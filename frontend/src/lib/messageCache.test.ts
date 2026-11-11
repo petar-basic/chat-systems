@@ -47,23 +47,23 @@ describe('messageCache.hasMessage', () => {
 });
 
 describe('messageCache.upsertMessage', () => {
-  it('inserts a new message at the head of the last page', () => {
-    const c = cache([[m('a')], [m('b')]]);
-    const next = upsertMessage(c, m('new'), 'lastPage')!;
-    expect(next.pages[0].data.map((x) => x.id)).toEqual(['a']);
-    expect(next.pages[1].data.map((x) => x.id)).toEqual(['new', 'b']);
+  it('inserts a new message at the head of the newest page, which is the first', () => {
+    const c = cache([[m('b')], [m('a')]]);
+    const next = upsertMessage(c, m('new'))!;
+    expect(next.pages[0].data.map((x) => x.id)).toEqual(['new', 'b']);
+    expect(next.pages[1].data.map((x) => x.id)).toEqual(['a']);
   });
 
-  it('inserts a new message at the head of the first page', () => {
-    const c = cache([[m('a')], [m('b')]]);
-    const next = upsertMessage(c, m('new'), 'firstPage')!;
-    expect(next.pages[0].data.map((x) => x.id)).toEqual(['new', 'a']);
-    expect(next.pages[1].data.map((x) => x.id)).toEqual(['b']);
+  it('leaves the older pages as they were', () => {
+    const c = cache([[m('c')], [m('b')], [m('a')]]);
+    const next = upsertMessage(c, m('new'))!;
+    expect(next.pages[1]).toBe(c.pages[1]);
+    expect(next.pages[2]).toBe(c.pages[2]);
   });
 
   it('dedups by id — replaces in place instead of inserting a duplicate', () => {
     const c = cache([[m('a', 'old', { pending: true })]]);
-    const next = upsertMessage(c, m('a', 'confirmed'), 'lastPage')!;
+    const next = upsertMessage(c, m('a', 'confirmed'))!;
     expect(next.pages[0].data).toHaveLength(1);
     expect(next.pages[0].data[0].content).toBe('confirmed');
     expect(next.pages[0].data[0].pending).toBeUndefined();
@@ -71,29 +71,29 @@ describe('messageCache.upsertMessage', () => {
 
   it('preserves extra page fields (e.g. next_cursor) on insert', () => {
     const c = cache([[m('a')]], ['cursor-1']);
-    const next = upsertMessage(c, m('new'), 'lastPage')!;
+    const next = upsertMessage(c, m('new'))!;
     expect(next.pages[0].next_cursor).toBe('cursor-1');
   });
 
   it('returns the cache unchanged when undefined or empty', () => {
-    expect(upsertMessage(undefined, m('x'), 'lastPage')).toBeUndefined();
+    expect(upsertMessage(undefined, m('x'))).toBeUndefined();
     const empty = cache([]);
-    expect(upsertMessage(empty, m('x'), 'lastPage')).toBe(empty);
+    expect(upsertMessage(empty, m('x'))).toBe(empty);
   });
 
   it('keeps the target page ordered by created_at when an out-of-order message arrives', () => {
     const t = (s: string) => `2026-06-05T10:00:0${s}.000Z`;
     const c = cache([[m('c', 'c', { created_at: t('3') }), m('b', 'b', { created_at: t('2') })]]);
     const late = m('a', 'a', { created_at: t('1') });
-    const next = upsertMessage(c, late, 'firstPage', newestFirst)!;
+    const next = upsertMessage(c, late, newestFirst)!;
     expect(next.pages[0].data.map((x) => x.id)).toEqual(['c', 'b', 'a']);
   });
 
-  it('places a newer realtime message ahead of older ones regardless of insert edge', () => {
+  it('places a newer realtime message ahead of older ones', () => {
     const t = (s: string) => `2026-06-05T10:00:0${s}.000Z`;
     const c = cache([[m('b', 'b', { created_at: t('2') }), m('a', 'a', { created_at: t('1') })]]);
     const newer = m('c', 'c', { created_at: t('3') });
-    const next = upsertMessage(c, newer, 'lastPage', newestFirst)!;
+    const next = upsertMessage(c, newer, newestFirst)!;
     expect(next.pages[0].data.map((x) => x.id)).toEqual(['c', 'b', 'a']);
   });
 });

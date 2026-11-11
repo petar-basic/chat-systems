@@ -12,7 +12,7 @@ export const oldestFirst = (cache: ThreadReplies | undefined): Message[] =>
 export function placeReply(queryClient: QueryClient, reply: Message, replacing?: string) {
   if (!reply.thread_parent_id) return;
   queryClient.setQueryData<ThreadReplies>(QUERY_KEYS.thread(reply.thread_parent_id), (cache) =>
-    upsertMessage(replacing ? removeMessageById(cache, replacing) : cache, reply, 'firstPage', newestFirst),
+    upsertMessage(replacing ? removeMessageById(cache, replacing) : cache, reply, newestFirst),
   );
 }
 

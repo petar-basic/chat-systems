@@ -24,6 +24,7 @@ interface Props<R extends VirtualRow> {
   scrollToAlign?: 'start' | 'center';
   markerKey?: string;
   stickKey?: string;
+  followKey?: string;
   onScrollToKeyHandled?: () => void;
   qa?: string;
   ariaLabel?: string;
@@ -49,6 +50,7 @@ export default function VirtualMessageList<R extends VirtualRow>({
   scrollToAlign = 'center',
   markerKey,
   stickKey,
+  followKey,
   onScrollToKeyHandled,
   qa,
   ariaLabel,
@@ -78,12 +80,13 @@ export default function VirtualMessageList<R extends VirtualRow>({
     return el.scrollHeight - el.scrollTop - el.clientHeight < BOTTOM_THRESHOLD_PX;
   }, []);
 
-  const jumpToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
-    const el = scrollRef.current;
-    if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior });
-    setHasUnseen(false);
-  }, []);
+  const jumpToBottom = useCallback(
+    (behavior: ScrollBehavior = 'auto') => {
+      virtualizer.scrollToEnd({ behavior });
+      setHasUnseen(false);
+    },
+    [virtualizer],
+  );
 
   // How far the reader was from the end of the list. Prepending older messages
   // does not change that distance, so restoring it puts the viewport exactly
@@ -171,6 +174,10 @@ export default function VirtualMessageList<R extends VirtualRow>({
     }
 
     if (prepended) anchorArmed.current = true;
+    else if (appended && anchorArmed.current) {
+      anchor.current = null;
+      anchorArmed.current = false;
+    }
 
     if (anchor.current !== null && anchorArmed.current) {
       const target = Math.max(0, el.scrollHeight - el.clientHeight - anchor.current);
@@ -185,6 +192,7 @@ export default function VirtualMessageList<R extends VirtualRow>({
 
     if (appended && !prepended) {
       if (atBottom) stick.current = true;
+      else if (nextLast === followKey) jumpToBottom();
       else setHasUnseen(true);
     }
 
@@ -192,7 +200,7 @@ export default function VirtualMessageList<R extends VirtualRow>({
       if (el.scrollHeight - el.scrollTop - el.clientHeight > 1) el.scrollTop = el.scrollHeight;
       else if (el.scrollHeight > el.clientHeight) stick.current = false;
     }
-  }, [rows, totalSize, atBottom, stickKey]);
+  }, [rows, totalSize, atBottom, stickKey, followKey, jumpToBottom]);
 
   useEffect(() => {
     if (!scrollToKey) return;

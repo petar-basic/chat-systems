@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { API, login, userContext, devWorkspace } from './helpers';
+import { API, login, send, userContext, devWorkspace } from './helpers';
 
 const TOTAL = 120;
 
@@ -20,7 +20,7 @@ async function mountedOrder(page: Page): Promise<number[]> {
 type Ctx = import('@playwright/test').APIRequestContext;
 
 /** Spread across three authors: one user posting 120 messages trips the write limit. */
-async function seedChannel(authors: Ctx[], prefix: string) {
+async function seedChannel(authors: Ctx[], prefix: string, total = TOTAL) {
   const [admin] = authors;
   const workspace = await devWorkspace(admin);
   const stamp = Date.now();
@@ -30,7 +30,7 @@ async function seedChannel(authors: Ctx[], prefix: string) {
   expect(created.status(), 'create channel').toBe(200);
   const channelId = (await created.json()).id as string;
 
-  for (let i = 0; i < TOTAL; i++) {
+  for (let i = 0; i < total; i++) {
     const posted = await authors[i % authors.length].post(`${API}/channels/${channelId}/messages`, {
       data: { content: `${prefix}-${stamp} #${i}` },
     });
@@ -151,6 +151,90 @@ test('loading an older page does not move the viewport', async ({ page }) => {
       Math.abs(after - before),
       'the reader must still be looking at the same place, give or take the row on the boundary',
     ).toBeLessThanOrEqual(1);
+  } finally {
+    await admin.delete(`${API}/channels/${channelId}`);
+    await Promise.all(authors.map((ctx) => ctx.dispose()));
+  }
+});
+
+test('a new message lands at the bottom after older pages have loaded', async ({ page }) => {
+  test.slow();
+  const { ctx: admin } = await userContext('admin@dev.local');
+  const { ctx: alice } = await userContext('alice@dev.local');
+  const { ctx: bob } = await userContext('bob@dev.local');
+  const authors = [admin, alice, bob];
+  const { workspace, channelId, stamp } = await seedChannel(authors, 'bottom', 60);
+  const prefix = `bottom-${stamp}`;
+  const isSend = (url: string, method: string) =>
+    method === 'POST' && new URL(url).pathname.endsWith(`/channels/${channelId}/messages`);
+
+  try {
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let holding = true;
+    await page.route(
+      (url) => url.pathname.endsWith(`/channels/${channelId}/messages`),
+      async (route) => {
+        if (holding && route.request().method() === 'POST') {
+          holding = false;
+          await held;
+        }
+        await route.continue();
+      },
+    );
+
+    await login(page, 'admin@dev.local');
+    await page.goto(`/app/${workspace.id}/${channelId}`);
+    const list = page.locator('[data-qa="message-list"]');
+    const lastRow = list.locator('[data-qa="message-row"]').last();
+    await expect(list.getByText(`${prefix} #59`)).toBeVisible({ timeout: 20_000 });
+
+    const scrollToOldest = () =>
+      expect
+        .poll(
+          async () => {
+            await list.evaluate((el) => {
+              el.scrollTop = 0;
+            });
+            return list.getByText(`${prefix} #0`).isVisible();
+          },
+          { timeout: 20_000 },
+        )
+        .toBe(true);
+
+    await scrollToOldest();
+    await send(page, `${prefix} mine`);
+    await expect(lastRow, 'the sent message, before the server has it').toContainText(`${prefix} mine`);
+    await expect(lastRow).toHaveAttribute('data-own', 'false');
+
+    const confirmed = page.waitForResponse((res) => isSend(res.url(), res.request().method()));
+    release();
+    expect((await confirmed).status()).toBe(200);
+    await expect(lastRow).toHaveAttribute('data-own', 'true');
+    await expect(lastRow, 'the sent message, once the server has it').toContainText(`${prefix} mine`);
+
+    await scrollToOldest();
+    const posted = await alice.post(`${API}/channels/${channelId}/messages`, {
+      data: { content: `${prefix} theirs` },
+    });
+    expect(posted.status()).toBe(200);
+    await page.locator('[data-qa="jump-to-latest"]').click();
+    await expect(lastRow, 'a message that arrives').toContainText(`${prefix} theirs`);
+
+    await scrollToOldest();
+    const oldest = list.locator('[data-qa="message-row"]', { hasText: `${prefix} #0` });
+    await oldest.hover();
+    await oldest.locator('[data-qa="message-action-thread"]').click();
+    const panel = page.locator('[data-qa="thread-panel"]');
+    await panel.locator('[data-qa="thread-also-to-channel"]').check();
+    const editor = panel.locator('.ProseMirror[contenteditable="true"]');
+    await editor.click();
+    await editor.fill(`${prefix} loud`);
+    await editor.press('Enter');
+    await expect(panel.getByText(`${prefix} loud`)).toBeVisible({ timeout: 15_000 });
+    await expect(lastRow, 'a reply also sent to the channel').toContainText(`${prefix} loud`);
   } finally {
     await admin.delete(`${API}/channels/${channelId}`);
     await Promise.all(authors.map((ctx) => ctx.dispose()));

@@ -7,8 +7,6 @@ interface WithId {
 type Page = { data: WithId[] };
 type ItemOf<P extends Page> = P['data'][number];
 
-export type InsertEdge = 'firstPage' | 'lastPage';
-
 export const newestFirst = <T extends { created_at: string }>(a: T, b: T): number =>
   b.created_at.localeCompare(a.created_at);
 
@@ -23,7 +21,6 @@ export function hasMessage<P extends Page>(cache: InfiniteData<P> | undefined, i
 export function upsertMessage<P extends Page>(
   cache: InfiniteData<P> | undefined,
   message: ItemOf<P>,
-  edge: InsertEdge,
   compare?: (a: ItemOf<P>, b: ItemOf<P>) => number,
 ): InfiniteData<P> | undefined {
   if (!cache) return cache;
@@ -43,15 +40,9 @@ export function upsertMessage<P extends Page>(
   }
 
   if (cache.pages.length === 0) return cache;
-  const targetIndex = edge === 'lastPage' ? cache.pages.length - 1 : 0;
-  return {
-    ...cache,
-    pages: cache.pages.map((p, i) => {
-      if (i !== targetIndex) return p;
-      const data = [message, ...p.data];
-      return rebuild(p, compare ? data.sort(compare) : data);
-    }),
-  };
+  const [newest, ...older] = cache.pages;
+  const data = [message, ...newest.data];
+  return { ...cache, pages: [rebuild(newest, compare ? data.sort(compare) : data), ...older] };
 }
 
 export function patchMessageById<P extends Page>(

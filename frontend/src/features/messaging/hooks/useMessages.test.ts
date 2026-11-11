@@ -6,6 +6,7 @@ import {
   type MessagesResponse,
 } from './useMessages';
 import { MESSAGES_PAGE_SIZE } from '@/shared/constants';
+import { newestFirst, removeMessageById, upsertMessage } from '@/lib/messageCache';
 import type { Message } from '@/stores/workspace';
 
 const BASE = Date.parse('2026-01-01T12:00:00.000Z');
@@ -71,5 +72,47 @@ describe('messagesOldestFirst', () => {
 
   it('returns an empty list before the first page arrives', () => {
     expect(messagesOldestFirst(undefined)).toEqual([]);
+  });
+});
+
+describe('a message added to a channel that has loaded more than one page', () => {
+  const newest = serverPage(MESSAGES_PAGE_SIZE);
+  const older: MessagesResponse = {
+    data: Array.from({ length: 10 }, (_, i) => message(`old-${i}`, BASE - (MESSAGES_PAGE_SIZE + i) * 1000)),
+  };
+  const two = cache([newest, older]);
+  const lastRow = (data: MessagesInfiniteData | undefined) => messagesOldestFirst(data).at(-1)?.id;
+
+  it('is the last row when it is sent', () => {
+    const sent = { ...message('client-1', BASE + 60_000), pending: true };
+
+    expect(lastRow(upsertMessage(two, sent, newestFirst))).toBe('client-1');
+  });
+
+  it('is still the last row once the server confirms it', () => {
+    const pending = upsertMessage(two, { ...message('client-1', BASE + 60_000), pending: true }, newestFirst);
+    const confirmed = upsertMessage(
+      removeMessageById(pending, 'client-1'),
+      message('server-1', BASE + 61_000),
+      newestFirst,
+    );
+
+    expect(lastRow(confirmed)).toBe('server-1');
+    expect(messagesOldestFirst(confirmed).filter((m) => m.id === 'client-1')).toEqual([]);
+  });
+
+  it('is the last row when somebody else sends it', () => {
+    const arrived = upsertMessage(two, message('theirs', BASE + 30_000), newestFirst);
+
+    expect(lastRow(arrived)).toBe('theirs');
+    expect(arrived?.pages[0].data).toHaveLength(MESSAGES_PAGE_SIZE + 1);
+    expect(arrived?.pages[1]).toBe(older);
+  });
+
+  it('keeps the history above it in order', () => {
+    const arrived = upsertMessage(two, message('theirs', BASE + 30_000), newestFirst);
+    const timestamps = messagesOldestFirst(arrived).map((m) => Date.parse(m.created_at));
+
+    expect([...timestamps].sort((x, y) => x - y)).toEqual(timestamps);
   });
 });

@@ -139,7 +139,7 @@ export const useSendMessage = (channelId: string, userId: string) => {
       };
       useUnsentStore.getState().drop(optimistic);
       queryClient.setQueryData<MessagesInfiniteData>(key, (old) =>
-        upsertMessage(old, optimistic, 'lastPage', newestFirst),
+        upsertMessage(old, optimistic, newestFirst),
       );
       return { optimistic };
     },
@@ -157,12 +157,7 @@ export const useSendMessage = (channelId: string, userId: string) => {
       // on the server's. Swapping them here is what stops the websocket echo
       // from arriving as a second copy of the same message.
       queryClient.setQueryData<MessagesInfiniteData>(key, (old) =>
-        upsertMessage(
-          removeMessageById(old, id),
-          { ...message, pending: false, failed: false },
-          'lastPage',
-          newestFirst,
-        ),
+        upsertMessage(removeMessageById(old, id), { ...message, pending: false, failed: false }, newestFirst),
       );
     },
   });

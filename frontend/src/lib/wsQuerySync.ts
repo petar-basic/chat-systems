@@ -199,7 +199,6 @@ export const useWebSocketQuerySync = () => {
             upsertMessage(
               message.client_message_id ? removeMessageById(cache, message.client_message_id) : cache,
               { ...message, pending: false },
-              'lastPage',
               newestFirst,
             ),
           true,
