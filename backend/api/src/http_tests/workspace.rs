@@ -1491,7 +1491,7 @@ async fn a_member_who_left_keeps_the_name_they_had_here(pool: PgPool) {
     let (_, _, outsider) = seed_and_login(&app, &state, "former-out", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Former WS").await;
     add_ws_member(&state, ws_id, lena_id, "member").await;
-    let ch = seed_channel(&state, ws_id, owner_id, "general", false).await;
+    let ch = seed_channel(&state, ws_id, owner_id, "handover", false).await;
     join(&state, ch, lena_id).await;
 
     let (status, body) = send(
