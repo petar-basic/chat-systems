@@ -25,8 +25,17 @@ const message = (id: string, user: string, content: string, at: string, parent: 
   deleted_at: null,
 });
 
-const thread = (unread: number): ThreadSummary => ({
+const place = (overrides: Partial<ThreadSummary['channel']> = {}): ThreadSummary['channel'] => ({
+  name: 'design',
+  channel_type: 'public',
+  is_archived: false,
+  is_member: true,
+  ...overrides,
+});
+
+const thread = (unread: number, channel = place()): ThreadSummary => ({
   root: { ...message('root', 'u1', 'the plan', '2026-10-20T09:00:00Z', null), reply_count: 5 },
+  channel,
   latest_replies: [
     message('r3', 'u1', 'my reply', '2026-10-21T09:00:00Z'),
     message('r4', 'u2', 'second answer', '2026-10-22T09:00:00Z'),
@@ -66,19 +75,23 @@ vi.mock('@/features/messaging/useComposerAttachments', () => ({
 }));
 
 const onOpenThread = vi.fn();
+const onOpenChannel = vi.fn();
+const onOpenConversation = vi.fn();
 
-const renderView = (channelName = 'design') =>
+const sidebar = (name = 'design') => [{ id: 'ch-1', name, channel_type: 'public' } as never];
+
+const renderView = (channels: never[] = sidebar()) =>
   render(
     <QueryClientProvider client={new QueryClient()}>
       <ThreadsView
         workspaceId="ws-1"
         currentUserId="u1"
-        channels={[{ id: 'ch-1', name: channelName, channel_type: 'public' } as never]}
+        channels={channels}
         conversations={[]}
         members={[]}
         onOpenThread={onOpenThread}
-        onOpenChannel={vi.fn()}
-        onOpenConversation={vi.fn()}
+        onOpenChannel={onOpenChannel}
+        onOpenConversation={onOpenConversation}
       />
     </QueryClientProvider>,
   );
@@ -92,6 +105,8 @@ describe('ThreadsView', () => {
     markRead.mockClear();
     sendReply.mockClear();
     onOpenThread.mockClear();
+    onOpenChannel.mockClear();
+    onOpenConversation.mockClear();
   });
 
   it('shows each thread with its root, latest replies and the rest a click away', () => {
@@ -157,6 +172,55 @@ describe('ThreadsView', () => {
     );
   });
 
+  it('clears the box to also send to the channel once a reply is scheduled', () => {
+    threads = [thread(0)];
+    renderView();
+    fireEvent.click(screen.getByLabelText('Also send to #design'));
+
+    act(() => (composer.onScheduled as () => void)());
+
+    expect(screen.getByLabelText('Also send to #design')).not.toBeChecked();
+    expect(composer.scheduleTarget).toEqual(expect.objectContaining({ alsoToChannel: false }));
+  });
+
+  it('names a thread in an archived channel, takes no reply there, and opens the channel', () => {
+    threads = [thread(0, place({ is_archived: true }))];
+    renderView([]);
+    const card = screen.getByTestId('thread-card');
+    expect(card).toHaveAccessibleName('Thread in design');
+    expect(screen.queryByTestId('thread-card-reply')).toBeNull();
+    expect(screen.getByTestId('thread-card-archived')).toHaveTextContent(
+      '#design is archived, so its threads take no new replies.',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'design' }));
+
+    expect(onOpenChannel).toHaveBeenCalledWith('ch-1');
+    expect(onOpenConversation).not.toHaveBeenCalled();
+  });
+
+  it('names a thread in a public channel you left and opens that channel', () => {
+    threads = [thread(0, place({ is_member: false }))];
+    renderView([]);
+    expect(screen.getByTestId('thread-card')).toHaveAccessibleName('Thread in design');
+    expect(screen.getByTestId('thread-card-reply')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'design' }));
+
+    expect(onOpenChannel).toHaveBeenCalledWith('ch-1');
+  });
+
+  it('opens a thread in a direct message as that conversation', () => {
+    threads = [thread(0, place({ name: null, channel_type: 'dm' }))];
+    renderView([]);
+    expect(screen.getByLabelText('Also send to the conversation')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Direct message' }));
+
+    expect(onOpenConversation).toHaveBeenCalledWith('ch-1');
+    expect(onOpenChannel).not.toHaveBeenCalled();
+  });
+
   it('says so when nothing is followed', () => {
     threads = [];
     renderView();
@@ -171,9 +235,9 @@ describe('ThreadsView in Japanese', () => {
 
   it('names each thread and the channel to also send to, as text', async () => {
     const hostile = '<img src=x onerror="alert(1)"> {{name}}';
-    threads = [thread(2)];
+    threads = [thread(2, place({ name: hostile }))];
     await i18n.changeLanguage('ja');
-    renderView(hostile);
+    renderView(sidebar(hostile));
     expect(screen.getByRole('heading', { name: 'スレッド' })).toBeInTheDocument();
     expect(screen.getByTestId('thread-card')).toHaveAccessibleName(`${hostile} のスレッド`);
     expect(screen.getByLabelText(`#${hostile} にも投稿`)).toBeInTheDocument();

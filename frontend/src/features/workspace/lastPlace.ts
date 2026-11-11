@@ -29,6 +29,17 @@ export function rememberPlace(workspaceId: string, path: string) {
   }
 }
 
+export function forgetPlace(workspaceId: string, path: string) {
+  const stored = read();
+  if (stored.places[workspaceId] !== path) return;
+  const places = Object.fromEntries(Object.entries(stored.places).filter(([id]) => id !== workspaceId));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...stored, places }));
+  } catch {
+    return;
+  }
+}
+
 export function lastWorkspaceId(): string | undefined {
   return read().workspaceId;
 }

@@ -6077,6 +6077,12 @@ export interface components {
             selected: string;
             sidebar: string;
         };
+        ThreadChannel: {
+            channel_type: components["schemas"]["ChannelType"];
+            is_archived: boolean;
+            is_member: boolean;
+            name?: string | null;
+        };
         ThreadPage: {
             data: components["schemas"]["ThreadSummary"][];
             /** Format: date-time */
@@ -6090,6 +6096,7 @@ export interface components {
             unread_count: number;
         };
         ThreadSummary: {
+            channel: components["schemas"]["ThreadChannel"];
             /** Format: date-time */
             last_read_at: string;
             /** Format: date-time */

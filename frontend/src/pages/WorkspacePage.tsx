@@ -193,10 +193,7 @@ export default function WorkspacePage() {
             conversations={c.conversations}
             members={c.workspaceMembers}
             onOpenThread={panel.openThread}
-            onOpenChannel={(channelId) => {
-              const channel = c.channels.find((ch) => ch.id === channelId);
-              if (channel) c.handleSelectChannel(channel);
-            }}
+            onOpenChannel={(channelId) => c.handleSelectChannel({ id: channelId })}
             onOpenConversation={c.handleOpenConversation}
             onOpenNav={() => c.setMobileNavOpen(true)}
           />

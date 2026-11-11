@@ -23,7 +23,8 @@
     "unfollow": "Unfollow",
     "empty": "No replies yet. Start the conversation!",
     "earlier": "Show earlier replies",
-    "deleted": "This thread was deleted, so it takes no new replies."
+    "deleted": "This thread was deleted, so it takes no new replies.",
+    "archived": "#{{name}} is archived, so its threads take no new replies."
   },
   "toasts": {
     "followFailed": "Couldn't update the thread"

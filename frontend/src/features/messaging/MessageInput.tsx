@@ -83,6 +83,7 @@ interface Props {
   workspaceId?: string;
   instanceUrl?: string;
   scheduleTarget?: ScheduleTarget;
+  onScheduled?: () => void;
   pollTarget?: PollTarget;
   shortcutChannelId?: string;
   slashCommands?: boolean;
@@ -108,6 +109,7 @@ export default function MessageInput({
   workspaceId,
   instanceUrl,
   scheduleTarget,
+  onScheduled,
   pollTarget,
   shortcutChannelId,
   slashCommands = false,
@@ -306,12 +308,13 @@ export default function MessageInput({
         setShowSchedule(false);
         setCustomSendAt('');
         setScheduleError(null);
+        onScheduled?.();
         toast.success(t('schedule.scheduled', { time: formatDateTime(sendAt) }));
       } catch (err) {
         toast.error(toUserMessage(err, t('schedule.failed')));
       }
     },
-    [editor, scheduleTarget, scheduleMessage, draftKey, attachments, t],
+    [editor, scheduleTarget, scheduleMessage, draftKey, attachments, onScheduled, t],
   );
 
   const [showPoll, setShowPoll] = useState(false);

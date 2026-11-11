@@ -68,6 +68,9 @@ export function useWorkspaceController() {
     deletedWorkspaces: data.deletedWorkspaces,
     noWorkspaces: data.noWorkspaces,
     channels: data.channels,
+    conversations: data.conversations,
+    conversationsLoaded: data.conversationsLoaded,
+    refetchConversations: data.refetchConversations,
     markConversationReadServer: data.markConversationReadServer,
     panel,
   });
@@ -121,7 +124,7 @@ export function useWorkspaceController() {
   );
 
   const handleSelectChannel = useCallback(
-    (ch: Channel) => {
+    (ch: Pick<Channel, 'id'>) => {
       setMobileNavOpen(false);
       const wsId = workspaceId || currentWorkspace?.id;
       if (!wsId) return;

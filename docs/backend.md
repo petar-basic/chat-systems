@@ -921,7 +921,7 @@ mentions, who already have the mention. Rows go with the workspace membership an
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
-| GET | `/workspaces/:ws_id/threads` | Query: `cursor?` (the previous page's `next_cursor`), `limit=20 (≤50)` | `{ data: ThreadSummary[], next_cursor }` — followed threads with replies, newest reply first, each with its root, the latest three replies (oldest first), `unread_count`, `last_read_at` and `last_reply_at` |
+| GET | `/workspaces/:ws_id/threads` | Query: `cursor?` (the previous page's `next_cursor`), `limit=20 (≤50)` | `{ data: ThreadSummary[], next_cursor }` — followed threads with replies, newest reply first, each with its root, its `channel` (`{ name, channel_type, is_archived, is_member }`, so a thread in an archived channel or a public one the reader left can be named), the latest three replies (oldest first), `unread_count`, `last_read_at` and `last_reply_at` |
 | GET | `/workspaces/:ws_id/threads/unread` | — | `{ count }` — followed threads with an unread reply |
 | POST | `/threads/:root_id/read` | — | `ThreadState` (`{ root_message_id, following, unread_count }`) — a reply's id reads its root; marks the thread's notifications read and announces `thread.read_state` |
 | PUT | `/threads/:root_id/follow` | — | `ThreadState` |

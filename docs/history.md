@@ -2794,3 +2794,26 @@ message newer than `last_read_before_at`, once the list reaches back that far, t
 itself: the refetch usually returns the counts it had, and structural sharing then keeps the
 old object, so the effect in `useWorkspaceData` would never run again. Reproduced by hand before
 the change: three messages while away from the workspace showed 6 on return, and 3 after.
+
+### [CS-121g] Threads that know where they are ✅ shipped
+`list_followed` already returned threads in archived channels and in public channels the
+reader had left; the client placed them by the sidebar's channels, which carry neither, so
+`placeOf` took them for conversations. `ThreadSummary` now carries the root's `channel`
+(`name`, `channel_type`, `is_archived`, `is_member`), read in the same query, and `placeOf`
+goes by that. The card's name opens the channel route by id, where `useChannelPreview` already
+showed an archived channel read-only and a public one with *Join*; `WorkspacePage` used to
+drop the click when the sidebar did not have the channel. A public channel you left keeps its
+composer: the server lets a member of the workspace reply there, as it lets them post in a
+public channel they have not joined. The conversation route had no fallback, so an id that is
+not one of your conversations now refetches the list once (a DM made a moment ago may not be
+in it yet) and, if still absent, opens the workspace's root and drops the remembered place.
+The panel already read its root live with `useLiveMessage`, but `deleteMessageById` removes a
+root with no replies instead of marking it, and the hook then fell back to the copy the panel
+opened with; it now also listens for `message.deleted` on that id. The panel took its channel
+from the sidebar or the open channel, so a thread of an archived channel opened from *Threads*
+offered a composer; it now falls back to `GET /channels/{id}`, and its archived note became an
+i18n key. Scheduling cleared the editor but not *Also send to*, which lives in the panel and
+the card; `MessageInput` takes `onScheduled`. Checked by hand: the three cards (DM, left,
+archived), each name opening its place, a remembered dead conversation landing on #general, a
+new group DM opened at once staying put, a root deleted under an open panel, and the box after
+scheduling.

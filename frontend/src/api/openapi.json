@@ -19390,6 +19390,31 @@
           }
         }
       },
+      "ThreadChannel": {
+        "type": "object",
+        "required": [
+          "channel_type",
+          "is_archived",
+          "is_member"
+        ],
+        "properties": {
+          "channel_type": {
+            "$ref": "#/components/schemas/ChannelType"
+          },
+          "is_archived": {
+            "type": "boolean"
+          },
+          "is_member": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
       "ThreadPage": {
         "type": "object",
         "required": [
@@ -19436,12 +19461,16 @@
         "type": "object",
         "required": [
           "root",
+          "channel",
           "latest_replies",
           "unread_count",
           "last_read_at",
           "last_reply_at"
         ],
         "properties": {
+          "channel": {
+            "$ref": "#/components/schemas/ThreadChannel"
+          },
           "last_read_at": {
             "type": "string",
             "format": "date-time"

@@ -1,10 +1,11 @@
-import { useCallback, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { components } from '@/api/schema';
 import type { Message } from '@/stores/workspace';
 import { useCurrentApi } from '@/shared/hooks/useCurrentApi';
 import { logger } from '@/lib/logger';
+import { globalEventBus } from '@/lib/globalEventBus';
 import { refusalOr } from '@/lib/errors';
 import { toast } from '@/shared/components/Toast';
 import { QUERY_KEYS } from '@/shared/constants';
@@ -260,5 +261,17 @@ export const useLiveMessage = (message: Message): Message => {
     }
     return message;
   }, [queryClient, message]);
-  return useSyncExternalStore(subscribe, read);
+  const live = useSyncExternalStore(subscribe, read);
+  const [deleted, setDeleted] = useState<{ id: string; at: string } | null>(null);
+  useEffect(
+    () =>
+      globalEventBus.on('message.deleted', (event) => {
+        if (event.message_id === message.id) setDeleted({ id: message.id, at: new Date().toISOString() });
+      }),
+    [message.id],
+  );
+  return useMemo(
+    () => (deleted?.id === live.id && !live.deleted_at ? { ...live, deleted_at: deleted.at } : live),
+    [live, deleted],
+  );
 };

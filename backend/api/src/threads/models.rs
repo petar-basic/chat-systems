@@ -4,6 +4,7 @@ use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
 
 use crate::messaging::models::Message;
+use crate::workspace::models::ChannelType;
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct ThreadState {
@@ -23,11 +24,24 @@ pub struct FollowedThread {
     pub unread_count: i64,
     pub last_read_at: DateTime<Utc>,
     pub last_reply_at: DateTime<Utc>,
+    pub channel_name: Option<String>,
+    pub channel_type: ChannelType,
+    pub channel_archived: bool,
+    pub is_member: bool,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ThreadChannel {
+    pub name: Option<String>,
+    pub channel_type: ChannelType,
+    pub is_archived: bool,
+    pub is_member: bool,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
 pub struct ThreadSummary {
     pub root: Message,
+    pub channel: ThreadChannel,
     pub latest_replies: Vec<Message>,
     pub unread_count: i64,
     pub last_read_at: DateTime<Utc>,
