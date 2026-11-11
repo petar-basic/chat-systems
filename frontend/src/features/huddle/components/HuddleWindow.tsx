@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { LayoutGrid, Maximize2, Expand, Shrink } from 'lucide-react';
 import { useHuddleStore } from '@/stores/huddle';
 import type { HuddleControls } from '../HuddleController';
@@ -7,6 +8,7 @@ import { HuddleStage, type Layout } from './HuddleStage';
 import { HuddleControlBar } from './HuddleControlBar';
 
 export function HuddleWindow({ controls }: { controls: HuddleControls }) {
+  const { t } = useTranslation('huddle');
   const active = useHuddleStore((s) => s.active);
   const participants = useHuddleStore((s) => s.participants);
   const localMuted = useHuddleStore((s) => s.localMuted);
@@ -39,7 +41,7 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
   return (
     <div
       role="dialog"
-      aria-label="Huddle"
+      aria-label={t('window.title')}
       className={
         expanded
           ? 'fixed inset-0 z-60 bg-app p-4 flex flex-col gap-3'
@@ -48,21 +50,22 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
     >
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold text-fg">
-          Huddle <span className="text-muted font-normal">· {tiles.length}</span>
+          {t('window.title')}{' '}
+          <span className="text-muted font-normal">{t('window.people', { count: tiles.length })}</span>
         </span>
         <div className="flex items-center gap-1">
           <button
             onClick={() => setLayout((l) => (l === 'grid' ? 'focus' : 'grid'))}
-            aria-label={layout === 'grid' ? 'Focus view' : 'Grid view'}
-            data-tooltip={layout === 'grid' ? 'Focus view' : 'Grid view'}
+            aria-label={layout === 'grid' ? t('window.focusView') : t('window.gridView')}
+            data-tooltip={layout === 'grid' ? t('window.focusView') : t('window.gridView')}
             className="p-1.5 rounded-lg text-muted hover:text-fg hover:bg-raised/50 transition"
           >
             {layout === 'grid' ? <Maximize2 className="w-4 h-4" /> : <LayoutGrid className="w-4 h-4" />}
           </button>
           <button
             onClick={() => setExpanded((v) => !v)}
-            aria-label={expanded ? 'Collapse huddle' : 'Expand huddle'}
-            data-tooltip={expanded ? 'Collapse' : 'Full screen'}
+            aria-label={expanded ? t('window.collapse') : t('window.expand')}
+            data-tooltip={expanded ? t('window.collapseTip') : t('window.fullScreenTip')}
             className="p-1.5 rounded-lg text-muted hover:text-fg hover:bg-raised/50 transition"
           >
             {expanded ? <Shrink className="w-4 h-4" /> : <Expand className="w-4 h-4" />}

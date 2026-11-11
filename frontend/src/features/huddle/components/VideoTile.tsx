@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
+import { useTranslation } from 'react-i18next';
 import { MicOff, Pin } from 'lucide-react';
 import { useHuddleStore } from '@/stores/huddle';
 import { useUserCache } from '@/stores/users';
@@ -30,6 +31,7 @@ export function VideoTile({
   speakerId,
   large,
 }: VideoTileProps) {
+  const { t } = useTranslation('huddle');
   const { getUser } = useUserCache();
   const participant = getUser(userId);
   const name = displayNameOf(participant?.display_name);
@@ -119,7 +121,7 @@ export function VideoTile({
       {!hasVideo &&
         (isScreen ? (
           <div className="absolute inset-0 flex items-center justify-center text-xs text-muted">
-            Waiting for the screen…
+            {t('tile.waitingForScreen')}
           </div>
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
@@ -133,18 +135,22 @@ export function VideoTile({
         ))}
 
       {handRaised && (
-        <div className="absolute top-1 left-1 text-lg" aria-label="Hand raised" data-tooltip="Hand raised">
+        <div
+          className="absolute top-1 left-1 text-lg"
+          aria-label={t('tile.handRaised')}
+          data-tooltip={t('tile.handRaised')}
+        >
           ✋
         </div>
       )}
 
       <div className="absolute bottom-1 left-1 right-1 flex items-center gap-1">
         <span className="px-1.5 py-0.5 rounded bg-black/50 text-2xs text-white truncate max-w-full">
-          {isScreen ? `${name}'s screen` : name}
-          {isSelf && !isScreen && ' (you)'}
+          {isScreen ? t('tile.screenOf', { name }) : name}
+          {isSelf && !isScreen && t('tile.you')}
         </span>
         {sharing && !isScreen && (
-          <span className="px-1 py-0.5 rounded bg-purple-600/80 text-3xs text-fg">Sharing</span>
+          <span className="px-1 py-0.5 rounded bg-purple-600/80 text-3xs text-fg">{t('tile.sharing')}</span>
         )}
         {muted && !isScreen && <MicOff className="w-3 h-3 text-danger shrink-0" />}
       </div>
@@ -152,8 +158,8 @@ export function VideoTile({
       {!isSelf && !isScreen && (
         <button
           onClick={() => useHuddleStore.getState().setPinned(pinned ? null : userId)}
-          aria-label={pinned ? 'Unpin' : 'Pin'}
-          data-tooltip={pinned ? 'Unpin' : 'Pin'}
+          aria-label={pinned ? t('tile.unpin') : t('tile.pin')}
+          data-tooltip={pinned ? t('tile.unpin') : t('tile.pin')}
           className={`absolute top-1 right-1 p-1 rounded-md transition ${
             pinned ? 'bg-purple-600 text-white' : 'bg-black/40 text-slate-200'
           }`}

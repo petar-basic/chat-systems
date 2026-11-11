@@ -1,5 +1,64 @@
 {
   "start": "Start huddle",
   "join": "Join huddle",
-  "busy": "Already in a huddle"
+  "busy": "Already in a huddle",
+  "window": {
+    "title": "Huddle",
+    "people": "· {{count}}",
+    "focusView": "Focus view",
+    "gridView": "Grid view",
+    "expand": "Expand huddle",
+    "collapse": "Collapse huddle",
+    "fullScreenTip": "Full screen",
+    "collapseTip": "Collapse"
+  },
+  "controls": {
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "cameraOn": "Turn camera on",
+    "cameraOff": "Turn camera off",
+    "share": "Share screen",
+    "stopSharing": "Stop sharing",
+    "raiseHand": "Raise hand",
+    "lowerHand": "Lower hand",
+    "blur": "Blur background",
+    "blurOn": "Background blur on",
+    "react": "Send reaction",
+    "invite": "Invite to huddle",
+    "noOneToInvite": "No one to invite",
+    "devices": "Devices",
+    "mic": "Microphone",
+    "camera": "Camera",
+    "speaker": "Speaker",
+    "noDevices": "No devices",
+    "leave": "Leave huddle"
+  },
+  "tile": {
+    "screenOf": "{{name}}'s screen",
+    "you": " (you)",
+    "sharing": "Sharing",
+    "handRaised": "Hand raised",
+    "waitingForScreen": "Waiting for the screen…",
+    "pin": "Pin",
+    "unpin": "Unpin"
+  },
+  "incoming": {
+    "title": "Incoming huddle",
+    "starting": "is starting a huddle…",
+    "decline": "Decline",
+    "join": "Join"
+  },
+  "system": {
+    "started": "<name>{{name}}</name> started a huddle",
+    "join": "Join"
+  },
+  "errors": {
+    "micBlocked": "Your browser blocked the microphone. Allow it for this site and try again.",
+    "micMissing": "No microphone found. Plug one in, or pick another input in settings.",
+    "micBusy": "Another app is holding the microphone. Close it and try again.",
+    "micFailed": "Couldn't open the microphone.",
+    "setupFailed": "Couldn't set up the call. Try again in a moment.",
+    "full": "This huddle is full. It holds up to {{limit}} people.",
+    "sfuUnreachable": "This huddle moved to the media server and you couldn't reach it. You can still hear the people you were already connected to."
+  }
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Mic,
   MicOff,
@@ -25,6 +26,7 @@ import { Select } from '@/shared/components/Form/Select';
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '🎉', '👏', '🙌'];
 
 export function HuddleControlBar({ controls, active }: { controls: HuddleControls; active: ActiveHuddle }) {
+  const { t } = useTranslation('huddle');
   const localMuted = useHuddleStore((s) => s.localMuted);
   const localCameraOn = useHuddleStore((s) => s.localCameraOn);
   const localSharing = useHuddleStore((s) => s.localSharing);
@@ -38,7 +40,7 @@ export function HuddleControlBar({ controls, active }: { controls: HuddleControl
         onClick={controls.toggleMute}
         on={<Mic className="w-4 h-4" />}
         off={<MicOff className="w-4 h-4" />}
-        label={localMuted ? 'Unmute' : 'Mute'}
+        label={localMuted ? t('controls.unmute') : t('controls.mute')}
         danger={localMuted}
       />
       <ControlButton
@@ -46,14 +48,14 @@ export function HuddleControlBar({ controls, active }: { controls: HuddleControl
         onClick={() => void controls.toggleCamera()}
         on={<Video className="w-4 h-4" />}
         off={<VideoOff className="w-4 h-4" />}
-        label={localCameraOn ? 'Turn camera off' : 'Turn camera on'}
+        label={localCameraOn ? t('controls.cameraOff') : t('controls.cameraOn')}
       />
       <ControlButton
         active={localSharing}
         onClick={() => void controls.toggleScreen()}
         on={<ScreenShare className="w-4 h-4" />}
         off={<ScreenShareOff className="w-4 h-4" />}
-        label={localSharing ? 'Stop sharing' : 'Share screen'}
+        label={localSharing ? t('controls.stopSharing') : t('controls.share')}
         highlight={localSharing}
       />
       <ControlButton
@@ -61,7 +63,7 @@ export function HuddleControlBar({ controls, active }: { controls: HuddleControl
         onClick={controls.toggleHand}
         on={<Hand className="w-4 h-4" />}
         off={<Hand className="w-4 h-4" />}
-        label={localHandRaised ? 'Lower hand' : 'Raise hand'}
+        label={localHandRaised ? t('controls.lowerHand') : t('controls.raiseHand')}
         highlight={localHandRaised}
       />
       <ControlButton
@@ -69,7 +71,7 @@ export function HuddleControlBar({ controls, active }: { controls: HuddleControl
         onClick={() => void controls.toggleBackground()}
         on={<Sparkles className="w-4 h-4" />}
         off={<Sparkles className="w-4 h-4" />}
-        label={background === 'blur' ? 'Background blur on' : 'Blur background'}
+        label={background === 'blur' ? t('controls.blurOn') : t('controls.blur')}
         highlight={background === 'blur'}
       />
       <ReactionPicker onPick={controls.sendReaction} />
@@ -77,8 +79,8 @@ export function HuddleControlBar({ controls, active }: { controls: HuddleControl
       <DevicePicker controls={controls} />
       <button
         onClick={controls.leave}
-        aria-label="Leave huddle"
-        data-tooltip="Leave huddle"
+        aria-label={t('controls.leave')}
+        data-tooltip={t('controls.leave')}
         className="p-2.5 rounded-full bg-red-600 text-white hover:bg-red-500 transition"
       >
         <PhoneOff className="w-4 h-4" />
@@ -117,13 +119,14 @@ function ControlButton({ active, onClick, on, off, label, danger, highlight }: C
 }
 
 function ReactionPicker({ onPick }: { onPick: (emoji: string) => void }) {
+  const { t } = useTranslation('huddle');
   const [open, setOpen] = useState(false);
   return (
     <div className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        aria-label="Send reaction"
-        data-tooltip="Send reaction"
+        aria-label={t('controls.react')}
+        data-tooltip={t('controls.react')}
         aria-expanded={open}
         className="p-2.5 rounded-full bg-raised text-fg hover:bg-elevated transition"
       >
@@ -150,6 +153,7 @@ function ReactionPicker({ onPick }: { onPick: (emoji: string) => void }) {
 }
 
 function InvitePicker({ active }: { active: ActiveHuddle }) {
+  const { t } = useTranslation('huddle');
   const [open, setOpen] = useState(false);
   const { data: members } = useWorkspaceMembers(open ? active.workspaceId : null, active.instanceUrl);
   const invite = useInviteToHuddle(active.workspaceId, active.huddleId, active.instanceUrl);
@@ -162,8 +166,8 @@ function InvitePicker({ active }: { active: ActiveHuddle }) {
     <div className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        aria-label="Invite to huddle"
-        data-tooltip="Invite to huddle"
+        aria-label={t('controls.invite')}
+        data-tooltip={t('controls.invite')}
         aria-expanded={open}
         className="p-2.5 rounded-full bg-raised text-fg hover:bg-elevated transition"
       >
@@ -171,7 +175,9 @@ function InvitePicker({ active }: { active: ActiveHuddle }) {
       </button>
       {open && (
         <div className="absolute bottom-full right-0 mb-2 w-56 max-h-64 overflow-y-auto bg-app border border-line rounded-xl p-2 shadow-2xl flex flex-col gap-0.5">
-          {candidates.length === 0 && <p className="text-xs text-muted px-2 py-1.5">No one to invite</p>}
+          {candidates.length === 0 && (
+            <p className="text-xs text-muted px-2 py-1.5">{t('controls.noOneToInvite')}</p>
+          )}
           {candidates.map((m) => (
             <button
               key={m.user_id}
@@ -197,6 +203,7 @@ function InvitePicker({ active }: { active: ActiveHuddle }) {
 }
 
 function DevicePicker({ controls }: { controls: HuddleControls }) {
+  const { t } = useTranslation('huddle');
   const [open, setOpen] = useState(false);
   const devices = useMediaDevices(open);
   const selected = useHuddleStore((s) => s.devices);
@@ -205,8 +212,8 @@ function DevicePicker({ controls }: { controls: HuddleControls }) {
     <div className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        aria-label="Devices"
-        data-tooltip="Devices"
+        aria-label={t('controls.devices')}
+        data-tooltip={t('controls.devices')}
         aria-expanded={open}
         className="p-2.5 rounded-full bg-raised text-fg hover:bg-elevated transition"
       >
@@ -215,20 +222,20 @@ function DevicePicker({ controls }: { controls: HuddleControls }) {
       {open && (
         <div className="absolute bottom-full right-0 mb-2 w-60 bg-app border border-line rounded-xl p-3 shadow-2xl flex flex-col gap-2">
           <DeviceSelect
-            label="Microphone"
+            label={t('controls.mic')}
             options={devices.mics}
             value={selected.micId}
             onChange={controls.selectMic}
           />
           <DeviceSelect
-            label="Camera"
+            label={t('controls.camera')}
             options={devices.cameras}
             value={selected.cameraId}
             onChange={controls.selectCamera}
           />
           {devices.speakers.length > 0 && (
             <DeviceSelect
-              label="Speaker"
+              label={t('controls.speaker')}
               options={devices.speakers}
               value={selected.speakerId}
               onChange={controls.selectSpeaker}
@@ -248,6 +255,7 @@ interface DeviceSelectProps {
 }
 
 function DeviceSelect({ label, options, value, onChange }: DeviceSelectProps) {
+  const { t } = useTranslation('huddle');
   return (
     <Select
       label={label}
@@ -255,7 +263,7 @@ function DeviceSelect({ label, options, value, onChange }: DeviceSelectProps) {
       value={value ?? options[0]?.deviceId ?? ''}
       onChange={(e) => onChange(e.target.value)}
     >
-      {options.length === 0 && <option value="">No devices</option>}
+      {options.length === 0 && <option value="">{t('controls.noDevices')}</option>}
       {options.map((d, i) => (
         <option key={d.deviceId} value={d.deviceId}>
           {d.label || `${label} ${i + 1}`}
