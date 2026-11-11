@@ -1,4 +1,6 @@
 import { Phone } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Trans } from '@/shared/components/Trans/Trans';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useHuddleStore } from '@/stores/huddle';
 import { useUserCache } from '@/stores/users';
@@ -11,6 +13,7 @@ interface Props {
 }
 
 export function HuddleSystemMessage({ channelId, huddleId, initiatorId }: Props) {
+  const { t } = useTranslation('huddle');
   const { getUser } = useUserCache();
   const name = displayNameOf(getUser(initiatorId)?.display_name);
   const channelHuddle = useWorkspaceStore((s) => s.activeHuddleChannels.get(channelId));
@@ -37,14 +40,19 @@ export function HuddleSystemMessage({ channelId, huddleId, initiatorId }: Props)
     <div className="flex items-center gap-2 py-1.5 px-2 text-sm text-muted">
       <Phone className="w-3.5 h-3.5 text-accent shrink-0" />
       <span>
-        <span className="text-fg-soft font-medium">{name}</span> started a huddle
+        <Trans
+          t={t}
+          i18nKey="system.started"
+          values={{ name }}
+          components={{ name: <span className="text-fg-soft font-medium" /> }}
+        />
       </span>
       {canJoin && (
         <button
           onClick={join}
           className="ml-1 px-2 py-0.5 rounded-md bg-green-600/20 text-success hover:bg-green-600/30 text-xs font-medium transition"
         >
-          Join
+          {t('system.join')}
         </button>
       )}
     </div>

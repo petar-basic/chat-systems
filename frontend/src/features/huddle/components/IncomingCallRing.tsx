@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Phone, PhoneOff } from 'lucide-react';
 import { Modal } from '@/shared/components/Modal/Modal';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
@@ -9,6 +10,7 @@ import { displayNameOf } from '@/lib/userHelpers';
 import { playNotificationSound } from '@/lib/notifications';
 
 export function IncomingCallRing({ call }: { call: IncomingCall }) {
+  const { t } = useTranslation('huddle');
   const { getUser } = useUserCache();
   const caller = getUser(call.fromUserId);
   const callerName = displayNameOf(caller?.display_name);
@@ -40,7 +42,7 @@ export function IncomingCallRing({ call }: { call: IncomingCall }) {
 
   return (
     <Modal
-      title="Incoming huddle"
+      title={t('incoming.title')}
       onClose={decline}
       size="sm"
       dataQa="incoming-call"
@@ -50,14 +52,14 @@ export function IncomingCallRing({ call }: { call: IncomingCall }) {
             onClick={decline}
             className="flex h-9 items-center gap-2 rounded-lg bg-raised px-4 text-sm font-medium text-fg transition hover:bg-elevated cursor-pointer"
           >
-            <PhoneOff className="w-4 h-4" /> Decline
+            <PhoneOff className="w-4 h-4" /> {t('incoming.decline')}
           </button>
           <button
             onClick={accept}
             data-autofocus
             className="flex h-9 items-center gap-2 rounded-lg bg-green-600 px-4 text-sm font-medium text-white transition hover:bg-green-500 cursor-pointer"
           >
-            <Phone className="w-4 h-4" /> Join
+            <Phone className="w-4 h-4" /> {t('incoming.join')}
           </button>
         </>
       }
@@ -66,7 +68,7 @@ export function IncomingCallRing({ call }: { call: IncomingCall }) {
         <Avatar userId={call.fromUserId} name={callerName} avatarUrl={caller?.avatar_url} size="lg" />
         <div className="min-w-0">
           <p className="truncate text-base font-semibold text-fg">{callerName}</p>
-          <p className="text-sm text-muted">is starting a huddle…</p>
+          <p className="text-sm text-muted">{t('incoming.starting')}</p>
         </div>
       </div>
     </Modal>

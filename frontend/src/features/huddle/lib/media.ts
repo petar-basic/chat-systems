@@ -1,4 +1,4 @@
-import { ErrorLabels } from '@/shared/constants';
+import i18n from '@/lib/i18n';
 
 /** getUserMedia reports the reason in `name`; each one needs a different thing from the person. */
 export function micErrorLabel(err: unknown): string {
@@ -6,15 +6,15 @@ export function micErrorLabel(err: unknown): string {
   switch (name) {
     case 'NotAllowedError':
     case 'SecurityError':
-      return ErrorLabels.MicBlocked;
+      return i18n.t('huddle:errors.micBlocked');
     case 'NotFoundError':
     case 'OverconstrainedError':
-      return ErrorLabels.MicMissing;
+      return i18n.t('huddle:errors.micMissing');
     case 'NotReadableError':
     case 'AbortError':
-      return ErrorLabels.MicBusy;
+      return i18n.t('huddle:errors.micBusy');
     default:
-      return ErrorLabels.MicFailed;
+      return i18n.t('huddle:errors.micFailed');
   }
 }
 
