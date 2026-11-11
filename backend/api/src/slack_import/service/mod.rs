@@ -38,6 +38,8 @@ pub struct Import<'a> {
     pub(crate) users: HashMap<String, (Uuid, String)>,
     pub(crate) channels: HashMap<String, Uuid>,
     pub(crate) created_channels: HashSet<Uuid>,
+    pub(crate) members: HashSet<Uuid>,
+    pub(crate) erased: HashSet<Uuid>,
     pub(crate) archived: Vec<Uuid>,
     pub(crate) custom_emoji: HashSet<String>,
     pub(crate) unknown_reactions: HashSet<String>,
@@ -74,6 +76,8 @@ impl<'a> Import<'a> {
             users: HashMap::new(),
             channels: HashMap::new(),
             created_channels: HashSet::new(),
+            members: HashSet::new(),
+            erased: HashSet::new(),
             archived: Vec::new(),
             custom_emoji: HashSet::new(),
             unknown_reactions: HashSet::new(),
@@ -124,6 +128,13 @@ impl<'a> Import<'a> {
 
         self.import_messages(source, &targets).await?;
         self.archive_channels().await?;
+        self.note_what_was_left_out();
+        if !self.dry_run {
+            self.state
+                .analytics_repo
+                .count_imported(self.workspace_id)
+                .await?;
+        }
 
         if let Some(run_id) = self.run_id {
             let report = serde_json::to_value(&self.report).unwrap_or_default();
@@ -217,28 +228,52 @@ impl<'a> Import<'a> {
     }
 
     async fn load_existing_mappings(&mut self) -> AppResult<()> {
-        let users = self
-            .state
-            .slack_import_repo
-            .user_mappings(self.workspace_id)
-            .await?;
-        for (slack_id, user_id, name) in users {
-            self.users.insert(slack_id, (user_id, name));
+        let repo = &self.state.slack_import_repo;
+        for mapping in repo.user_mappings(self.workspace_id).await? {
+            if mapping.erased {
+                self.erased.insert(mapping.user_id);
+            }
+            self.users
+                .insert(mapping.slack_user_id, (mapping.user_id, mapping.name));
         }
 
-        let channels = self
-            .state
-            .slack_import_repo
-            .channel_mappings(self.workspace_id)
-            .await?;
-        for (slack_id, channel_id, created) in channels {
-            self.channels.insert(slack_id, channel_id);
-            if created {
-                self.created_channels.insert(channel_id);
+        for mapping in repo.channel_mappings(self.workspace_id).await? {
+            self.channels
+                .insert(mapping.slack_channel_id, mapping.channel_id);
+            if mapping.created_by_run.is_some() && mapping.created_by_run == self.run_id {
+                self.created_channels.insert(mapping.channel_id);
             }
         }
 
+        self.members
+            .extend(repo.workspace_member_ids(self.workspace_id).await?);
+
         Ok(())
+    }
+
+    fn note_what_was_left_out(&mut self) {
+        let gone = self.report.memberships_not_in_workspace;
+        if gone > 0 {
+            let (memberships, belong, they) = if gone == 1 {
+                ("membership", "belongs", "it was")
+            } else {
+                ("memberships", "belong", "they were")
+            };
+            self.report.note(format!(
+                "{gone} Slack {memberships} {belong} to people who are no longer in this workspace, so {they} not added"
+            ));
+        }
+        let erased = self.report.messages_by_erased;
+        if erased > 0 {
+            let (messages, were, they) = if erased == 1 {
+                ("message", "was", "it was")
+            } else {
+                ("messages", "were", "they were")
+            };
+            self.report.note(format!(
+                "{erased} {messages} {were} written by accounts that have since been erased, so {they} not imported again"
+            ));
+        }
     }
 }
 

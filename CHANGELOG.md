@@ -34,6 +34,11 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - *Add people* in a DM or group DM starts a group conversation with everyone in it plus the
   people you pick, as in Slack; the conversation you were in stays as it is. Starting a group
   with people who already have one opens that one instead of a second.
+- *Analytics* counts imported Slack history on its Slack dates: messages, active people and
+  channels for the imported months. History imported before this release stays uncounted.
+- *Analytics* counts people with active accounts only, as members and as active members. A
+  person who left Slack, imported as a suspended account, and an imported account nobody has
+  claimed are no longer counted; what they wrote still counts in the message totals.
 - Sending a message while scrolled up in a channel takes you down to it, as in Slack. A message
   from somebody else still waits behind *New messages*.
 
@@ -61,6 +66,17 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - Only admins can read a workspace's apps through the API (`GET /workspaces/{id}/bot-apps` and
   `GET /bot-apps/{id}`), which carry each app's request URL and scopes. Members and guests get
   403; the app directory still shows them what it showed before.
+- A second Slack import, or *Start again*, no longer puts people back into channels. A channel
+  that was already here keeps the members it has, and the report names the channels whose
+  Slack members were left out. Somebody removed from the workspace is added to none of its
+  channels or DMs. Before, a re-run put a person an admin had removed back into private
+  channels.
+- A failed Slack import's export, somebody's whole Slack history, is deleted
+  `SLACK_IMPORT_KEEP_FAILED_DAYS` days after the run failed (default 7), and the run then says
+  it can't be started again. *Discard* under a failed run deletes it at once. Before, it was
+  kept for ever.
+- *Start again* skips everything written by an account that has since been erased, so it never
+  writes back what an erasure removed.
 
 ### Fixed
 
@@ -76,6 +92,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - Archiving or unarchiving a DM says that a direct message keeps its settings, instead of that
   only moderators can do it.
 - Changing an archived channel's message retention no longer posts a message into it.
+- A channel a Slack import archived, and an admin then restored, stays open after the next
+  import.
 - Once you have scrolled back past the newest 50 messages of a channel, a message you send, one
   that arrives and a thread reply sent to the channel too appear at the bottom, instead of a
   page or more up the history until the window was refocused.

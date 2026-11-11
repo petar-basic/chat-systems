@@ -2726,6 +2726,39 @@ when they were removed, so a removal is now audited too. SCIM deactivation alrea
 `detach`, so it needed nothing of its own. The two bot-app read routes went to admins; the only
 screen that calls them was already an admin's.
 
+### [CS-121d] A Slack import that respects what changed since the last run ✅ shipped
+A re-run is now a run that adds what is new and leaves what admins changed. "A channel this run
+created" needed a definition that survives *Start again*, which re-queues the same row:
+`slack_channels.created_by_run` replaced the `created_by_import` flag, and only a mapping that
+names the current run puts a channel in `created_channels`, so members and the archiving happen
+in that run alone and a retry still finishes them. Every other channel keeps its members;
+`leave_members_alone` compares the Slack list with `channel_members` so the report names a
+channel only when somebody was actually left out, not on every quiet re-run. The workspace's
+member set is read once after the mappings, and nobody outside it joins a channel or a DM. A
+DM with somebody who has left is still created, since the person who stayed wants the history,
+and the absent one goes into `conversation_departures`, the state removal itself leaves, so a
+rejoin gives it back. A failed run's export goes after `SLACK_IMPORT_KEEP_FAILED_DAYS`: the
+sweep and *Discard* clear `storage_key` before they delete the object, because `requeue` needs
+the key and that order means a retry can't start on a file that is about to vanish; *Discard*
+puts the key back if the delete fails, so an admin who was told it failed can try again. The
+ticket asked to check retention first: retention purges by `created_at`, which an import
+writes from Slack, so a purged message that a retry brings back is purged again on the next
+run, and only a hard erase needed the import's help, which is the `erased` flag on
+`user_mappings`. Analytics was the subtle part. The import publishes no events, and the
+one-time backfill counts by `created_at`, which for imported history is years before
+`counted_from`, so an import counted by both would count twice and one counted by neither
+never. Each imported message is marked in `analytics_uncounted_imports` in its own insert
+transaction; the backfill skips marked messages and ends by counting all of them, and
+`count_imported` at the end of a run counts the workspace's marks only once the backfill has
+finished. A message is counted by exactly one of the two, and a failed run's messages by the
+next run that finishes. History imported before this release can't be told apart from what
+the backfill already counted, so it stays as it was. Members in *Analytics* are `active`
+accounts, as the ticket chose. Checking it by hand showed what that alone does after an
+import: *Active in these days* read "4 of 2 members", because the people who wrote were
+pending or suspended. So the active-people counts take the same accounts, while the message,
+file and reaction totals keep everything that was written: a fresh import shows its messages
+at once, and its people as they claim their accounts.
+
 ### [CS-121e] A new message lands at the bottom ✅ shipped
 A channel's cache keeps its newest page first, and every insert asked for `'lastPage'`, which
 is the oldest. Reproduced in the app before the change: with three pages loaded, a message

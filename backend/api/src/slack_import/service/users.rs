@@ -90,6 +90,7 @@ impl Import<'_> {
                     .map_user(self.workspace_id, &user.id, user_id)
                     .await?;
             }
+            self.members.insert(user_id);
             self.users
                 .insert(user.id.clone(), (user_id, user.display_name()));
         }

@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO slack_channels (workspace_id, slack_channel_id, channel_id, created_by_run)\n            VALUES ($1, $2, $3, $4)\n            ON CONFLICT (workspace_id, slack_channel_id)\n            DO UPDATE SET channel_id = $3, created_by_run = $4\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Varchar",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "34581fde350ff37858584287e9e810fb4d1da7ef435c0f6cb0d1a1d1c20146a5"
+}

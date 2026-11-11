@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO analytics_uncounted_imports (message_id) VALUES ($1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "562ffe69ebe55850de2c56e9c50d07799bace50826526e0656930e8ecf1de5f1"
+}

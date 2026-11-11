@@ -29,6 +29,25 @@ pub struct ImportRun {
     pub retryable: bool,
     pub started_at: DateTime<Utc>,
     pub finished_at: Option<DateTime<Utc>>,
+    pub archive_deleted_at: Option<DateTime<Utc>>,
+}
+
+pub struct UserMapping {
+    pub slack_user_id: String,
+    pub user_id: Uuid,
+    pub name: String,
+    pub erased: bool,
+}
+
+pub struct ChannelMapping {
+    pub slack_channel_id: String,
+    pub channel_id: Uuid,
+    pub created_by_run: Option<Uuid>,
+}
+
+pub struct KeptArchive {
+    pub id: Uuid,
+    pub storage_key: String,
 }
 
 pub struct SlackImportRepo {
@@ -79,7 +98,7 @@ impl SlackImportRepo {
             RETURNING id, workspace_id, source, dry_run, report, status AS "status: ImportStatus",
                    storage_key, requested_by, error,
                    (status = 'failed' AND storage_key IS NOT NULL) AS "retryable!",
-                   started_at, finished_at
+                   started_at, finished_at, archive_deleted_at
             "#,
             workspace_id,
             source,
@@ -109,7 +128,7 @@ impl SlackImportRepo {
             RETURNING id, workspace_id, source, dry_run, report, status AS "status: ImportStatus",
                    storage_key, requested_by, error,
                    (status = 'failed' AND storage_key IS NOT NULL) AS "retryable!",
-                   started_at, finished_at
+                   started_at, finished_at, archive_deleted_at
             "#
         )
         .fetch_optional(&self.pool)
@@ -171,13 +190,83 @@ impl SlackImportRepo {
             RETURNING id, workspace_id, source, dry_run, report, status AS "status: ImportStatus",
                    storage_key, requested_by, error,
                    (status = 'failed' AND storage_key IS NOT NULL) AS "retryable!",
-                   started_at, finished_at
+                   started_at, finished_at, archive_deleted_at
             "#,
             id,
             workspace_id
         )
         .fetch_optional(&self.pool)
         .await
+    }
+
+    pub async fn archives_kept_past(&self, days: i32) -> sqlx::Result<Vec<KeptArchive>> {
+        sqlx::query_as!(
+            KeptArchive,
+            r#"
+            WITH due AS (
+                SELECT id, storage_key FROM slack_imports
+                 WHERE status IN ('failed', 'complete') AND storage_key IS NOT NULL
+                   AND finished_at < NOW() - make_interval(days => $1)
+                 FOR UPDATE SKIP LOCKED
+            )
+            UPDATE slack_imports s
+               SET storage_key = NULL, archive_deleted_at = NOW()
+              FROM due
+             WHERE s.id = due.id
+            RETURNING s.id, due.storage_key AS "storage_key!"
+            "#,
+            days
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn discard_archive(
+        &self,
+        id: Uuid,
+        workspace_id: Uuid,
+    ) -> sqlx::Result<Option<KeptArchive>> {
+        sqlx::query_as!(
+            KeptArchive,
+            r#"
+            WITH due AS (
+                SELECT id, storage_key FROM slack_imports
+                 WHERE id = $1 AND workspace_id = $2
+                   AND status = 'failed' AND storage_key IS NOT NULL
+                 FOR UPDATE
+            )
+            UPDATE slack_imports s
+               SET storage_key = NULL, archive_deleted_at = NOW()
+              FROM due
+             WHERE s.id = due.id
+            RETURNING s.id, due.storage_key AS "storage_key!"
+            "#,
+            id,
+            workspace_id
+        )
+        .fetch_optional(&self.pool)
+        .await
+    }
+
+    pub async fn keep_archive(&self, id: Uuid, storage_key: &str) -> sqlx::Result<()> {
+        sqlx::query!(
+            "UPDATE slack_imports SET storage_key = $2, archive_deleted_at = NULL WHERE id = $1",
+            id,
+            storage_key
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn archive_deleted(&self, id: Uuid) -> sqlx::Result<()> {
+        sqlx::query!(
+            "UPDATE slack_imports SET storage_key = NULL, archive_deleted_at = NOW() WHERE id = $1",
+            id
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
     }
 
     pub async fn fail_run(&self, id: Uuid, error: &str) -> sqlx::Result<()> {
@@ -197,7 +286,7 @@ impl SlackImportRepo {
             r#"SELECT id, workspace_id, source, dry_run, report, status AS "status: ImportStatus",
                    storage_key, requested_by, error,
                    (status = 'failed' AND storage_key IS NOT NULL) AS "retryable!",
-                   started_at, finished_at
+                   started_at, finished_at, archive_deleted_at
                  FROM slack_imports WHERE id = $1"#,
             id
         )
@@ -211,7 +300,7 @@ impl SlackImportRepo {
             r#"SELECT id, workspace_id, source, dry_run, report, status AS "status: ImportStatus",
                    storage_key, requested_by, error,
                    (status = 'failed' AND storage_key IS NOT NULL) AS "retryable!",
-                   started_at, finished_at
+                   started_at, finished_at, archive_deleted_at
                  FROM slack_imports WHERE workspace_id = $1 ORDER BY started_at DESC LIMIT 20"#,
             workspace_id
         )
@@ -230,18 +319,17 @@ impl SlackImportRepo {
         Ok(())
     }
 
-    pub async fn user_mappings(
-        &self,
-        workspace_id: Uuid,
-    ) -> sqlx::Result<Vec<(String, Uuid, String)>> {
-        let rows = sqlx::query!(
+    pub async fn user_mappings(&self, workspace_id: Uuid) -> sqlx::Result<Vec<UserMapping>> {
+        sqlx::query_as!(
+            UserMapping,
             r#"
             SELECT su.slack_user_id, su.user_id,
                    COALESCE(
                        (SELECT wm.display_name FROM workspace_members wm
                          WHERE wm.workspace_id = su.workspace_id AND wm.user_id = su.user_id),
                        u.display_name, u.email
-                   ) AS "name!"
+                   ) AS "name!",
+                   (u.email = 'deleted-' || u.id || '@invalid') AS "erased!"
             FROM slack_users su
             JOIN users u ON u.id = su.user_id
             WHERE su.workspace_id = $1
@@ -249,11 +337,40 @@ impl SlackImportRepo {
             workspace_id
         )
         .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn workspace_member_ids(&self, workspace_id: Uuid) -> sqlx::Result<Vec<Uuid>> {
+        sqlx::query_scalar!(
+            "SELECT user_id FROM workspace_members WHERE workspace_id = $1",
+            workspace_id
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn channel_member_ids(&self, channel_id: Uuid) -> sqlx::Result<Vec<Uuid>> {
+        sqlx::query_scalar!(
+            "SELECT user_id FROM channel_members WHERE channel_id = $1",
+            channel_id
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn record_departures(&self, channel_id: Uuid, user_ids: &[Uuid]) -> sqlx::Result<()> {
+        sqlx::query!(
+            r"
+            INSERT INTO conversation_departures (channel_id, user_id, joined_at, left_at, last_read_at)
+            SELECT $1, user_id, NOW(), NOW(), NOW() FROM UNNEST($2::uuid[]) AS gone(user_id)
+            ON CONFLICT (channel_id, user_id) DO NOTHING
+            ",
+            channel_id,
+            user_ids
+        )
+        .execute(&self.pool)
         .await?;
-        Ok(rows
-            .into_iter()
-            .map(|r| (r.slack_user_id, r.user_id, r.name))
-            .collect())
+        Ok(())
     }
 
     pub async fn map_user(
@@ -277,20 +394,14 @@ impl SlackImportRepo {
         Ok(())
     }
 
-    pub async fn channel_mappings(
-        &self,
-        workspace_id: Uuid,
-    ) -> sqlx::Result<Vec<(String, Uuid, bool)>> {
-        let rows = sqlx::query!(
-            "SELECT slack_channel_id, channel_id, created_by_import FROM slack_channels WHERE workspace_id = $1",
+    pub async fn channel_mappings(&self, workspace_id: Uuid) -> sqlx::Result<Vec<ChannelMapping>> {
+        sqlx::query_as!(
+            ChannelMapping,
+            "SELECT slack_channel_id, channel_id, created_by_run FROM slack_channels WHERE workspace_id = $1",
             workspace_id
         )
         .fetch_all(&self.pool)
-        .await?;
-        Ok(rows
-            .into_iter()
-            .map(|r| (r.slack_channel_id, r.channel_id, r.created_by_import))
-            .collect())
+        .await
     }
 
     pub async fn map_channel(
@@ -298,19 +409,19 @@ impl SlackImportRepo {
         workspace_id: Uuid,
         slack_channel_id: &str,
         channel_id: Uuid,
-        created_by_import: bool,
+        created_by_run: Option<Uuid>,
     ) -> sqlx::Result<()> {
         sqlx::query!(
             r"
-            INSERT INTO slack_channels (workspace_id, slack_channel_id, channel_id, created_by_import)
+            INSERT INTO slack_channels (workspace_id, slack_channel_id, channel_id, created_by_run)
             VALUES ($1, $2, $3, $4)
             ON CONFLICT (workspace_id, slack_channel_id)
-            DO UPDATE SET channel_id = $3, created_by_import = $4
+            DO UPDATE SET channel_id = $3, created_by_run = $4
             ",
             workspace_id,
             slack_channel_id,
             channel_id,
-            created_by_import
+            created_by_run
         )
         .execute(&self.pool)
         .await?;

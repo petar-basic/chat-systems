@@ -745,18 +745,24 @@ writes its counters as it goes so a run that takes an hour has something to show
 | GET | `/workspaces/{ws_id}/slack-imports` | — | `{ data: ImportRun[] }` — the last 20 runs |
 | GET | `/slack-imports/{import_id}` | — | `ImportRun` — status, live counts, what was skipped, and `retryable` |
 | POST | `/workspaces/{ws_id}/slack-imports/{import_id}/retry` | — | `ImportRun` back to `pending`, its report cleared; workspace admins only. Only a `failed` run whose archive is still stored (`retryable`) can be retried, otherwise `409` |
+| DELETE | `/workspaces/{ws_id}/slack-imports/{import_id}/archive` | — | `ImportRun` with `retryable: false` and `archive_deleted_at` set; workspace admins only. Deletes a failed run's stored archive now, audited as `slack_import.discarded`. Any other run is `409` |
 
 **A run the worker lost fails instead of running for ever.** While a run is being imported the
 worker writes `slack_imports.heartbeat_at` every 30 seconds; each poll first marks any
 `running` row whose heartbeat is older than five minutes `failed` with *The import stopped
-when the worker did*. A failed run keeps its archive (only a finished one deletes it), so
-*Start again* re-queues it, and the import's idempotency makes the second attempt pick up
-where the first stopped.
+when the worker did*. A failed run keeps its archive, so *Start again* re-queues it, and the
+import's idempotency makes the second attempt pick up where the first stopped. It keeps it for
+`SLACK_IMPORT_KEEP_FAILED_DAYS` (default 7): once an hour the worker's `delete_kept_archives`
+clears `storage_key` and sets `archive_deleted_at` on every failed or finished run older than
+that which still has one, then deletes the objects. Clearing the key first is what stops a
+retry racing the deletion, since `requeue` needs the key. Without a key a run is not
+`retryable`, and `archive_deleted_at` is what lets the app say why.
 
 The archive is checked for a zip's magic bytes before anything is stored, capped at 512 MB
 (past that the answer is the CLI, and the error says so), kept in the same storage uploads
 use, and **deleted once the worker has read it** — it is a copy of somebody's entire Slack
-history and there is no reason to keep it.
+history and there is no reason to keep it. A finished run's `storage_key` goes and its
+`archive_deleted_at` is set; migration 101 did the same for the finished runs before it.
 
 **From a shell** — for an export too large to travel through a browser, or a migration
 somebody wants to watch over ssh:
@@ -792,10 +798,25 @@ and nobody can sign in as it or be invited into it; an existing account matched 
 left as it is. Reactivating such an account sets it to `pending`, so an invite lets the person
 choose a password.
 
-**Archived stays archived.** A channel archived in Slack is created, filled and then archived,
-and a re-run archives it again. One that merged into an existing channel here is left open
-and the report says so, on the first run and on every later one: `slack_channels.created_by_import`
-records which channels the import made, and only those are archived.
+**Archived stays archived, once.** A channel archived in Slack is created, filled and then
+archived by the run that made it. `slack_channels.created_by_run` names that run, and
+`Import::created_channels` holds only the channels whose mapping names the current run, so a
+later run neither archives one an admin restored nor archives one that merged into a channel
+here; the report says so for a merged one. *Start again* keeps the run's id, so a retry still
+archives what its first attempt created.
+
+**A second run leaves memberships alone.** Members are added only to a channel the current run
+made. For any other channel, merged or mapped by an earlier run, `leave_members_alone` compares
+its Slack members with `channel_members` and counts those who are not in it into
+`memberships_left_alone`, with a note naming the channel. `Import::members` is the workspace's
+member set, read after the mappings and grown by `import_users`; nobody outside it joins a
+channel, and a DM imported with somebody who has left is created with the others and records
+the absent person in `conversation_departures`, so rejoining gives it back
+(`restore_conversations_in`). Both count into `memberships_not_in_workspace`.
+
+**An erased account's writing stays erased.** `user_mappings` reports `erased` for an account
+whose email is the tombstone `deleted-<id>@invalid`, and the import writes no message, file or
+reaction of theirs; `messages_by_erased` counts what it left out.
 
 **Reactions map the way the composer does.** `slack_import/emoji_shortcodes.tsv` is the full
 emoji-mart shortcode set with its aliases and skin tones (`+1::skin-tone-3` is 👍🏼), generated
@@ -1364,6 +1385,17 @@ before it, once, and the consumer only what came after. `channel_member_activity
 per member per channel per day they posted in it (`messages`), reacted in it (`reactions`) or read it (`read`), in the same
 statement as the member row, so a channel's numbers add up to the workspace's. Migration 97
 emptied the rollup and moved `counted_from` so the backfill counts both tables from the start.
+
+Imported messages publish no `message.created`, so `insert_imported` writes each one's id into
+`analytics_uncounted_imports` in its own transaction, and at the end of a run
+`count_imported` deletes the workspace's rows and adds their days to both tables the way the
+backfill does. It does nothing while the backfill has not finished: the backfill leaves those
+messages out of its own counts and ends with the same step for every workspace, so a message is
+counted by exactly one of them, and a failed run's messages are counted by the next run that
+finishes. Members, the member list and the active-people counts (`daily`'s `active_members`,
+`weekly`, `active_between`) take accounts that are `active`, so a suspended leaver and an
+unclaimed imported account are neither members nor active members, and *Active in these days*
+can't exceed *Members*. What they wrote still counts in the message, file and reaction totals.
 
 ---
 

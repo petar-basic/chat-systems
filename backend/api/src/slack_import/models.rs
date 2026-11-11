@@ -209,10 +209,16 @@ pub struct ImportReport {
     #[serde(default)]
     pub channels_archived: usize,
     pub memberships: usize,
+    #[serde(default)]
+    pub memberships_left_alone: usize,
+    #[serde(default)]
+    pub memberships_not_in_workspace: usize,
     pub conversations_created: usize,
     pub conversations_reused: usize,
     pub messages_imported: usize,
     pub messages_already_present: usize,
+    #[serde(default)]
+    pub messages_by_erased: usize,
     pub threads_resolved: usize,
     pub reactions: usize,
     pub pins: usize,
@@ -248,8 +254,9 @@ impl ImportReport {
         format!(
             "users: {} matched, {} created, {} guests, {} suspended | \
              channels: {} created, {} reused, {} archived | \
-             conversations: {} created, {} reused | memberships: {} | \
-             messages: {} imported, {} already present, {} in threads | \
+             conversations: {} created, {} reused | \
+             memberships: {}, {} left alone, {} not in the workspace | \
+             messages: {} imported, {} already present, {} by erased accounts, {} in threads | \
              reactions: {} | pins: {} | files: {} | emoji: {} imported, {} already present | \
              skipped: {}",
             self.users_matched,
@@ -262,8 +269,11 @@ impl ImportReport {
             self.conversations_created,
             self.conversations_reused,
             self.memberships,
+            self.memberships_left_alone,
+            self.memberships_not_in_workspace,
             self.messages_imported,
             self.messages_already_present,
+            self.messages_by_erased,
             self.threads_resolved,
             self.reactions,
             self.pins,
