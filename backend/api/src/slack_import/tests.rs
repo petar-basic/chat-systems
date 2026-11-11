@@ -1848,6 +1848,7 @@ async fn starting_a_run_again_finishes_the_channels_it_made(pool: PgPool) {
         "channels.json",
         &json!([{ "id": "C2", "name": "old-launch", "is_archived": true, "members": ["U1"] }]),
     );
+    write_json(&fixture.root, "groups.json", &json!([]));
     let run = state
         .slack_import_repo
         .queue_run(
