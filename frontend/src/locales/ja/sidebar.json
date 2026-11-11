@@ -64,7 +64,10 @@
     "nobody": "まだ選ばれていません",
     "selected": "{{count}}人を選択中",
     "start": "開始",
-    "startGroup": "グループチャット開始"
+    "startGroup": "グループチャット開始",
+    "addTitle": "この会話にメンバーを追加",
+    "addDescription_other": "新しいグループチャットを始めます。今の会話はそのまま残ります。あと {{count}} 人まで追加できます。",
+    "add": "追加"
   },
   "newChannel": {
     "title": "チャンネルを作成",

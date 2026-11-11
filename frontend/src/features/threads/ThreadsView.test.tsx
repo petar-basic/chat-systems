@@ -268,4 +268,15 @@ describe('ThreadsView in Japanese', () => {
     expect(screen.getByTestId('thread-open')).toHaveTextContent('残りの返信 2件を表示');
     expect(document.querySelector('[onerror]')).toBeNull();
   });
+
+  it('says an archived channel takes no replies, naming it as text', async () => {
+    const hostile = '<img src=x onerror="alert(1)"> {{name}}';
+    threads = [thread(0, place({ name: hostile, is_archived: true }))];
+    await i18n.changeLanguage('ja');
+    renderView(sidebar(hostile));
+    expect(screen.getByTestId('thread-card-archived').textContent).toBe(
+      `#${hostile} はアーカイブされているため、スレッドに返信できません。`,
+    );
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
 });

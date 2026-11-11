@@ -200,4 +200,19 @@ describe('ConversationView in Japanese', () => {
     expect(screen.getByText(`${hostile} さんはこのワークスペースにいません`)).toBeInTheDocument();
     expect(document.querySelector('[onerror]')).toBeNull();
   });
+
+  it('adds people by starting a new group', async () => {
+    const people = [member('me', 'Me'), member('ana', 'Ana'), member('cy', 'Cy')];
+    await i18n.changeLanguage('ja');
+    renderView(conversation({ participant_ids: ['me', 'ana'], departed: [] }), people, vi.fn());
+    fireEvent.click(screen.getByRole('button', { name: 'メンバーを追加' }));
+    expect(screen.getByRole('heading', { name: 'この会話にメンバーを追加' })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        '新しいグループチャットを始めます。今の会話はそのまま残ります。あと 7 人まで追加できます。',
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getAllByTestId('new-dm-candidate')[0]);
+    expect(screen.getByTestId('new-dm-start').textContent).toBe('追加');
+  });
 });
