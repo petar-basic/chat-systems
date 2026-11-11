@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import i18n from '@/lib/i18n';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ChannelIntro } from './ChannelIntro';
 import type { Channel } from '@/stores/workspace';
@@ -42,5 +43,28 @@ describe('ChannelIntro', () => {
     rerender(<ChannelIntro channel={channel()} />);
     expect(screen.queryByTestId('channel-intro-add-people')).toBeNull();
     expect(screen.queryByTestId('channel-intro-add-bookmark')).toBeNull();
+  });
+});
+
+describe('ChannelIntro in Japanese', () => {
+  const hostile = '<img src=x onerror="alert(1)"> {{name}}';
+  beforeEach(async () => {
+    await i18n.changeLanguage('ja');
+  });
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('names the channel as text and says who can describe it', () => {
+    render(
+      <ChannelIntro channel={channel({ name: hostile })} onAddPeople={vi.fn()} onAddBookmark={vi.fn()} />,
+    );
+    expect(screen.getByRole('heading', { name: `#${hostile} の始まりです` })).toBeInTheDocument();
+    expect(screen.getByTestId('channel-intro-purpose').textContent).toBe(
+      'このチャンネルの目的はまだ書かれていません。ここに投稿できる人なら誰でも、チャンネル詳細で説明を追加できます。',
+    );
+    expect(screen.getByTestId('channel-intro-add-people')).toHaveTextContent('メンバーを追加');
+    expect(screen.getByTestId('channel-intro-add-bookmark')).toHaveTextContent('ブックマークを追加');
+    expect(document.querySelector('[onerror]')).toBeNull();
   });
 });

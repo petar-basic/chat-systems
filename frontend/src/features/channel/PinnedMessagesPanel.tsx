@@ -1,4 +1,5 @@
 import { Pin } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import type { Message } from '@/stores/workspace';
@@ -38,12 +39,13 @@ function PinnedMessageRow({ message, onNavigate }: { message: Message; onNavigat
 }
 
 export default function PinnedMessagesPanel({ channelId, onClose, onNavigate }: Props) {
+  const { t } = useTranslation('channel');
   const { data: messages = [], isLoading: loading } = useChannelPins(channelId);
 
   return (
     <div className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-surface border-l border-line/50 flex flex-col">
       <PanelHeader
-        title="Pinned messages"
+        title={t('header.pins')}
         icon={<Pin className="h-4 w-4 text-warning" />}
         onClose={onClose}
       />
@@ -56,8 +58,8 @@ export default function PinnedMessagesPanel({ channelId, onClose, onNavigate }: 
         ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-muted px-4 text-center">
             <Pin className="w-8 h-8 mb-2 text-faint" />
-            <p className="text-sm">No pinned messages yet</p>
-            <p className="text-xs mt-1">Pin important messages to find them later</p>
+            <p className="text-sm">{t('pins.empty')}</p>
+            <p className="text-xs mt-1">{t('pins.hint')}</p>
           </div>
         ) : (
           messages.map((msg) => <PinnedMessageRow key={msg.id} message={msg} onNavigate={onNavigate} />)

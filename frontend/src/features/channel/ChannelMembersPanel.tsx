@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
@@ -42,6 +43,7 @@ function MemberRow({
   onSetRole: (userId: string, role: ChannelRole) => void;
   onRemove: (userId: string) => void;
 }) {
+  const { t } = useTranslation('channel');
   const { getUser } = useUserCache();
   const info = getUser(member.user_id);
   const displayName = info?.display_name || member.user_id.slice(0, 8);
@@ -57,21 +59,21 @@ function MemberRow({
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium truncate">
           {displayName}
-          {isSelf && <span className="text-muted font-normal"> (you)</span>}
+          {isSelf && <span className="text-muted font-normal">{t('members.you')}</span>}
         </div>
         <div className="text-xs text-muted flex items-center gap-1">
           {isAdmin && <ShieldCheck className="w-3 h-3 text-info" />}
-          <span data-qa="channel-member-role">{isAdmin ? 'Channel admin' : 'Member'}</span>
+          <span data-qa="channel-member-role">
+            {isAdmin ? t('members.roleAdmin') : t('members.roleMember')}
+          </span>
         </div>
       </div>
       {canModerate && !locked && (
         <button
           onClick={() => onSetRole(member.user_id, isAdmin ? 'member' : 'admin')}
           disabled={busy}
-          aria-label={
-            isAdmin ? `Remove channel admin from ${displayName}` : `Make ${displayName} a channel admin`
-          }
-          data-tooltip={isAdmin ? 'Remove channel admin' : 'Make channel admin'}
+          aria-label={t(isAdmin ? 'members.demoteNamed' : 'members.promoteNamed', { name: displayName })}
+          data-tooltip={isAdmin ? t('members.demote') : t('members.promote')}
           data-qa={isAdmin ? 'channel-member-demote' : 'channel-member-promote'}
           className={`p-1 rounded transition cursor-pointer disabled:opacity-50 ${
             isAdmin ? 'text-info hover:text-fg-dim' : 'text-muted hover:text-info'
@@ -84,8 +86,8 @@ function MemberRow({
         <button
           onClick={() => onRemove(member.user_id)}
           disabled={busy}
-          aria-label={isSelf ? 'Leave channel' : `Remove ${displayName} from channel`}
-          data-tooltip={isSelf ? 'Leave channel' : 'Remove from channel'}
+          aria-label={isSelf ? t('members.leave') : t('members.removeNamed', { name: displayName })}
+          data-tooltip={isSelf ? t('members.leave') : t('members.remove')}
           data-qa="channel-member-remove"
           className="text-muted hover:text-danger transition cursor-pointer p-1 disabled:opacity-50"
         >
@@ -122,6 +124,7 @@ export default function ChannelMembersPanel({
   startAdding = false,
   onClose,
 }: Props) {
+  const { t } = useTranslation('channel');
   const { users } = useUserCache();
   const {
     members,
@@ -156,7 +159,7 @@ export default function ChannelMembersPanel({
       setError(null);
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.channelMembers(channelId) });
     },
-    onError: failWith('Failed to add member'),
+    onError: failWith(t('members.addFailed')),
   });
 
   const removeMemberMutation = useMutation({
@@ -171,7 +174,7 @@ export default function ChannelMembersPanel({
       setError(null);
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.channelMembers(channelId) });
     },
-    onError: failWith('Failed to remove member'),
+    onError: failWith(t('members.removeFailed')),
   });
 
   const roleMutation = useUpdateChannelMemberRole(channelId);
@@ -186,9 +189,9 @@ export default function ChannelMembersPanel({
       data-qa="channel-members-panel"
     >
       <PanelHeader
-        title={`${channelName} members`}
+        title={t('members.title', { name: channelName })}
         icon={<Hash className="h-4 w-4 text-muted" />}
-        closeLabel="Close members"
+        closeLabel={t('members.close')}
         onClose={onClose}
       />
 
@@ -201,15 +204,15 @@ export default function ChannelMembersPanel({
           <>
             <div className="px-4 py-2 flex items-center justify-between">
               <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                Members ({members.length})
+                {t('members.count', { total: members.length })}
               </span>
               {canAdd && (
                 <button
                   onClick={() => setShowAddUser(!showAddUser)}
                   className="text-muted hover:text-fg transition cursor-pointer"
-                  aria-label="Add member"
+                  aria-label={t('members.add')}
                   data-qa="channel-members-add-toggle"
-                  data-tooltip="Add member"
+                  data-tooltip={t('members.add')}
                 >
                   <UserPlus className="w-4 h-4" />
                 </button>
@@ -235,7 +238,7 @@ export default function ChannelMembersPanel({
       {showAddUser && canAdd && nonMembers.length > 0 && (
         <div className="border-t border-line/50 max-h-48 overflow-y-auto">
           <div className="px-4 py-2 text-xs font-semibold text-muted uppercase tracking-wider">
-            Add to channel
+            {t('members.addTo')}
           </div>
           {nonMembers.map((userId) => (
             <AddableUserRow key={userId} userId={userId} onAdd={(id) => addMemberMutation.mutate(id)} />
@@ -247,7 +250,7 @@ export default function ChannelMembersPanel({
           className="border-t border-line/50 px-4 py-3 text-xs text-muted"
           data-qa="channel-members-none-to-add"
         >
-          Everyone in the workspace is already in this channel.
+          {t('members.everyoneIn')}
         </p>
       )}
     </div>
