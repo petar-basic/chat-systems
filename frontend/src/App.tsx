@@ -15,6 +15,7 @@ import { logger } from '@/lib/logger';
 import { isSessionExpired } from '@/lib/errors';
 import { registerWorker } from '@/lib/push';
 import { applyLanguage } from '@/lib/i18n';
+import { useEmptyRailWhenSignedOut } from '@/lib/desktopRail';
 
 const Router = BrowserRouter;
 
@@ -75,6 +76,7 @@ function AppContent() {
   }, []);
 
   useWebSocketQuerySync();
+  useEmptyRailWhenSignedOut();
 
   const signedIn = instances.length > 0;
   useEffect(() => {

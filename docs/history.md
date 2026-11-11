@@ -2913,3 +2913,25 @@ thread and a DM to the admin, then left; as the admin, the channel, the thread, 
 The first run looped: the shell defaulted both lists to a fresh `[]`, harmless while only a
 loaded member list filled the cache, and the effect now ran whenever either list was there, so
 both defaults are constants.
+
+### [CS-121k] The desktop app after signing out and after a reload ✅ shipped
+The page reported its workspaces to the desktop app only from `useDesktopRail`, which lives on
+the workspace page, and the app drops a server's report only when the server is removed. Signing
+out leaves that page, so the last report stood: the server's workspaces stayed on the rail and
+on ⌘1–9, each opening the sign-in page, and its unread stayed in the Dock and the tray until the
+app quit. The same happened when a reload found the session gone, since the app keeps reports
+across a reload. `useEmptyRailWhenSignedOut`, in `App` so it outlives every route, reports no
+workspaces and no current one whenever the store is hydrated with no session for the page's own
+server; it sits in its own file in `lib/` so the main bundle does not pull in the workspace page.
+Notification keys came from a counter that starts at 0 on every load, while a banner lingers for
+an hour and the app's waiting thread hands its click to whatever page is loaded then; after the
+reload a new version asks for, an old banner's key matched a newer notification's handler. A key
+now starts with eight random bytes chosen once per load (`getRandomValues`, not `randomUUID`, so a
+server on plain http still loads), and an unknown key finds no handler, so the click only shows
+the server. On macOS the late click does arrive: `notify-rust` with `preview-macos-un` blocks on
+the response until the click or the hour's timeout. Windows was read in the code, not watched.
+Checked by hand on the Docker build, the page loaded with a stand-in for the app's bridge that
+recorded every call: two DMs raised keys `…-0` and `…-1`; after a reload a DM from someone else
+raised a key with a new prefix, the old `…-0` handed to the new page left it where it was, and
+the new key opened the new DM; signing out reported no workspaces once; and a reload after the
+session was revoked on the server reported no workspaces where the app had held 36 with 3 unread.
