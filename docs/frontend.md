@@ -63,9 +63,10 @@ renders lives in `features/messaging`, even when it is small and general-looking
   discriminated union driving a type-safe bus.
 - **Query keys go through a single `QUERY_KEYS` factory** (`shared/constants`), so a query and
   its invalidation can never silently drift apart.
-- **Message ordering is self-healing** — `messageCache.upsertMessage` re-sorts the target page
-  with the supplied comparator (`newestFirst`, by `created_at`), so out-of-order or
-  late-confirmed realtime messages still render correctly.
+- **Message ordering is self-healing** — `messageCache.upsertMessage` inserts into the newest
+  page, which every channel and thread cache keeps first (`pages[0]`; older pages are appended
+  after it), and re-sorts that page with the supplied comparator (`newestFirst`, by
+  `created_at`), so out-of-order or late-confirmed realtime messages still render correctly.
 - **Code-split by route** — pages are `React.lazy()`, so login/reset/add-instance don't pull
   in the heavy editor/messaging chunk.
 - **Installable PWA** — `public/manifest.webmanifest` + icons make the SPA installable
@@ -268,7 +269,10 @@ unread counts when they are loaded, and otherwise from the first page's `last_re
 server reports where the reader stopped when that page marks the channel read), so a cold load
 draws it too. *Jump to first unread* shows while the divider is above the view and the end of
 the channel is not; *New messages* shows when something arrives while the reader is above the
-end.
+end, and goes to the very end with the virtualizer's `scrollToEnd`, which keeps correcting while
+the rows on the way are measured. A message of your own that lands as the last row takes you
+down to it instead (`followKey`), as in Slack. An append also disarms the anchor that held the
+reader still while an older page landed, so it can't swallow the next new message.
 
 **Reads:** `useMessages(channelId)` — infinite query, cursor-based pagination, 50 messages per page
 **Emits:** `onThreadOpen(message)` when user clicks reply icon

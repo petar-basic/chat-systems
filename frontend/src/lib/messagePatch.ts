@@ -25,6 +25,6 @@ export function placeOwnMessage(queryClient: QueryClient, message: Message) {
   placeReply(queryClient, message);
   if (!shownInChannel(message)) return;
   queryClient.setQueryData<ChannelMessages>(QUERY_KEYS.messages(message.channel_id), (cache) =>
-    upsertMessage(cache, message, 'lastPage', newestFirst),
+    upsertMessage(cache, message, newestFirst),
   );
 }

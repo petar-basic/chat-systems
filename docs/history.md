@@ -2758,3 +2758,19 @@ import: *Active in these days* read "4 of 2 members", because the people who wro
 pending or suspended. So the active-people counts take the same accounts, while the message,
 file and reaction totals keep everything that was written: a fresh import shows its messages
 at once, and its people as they claim their accounts.
+
+### [CS-121e] A new message lands at the bottom ✅ shipped
+A channel's cache keeps its newest page first, and every insert asked for `'lastPage'`, which
+is the oldest. Reproduced in the app before the change: with three pages loaded, a message
+sent from the top of the channel showed up between #39 and #41 of 170. Both caches that take
+inserts, channels and threads, keep their newest page first, so `InsertEdge` and the parameter
+went and `upsertMessage` always inserts into `pages[0]`. With the message at the end, two older
+faults of `VirtualMessageList` showed. The anchor that holds the reader still while an older
+page lands stayed armed after its page had landed, and the next append went to it instead:
+no *New messages*, and the view slid down with the new row. An append now disarms an anchor
+whose page has landed. *New messages* scrolled to the `scrollHeight` it read on the click,
+and rows mount at an estimated height, so after a long jump it stopped about 500px short of
+the newest message; it now calls the virtualizer's `scrollToEnd`, which keeps correcting until
+the rows are measured. Sending while scrolled up also takes you down to your message, as in
+Slack: `MessageList` passes the last row's key as `followKey` when the message is yours, and
+somebody else's message still waits behind *New messages*.

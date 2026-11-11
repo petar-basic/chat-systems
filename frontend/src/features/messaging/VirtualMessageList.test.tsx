@@ -182,6 +182,29 @@ describe('VirtualMessageList scroll anchoring', () => {
     expect(screen.getByTestId('jump-to-latest')).toBeInTheDocument();
   });
 
+  it('takes the reader down to their own message when they send one while scrolled up', () => {
+    const rows = Array.from({ length: 40 }, (_, i) => row(`m${i}`));
+    const { scroller, rerender, setTotalHeight } = renderList(rows);
+
+    scrollTo(scroller, 400);
+
+    setTotalHeight(41);
+    rerender(
+      <VirtualMessageList
+        rows={[...rows, row('mine')]}
+        renderRow={(r) => <div>{(r as Row).label}</div>}
+        hasOlder
+        isLoadingOlder={false}
+        onLoadOlder={vi.fn()}
+        followKey="mine"
+        qa="list"
+      />,
+    );
+
+    expect(isAtBottom(scroller)).toBe(true);
+    expect(screen.queryByTestId('jump-to-latest')).toBeNull();
+  });
+
   it('offers the first unread while it is above the view and the end is not in sight', () => {
     const rows = Array.from({ length: 40 }, (_, i) => row(`m${i}`));
     const { scroller } = renderList(rows, { markerKey: 'm5' });

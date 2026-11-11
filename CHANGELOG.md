@@ -39,6 +39,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - *Analytics* counts people with active accounts only, as members and as active members. A
   person who left Slack, imported as a suspended account, and an imported account nobody has
   claimed are no longer counted; what they wrote still counts in the message totals.
+- Sending a message while scrolled up in a channel takes you down to it, as in Slack. A message
+  from somebody else still waits behind *New messages*.
 
 ### Security
 
@@ -92,6 +94,11 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - Changing an archived channel's message retention no longer posts a message into it.
 - A channel a Slack import archived, and an admin then restored, stays open after the next
   import.
+- Once you have scrolled back past the newest 50 messages of a channel, a message you send, one
+  that arrives and a thread reply sent to the channel too appear at the bottom, instead of a
+  page or more up the history until the window was refocused.
+- *New messages* goes all the way to the newest message instead of stopping short of it after a
+  long jump, and shows for a message that arrives just after older messages have loaded.
 
 ## [4.6.0] — 2026-11-10
 

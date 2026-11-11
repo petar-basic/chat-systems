@@ -42,6 +42,10 @@ export interface MessagesResponse {
 
 export type MessagesInfiniteData = InfiniteData<MessagesResponse>;
 
+export function eachPageOldestFirst(data: MessagesInfiniteData): MessagesInfiniteData {
+  return { ...data, pages: data.pages.map((page) => ({ ...page, data: [...page.data].reverse() })) };
+}
+
 export function messagesOldestFirst(data: MessagesInfiniteData | undefined): Message[] {
   if (!data) return [];
   return [...data.pages].reverse().flatMap((page) => page.data);
@@ -96,10 +100,7 @@ export const useMessages = (channelId: string | null, markReadIn?: string) => {
     initialPageParam: undefined as string | undefined,
     enabled: !!channelId,
     staleTime: 0,
-    select: (data) => ({
-      ...data,
-      pages: data.pages.map((page) => ({ ...page, data: [...page.data].reverse() })),
-    }),
+    select: eachPageOldestFirst,
   });
 };
 
@@ -139,7 +140,7 @@ export const useSendMessage = (channelId: string, userId: string) => {
       };
       useUnsentStore.getState().drop(optimistic);
       queryClient.setQueryData<MessagesInfiniteData>(key, (old) =>
-        upsertMessage(old, optimistic, 'lastPage', newestFirst),
+        upsertMessage(old, optimistic, newestFirst),
       );
       return { optimistic };
     },
@@ -157,12 +158,7 @@ export const useSendMessage = (channelId: string, userId: string) => {
       // on the server's. Swapping them here is what stops the websocket echo
       // from arriving as a second copy of the same message.
       queryClient.setQueryData<MessagesInfiniteData>(key, (old) =>
-        upsertMessage(
-          removeMessageById(old, id),
-          { ...message, pending: false, failed: false },
-          'lastPage',
-          newestFirst,
-        ),
+        upsertMessage(removeMessageById(old, id), { ...message, pending: false, failed: false }, newestFirst),
       );
     },
   });
