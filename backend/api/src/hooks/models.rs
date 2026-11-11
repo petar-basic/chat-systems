@@ -12,6 +12,16 @@ pub enum HookType {
     SlashCommand,
 }
 
+impl HookType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::IncomingWebhook => "incoming_webhook",
+            Self::OutgoingWebhook => "outgoing_webhook",
+            Self::SlashCommand => "slash_command",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct Hook {
     pub id: Uuid,

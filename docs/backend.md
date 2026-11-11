@@ -564,7 +564,9 @@ Incoming/outgoing webhooks, bots and slash commands. A background task executes 
 | POST | `/hooks/incoming/:token` | `{ text }` | `{ status: "ok", message_id }` |
 | GET | `/channels/:ch_id/integrations` | — | `{ incoming_webhooks, outgoing_webhooks, slash_commands, workflows, can_add_webhook }` — what touches the channel, for anyone with access to it: incoming webhooks bound to it, outgoing webhooks and commands whose `channel_ids` include it, workflows whose trigger listens to it or whose `send_message` step posts into it; names and authors only, never a URL, token or secret |
 
-Hook types: `incoming_webhook`, `outgoing_webhook`, `slash_command`
+Hook types: `incoming_webhook`, `outgoing_webhook`, `slash_command`. An outgoing webhook and a
+slash command need a non-empty `config.channel_ids`; without one the 422 names the type asked
+for (*slash_command requires a non-empty channel_ids array in config*).
 
 Built-in commands run before any registered one and never leave the instance: `/away`,
 `/dnd`, `/topic`, `/invite`, `/shrug` and `/remind`. `/topic` and `/invite` run what
@@ -719,8 +721,9 @@ client sends `{ "type": "activity", "active": bool }` — active while its page 
 has had input in the last two minutes, idle the moment it is hidden or unloaded — and the
 gateway keeps `active:user:{user}`, a hash of connection → expiry refreshed on each heartbeat
 and removed on idle or disconnect. A heartbeat renews only a connection that answered within
-the last interval and removes one that did not, so a laptop shut mid-use stops holding push
-back within about 30 seconds. Push is held only while some entry has not expired. Its badge is
+the last interval, give or take five seconds (`ACTIVITY_GRACE`, so a pong that comes back a
+little later than the one before still counts), and removes one that did not, so a laptop shut
+mid-use stops holding push back within about 35 seconds. Push is held only while some entry has not expired. Its badge is
 the person's unread notifications in the workspaces they are still a member of, the number
 the app shows.
 

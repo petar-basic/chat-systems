@@ -26,3 +26,20 @@ test('a deploy while the tab is open offers a reload, and the reload takes it', 
   await expect(page.locator('.ProseMirror[contenteditable="true"]').last()).toBeVisible({ timeout: 20_000 });
   await expect(banner).toHaveCount(0);
 });
+
+test('the instance admin page offers the reload too', async ({ page }) => {
+  await login(page, 'admin@dev.local');
+  await page.goto('/app/admin');
+  await expect(page.getByRole('heading', { name: 'Instance admin' })).toBeVisible();
+
+  const served = await (await page.request.get('/version.json')).json();
+  await page.route('**/version.json', (route) =>
+    route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ version: `${served.version}-next` }),
+    }),
+  );
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+
+  await expect(page.locator('[data-qa="new-version-banner"]')).toBeVisible();
+});

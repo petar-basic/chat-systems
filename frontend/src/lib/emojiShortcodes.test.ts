@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
-import { EmojiShortcodes, loadShortcodes, shortcodeToEmoji } from './emojiShortcodes';
+import {
+  EmojiShortcodes,
+  convertTrailingEmoticon,
+  loadShortcodes,
+  shortcodeToEmoji,
+} from './emojiShortcodes';
 
 let editor: Editor | null = null;
 
@@ -40,5 +45,47 @@ describe('emoji shortcodes', () => {
 
   it('leaves an emoticon that grows into a shortcode as typed', () => {
     expect(type(':Dasd: ')).toBe(':Dasd: ');
+  });
+
+  it('leaves Enter after an emoticon to send the message', () => {
+    type('thanks :)');
+    const { view } = editor!;
+    const inputRules = view.state.plugins.find(
+      (plugin) => (plugin.spec as { isInputRules?: boolean }).isInputRules,
+    );
+    const handled = inputRules?.props.handleKeyDown?.call(
+      inputRules,
+      view,
+      new KeyboardEvent('keydown', { key: 'Enter' }),
+    );
+    expect(inputRules).toBeDefined();
+    expect(handled).toBe(false);
+    expect(editor!.state.doc.textContent).toBe('thanks :)');
+  });
+
+  it('converts an emoticon that ends the message when it is sent', () => {
+    type('thanks :)');
+    convertTrailingEmoticon(editor!);
+    expect(editor!.state.doc.textContent).toBe('thanks 🙂');
+  });
+
+  it('converts an emoticon that is the whole message', () => {
+    type(':D');
+    convertTrailingEmoticon(editor!);
+    expect(editor!.state.doc.textContent).toBe('😃');
+  });
+
+  it('leaves an emoticon glued to a word, or in code, as typed', () => {
+    type('see https://x.com:D');
+    convertTrailingEmoticon(editor!);
+    expect(editor!.state.doc.textContent).toBe('see https://x.com:D');
+
+    editor!.commands.setContent('<p>run <code>echo :)</code></p>');
+    convertTrailingEmoticon(editor!);
+    expect(editor!.state.doc.textContent).toBe('run echo :)');
+
+    editor!.commands.setContent('<pre><code>x = :)</code></pre>');
+    convertTrailingEmoticon(editor!);
+    expect(editor!.state.doc.textContent).toBe('x = :)');
   });
 });

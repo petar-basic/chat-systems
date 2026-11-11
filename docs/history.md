@@ -2935,3 +2935,50 @@ recorded every call: two DMs raised keys `…-0` and `…-1`; after a reload a D
 raised a key with a new prefix, the old `…-0` handed to the new page left it where it was, and
 the new key opened the new DM; signing out reported no workspaces once; and a reload after the
 session was revoked on the server reported no workspaces where the app had held 36 with 3 unread.
+
+### [CS-121l] The third survey's small things ✅ shipped
+Five smaller findings from the survey of 4.6.0, and two more found while checking them.
+
+- **An active reader turned inactive for a beat.** `renew_activity` kept a connection active only
+  while its last frame was at most `HEARTBEAT_INTERVAL` old, and that frame is usually the pong to
+  the previous tick's ping. When the tick fires a moment late, or the last pong came back a moment
+  early, the gap is a little over 30 seconds and the entry was dropped, so someone reading without
+  typing got a push for what they were looking at. The check now allows `ACTIVITY_GRACE`, five
+  seconds; a silent socket is still dropped within about 35 seconds.
+- **Enter did not send a message ending in an emoticon.** The survey read the code as sending
+  `:)`; in the app nothing was sent at all. TipTap runs input rules on Enter (and ⌘Enter) as a
+  typed `\n`, and `EMOTICON_RULE` ended in `\s`, so it matched, converted the emoticon, put the
+  newline in as text and took the keypress. The rule now ends in a space or tab, not a newline.
+  That uncovered a second trap: the emoji suggestion counts as active for any `:` followed by
+  text, `:)` included, though it offers nothing under two characters, and the composer left Enter
+  to an active picker, so Enter split the line and ⌘Enter added a break. The picker now records in
+  `editor.storage.emojiSuggestion.open` whether it shows emoji, as the command picker already did,
+  and the composer holds Enter back only then. `convertTrailingEmoticon` turns an emoticon that ends
+  the message into its emoji when it is sent, outside code.
+- **The new-version banner was only on the workspace page.** `SignedInLayout`, a layout route in
+  `App` around every signed-in page, shows `NewVersionBanner` above the page, so *Instance admin*
+  offers the reload too and the banner stays up when moving between pages. The pages fill the
+  layout (`flex-1`) instead of the viewport. In the desktop app the banner sits above the workspace
+  top bar.
+- ***Instance admin* scrolled the whole window.** Found while checking the banner there: the
+  `sr-only` labels and select chevrons in the user table are absolutely placed with no positioned
+  ancestor, so they hung below the scroller and the window scrolled to 5,500 pixels behind it. The
+  scroller is `relative`.
+- **Drafts were shared by everyone who signs in on a browser.** `stores/drafts.ts` keys a draft
+  `<user id>:<place>`, the user being the current instance's (`currentUserOf`, now shared with
+  `useCurrentUser`). Drafts saved before this release are left under the old keys and no longer
+  shown.
+- **A slash command without channels was refused as an outgoing webhook.** `parse_channel_ids`
+  takes the hook type and names it in the 422.
+
+Checked by hand on the Docker build. Two raw sockets on the gateway left the pings unanswered and
+sent one pong each: 29.8 seconds after the first ping, the next-but-one tick found it 30.2 seconds
+old and renewed the entry; 24 seconds after, 36 seconds old, and the entry was gone. In the
+browser, `thanks :)` with the Send button, `ok :D` with ⌘Enter and `bye :(` with Enter were sent as
+`thanks 🙂`, `ok 😃` and `bye 🙁`, and `nice :smil` with Enter picked 😄 and sent nothing. With
+`version.json` changed in the running container the banner came up on *Instance admin* and was
+still there after going back to the workspace, and neither page scrolled the window. A draft
+typed as the admin in #general was not in Alice's composer after she signed in on the same tab;
+hers was kept apart, and signing back in as the admin brought back the admin's. Registering
+`/deploy` with no `channel_ids` and with `[]` answered *slash_command requires a non-empty
+channel_ids array in config*, and an outgoing webhook still names itself.

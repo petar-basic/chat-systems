@@ -40,7 +40,9 @@ const ALTERNATION = Object.keys(EMOTICONS)
   .map(escapeForRegex)
   .join('|');
 
-export const EMOTICON_RULE = new RegExp(`(^|\\s)(${ALTERNATION})(\\s)$`);
+export const EMOTICON_RULE = new RegExp(`(^|\\s)(${ALTERNATION})([^\\S\\r\\n])$`);
+
+export const TRAILING_EMOTICON = new RegExp(`(^|\\s)(${ALTERNATION})$`);
 
 export function emoticonToEmoji(emoticon: string): string | undefined {
   return EMOTICONS[emoticon];

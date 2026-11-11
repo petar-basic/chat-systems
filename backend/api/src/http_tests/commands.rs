@@ -968,3 +968,29 @@ async fn a_command_cannot_name_a_thread_of_another_channel(pool: PgPool) {
 
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_command_without_channels_is_refused_as_a_command(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, token) = seed_and_login(&app, &state, "cmd-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Commands").await;
+
+    for config in [
+        json!({ "command": "deploy", "url": "https://example.com/cmd" }),
+        json!({ "command": "deploy", "url": "https://example.com/cmd", "channel_ids": [] }),
+    ] {
+        let (status, body) = send(
+            &app,
+            "POST",
+            &format!("/api/workspaces/{ws_id}/hooks"),
+            Some(&token),
+            Some(json!({ "hook_type": "slash_command", "name": "deploy", "config": config })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body:?}");
+        assert_eq!(
+            body["error"], "slash_command requires a non-empty channel_ids array in config",
+            "{body:?}"
+        );
+    }
+}

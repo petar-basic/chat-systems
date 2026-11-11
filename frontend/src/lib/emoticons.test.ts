@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EMOTICON_RULE, emoticonToEmoji } from './emoticons';
+import { EMOTICON_RULE, TRAILING_EMOTICON, emoticonToEmoji } from './emoticons';
 
 const match = (typed: string) => typed.match(EMOTICON_RULE);
 
@@ -31,6 +31,10 @@ describe('emoticons', () => {
     expect(match('foo<3 ')).toBeNull();
   });
 
+  it('lets Enter through, which the editor runs input rules on as a newline', () => {
+    expect(match('thanks :)\n')).toBeNull();
+  });
+
   it('only fires on the last thing typed', () => {
     expect(match('<3 and more text ')).toBeNull();
   });
@@ -43,5 +47,12 @@ describe('emoticons', () => {
   it('keeps the whitespace around the match', () => {
     expect(match('ha :D ')?.slice(1)).toEqual([' ', ':D', ' ']);
     expect(match(':D ')?.slice(1)).toEqual(['', ':D', ' ']);
+  });
+
+  it('finds the emoticon that ends a message about to be sent', () => {
+    expect('thanks :)'.match(TRAILING_EMOTICON)?.[2]).toBe(':)');
+    expect(':-('.match(TRAILING_EMOTICON)?.[2]).toBe(':-(');
+    expect('thanks :) ok'.match(TRAILING_EMOTICON)).toBeNull();
+    expect('a:D'.match(TRAILING_EMOTICON)).toBeNull();
   });
 });

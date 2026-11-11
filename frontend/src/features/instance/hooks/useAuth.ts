@@ -1,6 +1,12 @@
 import { useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useInstanceStore, type InstanceUser, type InstanceConfig, toInstanceUser } from '@/stores/instances';
+import {
+  currentUserOf,
+  useInstanceStore,
+  type InstanceUser,
+  type InstanceConfig,
+  toInstanceUser,
+} from '@/stores/instances';
 import { instanceManager } from '@/lib/instances';
 import { useWsStatusStore } from '@/stores/wsStatus';
 import { QUERY_KEYS } from '@/shared/constants';
@@ -12,13 +18,7 @@ export const useCurrentUser = () => {
   const activeInstanceUrl = useInstanceStore((s) => s.activeInstanceUrl);
   const hydrated = useInstanceStore((s) => s.hydrated);
 
-  const user = useMemo(() => {
-    if (activeInstanceUrl) {
-      const instance = instances.find((i) => i.url === activeInstanceUrl);
-      if (instance) return instance.user;
-    }
-    return instances[0]?.user ?? null;
-  }, [instances, activeInstanceUrl]);
+  const user = useMemo(() => currentUserOf({ instances, activeInstanceUrl }), [instances, activeInstanceUrl]);
 
   return { data: user, isLoading: !hydrated };
 };

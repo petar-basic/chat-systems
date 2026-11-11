@@ -4,7 +4,6 @@ import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { ROUTES, EmptyLabels } from '@/shared/constants';
 import { ConnectionBanner } from '@/shared/components/ConnectionBanner/ConnectionBanner';
 import InstallAppBanner from '@/features/instance/InstallAppBanner';
-import NewVersionBanner from '@/features/instance/NewVersionBanner';
 import { QuickSwitcher, KeyboardShortcutsDialog } from '@/features/navigation';
 import {
   DesktopTopBar,
@@ -95,7 +94,7 @@ export default function WorkspacePage() {
   useEscapeToClose(() => c.setMobileNavOpen(false), c.mobileNavOpen);
 
   return (
-    <div className="h-dvh flex flex-col bg-app text-fg">
+    <div className="flex-1 min-h-0 flex flex-col bg-app text-fg">
       {inDesktop && (
         <DesktopTopBar
           workspaceName={currentWorkspace?.name}
@@ -104,7 +103,6 @@ export default function WorkspacePage() {
           style={themeStyle(theme)}
         />
       )}
-      <NewVersionBanner />
       <InstallAppBanner />
       <div className="flex-1 flex min-h-0 relative">
         <div

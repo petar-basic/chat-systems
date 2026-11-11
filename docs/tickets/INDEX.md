@@ -441,7 +441,7 @@ role or a channel they should not have comes first.
 | CS-121i ✅ | Emailed codes with a ceiling, and instance roles that apply at once | backend · frontend · realtime |
 | CS-121j ✅ | Erase and export that cover everything about a person | backend · frontend |
 | CS-121k ✅ | The desktop app after signing out and after a reload | frontend · desktop |
-| CS-121l | The third survey's small things | realtime · frontend · backend |
+| CS-121l ✅ | The third survey's small things | realtime · frontend · backend |
 | CS-121m | Notifications in the reader's language | backend · frontend |
 
 ### Wave 33 — Mobile apps
