@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import i18n from '@/lib/i18n';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { SearchFilterBar } from './SearchFilterBar';
 import type { FilterContext, SearchFilters, SearchTab } from './searchFilters';
@@ -77,5 +78,49 @@ describe('SearchFilterBar', () => {
     expect(screen.getByTestId('search-filter-has')).toHaveTextContent('Images');
     fireEvent.click(screen.getByLabelText('Remove the in filter'));
     expect(onChange).toHaveBeenCalledWith({ from: 'u-ana', in: undefined, has: 'image' });
+  });
+});
+
+describe('SearchFilterBar in Japanese', () => {
+  const hostile = '<img src=x onerror="alert(1)"> {{name}}';
+  beforeEach(async () => {
+    await i18n.changeLanguage('ja');
+  });
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('names the filters and what they hold, with names as text', () => {
+    const named: FilterContext = {
+      ...context,
+      members: [...context.members, { user_id: 'u-x', display_name: hostile }],
+      channels: [{ id: 'c-x', name: hostile, channel_type: 'public' }],
+    };
+    render(
+      <SearchFilterBar
+        filters={{ from: 'u-x', in: 'c-x', has: 'link' }}
+        onChange={vi.fn()}
+        context={named}
+        tab="messages"
+      />,
+    );
+    expect(screen.getByTestId('search-filter-from').textContent).toBe(`送信者${hostile}`);
+    expect(screen.getByTestId('search-filter-in').textContent).toBe(`場所#${hostile}`);
+    expect(screen.getByTestId('search-filter-has').textContent).toBe('含むものリンク');
+    expect(screen.getByTestId('search-filter-date').textContent).toBe('日付');
+    expect(screen.getByRole('button', { name: '「送信者」の絞り込みを解除' })).toBeInTheDocument();
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
+
+  it('offers dates and people in Japanese', async () => {
+    render(<SearchFilterBar filters={{}} onChange={vi.fn()} context={context} tab="messages" />);
+    fireEvent.click(screen.getByTestId('search-filter-date'));
+    for (const label of ['今日', '昨日', '過去 7 日間', '過去 30 日間']) {
+      expect(await screen.findByRole('button', { name: label })).toBeInTheDocument();
+    }
+    expect(screen.getByLabelText('この日より後')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('search-filter-from'));
+    fireEvent.change(await screen.findByLabelText('メンバーを探す'), { target: { value: 'nobody-here' } });
+    expect(screen.getByText('該当するメンバーがいません')).toBeInTheDocument();
   });
 });

@@ -1,0 +1,84 @@
+{
+  "panel": {
+    "title": "Search",
+    "tabs": {
+      "messages": "Messages",
+      "files": "Files"
+    },
+    "label": {
+      "messages": "Search messages",
+      "files": "Search files"
+    },
+    "placeholder": {
+      "messages": "Search messages...",
+      "files": "Search files..."
+    },
+    "hint": {
+      "messages": "Narrow with from:@name in:#channel has:file before:2026-10-01 after: on:",
+      "files": "Narrow with from:@name in:#channel type:pdf before:2026-10-01 after: on:"
+    },
+    "clear": "Clear search",
+    "results_one": "{{count}} result",
+    "results_other": "{{count}} results",
+    "resultsMore": "{{count}}+ results",
+    "clearFilters": "Clear filters",
+    "failed": "Search failed",
+    "noneFor": {
+      "messages": "No messages found for “{{query}}”",
+      "files": "No files found for “{{query}}”"
+    },
+    "noneForFiltered": {
+      "messages": "No messages found for “{{query}}” with these filters",
+      "files": "No files found for “{{query}}” with these filters"
+    },
+    "noneFiltered": {
+      "messages": "No messages match these filters",
+      "files": "No files match these filters"
+    },
+    "showMore": "Show more",
+    "empty": {
+      "messages": "Search across all messages in this workspace",
+      "files": "Find a file by any part of its name"
+    },
+    "tip": {
+      "messages": "Narrow it with the filters, or type <code>from:@name</code>, <code>in:#channel</code>, <code>has:file</code> or <code>after:2026-10-01</code>",
+      "files": "Narrow it with the filters, or type <code>from:@name</code>, <code>in:#channel</code>, <code>type:pdf</code> or <code>after:2026-10-01</code>"
+    },
+    "directMessage": "Direct message",
+    "openInGallery": "Open in the gallery",
+    "showInConversation": "Show in conversation",
+    "download": "Download {{name}}"
+  },
+  "filters": {
+    "from": "From",
+    "in": "In",
+    "has": "Has",
+    "type": "Type",
+    "date": "Date",
+    "remove": "Remove the {{filter}} filter",
+    "findPerson": "Find a person",
+    "nobody": "Nobody matches",
+    "findPlace": "Find a channel or conversation",
+    "nothing": "Nothing matches",
+    "hasValues": {
+      "file": "Files",
+      "image": "Images",
+      "link": "Links"
+    },
+    "otherKind": "Other",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "last7": "Last 7 days",
+    "last30": "Last 30 days",
+    "on": "On",
+    "after": "After",
+    "before": "Before",
+    "onDate": "On {{date}}",
+    "afterDate": "After {{date}}",
+    "beforeDate": "Before {{date}}",
+    "between": "After {{after}}, before {{before}}",
+    "you": "You",
+    "conversation": "Conversation",
+    "channelFallback": "channel"
+  }
+}

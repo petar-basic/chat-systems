@@ -1,9 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import i18n from '@/lib/i18n';
 import {
   dateLabel,
   extractFilters,
   findMember,
   forTab,
+  kindLabel,
+  memberName,
   placeName,
   searchParams,
   setDate,
@@ -150,5 +153,44 @@ describe('placeName', () => {
     expect(placeName(ctx, 'c-design')).toBe('#design');
     expect(placeName(ctx, 'd-lazar')).toBe('Lazar');
     expect(placeName(ctx, 'g-team')).toBe('Lazar, Ana Jovanović');
+  });
+});
+
+describe('search filters in Japanese', () => {
+  const hostile = '<img src=x onerror="alert(1)"> {{name}}';
+  const day = (key: string) =>
+    new Date(`${key}T00:00:00`).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+
+  beforeEach(async () => {
+    await i18n.changeLanguage('ja');
+  });
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('describes the date chip', () => {
+    expect(dateLabel({ on: '2026-10-05' })).toBe(day('2026-10-05'));
+    expect(dateLabel({ after: '2026-10-01' })).toBe(`${day('2026-10-01')} より後`);
+    expect(dateLabel({ before: '2026-10-10' })).toBe(`${day('2026-10-10')} より前`);
+    expect(dateLabel({ after: '2026-10-01', before: '2026-10-10' })).toBe(
+      `${day('2026-10-01')} より後、${day('2026-10-10')} より前`,
+    );
+  });
+
+  it('names people, places and kinds, with names as text', () => {
+    const named = {
+      ...ctx,
+      members: [...ctx.members, { user_id: 'u-x', display_name: hostile }],
+      conversations: [{ id: 'g-x', kind: 'group_dm', participant_ids: ['u-me', 'u-lazar', 'u-x'] }],
+    };
+    expect(memberName(named, 'u-me')).toBe('自分');
+    expect(placeName(named, 'g-x')).toBe(`Lazar、${hostile}`);
+    expect(placeName(named, 'gone')).toBe('会話');
+    expect(kindLabel('spreadsheet')).toBe('スプレッドシート');
+    expect(kindLabel('other')).toBe('その他');
   });
 });

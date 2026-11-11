@@ -1,3 +1,4 @@
+import i18n from '@/lib/i18n';
 import { displayNameOf } from '@/lib/userHelpers';
 import { FILE_KINDS, type FileKindName } from '@/lib/fileKinds';
 
@@ -50,7 +51,11 @@ const KINDS = new Map(
   ]),
 );
 
-export const HAS_LABELS: Record<HasFilter, string> = { file: 'Files', image: 'Images', link: 'Links' };
+export const HAS_FILTERS: HasFilter[] = ['file', 'image', 'link'];
+
+export function hasLabel(has: HasFilter): string {
+  return i18n.t(`search:filters.hasValues.${has}`);
+}
 
 const squash = (value: string) => value.toLowerCase().replace(/\s+/g, '');
 
@@ -173,7 +178,7 @@ export function setDate(
 }
 
 export function kindLabel(kind: FileKindName): string {
-  return kind === 'other' ? 'Other' : FILE_KINDS[kind].label;
+  return kind === 'other' ? i18n.t('search:filters.otherKind') : i18n.t(`common:fileKinds.${kind}`);
 }
 
 export function forTab(filters: SearchFilters, tab: SearchTab): SearchFilters {
@@ -212,24 +217,30 @@ function formatDay(key: string): string {
 }
 
 export function dateLabel(filters: SearchFilters): string | null {
-  if (filters.on) return `On ${formatDay(filters.on)}`;
-  const parts = [
-    filters.after && `After ${formatDay(filters.after)}`,
-    filters.before && `${filters.after ? 'before' : 'Before'} ${formatDay(filters.before)}`,
-  ].filter(Boolean);
-  return parts.length ? parts.join(', ') : null;
+  if (filters.on) return i18n.t('search:filters.onDate', { date: formatDay(filters.on) });
+  if (filters.after && filters.before) {
+    return i18n.t('search:filters.between', {
+      after: formatDay(filters.after),
+      before: formatDay(filters.before),
+    });
+  }
+  if (filters.after) return i18n.t('search:filters.afterDate', { date: formatDay(filters.after) });
+  if (filters.before) return i18n.t('search:filters.beforeDate', { date: formatDay(filters.before) });
+  return null;
 }
 
 export function memberName(ctx: FilterContext, userId: string): string {
-  if (userId === ctx.currentUserId) return 'You';
+  if (userId === ctx.currentUserId) return i18n.t('search:filters.you');
   return displayNameOf(ctx.members.find((m) => m.user_id === userId)?.display_name);
 }
 
 export function placeName(ctx: FilterContext, placeId: string): string {
   const channel = ctx.channels.find((c) => c.id === placeId);
-  if (channel) return `#${channel.name ?? 'channel'}`;
+  if (channel) return `#${channel.name ?? i18n.t('search:filters.channelFallback')}`;
   const conversation = ctx.conversations.find((c) => c.id === placeId);
-  if (!conversation) return 'Conversation';
+  if (!conversation) return i18n.t('search:filters.conversation');
   const others = conversation.participant_ids.filter((id) => id !== ctx.currentUserId);
-  return others.length ? others.map((id) => memberName(ctx, id)).join(', ') : 'You';
+  return others.length
+    ? others.map((id) => memberName(ctx, id)).join(i18n.t('common:listSeparator'))
+    : i18n.t('search:filters.you');
 }
