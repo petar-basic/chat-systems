@@ -106,6 +106,12 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   header and *… is no longer in this workspace*, not their account name.
 - A workspace export has `users.jsonl`, naming every person it mentions by id, name and email,
   people who have left included, so every message's author can be told without the database.
+- In the desktop app, signing out of a server, or a session that did not survive a restart or
+  a password reset, takes its workspaces off the rail and ⌘1–9 and its unread off the Dock and
+  the tray at once. Before, they stayed until the app quit, each opening the sign-in page.
+- In the desktop app, clicking a notification raised before the page reloaded (as it does for
+  a new version) shows that server and nothing else. Before, it could open a different, newer
+  message. Both fixes come with the server; the desktop app does not change.
 - In the desktop app, clicking a link to another site in a message, a link preview, a bookmark
   or a list opens it in your browser. On a Mac a plain click did nothing and only ⌘-click
   opened it. This needs the desktop app on this release; the server does not change.
