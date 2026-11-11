@@ -1592,7 +1592,7 @@ async fn mentions_and_assignments_notify_whoever_can_see_the_list(pool: PgPool) 
     let rows: Vec<(Uuid, Option<String>, Value)> = sqlx::query_as(
         "SELECT user_id, body, data FROM notifications
           WHERE workspace_id = $1 AND notification_type = 'list'
-          ORDER BY created_at, data ? 'assigned' DESC",
+          ORDER BY created_at, (data ->> 'assigned')::boolean DESC",
     )
     .bind(ws)
     .fetch_all(&state.pool)
@@ -1619,7 +1619,7 @@ async fn mentions_and_assignments_notify_whoever_can_see_the_list(pool: PgPool) 
         rows[0].1, None,
         "the client writes \"in Launch plan\" itself"
     );
-    assert!(rows[1].2.get("assigned").is_none());
+    assert_eq!(rows[1].2["assigned"], false);
     assert!(rows[1]
         .1
         .as_deref()
