@@ -11,7 +11,7 @@ import { openSfu } from './lib/openSfu';
 import { Promotion, type LocalMedia } from './lib/Promotion';
 import { acquireCamera, acquireLocalAudio, acquireScreen, micErrorLabel, stopStream } from './lib/media';
 import { toast } from '@/shared/components/Toast';
-import { ErrorLabels } from '@/shared/constants';
+import i18n from '@/lib/i18n';
 import { BackgroundProcessor } from './lib/backgroundProcessor';
 import { HuddleWindow } from './components/HuddleWindow';
 import { IncomingCallRing } from './components/IncomingCallRing';
@@ -116,7 +116,7 @@ export function HuddleController() {
       } catch (err) {
         logger.error('HuddleController', 'sfu', err);
         if (transportRef.current === promotion) transportRef.current = mesh;
-        if (!cancelled) toast.error(ErrorLabels.HuddleSfuUnreachable);
+        if (!cancelled) toast.error(i18n.t('huddle:errors.sfuUnreachable'));
         return;
       }
       if (!cancelled) useHuddleStore.getState().setTransport('sfu');
@@ -137,7 +137,7 @@ export function HuddleController() {
         // and nowhere else — a call that fails silently is worse than one that
         // says it could not start.
         logger.error('HuddleController', 'ice-servers', err);
-        toast.error(ErrorLabels.HuddleSetupFailed);
+        toast.error(i18n.t('huddle:errors.setupFailed'));
         useHuddleStore.getState().setActive(null);
         return;
       }
@@ -181,7 +181,7 @@ export function HuddleController() {
       globalEventBus.on('huddle.full', (event) => {
         if (event.huddle_id !== active.huddleId) return;
         joinedRef.current = false;
-        toast.error(ErrorLabels.huddleFull(event.limit));
+        toast.error(i18n.t('huddle:errors.full', { limit: event.limit }));
         useHuddleStore.getState().setActive(null);
       }),
       globalEventBus.on('huddle.transport', (event) => {

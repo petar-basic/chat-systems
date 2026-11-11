@@ -1,5 +1,64 @@
 {
   "start": "通話を開始",
   "join": "通話に参加",
-  "busy": "通話中です"
+  "busy": "通話中です",
+  "window": {
+    "title": "通話",
+    "people": "・ {{count}}人",
+    "focusView": "大きく表示",
+    "gridView": "並べて表示",
+    "expand": "通話を全画面表示",
+    "collapse": "通話を縮小",
+    "fullScreenTip": "全画面表示",
+    "collapseTip": "縮小"
+  },
+  "controls": {
+    "mute": "ミュート",
+    "unmute": "ミュート解除",
+    "cameraOn": "カメラをオン",
+    "cameraOff": "カメラをオフ",
+    "share": "画面を共有",
+    "stopSharing": "共有を停止",
+    "raiseHand": "手を挙げる",
+    "lowerHand": "手を下ろす",
+    "blur": "背景をぼかす",
+    "blurOn": "背景ぼかし中",
+    "react": "リアクションを送信",
+    "invite": "通話に招待",
+    "noOneToInvite": "招待できるメンバーがいません",
+    "devices": "デバイス",
+    "mic": "マイク",
+    "camera": "カメラ",
+    "speaker": "スピーカー",
+    "noDevices": "デバイスがありません",
+    "leave": "通話から退出"
+  },
+  "tile": {
+    "screenOf": "{{name}} さんの画面",
+    "you": "（自分）",
+    "sharing": "共有中",
+    "handRaised": "挙手中",
+    "waitingForScreen": "画面を待っています…",
+    "pin": "固定表示",
+    "unpin": "固定を解除"
+  },
+  "incoming": {
+    "title": "通話の着信",
+    "starting": "通話を始めようとしています…",
+    "decline": "拒否",
+    "join": "参加"
+  },
+  "system": {
+    "started": "<name>{{name}}</name> さんが通話を開始しました",
+    "join": "参加"
+  },
+  "errors": {
+    "micBlocked": "ブラウザがマイクをブロックしています。このサイトでマイクの使用を許可してから、もう一度お試しください。",
+    "micMissing": "マイクが見つかりません。マイクを接続するか、設定で別の入力を選んでください。",
+    "micBusy": "ほかのアプリがマイクを使用中です。そのアプリを閉じてから、もう一度お試しください。",
+    "micFailed": "マイクを使用できませんでした。",
+    "setupFailed": "通話を準備できませんでした。しばらくしてから、もう一度お試しください。",
+    "full": "この通話は満員です。参加できるのは {{limit}} 人までです。",
+    "sfuUnreachable": "この通話はメディアサーバー経由に切り替わりましたが、接続できませんでした。すでにつながっていた人の声は、引き続き聞こえます。"
+  }
 }
