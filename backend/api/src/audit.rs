@@ -49,6 +49,7 @@ pub enum AuditAction {
     ExportRequested,
     ExportCompleted,
     SlackImportStarted,
+    SlackImportDiscarded,
     UserDataErased,
     SsoLinked,
     TotpEnrolled,
@@ -132,6 +133,7 @@ impl AuditAction {
             Self::ExportRequested => "export.requested",
             Self::ExportCompleted => "export.completed",
             Self::SlackImportStarted => "slack_import.started",
+            Self::SlackImportDiscarded => "slack_import.discarded",
             Self::UserDataErased => "user.data_erased",
             Self::SsoLinked => "sso.linked",
             Self::TotpEnrolled => "totp.enrolled",
@@ -234,7 +236,7 @@ impl AuditAction {
                 "app"
             }
             Self::ExportRequested | Self::ExportCompleted => "export",
-            Self::SlackImportStarted => "slack_import",
+            Self::SlackImportStarted | Self::SlackImportDiscarded => "slack_import",
             Self::WorkflowCreated
             | Self::WorkflowUpdated
             | Self::WorkflowEnabled

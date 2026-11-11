@@ -9751,6 +9751,45 @@
         }
       }
     },
+    "/workspaces/{ws_id}/slack-imports/{import_id}/archive": {
+      "delete": {
+        "tags": [
+          "slack-import"
+        ],
+        "operationId": "discard_import_archive",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "import_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataItem_ImportRun"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workspaces/{ws_id}/slack-imports/{import_id}/retry": {
       "post": {
         "tags": [
@@ -12427,6 +12466,13 @@
               "started_at"
             ],
             "properties": {
+              "archive_deleted_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
               "dry_run": {
                 "type": "boolean"
               },
@@ -13576,6 +13622,13 @@
                 "started_at"
               ],
               "properties": {
+                "archive_deleted_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
                 "dry_run": {
                   "type": "boolean"
                 },
@@ -16142,6 +16195,13 @@
           "started_at"
         ],
         "properties": {
+          "archive_deleted_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
           "dry_run": {
             "type": "boolean"
           },

@@ -27,6 +27,7 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(start_import_into_new))
         .routes(routes!(get_import))
         .routes(routes!(retry_import))
+        .routes(routes!(discard_import_archive))
         .layer(DefaultBodyLimit::max(MAX_ARCHIVE_BYTES))
 }
 
@@ -91,6 +92,50 @@ async fn retry_import(
             .details(
                 serde_json::json!({ "source": run.source, "dry_run": run.dry_run, "retry": true }),
             ),
+    )
+    .await;
+
+    Ok(Json(DataItem { data: run }))
+}
+
+#[utoipa::path(delete, path = "/workspaces/{ws_id}/slack-imports/{import_id}/archive", tag = "slack-import", responses((status = 200, body = DataItem<ImportRun>)))]
+async fn discard_import_archive(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    ip: ClientIp,
+    Path((ws_id, import_id)): Path<(Uuid, Uuid)>,
+) -> AppResult<Json<DataItem<ImportRun>>> {
+    authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
+    let kept = state
+        .slack_import_repo
+        .discard_archive(import_id, ws_id)
+        .await?
+        .ok_or_else(|| {
+            AppError::Conflict(
+                "Only a failed import whose export is still here can be discarded".into(),
+            )
+        })?;
+    if let Err(e) = state.file_storage.delete(&kept.storage_key).await {
+        state
+            .slack_import_repo
+            .keep_archive(kept.id, &kept.storage_key)
+            .await?;
+        return Err(e);
+    }
+
+    let run = state
+        .slack_import_repo
+        .find_run(kept.id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("No such import".into()))?;
+
+    audit::record(
+        &state,
+        AuditEntry::new(AuditAction::SlackImportDiscarded, auth.user_id)
+            .workspace(ws_id)
+            .resource(run.id)
+            .ip(&ip)
+            .details(serde_json::json!({ "source": run.source })),
     )
     .await;
 

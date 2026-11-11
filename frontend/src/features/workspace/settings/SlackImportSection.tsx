@@ -7,6 +7,7 @@ import {
   useSlackImports,
   useStartSlackImport,
   useRetrySlackImport,
+  useDiscardSlackImport,
   workspaceNameFrom,
   type SlackImportRun,
   type SlackImportReport,
@@ -15,6 +16,8 @@ import {
 import { Checkbox } from '@/shared/components/Form/Checkbox';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { canCreateOn, useWorkspaceCreation } from '../hooks/useWorkspaceCreation';
+import { ConfirmDialog } from '@/shared/components/ConfirmDialog/ConfirmDialog';
+import { formatDateTime } from '@/lib/datetime';
 
 interface Props {
   workspaceId: string;
@@ -36,7 +39,14 @@ const COUNTS: { key: keyof Omit<SlackImportReport, 'skipped' | 'notes'>; label: 
   { key: 'emoji_imported', label: 'emoji' },
 ];
 
-function RunRow({ run, retrying, onRetry }: { run: SlackImportRun; retrying: boolean; onRetry: () => void }) {
+interface RunRowProps {
+  run: SlackImportRun;
+  retrying: boolean;
+  onRetry: () => void;
+  onDiscard: () => void;
+}
+
+function RunRow({ run, retrying, onRetry, onDiscard }: RunRowProps) {
   const report = reportOf(run);
   const skipped = report.skipped ?? [];
   const notes = report.notes ?? [];
@@ -86,16 +96,33 @@ function RunRow({ run, retrying, onRetry }: { run: SlackImportRun; retrying: boo
       )}
 
       {run.retryable && (
-        <Button
-          size="sm"
-          className="mt-1.5"
-          onClick={onRetry}
-          loading={retrying}
-          disabled={retrying}
-          data-qa="slack-import-retry"
-        >
-          Start again
-        </Button>
+        <div className="mt-1.5 flex gap-2">
+          <Button
+            size="sm"
+            onClick={onRetry}
+            loading={retrying}
+            disabled={retrying}
+            data-qa="slack-import-retry"
+          >
+            Start again
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onDiscard}
+            disabled={retrying}
+            data-qa="slack-import-discard"
+          >
+            Discard
+          </Button>
+        </div>
+      )}
+
+      {run.status === 'failed' && run.archive_deleted_at && (
+        <p className="mt-1.5 text-2xs text-muted" data-qa="slack-import-archive-gone">
+          The export was deleted {formatDateTime(run.archive_deleted_at)}, so this run can&apos;t be started
+          again. Upload it again to finish the import.
+        </p>
       )}
 
       {skipped.length > 0 && (
@@ -120,6 +147,8 @@ export function SlackImportSection({ workspaceId, instanceUrl }: Props) {
   const { data: runs = [], isLoading } = useSlackImports(workspaceId, instanceUrl);
   const start = useStartSlackImport(workspaceId, instanceUrl);
   const retry = useRetrySlackImport(workspaceId, instanceUrl);
+  const discard = useDiscardSlackImport(workspaceId, instanceUrl);
+  const [discarding, setDiscarding] = useState<SlackImportRun | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const mayCreate = canCreateOn(useWorkspaceCreation(), instanceUrl);
 
@@ -243,10 +272,28 @@ export function SlackImportSection({ workspaceId, instanceUrl }: Props) {
                   onError: (e) => setError(toUserMessage(e, 'Could not start that import again')),
                 })
               }
+              onDiscard={() => setDiscarding(run)}
             />
           ))
         )}
       </div>
+
+      {discarding && (
+        <ConfirmDialog
+          title="Discard this export?"
+          description={`This deletes ${discarding.source} from the server now. The run can't be started again; to finish the import, upload the export again.`}
+          confirmLabel="Discard"
+          onConfirm={async () => {
+            try {
+              await discard.mutateAsync(discarding.id);
+            } catch (e) {
+              throw new Error(toUserMessage(e, 'Could not discard that export'), { cause: e });
+            }
+          }}
+          onClose={() => setDiscarding(null)}
+          dataQa="slack-import-discard-dialog"
+        />
+      )}
     </div>
   );
 }

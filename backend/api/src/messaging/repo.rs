@@ -157,6 +157,13 @@ impl MessageRepo {
             .await?;
         }
 
+        sqlx::query!(
+            "INSERT INTO analytics_uncounted_imports (message_id) VALUES ($1)",
+            msg.id
+        )
+        .execute(&mut *tx)
+        .await?;
+
         tx.commit().await?;
 
         Ok(msg)

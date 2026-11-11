@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE slack_imports SET storage_key = $2, archive_deleted_at = NULL WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c6dad1e743fff12380291bc4705705d42c449e350d49d9c8336a89258ec45ff0"
+}

@@ -1,5 +1,7 @@
 //! Channels from `channels.json` and `groups.json`, conversations from `dms.json` and `mpims.json`.
 
+use std::collections::HashSet;
+
 use shared_common::errors::AppResult;
 use uuid::Uuid;
 
@@ -28,11 +30,17 @@ impl Import<'_> {
         for channel in channels {
             let slack_name = channel.folder().to_string();
             if let Some(&channel_id) = self.channels.get(&channel.id) {
-                self.report.channels_reused += 1;
-                if channel.is_archived && self.created_channels.contains(&channel_id) {
-                    self.archived.push(channel_id);
+                if self.created_channels.contains(&channel_id) {
+                    self.report.channels_created += 1;
+                    if channel.is_archived {
+                        self.archived.push(channel_id);
+                    }
+                    self.add_channel_members(&channel, channel_id).await?;
+                } else {
+                    self.report.channels_reused += 1;
+                    self.leave_members_alone(&channel, channel_id, &slack_name)
+                        .await?;
                 }
-                self.add_channel_members(&channel, channel_id).await?;
                 targets.push((channel, channel_id));
                 continue;
             }
@@ -107,14 +115,22 @@ impl Import<'_> {
             if !self.dry_run {
                 self.state
                     .slack_import_repo
-                    .map_channel(self.workspace_id, &channel.id, channel_id, created)
+                    .map_channel(
+                        self.workspace_id,
+                        &channel.id,
+                        channel_id,
+                        self.run_id.filter(|_| created),
+                    )
                     .await?;
             }
             self.channels.insert(channel.id.clone(), channel_id);
             if created {
                 self.created_channels.insert(channel_id);
+                self.add_channel_members(&channel, channel_id).await?;
+            } else {
+                self.leave_members_alone(&channel, channel_id, &slack_name)
+                    .await?;
             }
-            self.add_channel_members(&channel, channel_id).await?;
             targets.push((channel, channel_id));
         }
 
@@ -181,6 +197,10 @@ impl Import<'_> {
                 .iter()
                 .filter_map(|slack_id| self.users.get(slack_id).map(|(id, _)| *id))
                 .collect();
+            let (present, gone): (Vec<Uuid>, Vec<Uuid>) = participants
+                .iter()
+                .copied()
+                .partition(|user_id| self.members.contains(user_id));
             if participants.len() < 2 {
                 // One side of the conversation has no account here, so there is
                 // nobody to open it between.
@@ -192,6 +212,7 @@ impl Import<'_> {
             }
 
             self.report.conversations_created += 1;
+            self.report.memberships_not_in_workspace += gone.len();
             if self.dry_run {
                 self.channels.insert(conversation.id.clone(), Uuid::nil());
                 targets.push((conversation, Uuid::nil()));
@@ -206,12 +227,18 @@ impl Import<'_> {
             let created = self
                 .state
                 .conversation_repo
-                .create(self.workspace_id, kind, participants[0], &participants)
+                .create(self.workspace_id, kind, participants[0], &present)
                 .await?;
+            if !gone.is_empty() {
+                self.state
+                    .slack_import_repo
+                    .record_departures(created.id, &gone)
+                    .await?;
+            }
 
             self.state
                 .slack_import_repo
-                .map_channel(self.workspace_id, &conversation.id, created.id, true)
+                .map_channel(self.workspace_id, &conversation.id, created.id, self.run_id)
                 .await?;
             self.channels.insert(conversation.id.clone(), created.id);
             targets.push((conversation, created.id));
@@ -250,6 +277,10 @@ impl Import<'_> {
             let Some(user_id) = self.users.get(slack_user_id).map(|(id, _)| *id) else {
                 continue;
             };
+            if !self.members.contains(&user_id) {
+                self.report.memberships_not_in_workspace += 1;
+                continue;
+            }
             self.report.memberships += 1;
             if self.dry_run {
                 continue;
@@ -261,6 +292,43 @@ impl Import<'_> {
                 .await?;
         }
 
+        Ok(())
+    }
+
+    async fn leave_members_alone(
+        &mut self,
+        channel: &SlackConversation,
+        channel_id: Uuid,
+        slack_name: &str,
+    ) -> AppResult<()> {
+        let here: HashSet<Uuid> = self
+            .state
+            .slack_import_repo
+            .channel_member_ids(channel_id)
+            .await?
+            .into_iter()
+            .collect();
+        let mut left_alone = 0;
+        for slack_user_id in &channel.members {
+            let Some(user_id) = self.users.get(slack_user_id).map(|(id, _)| *id) else {
+                continue;
+            };
+            if here.contains(&user_id) {
+                continue;
+            }
+            if self.members.contains(&user_id) {
+                left_alone += 1;
+            } else {
+                self.report.memberships_not_in_workspace += 1;
+            }
+        }
+        if left_alone > 0 {
+            self.report.memberships_left_alone += left_alone;
+            let were = if left_alone == 1 { "was" } else { "were" };
+            self.report.note(format!(
+                "#{slack_name} was already here, so it keeps the members it has: {left_alone} of its Slack members {were} not added"
+            ));
+        }
         Ok(())
     }
 

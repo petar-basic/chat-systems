@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH due AS (\n                SELECT id, storage_key FROM slack_imports\n                 WHERE status IN ('failed', 'complete') AND storage_key IS NOT NULL\n                   AND finished_at < NOW() - make_interval(days => $1)\n                 FOR UPDATE SKIP LOCKED\n            )\n            UPDATE slack_imports s\n               SET storage_key = NULL, archive_deleted_at = NOW()\n              FROM due\n             WHERE s.id = due.id\n            RETURNING s.id, due.storage_key AS \"storage_key!\"\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "slack_imports",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "storage_key!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "slack_imports",
+            "name": "storage_key"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "de11c04c3d6e1538b55e393795c95eb0132545fb7bc88f74b584da185f4c2277"
+}

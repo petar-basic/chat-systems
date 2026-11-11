@@ -1471,13 +1471,34 @@ channels arrive archived.
 **A run that stops with the worker.** If the worker restarts mid-import, the run is marked
 failed within five minutes (*The import stopped when the worker did*). Press *Start again*
 under the run, or `POST /api/workspaces/{id}/slack-imports/{run}/retry`; it picks up where it
-stopped. Migration 79 adds the heartbeat column the sweep reads.
+stopped. Migration 79 adds the heartbeat column the sweep reads. *Start again* is the same run,
+so it still finishes the channels that run made: their Slack members and, for one archived in
+Slack, the archiving.
 
-**Re-importing over channels that were already here.** A second run leaves a channel the first
-one merged into open, even when it is archived in Slack. Migration 80 records which channels an
-import made; a mapping from before it counts as merged, so a channel an older import created and
-archived is not archived again by a re-run. Private Slack channels never merge: a name already
-taken here becomes `<name>-slack`.
+**A failed run keeps its export for a week.** The uploaded zip is the whole Slack history, DMs
+included, and it is kept only so the run can be started again. The worker deletes it
+`SLACK_IMPORT_KEEP_FAILED_DAYS` days (default 7) after the run failed, checking hourly; after
+that the run says the export was deleted and can't be started again, and finishing the import
+means uploading the zip once more. *Discard* under a failed run deletes the export at once, and
+is in the audit log as `slack_import.discarded`. A run that finished deletes its export
+straight away. A retry skips everything written by an account that has since been erased, so
+*Start again* never brings back what an erasure removed. Messages that retention purged do come
+back, with their Slack dates, and the next retention run purges them again.
+
+**Re-importing over channels that were already here.** A second run adds nobody to a channel it
+didn't make. A channel the first run made, or one that was here before any import, keeps the
+members it has now, so somebody an admin took out of a channel stays out, and the report names
+each channel with Slack members who were left out. A channel is archived only by the run that
+made it, so one an admin restored stays open. Nobody is added to a channel, or to a DM, unless
+they are in the workspace: somebody removed from it is skipped, and a DM imported while they
+are away comes back to them if they rejoin. Migration 101 records which run made each channel;
+channels from runs before it count as already here. Private Slack channels never merge: a name
+already taken here becomes `<name>-slack`.
+
+**Analytics include the imported history.** At the end of a run, the import counts the days it
+wrote into *Workspace settings → Analytics*, on their Slack dates. On a fresh instance the
+worker's one-time analytics backfill counts them instead when it runs after the import. History
+imported before this release is not counted.
 
 ## What gets backed up
 

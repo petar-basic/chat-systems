@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT slack_channel_id, channel_id, created_by_import FROM slack_channels WHERE workspace_id = $1",
+  "query": "SELECT slack_channel_id, channel_id, created_by_run FROM slack_channels WHERE workspace_id = $1",
   "describe": {
     "columns": [
       {
@@ -27,12 +27,12 @@
       },
       {
         "ordinal": 2,
-        "name": "created_by_import",
-        "type_info": "Bool",
+        "name": "created_by_run",
+        "type_info": "Uuid",
         "origin": {
           "Table": {
             "table": "slack_channels",
-            "name": "created_by_import"
+            "name": "created_by_run"
           }
         }
       }
@@ -45,8 +45,8 @@
     "nullable": [
       false,
       false,
-      false
+      true
     ]
   },
-  "hash": "da3780a0dfbe1a7681b5f9e69e3fbc9bbd29ed33d80e9e9380ac4c05087aa3dc"
+  "hash": "6ed6f58a0a3886417058a800c857c023cea9235c5bd33a80b26c71756ea0038f"
 }
