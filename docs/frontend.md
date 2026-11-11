@@ -817,6 +817,7 @@ Key methods:
 | `removeInstance(url)` | POST `/auth/logout`, disconnect WS, clear stored tokens, remove from store + localStorage |
 | `setActiveInstance(url)` | Switch active instance |
 | `updateInstanceUser(url, user)` | Replace the cached user for an instance |
+| `refreshInstanceUser(url)` | Refresh the session (sharing a refresh already in flight, since refresh tokens rotate) and replace the cached user with the one it returns, or with `GET /users/me` |
 | `restoreInstances()` | Re-hydrate instances; refresh the session (same-origin GET `/users/me`, cross-origin token refresh); a failed refresh removes the stale instance, then reconnect WS |
 
 ---
@@ -1012,6 +1013,7 @@ typing, and `notification` events are handled separately — by `usePresenceStor
 | `workspace.members_changed` | Someone joined or left: invalidate that workspace's members and every cached channel member list (`membershipSync.ts`) |
 | `workspace.created` / `workspace.restored` | Invalidate workspaces list |
 | `workspace.joined` | This user was added to a workspace, sent to them wherever they are: invalidate the workspaces list, so other tabs and the desktop rail show it |
+| `user.instance_role_changed` | An admin changed this user's instance role: `refreshInstanceUser` for that instance (`instanceRoleSync.ts`), so *Create workspace* and the admin entry appear or go without a reload |
 | `workspace.deleted` | Invalidate workspaces + deleted list; unless workspace/instance admin, `forgetWorkspace` it |
 | `workspace.access_revoked` | `forgetWorkspace`: drop it from the cached lists, forget its channels and members, clear it from the store. Routing then sees the url's workspace is gone and moves on; nothing here touches the url, which belongs to the router |
 | `channel.access_revoked` | Drop the channel from the workspace's cached list and forget its messages and members; routing finds the url's channel unlisted, previews it, and falls back to the workspace |

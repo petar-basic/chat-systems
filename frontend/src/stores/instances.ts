@@ -108,6 +108,7 @@ interface InstancesState {
   removeInstance: (url: string) => void;
   setActiveInstance: (url: string) => void;
   updateInstanceUser: (url: string, user: InstanceUser) => void;
+  refreshInstanceUser: (url: string) => Promise<void>;
   clearError: () => void;
 }
 
@@ -368,6 +369,15 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
     const instances = get().instances.map((i) => (i.url === normalized ? { ...i, user } : i));
     saveToStorage(instances);
     set({ instances });
+  },
+
+  refreshInstanceUser: async (url) => {
+    const normalized = instanceManager.normalize(url);
+    if (!get().instances.some((i) => i.url === normalized)) return;
+    const { api } = instanceManager.get(normalized);
+    const refreshed = await api.refreshSession();
+    const user = refreshed?.user ?? (await api.typed((c) => c.GET('/users/me')));
+    get().updateInstanceUser(normalized, toInstanceUser(user));
   },
 
   clearError: () => set({ error: null }),

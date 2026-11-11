@@ -10,7 +10,7 @@ use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
 use super::models::{AuthSession, User, UserStatus};
-use super::routes::{check_rate_limit, limit_sign_in, second_factor, set_auth_cookies};
+use super::routes::{check_rate_limit, limit_tries, second_factor, set_auth_cookies};
 use super::service::AuthService;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::dto::StatusResponse;
@@ -18,6 +18,7 @@ use crate::state::AppState;
 
 pub const CODE_LIFETIME_MINS: i32 = 10;
 pub const MAX_TRIES: i32 = 5;
+pub const DAILY_CEILING: i32 = 20;
 
 pub fn public_router() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new()
@@ -73,30 +74,42 @@ async fn request_email_code(
         .await?;
     }
 
-    let Some(user) = state.auth_service.repo().find_by_email(&req.email).await? else {
-        return Ok(Json(StatusResponse::new("sent")));
+    tokio::spawn(async move {
+        if let Err(e) = answer_request(&state, &req.email, &ip).await {
+            tracing::warn!("failed to answer a sign-in code request: {}", e);
+        }
+    });
+
+    Ok(Json(StatusResponse::new("sent")))
+}
+
+async fn answer_request(state: &AppState, email: &str, ip: &ClientIp) -> AppResult<()> {
+    let Some(user) = state.auth_service.repo().find_by_email(email).await? else {
+        return Ok(());
     };
 
     match user.status {
         UserStatus::Pending => {
-            if let Err(e) = state
+            state
                 .workspace_service
                 .resend_invite(&user.email, &state.auth_service)
-                .await
-            {
-                tracing::warn!("failed to re-send an invite: {}", e);
-            }
+                .await?
         }
         UserStatus::Suspended => {}
         UserStatus::Active if user.password_hash.is_none() => {
-            if let Err(e) = state.auth_service.send_sso_reminder(&user.email).await {
-                tracing::warn!("failed to send SSO reminder email: {}", e);
+            state.auth_service.send_sso_reminder(&user.email).await?
+        }
+        UserStatus::Active => {
+            if !state
+                .email_code_repo
+                .locked_out(user.id, DAILY_CEILING)
+                .await?
+            {
+                send_code(state, &user, ip).await?
             }
         }
-        UserStatus::Active => send_code(&state, &user, &ip).await?,
     }
-
-    Ok(Json(StatusResponse::new("sent")))
+    Ok(())
 }
 
 #[utoipa::path(post, path = "/auth/email-code/verify", tag = "auth", request_body = VerifyEmailCodeRequest, responses((status = 200, body = AuthSession)), security(()))]
@@ -123,7 +136,7 @@ pub(crate) async fn check_code(
     code: &str,
 ) -> AppResult<CheckedCode> {
     refuse_when_off(state).await?;
-    limit_sign_in(state, ip.0.as_deref(), email).await?;
+    limit_tries(state, "email_code_try", ip.0.as_deref(), email).await?;
 
     let user = state
         .auth_service
@@ -132,6 +145,13 @@ pub(crate) async fn check_code(
         .await?
         .filter(|u| u.status == UserStatus::Active && u.password_hash.is_some())
         .ok_or_else(wrong_code)?;
+    if state
+        .email_code_repo
+        .locked_out(user.id, DAILY_CEILING)
+        .await?
+    {
+        return Err(wrong_code());
+    }
     let attempt = state
         .email_code_repo
         .claim_try(user.id, MAX_TRIES)
@@ -139,6 +159,7 @@ pub(crate) async fn check_code(
         .ok_or_else(wrong_code)?;
 
     if !AuthService::verify_password(code.trim(), &attempt.code_hash).unwrap_or(false) {
+        state.email_code_repo.record_failure(user.id).await?;
         if attempt.attempts >= MAX_TRIES {
             audit::record(
                 state,

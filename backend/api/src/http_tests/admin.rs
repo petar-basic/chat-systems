@@ -333,3 +333,29 @@ async fn delete_workspace_as_non_admin_returns_403(pool: PgPool) {
     let (status, _body) = send(&app, "DELETE", &uri, Some(&token), None).await;
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_demoted_instance_admin_is_refused_at_once_with_the_token_they_hold(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (_, _, admin) = seed_and_login(&app, &state, "demoter", true).await;
+    let (demoted_id, _, held) = seed_and_login(&app, &state, "demoted", true).await;
+    let (status, _) = send(&app, "GET", "/api/admin/stats", Some(&held), None).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, body) = send(
+        &app,
+        "PATCH",
+        &format!("/api/admin/users/{demoted_id}/instance-role"),
+        Some(&admin),
+        Some(json!({ "role": "member" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+
+    let (status, _) = send(&app, "GET", "/api/admin/stats", Some(&held), None).await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "the role is read from the account, not from the token"
+    );
+}

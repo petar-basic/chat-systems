@@ -80,6 +80,14 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   kept for ever.
 - *Start again* skips everything written by an account that has since been erased, so it never
   writes back what an erasure removed.
+- Emailed sign-in codes have a daily ceiling: after 20 wrong codes in a day an account can't
+  sign in by code until the day is over, whatever new codes it asks for, and none are sent.
+  Before, about 960 guesses a day were possible with no end. Guessing codes no longer locks the
+  account's password sign-in out either.
+- Asking for a sign-in code takes the same time for an account and for an address with none,
+  so the timing no longer tells them apart.
+- An instance admin who is demoted loses the admin panel and every admin action at once. Before,
+  the session they held kept it for up to 15 minutes.
 
 ### Fixed
 
@@ -121,6 +129,12 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   it has no replies, instead of offering a reply that fails.
 - Scheduling a thread reply with *Also send to channel* ticked clears the box, so the next reply
   goes to the thread only.
+- Someone invited by email whose invitation has expired, Slack-imported people among them, is
+  told so by email when they ask for a sign-in code or a password reset, and to ask the
+  workspace's admins for a new one. Before, both screens said an email was sent and none came.
+- Making someone a workspace creator or an instance admin shows them *Create workspace* and the
+  admin entry at once, in every open tab and in the desktop app, without a reload; taking it
+  away hides them the same way.
 - Slash commands work in a DM, a group DM, a thread and a *Threads* card as they do in a
   channel, and `/` offers them there too. Before, `/away` or `/dnd 60` typed in a DM was sent to
   the other person as a message. A command typed in a thread answers in that thread: `/shrug`

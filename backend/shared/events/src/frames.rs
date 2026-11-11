@@ -263,6 +263,8 @@ pub enum ServerFrame {
     },
     #[serde(rename = "later.updated")]
     LaterUpdated { workspace_id: Uuid },
+    #[serde(rename = "user.instance_role_changed")]
+    InstanceRoleChanged { role: String },
     #[serde(rename = "thread.read_state")]
     ThreadReadState {
         root_message_id: Uuid,

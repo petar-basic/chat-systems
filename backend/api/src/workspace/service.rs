@@ -165,7 +165,10 @@ impl WorkspaceService {
 
     pub async fn resend_invite(&self, email: &str, auth_service: &AuthService) -> AppResult<()> {
         let Some(invite) = self.repo.find_live_email_invite(email).await? else {
-            return Ok(());
+            let workspace = self.repo.workspace_that_invited(email).await?;
+            return auth_service
+                .send_invite_expired(email, workspace.as_deref())
+                .await;
         };
         let invite_url = self.invite_url(&invite, auth_service).await?;
         self.email_invite(&invite, &invite_url, auth_service).await;

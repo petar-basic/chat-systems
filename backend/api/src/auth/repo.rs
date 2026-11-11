@@ -4,6 +4,7 @@ use uuid::Uuid;
 
 use super::models::{UpdateProfileRequest, User, UserStatus};
 
+#[derive(Clone)]
 pub struct UserRepo {
     pool: PgPool,
 }
@@ -59,6 +60,17 @@ impl UserRepo {
             "#,
             email,
             display_name
+        )
+        .fetch_one(&self.pool)
+        .await
+    }
+
+    pub async fn is_instance_admin(&self, id: Uuid) -> sqlx::Result<bool> {
+        sqlx::query_scalar!(
+            r#"SELECT EXISTS(
+                   SELECT 1 FROM users WHERE id = $1 AND is_instance_admin AND status = 'active'
+               ) AS "admin!""#,
+            id
         )
         .fetch_one(&self.pool)
         .await

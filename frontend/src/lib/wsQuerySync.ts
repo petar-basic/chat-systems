@@ -28,6 +28,7 @@ import { patchMessageEverywhere, shownInChannel } from './messagePatch';
 import { dropReply, patchReply, placeReply } from './threadCache';
 import { syncListFrames } from '@/features/lists/listSync';
 import { syncMembershipFrames } from './membershipSync';
+import { followInstanceRole } from './instanceRoleSync';
 import { applyCommandResponse } from './commandAnswers';
 import { forgetWorkspace } from './forgetWorkspace';
 import { customEmojiKey } from '@/features/workspace/hooks/useCustomEmoji';
@@ -106,6 +107,7 @@ export const useWebSocketQuerySync = () => {
           queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notifications(event.workspace_id) });
       }),
       globalEventBus.on('command.response', applyCommandResponse),
+      followInstanceRole(),
       globalEventBus.on('later.updated', (event) => {
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.later(event.workspace_id) });
       }),
