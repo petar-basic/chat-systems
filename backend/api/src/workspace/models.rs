@@ -82,6 +82,13 @@ pub struct MemberWithUser {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct FormerMember {
+    pub user_id: Uuid,
+    pub display_name: Option<String>,
+    pub avatar_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct WorkspacePerson {
     pub user_id: Uuid,
     pub display_name: Option<String>,

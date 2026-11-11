@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { useWorkspaceStore } from '@/stores/workspace';
+import { useWorkspaceStore, type FormerMember, type WorkspaceMember } from '@/stores/workspace';
 import { useUserCache } from '@/stores/users';
 import { useCustomEmojiStore } from '@/stores/customEmoji';
 import { useCustomEmoji } from '@/features/workspace/hooks/useCustomEmoji';
@@ -15,6 +15,7 @@ import {
   useWorkspaces,
   useWorkspaceChannels,
   useWorkspaceMembers,
+  useFormerMembers,
   useDeletedWorkspaces,
   useRestoreWorkspace,
 } from '@/features/workspace/hooks/useWorkspaces';
@@ -24,6 +25,10 @@ import { instanceManager } from '@/lib/instances';
 import { wsClient } from '@/lib/ws';
 import { usePresenceStore } from '@/stores/presence';
 import { requestNotificationPermission } from '@/lib/notifications';
+import { knownPeople } from '@/lib/userHelpers';
+
+const NO_MEMBERS: WorkspaceMember[] = [];
+const NO_FORMER_MEMBERS: FormerMember[] = [];
 
 /// Everything the workspace shell reads from the server, plus the effects that
 /// push it into the stores: unread and muted sets, the user cache, custom
@@ -61,7 +66,11 @@ export function useWorkspaceData(workspaceId: string | undefined, currentUserId:
     workspaceId || null,
     currentWsInstanceUrl,
   );
-  const { data: workspaceMembers = [] } = useWorkspaceMembers(
+  const { data: workspaceMembers = NO_MEMBERS } = useWorkspaceMembers(
+    workspaceId || storeWorkspaceId || null,
+    currentWsInstanceUrl,
+  );
+  const { data: formerMembers = NO_FORMER_MEMBERS } = useFormerMembers(
     workspaceId || storeWorkspaceId || null,
     currentWsInstanceUrl,
   );
@@ -115,25 +124,10 @@ export function useWorkspaceData(workspaceId: string | undefined, currentUserId:
   const populateCustomEmoji = useCustomEmojiStore((s) => s.populate);
   const populateSelfGroups = useUserGroupStore((s) => s.populate);
   useEffect(() => {
-    if (workspaceMembers.length > 0) {
-      populateUsers(
-        workspaceMembers.map((m) => ({
-          id: m.user_id,
-          email: m.email,
-          display_name: m.display_name ?? '',
-          avatar_url: m.avatar_url ?? null,
-          bio: m.bio,
-          title: m.title,
-          pronouns: m.pronouns,
-          status_emoji: m.status_emoji,
-          status_text: m.status_text,
-          notifications_paused_until: m.notifications_paused_until,
-          timezone: m.timezone,
-          is_bot: m.is_bot,
-        })),
-      );
+    if (workspaceMembers.length > 0 || formerMembers.length > 0) {
+      populateUsers(knownPeople(workspaceMembers, formerMembers));
     }
-  }, [workspaceMembers, populateUsers]);
+  }, [workspaceMembers, formerMembers, populateUsers]);
 
   const { data: customEmoji } = useCustomEmoji(workspaceId, currentWsInstanceUrl);
   useEffect(() => {

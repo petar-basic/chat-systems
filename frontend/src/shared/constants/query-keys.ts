@@ -9,6 +9,7 @@ export const QUERY_KEYS = {
   workspacesList: (instanceUrls: string) => ['workspaces', instanceUrls] as const,
   workspace: (id: string) => ['workspaces', id] as const,
   workspaceMembers: (id: string) => ['workspaces', id, 'members'] as const,
+  formerMembers: (id: string) => ['workspaces', id, 'former-members'] as const,
   workspaceProfile: (id: string) => ['workspaces', id, 'profile'] as const,
   workspaceInvites: (id: string) => ['workspaces', id, 'invites'] as const,
   workspaceChannels: (id: string) => ['workspaces', id, 'channels'] as const,

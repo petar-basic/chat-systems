@@ -2866,3 +2866,50 @@ refusing the right one and the next request sending nothing, and codes working a
 day is aged; code guesses counted under their own key; the expired-invite email from *Email me
 a code* and from *Forgot password*; a demoted admin's held token getting 403 from `/admin`; and
 *Create workspace* appearing and going on the rail of a signed-in member as the role changed.
+
+### [CS-121j] Erase and export that cover everything about a person ✅ shipped
+`erase_user_data` predated passkeys, TOTP, keywords and push, and its `UPDATE users` predated
+`timezone` and `preferences`, so a GDPR erase left a passkey's name, a keyword's text and the
+settings behind. The tombstone writes moved out of the route into `ExportRepo::erase_account`,
+one transaction that also deletes passkeys, the authenticator and recovery codes, keywords,
+push subscriptions, sidebar sections (their names are the person's words), sign-in codes and
+reset links; `Erased.account` and the audit row count each. `erase_writing` emptied a kept root's
+`content` and `metadata` while its `polls` row, which cascades only with the message, kept the
+question and options; it now deletes the person's polls first and counts them. Photos were found
+through `workspace_members`, so a workspace already left kept its photo; `FileStorage::delete_under`
+now lists and deletes `avatars/<user id>/`, and `ProfileRepo::workspace_photos` went. On local
+storage the empty folders stay, which object_store cannot remove and which hold nothing. A
+workspace export carried `user_id` alone and no row for anyone who had left; `users.jsonl` names
+everyone the export mentions by id, name and email, found by walking each written row for
+`user_id`, `created_by` and `edited_by` plus a list's person columns, so it follows the export's
+own DM and date choices instead of repeating them in SQL. The erase dialog in *Members* now says
+what else goes. Checked by hand: a hard erase of an account with a passkey, a confirmed
+authenticator and 10 recovery codes, two keywords, a push subscription, a section, a poll answered
+in its thread and three photos, one from a workspace already left, leaving none of them and the
+thread readable under *This message was deleted*; a soft erase from *Members* removing two
+photos and a keyword; and an export through the worker whose `users.jsonl` named a member who had
+left and the erased account as *Deleted user*.
+
+Seen in the same work and fixed with it: a departed member's messages read *Unknown user*, where
+Slack keeps the name. Every author name comes from the user cache, and the cache was filled from
+`GET /members` alone, which drops whoever left, since leaving deletes the `workspace_members` row
+and with it the workspace name and photo. Leaving now moves that name and photo into
+`workspace_departures` in the same statement that deletes the row; a migration fills the table,
+without names, for everyone who wrote in a workspace or sat in one of its DMs and is no longer
+in it. `GET /former-members` returns the ones who have not come back, a guest getting only those
+who wrote in a conversation the guest is in, and the shell puts them in the cache marked `left`,
+members winning over a stale entry. That one change names them everywhere the cache is read
+(messages, threads, search, pins, files, the export list). A DM's `departed` list and the
+*no longer in this workspace* notice read the account name, so they now prefer the departure's;
+and `settle_in`, which every join goes through, puts the kept name and photo back on a returning
+member and drops the departure, as Slack does for a reactivated account. The card
+of someone who left says so and offers no DM or huddle, which would fail. Their account photo was
+served only to someone sharing a workspace with them, so `has_shared_a_workspace` counts a
+departure too; an erase clears the departure's name and photo, and `users.jsonl` uses them.
+Checked by hand: a member named *Nina from Sales* with a workspace photo posted in a channel, a
+thread and a DM to the admin, then left; as the admin, the channel, the thread, search, the card
+(*No longer in this workspace*, no buttons) and the DM's sidebar row, header and notice all read
+*Nina from Sales* with her photo; invited back, she was a member named *Nina from Sales* again.
+The first run looped: the shell defaulted both lists to a fresh `[]`, harmless while only a
+loaded member list filled the cache, and the effect now ran whenever either list was there, so
+both defaults are constants.

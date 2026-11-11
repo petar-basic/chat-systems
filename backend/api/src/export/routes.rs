@@ -13,7 +13,9 @@ use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
-use super::repo::{CreateExportRequest, ErasedCounts, ExportJob, ExportScope, NewExport};
+use super::repo::{
+    AccountErased, CreateExportRequest, ErasedCounts, ExportJob, ExportScope, NewExport,
+};
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
 use crate::dto::DataList;
@@ -58,6 +60,7 @@ pub struct Erased {
     pub status: &'static str,
     pub hard_delete: bool,
     pub removed: ErasedCounts,
+    pub account: AccountErased,
 }
 
 /// The most sensitive operation in the product: everything anyone said in a
@@ -257,55 +260,11 @@ async fn erase_user_data(
         ErasedCounts::default()
     };
 
-    // The account is tombstoned either way: the profile is what identifies a
-    // person, and it goes even when their messages stay readable.
-    let photo = state
-        .auth_service
-        .repo()
-        .find_by_id(user_id)
-        .await?
-        .and_then(|user| user.avatar_url);
-    let workspace_photos = state.profile_repo.workspace_photos(user_id).await?;
-    sqlx::query!(
-        r"
-        UPDATE workspace_members
-           SET display_name = NULL,
-               avatar_url = NULL,
-               bio = NULL,
-               title = NULL,
-               pronouns = NULL,
-               status_emoji = NULL,
-               status_text = NULL,
-               status_expires_at = NULL
-         WHERE user_id = $1
-        ",
-        user_id
-    )
-    .execute(&state.pool)
-    .await?;
-    sqlx::query!(
-        r"
-        UPDATE users
-           SET email = 'deleted-' || id || '@invalid',
-               display_name = 'Deleted user',
-               avatar_url = NULL,
-               bio = NULL,
-               title = NULL,
-               pronouns = NULL,
-               password_hash = NULL,
-               status = 'suspended',
-               updated_at = NOW()
-         WHERE id = $1
-        ",
-        user_id
-    )
-    .execute(&state.pool)
-    .await?;
-
-    crate::profile::avatar::forget(&state, user_id, None, photo.as_deref()).await;
-    for (workspace_id, url) in workspace_photos {
-        crate::profile::avatar::forget(&state, user_id, Some(workspace_id), Some(&url)).await;
-    }
+    let mut account = state.export_repo.erase_account(user_id).await?;
+    account.photos = state
+        .file_storage
+        .delete_under(&crate::profile::avatar::folder(user_id))
+        .await?;
 
     crate::sessions::revoke(
         &state,
@@ -329,6 +288,7 @@ async fn erase_user_data(
             .details(serde_json::json!({
                 "hard_delete": req.hard_delete,
                 "removed": removed,
+                "account": account,
             })),
     )
     .await;
@@ -337,5 +297,6 @@ async fn erase_user_data(
         status: "erased",
         hard_delete: req.hard_delete,
         removed,
+        account,
     }))
 }

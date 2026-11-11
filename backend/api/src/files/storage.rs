@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use axum::body::Bytes;
 use futures_util::stream::BoxStream;
+use futures_util::TryStreamExt;
 use object_store::aws::AmazonS3Builder;
 use object_store::local::LocalFileSystem;
 use object_store::path::Path as ObjectPath;
@@ -175,6 +176,24 @@ impl FileStorage {
             .delete(&path)
             .await
             .map_err(|e| storage_error("delete", e))
+    }
+
+    pub async fn delete_under(&self, prefix: &str) -> AppResult<u64> {
+        let prefix = parse_key(prefix)?;
+        let keys: Vec<ObjectPath> = self
+            .store
+            .list(Some(&prefix))
+            .map_ok(|object| object.location)
+            .try_collect()
+            .await
+            .map_err(|e| storage_error("list", e))?;
+        for key in &keys {
+            self.store
+                .delete(key)
+                .await
+                .map_err(|e| storage_error("delete", e))?;
+        }
+        Ok(keys.len() as u64)
     }
 
     pub fn public_url(&self, key: &str) -> String {

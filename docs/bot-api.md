@@ -48,7 +48,7 @@ security scheme.
 | `im:write` | start a DM or a group DM |
 | `reactions:write` | add and remove its reactions |
 | `files:write` | upload files to attach to its messages |
-| `users:read` | list the workspace's members |
+| `users:read` | list the workspace's members, and the people who have left it |
 | `commands` | own slash commands |
 
 A route the token has no scope for answers `403` with the scope's name:
@@ -70,6 +70,7 @@ at any time without a new token.
 | DELETE | `/messages/{msg_id}/reactions/{emoji}` | `reactions:write` | |
 | POST | `/files/upload/{ws_id}?draft=true` | `files:write` | multipart `file` fields; post the returned ids as `attachment_ids` |
 | GET | `/workspaces/{ws_id}/members` | `users:read` | `is_bot` marks other apps |
+| GET | `/workspaces/{ws_id}/former-members` | `users:read` | `{ user_id, display_name, avatar_url }` of people who left, to name the author of an old message |
 | POST | `/workspaces/{ws_id}/conversations` | `im:write` | `{ participant_ids }`; one person opens or reuses a DM |
 
 `client_message_id` is a version 4 UUID the bot picks. Sending the same one twice posts once,

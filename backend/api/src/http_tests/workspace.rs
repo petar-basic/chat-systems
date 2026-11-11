@@ -1444,3 +1444,281 @@ async fn a_settings_change_touches_only_the_setting_it_names(pool: PgPool) {
     .await;
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
+
+async fn post(app: &axum::Router, token: &str, channel: uuid::Uuid, content: &str) {
+    let (status, body) = send(
+        app,
+        "POST",
+        &format!("/api/channels/{channel}/messages"),
+        Some(token),
+        Some(json!({ "content": content })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+}
+
+async fn join(state: &crate::state::AppState, channel: uuid::Uuid, user_id: uuid::Uuid) {
+    state
+        .workspace_service
+        .repo
+        .add_channel_member(
+            channel,
+            user_id,
+            &crate::workspace::models::ChannelRole::Member,
+        )
+        .await
+        .expect("join channel");
+}
+
+async fn former(app: &axum::Router, token: &str, ws_id: uuid::Uuid) -> serde_json::Value {
+    let (status, body) = send(
+        app,
+        "GET",
+        &format!("/api/workspaces/{ws_id}/former-members"),
+        Some(token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    body["data"].clone()
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_member_who_left_keeps_the_name_they_had_here(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "former-owner", false).await;
+    let (lena_id, _, lena) = seed_and_login(&app, &state, "former-lena", false).await;
+    let (_, _, outsider) = seed_and_login(&app, &state, "former-out", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Former WS").await;
+    add_ws_member(&state, ws_id, lena_id, "member").await;
+    let ch = seed_channel(&state, ws_id, owner_id, "handover", false).await;
+    join(&state, ch, lena_id).await;
+
+    let (status, body) = send(
+        &app,
+        "PATCH",
+        &format!("/api/workspaces/{ws_id}/profile"),
+        Some(&lena),
+        Some(json!({ "display_name": "Lena from Design" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    post(&app, &lena, ch, "handing this over").await;
+    assert_eq!(former(&app, &owner, ws_id).await, json!([]));
+
+    let (status, body) = send(
+        &app,
+        "DELETE",
+        &format!("/api/workspaces/{ws_id}/members/{lena_id}"),
+        Some(&owner),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+
+    let (_, members) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws_id}/members"),
+        Some(&owner),
+        None,
+    )
+    .await;
+    assert!(
+        members["data"]
+            .as_array()
+            .expect("members")
+            .iter()
+            .all(|m| m["user_id"] != lena_id.to_string()),
+        "{members:?}"
+    );
+    assert_eq!(
+        former(&app, &owner, ws_id).await,
+        json!([{ "user_id": lena_id, "display_name": "Lena from Design", "avatar_url": null }])
+    );
+
+    let (status, _) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws_id}/former-members"),
+        Some(&outsider),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, _) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws_id}/former-members"),
+        Some(&lena),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+
+    add_ws_member(&state, ws_id, lena_id, "member").await;
+    assert_eq!(former(&app, &owner, ws_id).await, json!([]));
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn someone_who_comes_back_gets_the_name_they_had_here(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "back-owner", false).await;
+    let (lena_id, lena_email, lena) = seed_and_login(&app, &state, "back-lena", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Back WS").await;
+    add_ws_member(&state, ws_id, lena_id, "member").await;
+    let (status, body) = send(
+        &app,
+        "PATCH",
+        &format!("/api/workspaces/{ws_id}/profile"),
+        Some(&lena),
+        Some(json!({ "display_name": "Lena from Design" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    let (status, body) = send(
+        &app,
+        "DELETE",
+        &format!("/api/workspaces/{ws_id}/members/{lena_id}"),
+        Some(&lena),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+
+    let (_, token) = email_invite(
+        &state,
+        ws_id,
+        owner_id,
+        lena_id,
+        &lena_email,
+        crate::workspace::models::WorkspaceRole::Member,
+    )
+    .await;
+    let (status, body) = send(
+        &app,
+        "POST",
+        &format!("/api/auth/invites/{token}/accept"),
+        Some(&lena),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+
+    assert_eq!(former(&app, &owner, ws_id).await, json!([]));
+    let (_, members) = send(
+        &app,
+        "GET",
+        &format!("/api/workspaces/{ws_id}/members"),
+        Some(&owner),
+        None,
+    )
+    .await;
+    let back = members["data"]
+        .as_array()
+        .expect("members")
+        .iter()
+        .find(|m| m["user_id"] == lena_id.to_string())
+        .expect("Lena is back")
+        .clone();
+    assert_eq!(back["display_name"], "Lena from Design", "{back:?}");
+    let left: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM workspace_departures WHERE user_id = $1")
+            .bind(lena_id)
+            .fetch_one(&state.pool)
+            .await
+            .expect("departures");
+    assert_eq!(left, 0);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_guest_sees_only_the_former_members_who_wrote_where_the_guest_is(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "former-g-owner", false).await;
+    let (lena_id, _, lena) = seed_and_login(&app, &state, "former-g-lena", false).await;
+    let (mark_id, _, mark) = seed_and_login(&app, &state, "former-g-mark", false).await;
+    let (guest_id, _, guest) = seed_and_login(&app, &state, "former-g-guest", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Guest Former WS").await;
+    add_ws_member(&state, ws_id, lena_id, "member").await;
+    add_ws_member(&state, ws_id, mark_id, "member").await;
+    add_ws_member(&state, ws_id, guest_id, "guest").await;
+    let shared = seed_channel(&state, ws_id, owner_id, "shared", false).await;
+    let inner = seed_channel(&state, ws_id, owner_id, "inner", true).await;
+    join(&state, shared, lena_id).await;
+    join(&state, shared, guest_id).await;
+    join(&state, inner, mark_id).await;
+    post(&app, &lena, shared, "for the guest too").await;
+    post(&app, &mark, inner, "staff only").await;
+
+    for gone in [lena_id, mark_id] {
+        let (status, body) = send(
+            &app,
+            "DELETE",
+            &format!("/api/workspaces/{ws_id}/members/{gone}"),
+            Some(&owner),
+            None,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body:?}");
+    }
+
+    let ids = |people: serde_json::Value| -> Vec<String> {
+        people
+            .as_array()
+            .expect("former members")
+            .iter()
+            .map(|p| p["user_id"].as_str().expect("id").to_string())
+            .collect()
+    };
+    let mut everyone = ids(former(&app, &owner, ws_id).await);
+    everyone.sort();
+    let mut expected = vec![lena_id.to_string(), mark_id.to_string()];
+    expected.sort();
+    assert_eq!(everyone, expected);
+    assert_eq!(
+        ids(former(&app, &guest, ws_id).await),
+        vec![lena_id.to_string()]
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_erased_former_member_is_named_deleted_user(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "former-e-owner", false).await;
+    let (lena_id, _, lena) = seed_and_login(&app, &state, "former-e-lena", false).await;
+    let (_, _, admin) = seed_and_login(&app, &state, "former-e-admin", true).await;
+    let ws_id = seed_workspace(&state, owner_id, "Erased Former WS").await;
+    add_ws_member(&state, ws_id, lena_id, "member").await;
+    let (status, body) = send(
+        &app,
+        "PATCH",
+        &format!("/api/workspaces/{ws_id}/profile"),
+        Some(&lena),
+        Some(json!({ "display_name": "Lena from Design" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    let (status, body) = send(
+        &app,
+        "DELETE",
+        &format!("/api/workspaces/{ws_id}/members/{lena_id}"),
+        Some(&lena),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+
+    let (status, body) = send(
+        &app,
+        "DELETE",
+        &format!("/api/admin/users/{lena_id}/data"),
+        Some(&admin),
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(
+        former(&app, &owner, ws_id).await,
+        json!([{ "user_id": lena_id, "display_name": "Deleted user", "avatar_url": null }])
+    );
+}

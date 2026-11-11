@@ -7521,6 +7521,47 @@
         }
       }
     },
+    "/workspaces/{ws_id}/former-members": {
+      "get": {
+        "tags": [
+          "workspaces",
+          "bot"
+        ],
+        "operationId": "list_former_members",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_FormerMember"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "bot": [
+              "users:read"
+            ]
+          }
+        ]
+      }
+    },
     "/workspaces/{ws_id}/groups": {
       "get": {
         "tags": [
@@ -10038,6 +10079,55 @@
   },
   "components": {
     "schemas": {
+      "AccountErased": {
+        "type": "object",
+        "required": [
+          "passkeys",
+          "authenticators",
+          "recovery_codes",
+          "keywords",
+          "push_subscriptions",
+          "sidebar_sections",
+          "photos"
+        ],
+        "properties": {
+          "authenticators": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "keywords": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "passkeys": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "photos": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "push_subscriptions": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "recovery_codes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "sidebar_sections": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
       "ActiveHuddle": {
         "type": "object",
         "required": [
@@ -13525,6 +13615,41 @@
           }
         }
       },
+      "DataList_FormerMember": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "user_id"
+              ],
+              "properties": {
+                "avatar_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "display_name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "user_id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          }
+        }
+      },
       "DataList_Hook": {
         "type": "object",
         "required": [
@@ -15425,9 +15550,13 @@
         "required": [
           "status",
           "hard_delete",
-          "removed"
+          "removed",
+          "account"
         ],
         "properties": {
+          "account": {
+            "$ref": "#/components/schemas/AccountErased"
+          },
           "hard_delete": {
             "type": "boolean"
           },
@@ -15448,6 +15577,7 @@
           "votes",
           "comments",
           "scheduled",
+          "polls",
           "files"
         ],
         "properties": {
@@ -15467,6 +15597,11 @@
             "minimum": 0
           },
           "messages": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "polls": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
@@ -15951,6 +16086,30 @@
           },
           "title": {
             "type": "string"
+          }
+        }
+      },
+      "FormerMember": {
+        "type": "object",
+        "required": [
+          "user_id"
+        ],
+        "properties": {
+          "avatar_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },

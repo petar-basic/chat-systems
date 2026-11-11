@@ -69,7 +69,19 @@ pub struct ErasedCounts {
     pub votes: u64,
     pub comments: u64,
     pub scheduled: u64,
+    pub polls: u64,
     pub files: u64,
+}
+
+#[derive(Debug, Default, Clone, Copy, Serialize, ToSchema)]
+pub struct AccountErased {
+    pub passkeys: u64,
+    pub authenticators: u64,
+    pub recovery_codes: u64,
+    pub keywords: u64,
+    pub push_subscriptions: u64,
+    pub sidebar_sections: u64,
+    pub photos: u64,
 }
 
 #[derive(Clone)]
@@ -283,6 +295,17 @@ impl ExportRepo {
         sqlx::query!("DELETE FROM later_items WHERE user_id = $1", user_id)
             .execute(&mut *tx)
             .await?;
+        erased.polls = sqlx::query!(
+            r#"
+            DELETE FROM polls
+             WHERE created_by = $1
+                OR message_id IN (SELECT id FROM messages WHERE user_id = $1)
+            "#,
+            user_id
+        )
+        .execute(&mut *tx)
+        .await?
+        .rows_affected();
 
         let kept = sqlx::query!(
             r#"
@@ -324,5 +347,108 @@ impl ExportRepo {
 
         tx.commit().await?;
         Ok(erased)
+    }
+
+    pub async fn erase_account(&self, user_id: Uuid) -> sqlx::Result<AccountErased> {
+        let mut tx = self.pool.begin().await?;
+        let passkeys = sqlx::query!("DELETE FROM passkeys WHERE user_id = $1", user_id)
+            .execute(&mut *tx)
+            .await?
+            .rows_affected();
+        let authenticators = sqlx::query!("DELETE FROM user_totp WHERE user_id = $1", user_id)
+            .execute(&mut *tx)
+            .await?
+            .rows_affected();
+        let recovery_codes = sqlx::query!(
+            "DELETE FROM totp_recovery_codes WHERE user_id = $1",
+            user_id
+        )
+        .execute(&mut *tx)
+        .await?
+        .rows_affected();
+        let keywords = sqlx::query!(
+            "DELETE FROM notification_keywords WHERE user_id = $1",
+            user_id
+        )
+        .execute(&mut *tx)
+        .await?
+        .rows_affected();
+        let push_subscriptions =
+            sqlx::query!("DELETE FROM push_subscriptions WHERE user_id = $1", user_id)
+                .execute(&mut *tx)
+                .await?
+                .rows_affected();
+        let sidebar_sections =
+            sqlx::query!("DELETE FROM sidebar_sections WHERE user_id = $1", user_id)
+                .execute(&mut *tx)
+                .await?
+                .rows_affected();
+        sqlx::query!(
+            "DELETE FROM email_sign_in_codes WHERE user_id = $1",
+            user_id
+        )
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query!(
+            "DELETE FROM password_reset_tokens WHERE user_id = $1",
+            user_id
+        )
+        .execute(&mut *tx)
+        .await?;
+
+        sqlx::query!(
+            r"
+            UPDATE workspace_members
+               SET display_name = NULL,
+                   avatar_url = NULL,
+                   bio = NULL,
+                   title = NULL,
+                   pronouns = NULL,
+                   status_emoji = NULL,
+                   status_text = NULL,
+                   status_expires_at = NULL
+             WHERE user_id = $1
+            ",
+            user_id
+        )
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query!(
+            "UPDATE workspace_departures SET display_name = NULL, avatar_url = NULL WHERE user_id = $1",
+            user_id
+        )
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query!(
+            r"
+            UPDATE users
+               SET email = 'deleted-' || id || '@invalid',
+                   display_name = 'Deleted user',
+                   avatar_url = NULL,
+                   bio = NULL,
+                   title = NULL,
+                   pronouns = NULL,
+                   timezone = NULL,
+                   preferences = '{}'::jsonb,
+                   password_hash = NULL,
+                   status = 'suspended',
+                   updated_at = NOW()
+             WHERE id = $1
+            ",
+            user_id
+        )
+        .execute(&mut *tx)
+        .await?;
+
+        tx.commit().await?;
+        Ok(AccountErased {
+            passkeys,
+            authenticators,
+            recovery_codes,
+            keywords,
+            push_subscriptions,
+            sidebar_sections,
+            photos: 0,
+        })
     }
 }

@@ -16,6 +16,7 @@ describe('syncMembershipFrames', () => {
     queryClient.setQueryData(QUERY_KEYS.workspacesList('https://chat.example'), []);
     queryClient.setQueryData(QUERY_KEYS.workspaceMembers('w-1'), []);
     queryClient.setQueryData(QUERY_KEYS.workspaceMembers('w-2'), []);
+    queryClient.setQueryData(QUERY_KEYS.formerMembers('w-1'), []);
     queryClient.setQueryData(QUERY_KEYS.channelMembers('ch-1'), []);
     queryClient.setQueryData(QUERY_KEYS.conversations('w-1'), []);
     queryClient.setQueryData(QUERY_KEYS.conversations('w-2'), []);
@@ -37,6 +38,7 @@ describe('syncMembershipFrames', () => {
     globalEventBus.emit({ type: 'workspace.members_changed', workspace_id: 'w-1' });
 
     expect(stale(QUERY_KEYS.workspaceMembers('w-1'))).toBe(true);
+    expect(stale(QUERY_KEYS.formerMembers('w-1'))).toBe(true);
     expect(stale(QUERY_KEYS.channelMembers('ch-1'))).toBe(true);
     expect(stale(QUERY_KEYS.conversations('w-1'))).toBe(true);
     expect(stale(QUERY_KEYS.workspaceMembers('w-2'))).toBe(false);

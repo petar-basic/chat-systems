@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE workspace_members\n               SET display_name = NULL,\n                   avatar_url = NULL,\n                   bio = NULL,\n                   title = NULL,\n                   pronouns = NULL,\n                   status_emoji = NULL,\n                   status_text = NULL,\n                   status_expires_at = NULL\n             WHERE user_id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "eb1ae0540c2d2dc709c1b28aaa7ea5cf0ce069f63a7fc5a7f9f0e438522b9419"
+}

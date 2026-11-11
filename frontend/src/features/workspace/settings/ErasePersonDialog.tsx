@@ -31,6 +31,10 @@ export function ErasePersonDialog({ name, email, onErase, onClose }: Props) {
         </li>
         <li>They are signed out everywhere and can no longer sign in.</li>
         <li>Their connected apps are disconnected.</li>
+        <li>
+          Their photos, passkeys, authenticator, recovery codes, notification keywords, push subscriptions,
+          sidebar sections and preferences are deleted.
+        </li>
         <li>Their messages stay readable, shown as from Deleted user.</li>
       </ul>
       <TextInput

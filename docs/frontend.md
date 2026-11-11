@@ -828,7 +828,7 @@ Maps `userId → 'online' \| 'away' \| 'offline'`. Updated by incoming WebSocket
 ---
 
 ### `useUserCache`
-In-memory map of `userId → { displayName, avatarUrl }`. Populated when workspace members load. Read by `MessageItem`, `ThreadPanel`, `ChannelSidebar`.
+In-memory map of `userId → UserInfo` (name, photo, profile fields). `useWorkspaceData` fills it from `knownPeople(members, formerMembers)`: the workspace members, plus everyone from `GET /former-members` who is not a member, marked `left: true` with the name and photo they had there. Every author name, DM title and avatar reads it, so a message from someone who left keeps their name; `UserHoverCard` shows *No longer in this workspace* for a `left` entry and no *Message* or *Huddle*. `workspace.members_changed` refetches both lists.
 
 ---
 
@@ -852,6 +852,7 @@ Token refresh is **not** a hook — `ApiClient` refreshes automatically on 401 /
 | `useWorkspaces()` | GET `/workspaces` (all instances, parallel) | All workspaces across all instances |
 | `useWorkspace(wsId)` | GET `/workspaces/{id}` | Single workspace |
 | `useWorkspaceMembers(wsId, instanceUrl)` | GET `/workspaces/{id}/members` | Workspace members |
+| `useFormerMembers(wsId, instanceUrl)` | GET `/workspaces/{id}/former-members` | People who left, with the name and photo they had; only feeds `useUserCache` |
 | `useWorkspaceChannels(wsId, instanceUrl)` | GET `/workspaces/{id}/channels` | Channels list |
 | `useDeletedWorkspaces()` | GET `/workspaces/deleted` | Soft-deleted workspaces |
 | `useRestoreWorkspace()` | POST `/workspaces/{id}/restore` | Restore mutation |

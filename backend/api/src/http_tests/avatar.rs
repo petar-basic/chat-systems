@@ -560,3 +560,87 @@ async fn the_migration_moves_a_workspace_icon_once(pool: PgPool) {
         .expect("icon url");
     assert_eq!(again, moved, "a second run has nothing to do");
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_erase_removes_the_photo_of_a_workspace_they_had_already_left(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "erase-photo-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Left behind").await;
+    let (alice_id, _, alice) = seed_and_login(&app, &state, "erase-photo-alice", false).await;
+    add_ws_member(&state, ws_id, alice_id, "member").await;
+
+    let (status, account) = upload_photo(&app, &alice, PNG).await;
+    assert_eq!(status, StatusCode::OK, "{account:?}");
+    let route = format!("/api/workspaces/{ws_id}/profile/avatar");
+    let (status, workspace) = upload_photo_to(&app, &alice, &route, PNG).await;
+    assert_eq!(status, StatusCode::OK, "{workspace:?}");
+    let keys: Vec<String> = [&account, &workspace]
+        .iter()
+        .map(|profile| {
+            let url = profile["avatar_url"].as_str().expect("avatar url");
+            crate::profile::avatar::key_of(url)
+                .expect("a stored photo")
+                .to_string()
+        })
+        .collect();
+
+    let (status, body) = send(
+        &app,
+        "DELETE",
+        &format!("/api/workspaces/{ws_id}/members/{alice_id}"),
+        Some(&alice),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert!(
+        state.file_storage.download(&keys[1]).await.is_ok(),
+        "leaving keeps the photo, so only the erase can find it"
+    );
+
+    let (_, _, instance_admin) = seed_and_login(&app, &state, "erase-photo-admin", true).await;
+    let (status, erased) = send(
+        &app,
+        "DELETE",
+        &format!("/api/admin/users/{alice_id}/data"),
+        Some(&instance_admin),
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{erased:?}");
+    assert_eq!(erased["account"]["photos"], 2);
+    for key in &keys {
+        assert!(
+            state.file_storage.download(key).await.is_err(),
+            "{key} is still in storage"
+        );
+    }
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn the_photo_of_someone_who_left_still_shows_where_they_were(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "left-photo-owner", false).await;
+    let (_, _, outsider) = seed_and_login(&app, &state, "left-photo-out", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Left photo").await;
+    let (alice_id, _, alice) = seed_and_login(&app, &state, "left-photo-alice", false).await;
+    add_ws_member(&state, ws_id, alice_id, "member").await;
+
+    let (status, me) = upload_photo(&app, &alice, PNG).await;
+    assert_eq!(status, StatusCode::OK, "{me:?}");
+    let photo = download_path(me["avatar_url"].as_str().expect("avatar url"));
+    assert_eq!(fetch(&app, &photo, &owner).await, StatusCode::OK);
+
+    let (status, body) = send(
+        &app,
+        "DELETE",
+        &format!("/api/workspaces/{ws_id}/members/{alice_id}"),
+        Some(&alice),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+
+    assert_eq!(fetch(&app, &photo, &owner).await, StatusCode::OK);
+    assert_eq!(fetch(&app, &photo, &outsider).await, StatusCode::FORBIDDEN);
+}

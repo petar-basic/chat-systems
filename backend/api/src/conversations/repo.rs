@@ -201,12 +201,14 @@ impl ConversationRepo {
                    COALESCE((
                        SELECT jsonb_agg(jsonb_build_object(
                                   'user_id', d.user_id,
-                                  'display_name', u.display_name,
-                                  'avatar_url', u.avatar_url,
+                                  'display_name', COALESCE(wd.display_name, u.display_name),
+                                  'avatar_url', COALESCE(wd.avatar_url, u.avatar_url),
                                   'left_at', d.left_at
                               ) ORDER BY d.left_at, d.user_id)
                          FROM conversation_departures d
                          JOIN users u ON u.id = d.user_id
+                         LEFT JOIN workspace_departures wd
+                           ON wd.workspace_id = c.workspace_id AND wd.user_id = d.user_id
                         WHERE d.channel_id = c.id
                    ), '[]'::jsonb) AS "departed!: Json<Vec<DepartedParticipant>>",
                    mine.notify_level AS "notify_level: NotifyLevel",
@@ -244,10 +246,12 @@ impl ConversationRepo {
     pub async fn departed_name(&self, channel_id: Uuid) -> sqlx::Result<Option<String>> {
         let row = sqlx::query_scalar!(
             r#"
-            SELECT COALESCE(NULLIF(BTRIM(u.display_name), ''), 'Somebody') AS "name!"
+            SELECT COALESCE(NULLIF(BTRIM(COALESCE(wd.display_name, u.display_name)), ''), 'Somebody') AS "name!"
               FROM conversation_departures d
               JOIN channels c ON c.id = d.channel_id
               JOIN users u ON u.id = d.user_id
+              LEFT JOIN workspace_departures wd
+                ON wd.workspace_id = c.workspace_id AND wd.user_id = d.user_id
              WHERE d.channel_id = $1 AND c.channel_type = 'dm'
              ORDER BY d.left_at
              LIMIT 1

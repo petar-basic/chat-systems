@@ -223,13 +223,18 @@ impl ProfileRepo {
             .map(|(_, name)| name))
     }
 
-    pub async fn shares_a_workspace(&self, a: Uuid, b: Uuid) -> sqlx::Result<bool> {
+    pub async fn has_shared_a_workspace(&self, a: Uuid, b: Uuid) -> sqlx::Result<bool> {
         sqlx::query_scalar!(
             r#"
             SELECT EXISTS(
               SELECT 1 FROM workspace_members mine
-                JOIN workspace_members theirs ON theirs.workspace_id = mine.workspace_id
-               WHERE mine.user_id = $1 AND theirs.user_id = $2
+               WHERE mine.user_id = $1
+                 AND (
+                   EXISTS (SELECT 1 FROM workspace_members theirs
+                            WHERE theirs.workspace_id = mine.workspace_id AND theirs.user_id = $2)
+                   OR EXISTS (SELECT 1 FROM workspace_departures gone
+                               WHERE gone.workspace_id = mine.workspace_id AND gone.user_id = $2)
+                 )
             ) AS "exists!"
             "#,
             a,
@@ -252,20 +257,6 @@ impl ProfileRepo {
         Ok(rows
             .into_iter()
             .map(|row| (row.id, row.avatar_url))
-            .collect())
-    }
-
-    pub async fn workspace_photos(&self, user_id: Uuid) -> sqlx::Result<Vec<(Uuid, String)>> {
-        let rows = sqlx::query!(
-            r#"SELECT workspace_id, avatar_url AS "avatar_url!" FROM workspace_members
-                WHERE user_id = $1 AND avatar_url IS NOT NULL"#,
-            user_id
-        )
-        .fetch_all(&self.pool)
-        .await?;
-        Ok(rows
-            .into_iter()
-            .map(|row| (row.workspace_id, row.avatar_url))
             .collect())
     }
 

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE workspace_departures SET display_name = NULL, avatar_url = NULL WHERE user_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4329a58b79ca50d36c8c6ba52650a5a099a1853884b40ec5615a2cb5daaaf302"
+}

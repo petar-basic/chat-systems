@@ -337,6 +337,7 @@ async fn settle_in(
     let mut staged =
         vec![EventPublisher::stage_workspace_member_joined(tx, workspace_id, user_id).await?];
     staged.extend(join_default_channels(tx, workspace_id, user_id).await?);
+    WorkspaceRepo::restore_profile_in(tx, workspace_id, user_id).await?;
     for channel_id in WorkspaceRepo::restore_conversations_in(tx, workspace_id, user_id).await? {
         staged.push(
             EventPublisher::stage_channel_member_joined(tx, channel_id, workspace_id, user_id)

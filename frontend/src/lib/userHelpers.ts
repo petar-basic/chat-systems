@@ -1,4 +1,5 @@
-import type { WorkspaceMember } from '../stores/workspace';
+import type { FormerMember, WorkspaceMember } from '../stores/workspace';
+import type { UserInfo } from '@/stores/users';
 import i18n from '@/lib/i18n';
 
 export function displayNameOf(name: string | null | undefined): string {
@@ -47,4 +48,33 @@ export function getUserDisplay(userId: string, members: WorkspaceMember[]) {
     displayName,
     email,
   };
+}
+
+export function knownPeople(members: WorkspaceMember[], former: FormerMember[]): UserInfo[] {
+  const here = new Set(members.map((m) => m.user_id));
+  return [
+    ...former
+      .filter((m) => !here.has(m.user_id))
+      .map((m) => ({
+        id: m.user_id,
+        email: '',
+        display_name: m.display_name ?? '',
+        avatar_url: m.avatar_url ?? null,
+        left: true,
+      })),
+    ...members.map((m) => ({
+      id: m.user_id,
+      email: m.email,
+      display_name: m.display_name ?? '',
+      avatar_url: m.avatar_url ?? null,
+      bio: m.bio,
+      title: m.title,
+      pronouns: m.pronouns,
+      status_emoji: m.status_emoji,
+      status_text: m.status_text,
+      notifications_paused_until: m.notifications_paused_until,
+      timezone: m.timezone,
+      is_bot: m.is_bot,
+    })),
+  ];
 }

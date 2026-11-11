@@ -88,9 +88,24 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   so the timing no longer tells them apart.
 - An instance admin who is demoted loses the admin panel and every admin action at once. Before,
   the session they held kept it for up to 15 minutes.
+- Erasing someone's data deletes their passkeys, authenticator and recovery codes, notification
+  keywords, push subscriptions and sidebar sections, and clears their timezone and preferences.
+  A hard erase also removes the polls they asked, even on a thread root kept for its replies.
+  Every photo of theirs goes from storage, including one from a workspace they had already left.
+  The audit row counts each kind, and the erase dialog in *Members* says what goes.
 
 ### Fixed
 
+- Messages from someone who has left the workspace keep their name and photo, as in Slack, in
+  channels, threads, DMs, search and the sidebar, instead of *Unknown user*. Their profile card
+  says *No longer in this workspace* and has no *Message* or *Huddle*. People who left before
+  this release get their account name and photo; from now on the name and photo they had in the
+  workspace are kept, and they get them back if they rejoin. An erased account reads *Deleted
+  user*. Apps with `users:read` get the same list from `GET /workspaces/{ws_id}/former-members`.
+- A DM with someone who has left shows the name they had in the workspace, in the sidebar, the
+  header and *… is no longer in this workspace*, not their account name.
+- A workspace export has `users.jsonl`, naming every person it mentions by id, name and email,
+  people who have left included, so every message's author can be told without the database.
 - In the desktop app, clicking a link to another site in a message, a link preview, a bookmark
   or a list opens it in your browser. On a Mac a plain click did nothing and only ⌘-click
   opened it. This needs the desktop app on this release; the server does not change.

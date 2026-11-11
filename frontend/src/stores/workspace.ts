@@ -27,6 +27,7 @@ export interface Message extends Omit<components['schemas']['Message'], 'metadat
 export type WorkspaceRole = components['schemas']['WorkspaceRole'];
 
 export type WorkspaceMember = components['schemas']['MemberWithUser'];
+export type FormerMember = components['schemas']['FormerMember'];
 
 interface WorkspaceState {
   currentWorkspace: Workspace | null;

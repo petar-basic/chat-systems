@@ -33,6 +33,7 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(restore_workspace))
         .routes(routes!(list_audit_log))
         .routes(routes!(list_members))
+        .routes(routes!(list_former_members))
         .routes(routes!(update_member_role))
         .routes(routes!(remove_member))
         .routes(routes!(list_invites, create_invite))
@@ -327,6 +328,26 @@ async fn list_members(
     };
 
     Ok(Json(members.into()))
+}
+
+#[utoipa::path(
+    get, path = "/workspaces/{ws_id}/former-members", tags = ["workspaces", "bot"],
+    security(("bearer" = []), ("bot" = ["users:read"])),
+    responses((status = 200, body = DataList<FormerMember>)))]
+async fn list_former_members(
+    State(state): State<Arc<AppState>>,
+    caller: Caller,
+    Path(ws_id): Path<Uuid>,
+) -> AppResult<Json<DataList<FormerMember>>> {
+    let auth = caller.scoped(Scope::UsersRead)?;
+    let member = authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
+    let guest = (member.role == WorkspaceRole::Guest).then_some(auth.user_id);
+    let people = state
+        .workspace_service
+        .repo
+        .list_former_members(ws_id, guest)
+        .await?;
+    Ok(Json(people.into()))
 }
 
 #[utoipa::path(patch, path = "/workspaces/{ws_id}/members/{user_id}/role", tag = "workspaces", request_body = UpdateMemberRoleRequest, responses((status = 200, body = WorkspaceMember)))]

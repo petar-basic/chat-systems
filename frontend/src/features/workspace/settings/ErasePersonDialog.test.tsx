@@ -15,6 +15,7 @@ describe('ErasePersonDialog', () => {
     const list = screen.getByTestId('erase-person-consequences');
     expect(list).toHaveTextContent('bob@dev.local');
     expect(list).toHaveTextContent('signed out everywhere');
+    expect(list).toHaveTextContent('passkeys, authenticator, recovery codes, notification keywords');
     expect(list).toHaveTextContent('messages stay readable');
   });
 

@@ -744,3 +744,270 @@ async fn edits_and_reactions_follow_their_messages_dates(pool: PgPool) {
         "and so does its edit history"
     );
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_erase_leaves_no_passkey_keyword_push_subscription_or_poll(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "exp-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Erase WS").await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
+    let (subject_id, subject_email) = seed(&state, "exp-subject", false).await;
+    add_ws_member(&state, ws, subject_id, "member").await;
+    let subject = login(&app, &subject_email, PASSWORD).await;
+
+    sqlx::query(
+        "INSERT INTO passkeys (user_id, credential_id, credential, name) VALUES ($1, $2, '{}', 'Work laptop')",
+    )
+    .bind(subject_id)
+    .bind(subject_id.as_bytes().to_vec())
+    .execute(&state.pool)
+    .await
+    .expect("a passkey");
+    sqlx::query(
+        "INSERT INTO user_totp (user_id, secret_encrypted, nonce) VALUES ($1, '\\x00', '\\x00')",
+    )
+    .bind(subject_id)
+    .execute(&state.pool)
+    .await
+    .expect("an authenticator");
+    sqlx::query(
+        "INSERT INTO totp_recovery_codes (user_id, code_hash) VALUES ($1, 'hash'), ($1, 'hash')",
+    )
+    .bind(subject_id)
+    .execute(&state.pool)
+    .await
+    .expect("recovery codes");
+    sqlx::query(
+        "INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth) VALUES ($1, 'https://push.example/' || $1, 'key', 'auth')",
+    )
+    .bind(subject_id)
+    .execute(&state.pool)
+    .await
+    .expect("a push subscription");
+    sqlx::query("UPDATE users SET timezone = 'Europe/Belgrade', preferences = '{\"theme\":\"dark\"}' WHERE id = $1")
+        .bind(subject_id)
+        .execute(&state.pool)
+        .await
+        .expect("preferences");
+    let (status, _) = send(
+        &app,
+        "PUT",
+        &format!("/api/workspaces/{ws}/notification-keywords"),
+        Some(&subject),
+        Some(json!({ "keywords": ["divorce lawyer"] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws}/sidebar/sections"),
+        Some(&subject),
+        Some(json!({ "name": "Job hunt" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, poll) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch}/polls"),
+        Some(&subject),
+        Some(json!({ "question": "Should I quit?", "options": ["Yes", "No"] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{poll:?}");
+    let poll_message = poll["id"].as_str().unwrap().to_string();
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch}/messages"),
+        Some(&owner),
+        Some(json!({ "content": "please don't", "thread_parent_id": poll_message })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (_, _, instance_admin) = seed_and_login(&app, &state, "exp-instance", true).await;
+    let (status, erased) = send(
+        &app,
+        "DELETE",
+        &format!("/api/admin/users/{subject_id}/data"),
+        Some(&instance_admin),
+        Some(json!({ "hard_delete": true })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{erased:?}");
+    assert_eq!(
+        erased["account"],
+        json!({
+            "passkeys": 1,
+            "authenticators": 1,
+            "recovery_codes": 2,
+            "keywords": 1,
+            "push_subscriptions": 1,
+            "sidebar_sections": 1,
+            "photos": 0,
+        })
+    );
+    assert_eq!(erased["removed"]["polls"], 1);
+
+    for query in [
+        "SELECT COUNT(*) FROM passkeys WHERE user_id = $1",
+        "SELECT COUNT(*) FROM user_totp WHERE user_id = $1",
+        "SELECT COUNT(*) FROM totp_recovery_codes WHERE user_id = $1",
+        "SELECT COUNT(*) FROM notification_keywords WHERE user_id = $1",
+        "SELECT COUNT(*) FROM push_subscriptions WHERE user_id = $1",
+        "SELECT COUNT(*) FROM sidebar_sections WHERE user_id = $1",
+    ] {
+        let left: i64 = sqlx::query_scalar(query)
+            .bind(subject_id)
+            .fetch_one(&state.pool)
+            .await
+            .expect("count");
+        assert_eq!(left, 0, "{query}");
+    }
+    let (timezone, preferences): (Option<String>, serde_json::Value) =
+        sqlx::query_as("SELECT timezone, preferences FROM users WHERE id = $1")
+            .bind(subject_id)
+            .fetch_one(&state.pool)
+            .await
+            .expect("the account");
+    assert_eq!((timezone, preferences), (None, json!({})));
+
+    let poll_message = Uuid::parse_str(&poll_message).unwrap();
+    let kept: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM messages WHERE id = $1")
+        .bind(poll_message)
+        .fetch_one(&state.pool)
+        .await
+        .expect("count");
+    assert_eq!(kept, 1, "the answered poll stays as a tombstone");
+    let polls: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM polls WHERE message_id = $1")
+        .bind(poll_message)
+        .fetch_one(&state.pool)
+        .await
+        .expect("count");
+    let options: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM poll_options o JOIN polls p ON p.id = o.poll_id WHERE p.message_id = $1",
+    )
+    .bind(poll_message)
+    .fetch_one(&state.pool)
+    .await
+    .expect("count");
+    assert_eq!((polls, options), (0, 0), "but its question and options go");
+
+    let audited: serde_json::Value = sqlx::query_scalar(
+        "SELECT details FROM audit_log WHERE action = 'user.data_erased' AND resource_id = $1",
+    )
+    .bind(subject_id)
+    .fetch_one(&state.pool)
+    .await
+    .expect("the audit row");
+    assert_eq!(audited["account"], erased["account"]);
+}
+
+fn archive_file(tar: &[u8], name: &str) -> String {
+    let mut at = 0;
+    while at + 512 <= tar.len() {
+        let header = &tar[at..at + 512];
+        let entry = String::from_utf8_lossy(&header[..100])
+            .trim_end_matches('\0')
+            .to_string();
+        if entry.is_empty() {
+            break;
+        }
+        let size = usize::from_str_radix(
+            String::from_utf8_lossy(&header[124..136])
+                .trim_end_matches(['\0', ' '])
+                .trim(),
+            8,
+        )
+        .expect("an octal size");
+        let body = &tar[at + 512..at + 512 + size];
+        if entry == name {
+            return String::from_utf8(body.to_vec()).expect("text");
+        }
+        at += 512 + size.div_ceil(512) * 512;
+    }
+    panic!("{name} is not in the archive");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_export_names_the_author_of_every_message_even_one_who_left(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, owner_email, owner) = seed_and_login(&app, &state, "exp-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Export WS").await;
+    let ch = seed_channel(&state, ws, owner_id, "main", false).await;
+    let (gone_id, gone_email) = seed(&state, "exp-gone", false).await;
+    add_ws_member(&state, ws, gone_id, "member").await;
+    let gone = login(&app, &gone_email, PASSWORD).await;
+    let (outsider_id, _) = seed(&state, "exp-outsider", false).await;
+
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{ch}/messages"),
+        Some(&gone),
+        Some(json!({ "content": "my last words here" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, body) = send(
+        &app,
+        "DELETE",
+        &format!("/api/workspaces/{ws}/members/{gone_id}"),
+        Some(&gone),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+
+    let (status, body) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws}/exports"),
+        Some(&owner),
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    let id = run_pending_export(&state).await;
+    let job = state
+        .export_repo
+        .find(id)
+        .await
+        .expect("find")
+        .expect("job");
+    let (tar, _) = state
+        .file_storage
+        .download(&job.storage_key.expect("an archive"))
+        .await
+        .expect("the archive");
+
+    let people: Vec<serde_json::Value> = archive_file(&tar, "users.jsonl")
+        .lines()
+        .map(|line| serde_json::from_str(line).expect("a row"))
+        .collect();
+    let named = |id: Uuid| {
+        people
+            .iter()
+            .find(|person| person["id"] == json!(id))
+            .cloned()
+    };
+    let author = named(gone_id).expect("the author who left is named");
+    assert_eq!(author["email"], json!(gone_email));
+    assert!(author["name"].is_string(), "{author:?}");
+    assert_eq!(
+        named(owner_id).expect("the owner")["email"],
+        json!(owner_email)
+    );
+    assert!(
+        named(outsider_id).is_none(),
+        "nobody the export does not mention"
+    );
+
+    let manifest = manifest_of(&state, id).await;
+    assert_eq!(
+        manifest["files"]["users.jsonl"]["rows"],
+        json!(people.len())
+    );
+}

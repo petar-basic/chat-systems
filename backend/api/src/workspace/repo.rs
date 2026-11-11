@@ -456,6 +456,43 @@ impl WorkspaceRepo {
         .await
     }
 
+    pub async fn list_former_members(
+        &self,
+        workspace_id: Uuid,
+        guest_id: Option<Uuid>,
+    ) -> sqlx::Result<Vec<FormerMember>> {
+        sqlx::query_as!(
+            FormerMember,
+            r#"
+            SELECT d.user_id,
+                   COALESCE(d.display_name, u.display_name) AS display_name,
+                   COALESCE(d.avatar_url, u.avatar_url) AS avatar_url
+              FROM workspace_departures d
+              JOIN users u ON u.id = d.user_id
+             WHERE d.workspace_id = $1
+               AND NOT EXISTS (
+                     SELECT 1 FROM workspace_members wm
+                      WHERE wm.workspace_id = d.workspace_id AND wm.user_id = d.user_id
+                   )
+               AND (
+                     $2::uuid IS NULL
+                     OR EXISTS (
+                       SELECT 1
+                         FROM messages m
+                         JOIN channel_members mine
+                           ON mine.channel_id = m.channel_id AND mine.user_id = $2
+                        WHERE m.user_id = d.user_id
+                     )
+                   )
+             ORDER BY d.left_at, d.user_id
+            "#,
+            workspace_id,
+            guest_id
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
     pub async fn update_member_role(
         &self,
         conn: &mut PgConnection,
@@ -646,7 +683,18 @@ impl WorkspaceRepo {
         .await?;
 
         sqlx::query!(
-            "DELETE FROM workspace_members WHERE workspace_id = $1 AND user_id = $2",
+            r"
+            WITH gone AS (
+                DELETE FROM workspace_members WHERE workspace_id = $1 AND user_id = $2
+                RETURNING workspace_id, user_id, display_name, avatar_url
+            )
+            INSERT INTO workspace_departures (workspace_id, user_id, display_name, avatar_url)
+            SELECT workspace_id, user_id, display_name, avatar_url FROM gone
+            ON CONFLICT (workspace_id, user_id) DO UPDATE
+               SET display_name = EXCLUDED.display_name,
+                   avatar_url = EXCLUDED.avatar_url,
+                   left_at = NOW()
+            ",
             workspace_id,
             user_id
         )
@@ -654,6 +702,31 @@ impl WorkspaceRepo {
         .await?;
 
         Ok(channel_ids)
+    }
+
+    pub async fn restore_profile_in(
+        conn: &mut PgConnection,
+        workspace_id: Uuid,
+        user_id: Uuid,
+    ) -> sqlx::Result<()> {
+        sqlx::query!(
+            r"
+            WITH back AS (
+                DELETE FROM workspace_departures WHERE workspace_id = $1 AND user_id = $2
+                RETURNING display_name, avatar_url
+            )
+            UPDATE workspace_members wm
+               SET display_name = COALESCE(wm.display_name, back.display_name),
+                   avatar_url = COALESCE(wm.avatar_url, back.avatar_url)
+              FROM back
+             WHERE wm.workspace_id = $1 AND wm.user_id = $2
+            ",
+            workspace_id,
+            user_id
+        )
+        .execute(&mut *conn)
+        .await?;
+        Ok(())
     }
 
     pub async fn restore_conversations_in(
