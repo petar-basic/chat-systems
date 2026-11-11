@@ -9,32 +9,52 @@ describe('the unread boundary', () => {
     content: id,
     created_at: at(i),
   });
+  const read = (id: string, i: number) => ({ id, at: at(i) });
 
   it('draws the line once, after the last message that was read', () => {
-    const rows = buildMessageRows([msg('a', 0), msg('b', 1), msg('c', 2)], 'a');
+    const rows = buildMessageRows([msg('a', 0), msg('b', 1), msg('c', 2)], read('a', 0));
     const kinds = rows.map((r) => r.kind);
     expect(kinds.filter((k) => k === 'unread')).toHaveLength(1);
     expect(kinds.indexOf('unread')).toBe(kinds.indexOf('message') + 1);
   });
 
   it('draws nothing when everything has been read', () => {
-    const rows = buildMessageRows([msg('a', 0), msg('b', 1)], 'b');
+    const rows = buildMessageRows([msg('a', 0), msg('b', 1)], read('b', 1));
     expect(rows.some((r) => r.kind === 'unread')).toBe(false);
   });
 
   /// A boundary from an older page is not in the loaded messages; a line at the
   /// very top would claim everything is new.
   it('draws nothing when the boundary is not in the loaded page', () => {
-    const rows = buildMessageRows([msg('b', 1), msg('c', 2)], 'older-message');
+    const rows = buildMessageRows([msg('b', 1), msg('c', 2)], { id: 'older-message', at: null });
     expect(rows.some((r) => r.kind === 'unread')).toBe(false);
     expect(buildMessageRows([msg('b', 1)], null).some((r) => r.kind === 'unread')).toBe(false);
   });
 
   /// Otherwise the line disappears inside somebody's run of messages.
   it('breaks the grouping so the line is visible', () => {
-    const rows = buildMessageRows([msg('a', 0), msg('b', 1)], 'a');
+    const rows = buildMessageRows([msg('a', 0), msg('b', 1)], read('a', 0));
     const first = rows.find((r) => r.kind === 'message' && r.message.id === 'b');
     expect(first && first.kind === 'message' && first.grouped).toBe(false);
+  });
+
+  it('draws the line above the first newer message when the last one read was deleted', () => {
+    const rows = buildMessageRows([msg('a', 0), msg('c', 2), msg('d', 3)], read('b-deleted', 1));
+    const unread = rows.findIndex((r) => r.kind === 'unread');
+    const c = rows.findIndex((r) => r.kind === 'message' && r.message.id === 'c');
+
+    expect(rows.filter((r) => r.kind === 'unread')).toHaveLength(1);
+    expect(unread).toBe(c - 1);
+  });
+
+  it('waits for an older page before placing a missing boundary by its time', () => {
+    const rows = buildMessageRows([msg('c', 2), msg('d', 3)], read('b-deleted', 1));
+    expect(rows.some((r) => r.kind === 'unread')).toBe(false);
+  });
+
+  it('draws nothing when nothing is newer than a missing boundary', () => {
+    const rows = buildMessageRows([msg('a', 0), msg('c', 2)], read('b-deleted', 4));
+    expect(rows.some((r) => r.kind === 'unread')).toBe(false);
   });
 });
 

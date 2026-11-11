@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import { useUnreadChannels } from '@/features/channel';
 import { UnreadDivider } from './UnreadDivider';
 import { MessageSquare } from 'lucide-react';
 import MessageItem from './MessageItem';
@@ -9,7 +8,7 @@ import VirtualMessageList from './VirtualMessageList';
 import { GalleryProvider } from './GalleryProvider';
 import { RovingContext, createRovingStore } from './rovingFocus';
 import { boundaryReached, buildMessageRows, type MessageRow, type ReadBoundary } from './messageRows';
-import { useWorkspaceStore, type Message, type WorkspaceMember, type Channel } from '@/stores/workspace';
+import type { Message, WorkspaceMember, Channel } from '@/stores/workspace';
 import {
   useMessages,
   messagesOldestFirst,
@@ -99,32 +98,27 @@ export default function MessageList({
 
   // Captured once per channel: the boundary must not move while the person is
   // reading, or the line jumps down the list as each message is marked read.
-  const workspace = useWorkspaceStore((s) => s.currentWorkspace);
-  const { data: unread } = useUnreadChannels(workspace?.id ?? null, workspace?.instanceUrl);
   const [readBoundary, setReadBoundary] = useState<ReadBoundary | null | undefined>(undefined);
   const [boundaryChannel, setBoundaryChannel] = useState<string | null>(null);
+  const [fetchedBeforeOpening, setFetchedBeforeOpening] = useState(0);
   const [landed, setLanded] = useState(false);
   const openAtNewest = useDisplayStore((s) => s.openChannelAt === 'newest');
+  const newestPage = data?.pages[0];
   if (boundaryChannel !== channelId) {
     setBoundaryChannel(channelId);
     setLanded(false);
-    const count = unread?.counts.find((c) => c.channel_id === channelId && c.unread_count > 0);
+    setReadBoundary(undefined);
+    setFetchedBeforeOpening(newestPage?.fetch ?? 0);
+  } else if (readBoundary === undefined && newestPage && (newestPage.fetch ?? 0) > fetchedBeforeOpening) {
     setReadBoundary(
-      unread
-        ? count?.last_read_msg
-          ? { id: count.last_read_msg, at: count.last_read_at ?? null }
-          : null
-        : undefined,
-    );
-  } else if (readBoundary === undefined && data) {
-    const page = data.pages[0];
-    setReadBoundary(
-      page?.last_read_before ? { id: page.last_read_before, at: page.last_read_before_at ?? null } : null,
+      newestPage.last_read_before
+        ? { id: newestPage.last_read_before, at: newestPage.last_read_before_at ?? null }
+        : null,
     );
   }
 
   const boundary = openAtNewest ? null : readBoundary;
-  const rows = useMemo(() => buildMessageRows(messages, boundary?.id), [messages, boundary]);
+  const rows = useMemo(() => buildMessageRows(messages, boundary), [messages, boundary]);
   const dividerKey = rows.find((row) => row.kind === 'unread')?.key;
 
   const landing = !landed && !highlightMessageId && !!boundary && !!data && !isFetching;

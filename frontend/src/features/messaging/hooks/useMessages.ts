@@ -26,6 +26,7 @@ import { toast } from '@/shared/components/Toast';
 import { logger } from '@/lib/logger';
 import { refusalOr } from '@/lib/errors';
 import { useUnsentStore } from '@/stores/unsent';
+import { noteRead, windowInUse } from '@/lib/readOnScreen';
 
 export interface OutgoingMessage {
   content: string;
@@ -38,12 +39,19 @@ export interface MessagesResponse {
   unread_notifications?: number | null;
   last_read_before?: string | null;
   last_read_before_at?: string | null;
+  fetch?: number;
 }
 
 export type MessagesInfiniteData = InfiniteData<MessagesResponse>;
 
 export function eachPageOldestFirst(data: MessagesInfiniteData): MessagesInfiniteData {
   return { ...data, pages: data.pages.map((page) => ({ ...page, data: [...page.data].reverse() })) };
+}
+
+let firstPageFetches = 0;
+
+export function marksRead(channelId: string, markReadIn: string | undefined, pageParam: string | undefined) {
+  return !!markReadIn && pageParam === undefined && !isKeptUnread(channelId) && windowInUse();
 }
 
 export function messagesOldestFirst(data: MessagesInfiniteData | undefined): Message[] {
@@ -79,22 +87,20 @@ export const useMessages = (channelId: string | null, markReadIn?: string) => {
     queryKey: QUERY_KEYS.messages(channelId ?? ''),
     queryFn: async ({ pageParam }): Promise<MessagesResponse> => {
       if (!channelId) throw new Error('No channel selected');
+      const marking = marksRead(channelId, markReadIn, pageParam);
       const page = await apiClient.typed((c) =>
         c.GET('/channels/{ch_id}/messages', {
           params: {
             path: { ch_id: channelId },
-            query: {
-              limit: MESSAGES_PAGE_SIZE,
-              cursor: pageParam,
-              mark_read: markReadIn && pageParam === undefined && !isKeptUnread(channelId) ? true : undefined,
-            },
+            query: { limit: MESSAGES_PAGE_SIZE, cursor: pageParam, mark_read: marking || undefined },
           },
         }),
       );
       if (markReadIn && page.unread_notifications != null) {
         await settleChannelNotifications(queryClient, markReadIn, channelId, page.unread_notifications);
       }
-      return page;
+      if (marking && page.data[0]) noteRead(channelId, page.data[0].id);
+      return pageParam === undefined ? { ...page, fetch: ++firstPageFetches } : page;
     },
     getNextPageParam: olderMessagesCursor,
     initialPageParam: undefined as string | undefined,

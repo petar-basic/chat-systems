@@ -33,6 +33,7 @@ import { useUnsent, withUnsent } from '@/stores/unsent';
 import { discardUnsent } from '@/lib/unsent';
 import { isClosedThread } from './closedThread';
 import { formatTime } from '@/lib/datetime';
+import { useWindowInUse } from '@/lib/readOnScreen';
 
 interface Props {
   parentMessage: Message;
@@ -79,11 +80,17 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
   const newestId = replies.at(-1)?.id;
   const oldestId = replies[0]?.id;
 
+  const inUse = useWindowInUse();
   useEffect(() => {
     if (loading) return;
-    if (seenNewest.current !== null && newestId !== seenNewest.current) void markRead();
+    if (seenNewest.current === null) {
+      seenNewest.current = newestId;
+      return;
+    }
+    if (!inUse || newestId === seenNewest.current) return;
     seenNewest.current = newestId;
-  }, [loading, newestId, markRead]);
+    void markRead();
+  }, [loading, newestId, markRead, inUse]);
 
   useEffect(() => {
     if (loading) return;

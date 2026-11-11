@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { QueryClient } from '@tanstack/react-query';
-import { applyReadState } from './readState';
+import { applyReadState, recountAfterReplay } from './readState';
 import { useWorkspaceStore, type Workspace } from '@/stores/workspace';
 import { QUERY_KEYS } from '@/shared/constants';
 
@@ -58,5 +58,59 @@ describe('applyReadState', () => {
       { id: 'dm-2', unread_count: 1 },
     ]);
     expect(useWorkspaceStore.getState().unreadConversations.has('dm-1')).toBe(false);
+  });
+});
+
+describe('recountAfterReplay', () => {
+  const counts = {
+    channel_ids: ['ch-1'],
+    counts: [{ channel_id: 'ch-1', unread_count: 3, mention_count: 1 }],
+  };
+
+  beforeEach(() => {
+    useWorkspaceStore.setState({
+      currentWorkspace: workspace,
+      unreadChannels: new Set(),
+      mentionChannels: new Set(),
+      unreadCounts: {},
+      mentionCounts: {},
+      unreadConversations: new Set(),
+    });
+  });
+
+  async function loaded() {
+    const queryClient = new QueryClient();
+    const unread = await queryClient.fetchQuery({
+      queryKey: QUERY_KEYS.channelsUnread('ws-1'),
+      queryFn: async () => counts,
+    });
+    const store = useWorkspaceStore.getState();
+    store.hydrateUnreadChannels(unread.channel_ids);
+    store.hydrateUnreadCounts(unread.counts);
+    return queryClient;
+  }
+
+  it('puts back the loaded counts after a replay of messages they already held', async () => {
+    const queryClient = await loaded();
+    const { bumpChannelUnread } = useWorkspaceStore.getState();
+    bumpChannelUnread('ch-1', false);
+    bumpChannelUnread('ch-1', true);
+    bumpChannelUnread('ch-1', false);
+    expect(useWorkspaceStore.getState().unreadCounts['ch-1']).toBe(6);
+
+    await recountAfterReplay(queryClient, 'ws-1');
+
+    const s = useWorkspaceStore.getState();
+    expect(s.unreadCounts['ch-1']).toBe(3);
+    expect(s.mentionCounts['ch-1']).toBe(1);
+  });
+
+  it('leaves the counts alone for a replay in a workspace that is not open', async () => {
+    const queryClient = await loaded();
+    useWorkspaceStore.getState().bumpChannelUnread('ch-1', false);
+
+    await recountAfterReplay(queryClient, 'ws-2');
+
+    expect(useWorkspaceStore.getState().unreadCounts['ch-1']).toBe(4);
   });
 });

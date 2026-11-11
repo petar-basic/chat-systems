@@ -20,7 +20,7 @@ import { useInstanceStore } from '@/stores/instances';
 import { useUserCache } from '@/stores/users';
 import { useUnsentStore } from '@/stores/unsent';
 import { QUERY_KEYS } from '@/shared/constants';
-import { applyReadState } from './readState';
+import { applyReadState, recountAfterReplay } from './readState';
 import { applyChannel } from './channelArchive';
 import { belongsElsewhere } from './channelWorkspace';
 import { readOnReturn, readOnScreen } from './readOnScreen';
@@ -165,6 +165,11 @@ export const useWebSocketQuerySync = () => {
       }),
       globalEventBus.on('sync.complete', (event) => {
         logger.info('wsQuerySync', 'sync.complete', `replayed ${event.replayed} events`);
+        if (event.replayed > 0) {
+          recountAfterReplay(queryClient, event.workspace_id).catch((err) =>
+            logger.error('wsQuerySync', 'sync.complete', err),
+          );
+        }
       }),
     );
 
