@@ -81,7 +81,8 @@ in `main.rs`.
 
 ### Cross-cutting concerns
 
-- **Auth.** Argon2id password hashing; Ed25519-signed (EdDSA) JWTs with an `access` /
+- **Auth.** Argon2id password hashing, run on the blocking pool (`spawn_blocking`) so it never
+  stalls a runtime worker; Ed25519-signed (EdDSA) JWTs with an `access` /
   `refresh` token-type claim and a `kid` naming the key. `shared_common::session_keys` signs
   with the first of `JWT_SIGNING_KEYS` and verifies against every listed key; the gateway
   gets only `JWT_PUBLIC_KEYS`. Any other algorithm, a missing `kid` or an unlisted one is

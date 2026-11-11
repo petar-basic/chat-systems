@@ -150,10 +150,12 @@ async fn confirm(
     // Shown once. They are the way back in when the phone is gone, so they are
     // hashed exactly like a password and never retrievable afterwards.
     let codes = totp::generate_recovery_codes();
-    let hashes: Vec<String> = codes
-        .iter()
-        .filter_map(|c| AuthService::hash_password(c).ok())
-        .collect();
+    let mut hashes = Vec::with_capacity(codes.len());
+    for code in &codes {
+        if let Ok(hash) = AuthService::hash_password(code).await {
+            hashes.push(hash);
+        }
+    }
     state
         .totp_repo
         .replace_recovery_codes(auth.user_id, &hashes)

@@ -108,6 +108,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   browser no longer finds them in the composer.
 - Registering a slash command without channels says *slash_command requires a non-empty
   channel_ids array in config*, not the same for an outgoing webhook.
+- Checking a password or a sign-in code no longer holds up other requests on the same server
+  thread, which could make a sign-in code request answer *Authentication is temporarily
+  unavailable*.
 - Messages from someone who has left the workspace keep their name and photo, as in Slack, in
   channels, threads, DMs, search and the sidebar, instead of *Unknown user*. Their profile card
   says *No longer in this workspace* and has no *Message* or *Huddle*. People who left before

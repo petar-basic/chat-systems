@@ -34,13 +34,16 @@ pub struct AuthService {
 /// Computed once per process: Argon2 is deliberately expensive, and hashing it
 /// per `AuthService` starved the runtime everywhere the service is constructed
 /// more than once.
-static ABSENT_USER_HASH: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+static ABSENT_USER_HASH: tokio::sync::OnceCell<String> = tokio::sync::OnceCell::const_new();
 
-fn absent_user_hash() -> &'static str {
-    ABSENT_USER_HASH.get_or_init(|| {
-        AuthService::hash_password("no-such-account-placeholder")
-            .unwrap_or_else(|_| String::from("$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA"))
-    })
+async fn absent_user_hash() -> &'static str {
+    ABSENT_USER_HASH
+        .get_or_init(|| async {
+            AuthService::hash_password("no-such-account-placeholder")
+                .await
+                .unwrap_or_else(|_| String::from("$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA"))
+        })
+        .await
 }
 
 impl AuthService {
@@ -57,19 +60,30 @@ impl AuthService {
         &self.repo
     }
 
-    pub fn hash_password(password: &str) -> AppResult<String> {
-        let hash = Argon2::default()
-            .hash_password(password.as_bytes())
-            .map_err(|e| AppError::Internal(format!("Password hashing failed: {e}")))?;
-        Ok(hash.to_string())
+    pub async fn hash_password(password: &str) -> AppResult<String> {
+        let password = password.to_owned();
+        tokio::task::spawn_blocking(move || {
+            Argon2::default()
+                .hash_password(password.as_bytes())
+                .map(|hash| hash.to_string())
+                .map_err(|e| AppError::Internal(format!("Password hashing failed: {e}")))
+        })
+        .await
+        .map_err(|e| AppError::Internal(format!("Password hashing failed: {e}")))?
     }
 
-    pub fn verify_password(password: &str, hash: &str) -> AppResult<bool> {
-        let parsed_hash = PasswordHash::new(hash)
-            .map_err(|e| AppError::Internal(format!("Invalid password hash: {e}")))?;
-        Ok(Argon2::default()
-            .verify_password(password.as_bytes(), &parsed_hash)
-            .is_ok())
+    pub async fn verify_password(password: &str, hash: &str) -> AppResult<bool> {
+        let password = password.to_owned();
+        let hash = hash.to_owned();
+        tokio::task::spawn_blocking(move || {
+            let parsed_hash = PasswordHash::new(&hash)
+                .map_err(|e| AppError::Internal(format!("Invalid password hash: {e}")))?;
+            Ok(Argon2::default()
+                .verify_password(password.as_bytes(), &parsed_hash)
+                .is_ok())
+        })
+        .await
+        .map_err(|e| AppError::Internal(format!("Password check failed: {e}")))?
     }
 
     pub async fn login(&self, email: &str, password: &str) -> AppResult<AuthTokens> {
@@ -80,11 +94,13 @@ impl AuthService {
         // Always pay for a verification, whatever went wrong. Returning early on
         // an unknown address made "does this person work here" answerable with a
         // stopwatch.
-        let hash = user
-            .as_ref()
-            .and_then(|u| u.password_hash.clone())
-            .unwrap_or_else(|| absent_user_hash().to_string());
-        let password_matches = Self::verify_password(password, &hash).unwrap_or(false);
+        let hash = match user.as_ref().and_then(|u| u.password_hash.clone()) {
+            Some(hash) => hash,
+            None => absent_user_hash().await.to_string(),
+        };
+        let password_matches = Self::verify_password(password, &hash)
+            .await
+            .unwrap_or(false);
 
         let reason = match &user {
             None => Some("no such account"),
@@ -113,11 +129,13 @@ impl AuthService {
         validation::validate_email(email)?;
 
         let user = self.repo.find_by_email(email).await?;
-        let hash = user
-            .as_ref()
-            .and_then(|u| u.password_hash.clone())
-            .unwrap_or_else(|| absent_user_hash().to_string());
-        let password_matches = Self::verify_password(password, &hash).unwrap_or(false);
+        let hash = match user.as_ref().and_then(|u| u.password_hash.clone()) {
+            Some(hash) => hash,
+            None => absent_user_hash().await.to_string(),
+        };
+        let password_matches = Self::verify_password(password, &hash)
+            .await
+            .unwrap_or(false);
 
         let reason = match &user {
             None => Some("no such account"),
@@ -162,7 +180,7 @@ impl AuthService {
 
         validation::validate_password(password)?;
 
-        let password_hash = Self::hash_password(password)?;
+        let password_hash = Self::hash_password(password).await?;
         let user = self
             .repo
             .activate(user_id, &password_hash, display_name)
@@ -232,7 +250,7 @@ impl AuthService {
             ));
         }
 
-        let password_hash = Self::hash_password(new_password)?;
+        let password_hash = Self::hash_password(new_password).await?;
         self.repo
             .update_password(claims.sub, &password_hash)
             .await?;
@@ -257,7 +275,7 @@ impl AuthService {
             .as_ref()
             .ok_or_else(|| AppError::Unauthorized("Current password is incorrect".into()))?;
 
-        if !Self::verify_password(current_password, password_hash)? {
+        if !Self::verify_password(current_password, password_hash).await? {
             return Err(AppError::Unauthorized(
                 "Current password is incorrect".into(),
             ));
@@ -265,7 +283,7 @@ impl AuthService {
 
         validation::validate_password(new_password)?;
 
-        let new_hash = Self::hash_password(new_password)?;
+        let new_hash = Self::hash_password(new_password).await?;
         self.repo.update_password(user_id, &new_hash).await?;
 
         Ok(())
@@ -289,7 +307,7 @@ impl AuthService {
         password: &str,
         display_name: &str,
     ) -> AppResult<User> {
-        let hash = Self::hash_password(password)?;
+        let hash = Self::hash_password(password).await?;
         let user = self
             .repo
             .create(email, Some(&hash), Some(display_name), true)

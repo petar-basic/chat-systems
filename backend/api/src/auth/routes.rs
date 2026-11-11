@@ -175,7 +175,9 @@ async fn consume_recovery_code(
     candidate: &str,
 ) -> AppResult<bool> {
     for (id, hash) in state.totp_repo.unused_recovery_hashes(user_id).await? {
-        if crate::auth::service::AuthService::verify_password(candidate, &hash).unwrap_or(false)
+        if crate::auth::service::AuthService::verify_password(candidate, &hash)
+            .await
+            .unwrap_or(false)
             && state.totp_repo.consume_recovery_code(id).await?
         {
             audit::record(

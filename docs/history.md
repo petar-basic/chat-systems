@@ -2970,6 +2970,16 @@ Five smaller findings from the survey of 4.6.0, and two more found while checkin
   shown.
 - **A slash command without channels was refused as an outgoing webhook.** `parse_channel_ids`
   takes the hook type and names it in the 422.
+- **Argon2 stalled the runtime.** Found in CI: `email_code::asking_too_often_is_rate_limited` got a
+  503 now and then (three runs). `send_code` hashes the code with Argon2 in a spawned task, on the
+  thread that also serves the next request; in the test build the hash takes over half a second,
+  the next request's limiter call to Redis outlived the client's 500 ms response timeout, and the
+  sign-in limiter fails closed. `hash_password` and `verify_password` are async and run Argon2 on
+  the blocking pool, so a sign-in no longer holds up the other requests on its worker in
+  production either.
+- **The E2E suite on main had been red since CS-121a.** `channel-permissions.spec.ts` still
+  expected a plain member to see the read-only About; since CS-121a anyone who can post edits the
+  topic and description, so the spec looks for the topic field and no name field.
 
 Checked by hand on the Docker build. Two raw sockets on the gateway left the pings unanswered and
 sent one pong each: 29.8 seconds after the first ping, the next-but-one tick found it 30.2 seconds
