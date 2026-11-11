@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -125,9 +125,11 @@ async fn export_workspace(
         "poll_votes.jsonl",
         "lists.jsonl",
         "audit_log.jsonl",
+        "users.jsonl",
     ] {
         archive.declare(file);
     }
+    let mut people = BTreeSet::new();
 
     let rows: Vec<serde_json::Value> = sqlx::query_scalar!(
         r#"
@@ -142,7 +144,7 @@ async fn export_workspace(
     .await
     .map_err(|e| e.to_string())?;
     for row in rows {
-        archive.append("channels.jsonl", &row);
+        write(archive, &mut people, "channels.jsonl", &row);
     }
 
     let rows: Vec<serde_json::Value> = sqlx::query_scalar!(
@@ -164,7 +166,7 @@ async fn export_workspace(
     .await
     .map_err(|e| e.to_string())?;
     for row in rows {
-        archive.append("messages.jsonl", &row);
+        write(archive, &mut people, "messages.jsonl", &row);
     }
 
     // An export without edit history answers "what does it say now", not "what
@@ -189,7 +191,7 @@ async fn export_workspace(
     .await
     .map_err(|e| e.to_string())?;
     for row in rows {
-        archive.append("message_edits.jsonl", &row);
+        write(archive, &mut people, "message_edits.jsonl", &row);
     }
 
     let rows: Vec<serde_json::Value> = sqlx::query_scalar!(
@@ -211,7 +213,7 @@ async fn export_workspace(
     .await
     .map_err(|e| e.to_string())?;
     for row in rows {
-        archive.append("reactions.jsonl", &row);
+        write(archive, &mut people, "reactions.jsonl", &row);
     }
 
     let rows: Vec<serde_json::Value> = sqlx::query_scalar!(
@@ -222,7 +224,7 @@ async fn export_workspace(
     .await
     .map_err(|e| e.to_string())?;
     for row in rows {
-        archive.append("members.jsonl", &row);
+        write(archive, &mut people, "members.jsonl", &row);
     }
 
     let rows: Vec<serde_json::Value> = sqlx::query_scalar!(
@@ -246,7 +248,7 @@ async fn export_workspace(
     .await
     .map_err(|e| e.to_string())?;
     for row in rows {
-        archive.append("files.jsonl", &row);
+        write(archive, &mut people, "files.jsonl", &row);
     }
 
     let rows: Vec<serde_json::Value> = sqlx::query_scalar!(
@@ -275,7 +277,7 @@ async fn export_workspace(
     .await
     .map_err(|e| e.to_string())?;
     for row in rows {
-        archive.append("polls.jsonl", &row);
+        write(archive, &mut people, "polls.jsonl", &row);
     }
 
     let rows: Vec<serde_json::Value> = sqlx::query_scalar!(
@@ -300,10 +302,10 @@ async fn export_workspace(
     .await
     .map_err(|e| e.to_string())?;
     for row in rows {
-        archive.append("poll_votes.jsonl", &row);
+        write(archive, &mut people, "poll_votes.jsonl", &row);
     }
 
-    export_lists(state, workspace_id, job.include_dms, archive).await?;
+    export_lists(state, workspace_id, job.include_dms, archive, &mut people).await?;
 
     let rows: Vec<serde_json::Value> = sqlx::query_scalar!(
         r#"SELECT to_jsonb(a) AS "row!" FROM audit_log a WHERE a.workspace_id = $1"#,
@@ -313,10 +315,65 @@ async fn export_workspace(
     .await
     .map_err(|e| e.to_string())?;
     for row in rows {
-        archive.append("audit_log.jsonl", &row);
+        write(archive, &mut people, "audit_log.jsonl", &row);
+    }
+
+    let ids: Vec<Uuid> = people.into_iter().collect();
+    let rows: Vec<serde_json::Value> = sqlx::query_scalar!(
+        r#"
+        SELECT jsonb_build_object(
+                 'id', u.id,
+                 'name', COALESCE(wm.display_name, u.display_name),
+                 'email', u.email) AS "row!"
+          FROM users u
+          LEFT JOIN workspace_members wm ON wm.user_id = u.id AND wm.workspace_id = $1
+         WHERE u.id = ANY($2)
+         ORDER BY u.id
+        "#,
+        workspace_id,
+        &ids
+    )
+    .fetch_all(&state.pool)
+    .await
+    .map_err(|e| e.to_string())?;
+    for row in rows {
+        archive.append("users.jsonl", &row);
     }
 
     Ok(())
+}
+
+const PERSON_FIELDS: [&str; 3] = ["user_id", "created_by", "edited_by"];
+
+fn write(
+    archive: &mut ExportArchive,
+    people: &mut BTreeSet<Uuid>,
+    file: &str,
+    row: &serde_json::Value,
+) {
+    note_people(row, people);
+    archive.append(file, row);
+}
+
+fn note_people(value: &serde_json::Value, people: &mut BTreeSet<Uuid>) {
+    match value {
+        serde_json::Value::Object(fields) => {
+            for (key, field) in fields {
+                match field.as_str().and_then(|id| id.parse().ok()) {
+                    Some(id) if PERSON_FIELDS.contains(&key.as_str()) => {
+                        people.insert(id);
+                    }
+                    _ => note_people(field, people),
+                }
+            }
+        }
+        serde_json::Value::Array(items) => {
+            for item in items {
+                note_people(item, people);
+            }
+        }
+        _ => {}
+    }
 }
 
 async fn export_lists(
@@ -324,6 +381,7 @@ async fn export_lists(
     workspace_id: Uuid,
     include_private: bool,
     archive: &mut ExportArchive,
+    people: &mut BTreeSet<Uuid>,
 ) -> Result<(), String> {
     let lists = state
         .list_repo
@@ -341,9 +399,11 @@ async fn export_lists(
             .items(list.id)
             .await
             .map_err(|e| e.to_string())?;
-        let people: HashMap<Uuid, String> = state
+        let named = lists::csv::people_in(&columns, &items);
+        people.extend(named.iter().copied());
+        let names: HashMap<Uuid, String> = state
             .profile_repo
-            .names(workspace_id, &lists::csv::people_in(&columns, &items))
+            .names(workspace_id, &named)
             .await
             .map_err(|e| e.to_string())?
             .into_iter()
@@ -354,7 +414,9 @@ async fn export_lists(
             .await
             .map_err(|e| e.to_string())?;
         let path = format!("lists/{}.csv", list.id);
-        archive.append(
+        write(
+            archive,
+            people,
             "lists.jsonl",
             &serde_json::json!({
                 "list": list,
@@ -365,7 +427,7 @@ async fn export_lists(
         );
         archive.put_table(
             &path,
-            lists::csv::table(&columns, &items, &people),
+            lists::csv::table(&columns, &items, &names),
             items.len(),
         );
     }

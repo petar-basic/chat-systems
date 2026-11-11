@@ -572,6 +572,26 @@ the download token works once and expires. If somebody says the link is dead, th
 a new export, not a longer expiry. Exports are started and downloaded in *Workspace settings →
 Exports*; a person's export and erasure are on their row in *Members*, for an instance admin.
 
+**What an erase removes.** Either way, the account becomes *Deleted user* with a
+`deleted-<id>@invalid` address and no password, timezone or preferences; every workspace
+profile loses its name, photo, bio, title, pronouns and status; every photo under
+`avatars/<user id>/` in storage goes, including those of workspaces the person had already
+left; their passkeys, authenticator and recovery codes, notification keywords, push
+subscriptions, sidebar sections, sign-in codes and reset links are deleted; their sessions end,
+SSO and app connections are unlinked, and what they built stops. A hard erase also removes what
+they wrote (messages, earlier versions, reactions, poll votes, list comments, scheduled messages,
+*Later* items, files) and the polls they asked, options and votes included; a thread root that
+someone else answered stays as an empty tombstone. The `user.data_erased` audit row counts each
+kind under `removed` and `account`.
+
+**What a workspace export contains.** One JSONL file per kind: `channels`, `messages`,
+`message_edits`, `reactions`, `members`, `files`, `polls`, `poll_votes`, `lists` (with a CSV per
+list), `audit_log` and `users`, plus `manifest.json` with each file's row count and SHA-256.
+`users.jsonl` gives `id`, `name` and `email` for every person the other files mention, so a
+message's `user_id` resolves to a person even when they have left the workspace; an erased
+account reads as it does now, *Deleted user*. Without `include_dms`, direct messages and the
+files posted in them are left out.
+
 **Nothing to migrate by hand.** Migrations `…23` through `…26` add the edit-history,
 retention, export, TOTP and SCIM tables and one column on `oauth_accounts`. They are
 additive; rolling back the binaries leaves the tables unused.

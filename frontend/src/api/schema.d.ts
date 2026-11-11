@@ -3496,6 +3496,22 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AccountErased: {
+            /** Format: int64 */
+            authenticators: number;
+            /** Format: int64 */
+            keywords: number;
+            /** Format: int64 */
+            passkeys: number;
+            /** Format: int64 */
+            photos: number;
+            /** Format: int64 */
+            push_subscriptions: number;
+            /** Format: int64 */
+            recovery_codes: number;
+            /** Format: int64 */
+            sidebar_sections: number;
+        };
         ActiveHuddle: {
             /** Format: uuid */
             channel_id?: string | null;
@@ -4958,6 +4974,7 @@ export interface components {
             hard_delete?: boolean;
         };
         Erased: {
+            account: components["schemas"]["AccountErased"];
             hard_delete: boolean;
             removed: components["schemas"]["ErasedCounts"];
             status: string;
@@ -4971,6 +4988,8 @@ export interface components {
             files: number;
             /** Format: int64 */
             messages: number;
+            /** Format: int64 */
+            polls: number;
             /** Format: int64 */
             reactions: number;
             /** Format: int64 */

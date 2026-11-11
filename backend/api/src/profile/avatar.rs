@@ -19,6 +19,10 @@ pub fn key(user_id: Uuid, workspace_id: Option<Uuid>, extension: &str) -> String
     }
 }
 
+pub fn folder(user_id: Uuid) -> String {
+    format!("{PREFIX}{user_id}")
+}
+
 pub fn owner(key: &str) -> Option<Uuid> {
     let (user_id, _) = key.strip_prefix(PREFIX)?.split_once('/')?;
     user_id.parse().ok()

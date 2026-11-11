@@ -88,9 +88,16 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   so the timing no longer tells them apart.
 - An instance admin who is demoted loses the admin panel and every admin action at once. Before,
   the session they held kept it for up to 15 minutes.
+- Erasing someone's data deletes their passkeys, authenticator and recovery codes, notification
+  keywords, push subscriptions and sidebar sections, and clears their timezone and preferences.
+  A hard erase also removes the polls they asked, even on a thread root kept for its replies.
+  Every photo of theirs goes from storage, including one from a workspace they had already left.
+  The audit row counts each kind, and the erase dialog in *Members* says what goes.
 
 ### Fixed
 
+- A workspace export has `users.jsonl`, naming every person it mentions by id, name and email,
+  people who have left included, so every message's author can be told without the database.
 - In the desktop app, clicking a link to another site in a message, a link preview, a bookmark
   or a list opens it in your browser. On a Mac a plain click did nothing and only ⌘-click
   opened it. This needs the desktop app on this release; the server does not change.

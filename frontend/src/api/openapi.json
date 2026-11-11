@@ -10038,6 +10038,55 @@
   },
   "components": {
     "schemas": {
+      "AccountErased": {
+        "type": "object",
+        "required": [
+          "passkeys",
+          "authenticators",
+          "recovery_codes",
+          "keywords",
+          "push_subscriptions",
+          "sidebar_sections",
+          "photos"
+        ],
+        "properties": {
+          "authenticators": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "keywords": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "passkeys": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "photos": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "push_subscriptions": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "recovery_codes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "sidebar_sections": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
       "ActiveHuddle": {
         "type": "object",
         "required": [
@@ -15425,9 +15474,13 @@
         "required": [
           "status",
           "hard_delete",
-          "removed"
+          "removed",
+          "account"
         ],
         "properties": {
+          "account": {
+            "$ref": "#/components/schemas/AccountErased"
+          },
           "hard_delete": {
             "type": "boolean"
           },
@@ -15448,6 +15501,7 @@
           "votes",
           "comments",
           "scheduled",
+          "polls",
           "files"
         ],
         "properties": {
@@ -15467,6 +15521,11 @@
             "minimum": 0
           },
           "messages": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "polls": {
             "type": "integer",
             "format": "int64",
             "minimum": 0

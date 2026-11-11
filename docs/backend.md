@@ -1330,7 +1330,7 @@ false; it is true by default.
 | GET | `/admin/workspaces/:ws_id/members` | — | `{ data: WorkspacePerson[] }` — everyone in it but apps, with their account `status` |
 | POST | `/admin/workspaces/:ws_id/owners` | `{ user_id }` | `WorkspaceMember` — makes a member an owner, for a workspace whose owner is gone; 404 outside the workspace, 400 for an app or an account that isn't active; `owner_id` moves to them when it names nobody who is still an active owner; audited `workspace.role_changed` with `instance_admin: true` |
 | DELETE | `/admin/workspaces/:ws_id` | — | `{ status: "deleted" }` |
-| DELETE | `/admin/users/:user_id/data` | `{ hard_delete?: bool }` | `{ status: "erased", hard_delete, removed }` — either way the account is tombstoned, signed out and unlinked from SSO. `hard_delete` also removes what they wrote: their messages (a thread root someone else answered stays as an empty tombstone), every earlier version of them, the notifications that quote them, their reactions, poll votes, list comments, scheduled messages and *Later* items, and their files with the stored objects; `removed` counts `messages`, `edits`, `reactions`, `votes`, `comments`, `scheduled` and `files` |
+| DELETE | `/admin/users/:user_id/data` | `{ hard_delete?: bool }` | `{ status: "erased", hard_delete, removed, account }` — either way the account is tombstoned (no password, timezone or preferences), signed out and unlinked from SSO, and its passkeys, authenticator, recovery codes, keywords, push subscriptions, sidebar sections, sign-in codes and reset links are deleted, with every photo under `avatars/<user id>/`; `account` counts `passkeys`, `authenticators`, `recovery_codes`, `keywords`, `push_subscriptions`, `sidebar_sections` and `photos`. `hard_delete` also removes what they wrote: their messages (a thread root someone else answered stays as an empty tombstone, its poll removed), every earlier version of them, the notifications that quote them, their reactions, poll votes, list comments, scheduled messages and *Later* items, and their files with the stored objects; `removed` counts `messages`, `edits`, `reactions`, `votes`, `comments`, `scheduled`, `polls` and `files` |
 | GET | `/admin/scim/tokens` | — | `{ data: ScimToken[] }` |
 | POST | `/admin/scim/tokens` | `{ description? }` | `{ id, description, token }`, the token only here |
 | POST | `/admin/scim/tokens/:id/rotate` | — | `{ id, description, token }`; the old one is revoked |
@@ -1361,6 +1361,9 @@ delete is a soft-delete (reversible via restore), audited in the same transactio
 The list holds the workspace's exports and the person exports the caller started for its
 members, which belong to no workspace. `download_url` is there only for whoever asked for the
 export (or an instance admin) and only while the single-use link is unspent and unexpired.
+`users.jsonl` names everyone the other files mention (`user_id`, `created_by` or `edited_by`
+anywhere in a row, and the people in a list's person columns) as `{ id, name, email }`: the
+workspace profile name for a member, the account name for someone who has left.
 `files.jsonl` follows the same choices as `messages.jsonl`: without `include_dms` it leaves out
 files posted in DMs, and `since`/`until` bound files by their upload time. Edits, reactions, polls and votes follow their message's date. Each workspace's
 purge is audited as one `retention.purge` row with that workspace's counts; the run's total

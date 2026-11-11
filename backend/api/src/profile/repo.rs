@@ -255,20 +255,6 @@ impl ProfileRepo {
             .collect())
     }
 
-    pub async fn workspace_photos(&self, user_id: Uuid) -> sqlx::Result<Vec<(Uuid, String)>> {
-        let rows = sqlx::query!(
-            r#"SELECT workspace_id, avatar_url AS "avatar_url!" FROM workspace_members
-                WHERE user_id = $1 AND avatar_url IS NOT NULL"#,
-            user_id
-        )
-        .fetch_all(&self.pool)
-        .await?;
-        Ok(rows
-            .into_iter()
-            .map(|row| (row.workspace_id, row.avatar_url))
-            .collect())
-    }
-
     pub async fn workspace_photos_outside_avatars(
         &self,
     ) -> sqlx::Result<Vec<(Uuid, Uuid, String)>> {

@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT jsonb_build_object(\n                 'id', u.id,\n                 'name', COALESCE(wm.display_name, u.display_name),\n                 'email', u.email) AS \"row!\"\n          FROM users u\n          LEFT JOIN workspace_members wm ON wm.user_id = u.id AND wm.workspace_id = $1\n         WHERE u.id = ANY($2)\n         ORDER BY u.id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "row!",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "49717b7864952476056b479e239e3eea80d425f4aea9675f20fd5b432e99e378"
+}
