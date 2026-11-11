@@ -10,6 +10,7 @@ use crate::slack_import::source::ZipSource;
 use crate::state::AppState;
 
 const POLL: Duration = Duration::from_secs(5);
+const SWEEP_EVERY: Duration = Duration::from_secs(3600);
 const HEARTBEAT: Duration = Duration::from_secs(30);
 const STALE_AFTER: chrono::Duration = chrono::Duration::minutes(5);
 const STALE_ERROR: &str = "The import stopped when the worker did. Start it again to finish it.";
@@ -20,7 +21,13 @@ const STALE_ERROR: &str = "The import stopped when the worker did. Start it agai
 pub async fn start_import_worker(state: Arc<AppState>) {
     info!("Slack import worker started");
 
+    let mut swept_at: Option<tokio::time::Instant> = None;
     loop {
+        if swept_at.is_none_or(|at| at.elapsed() >= SWEEP_EVERY) {
+            delete_kept_archives(&state).await;
+            swept_at = Some(tokio::time::Instant::now());
+        }
+
         match state
             .slack_import_repo
             .fail_stale(STALE_AFTER, STALE_ERROR)
@@ -50,6 +57,25 @@ pub async fn start_import_worker(state: Arc<AppState>) {
                 warn!("Slack import worker: failed to claim a job: {e}");
                 tokio::time::sleep(POLL).await;
             }
+        }
+    }
+}
+
+pub(crate) async fn delete_kept_archives(state: &AppState) {
+    let days = state.config.slack_import_keep_failed_days;
+    let due = match state.slack_import_repo.archives_kept_past(days).await {
+        Ok(due) => due,
+        Err(e) => {
+            warn!("Slack import worker: failed to sweep kept archives: {e}");
+            return;
+        }
+    };
+    for kept in due {
+        match state.file_storage.delete(&kept.storage_key).await {
+            Ok(()) => {
+                info!(import_id = %kept.id, "deleted the export of a run that ended over {days} days ago")
+            }
+            Err(e) => warn!(import_id = %kept.id, "could not delete a failed run's export: {e}"),
         }
     }
 }
@@ -91,8 +117,13 @@ pub(crate) async fn run(state: &Arc<AppState>, job: ImportRun) -> Result<(), Str
         // The archive is a copy of somebody's entire Slack history sitting in
         // this instance's storage. Once it has been read there is no reason to
         // keep it.
-        if let Err(e) = state.file_storage.delete(&storage_key).await {
-            warn!(import_id = %job.id, "could not remove the uploaded archive: {e}");
+        match state.file_storage.delete(&storage_key).await {
+            Ok(()) => {
+                if let Err(e) = state.slack_import_repo.archive_deleted(job.id).await {
+                    warn!(import_id = %job.id, "could not record that the archive is gone: {e}");
+                }
+            }
+            Err(e) => warn!(import_id = %job.id, "could not remove the uploaded archive: {e}"),
         }
     }
 

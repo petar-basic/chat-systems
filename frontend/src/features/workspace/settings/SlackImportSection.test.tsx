@@ -5,12 +5,17 @@ import { SlackImportSection } from './SlackImportSection';
 
 const get = vi.fn();
 const post = vi.fn();
+const del = vi.fn();
 
 vi.mock('@/shared/hooks/useCurrentApi', async () => {
   const { typedApiMock } = await import('@/test/typedApiMock');
   return {
     getApiForInstance: () => ({
-      ...typedApiMock({ get: (...args) => get(...args), post: (...args) => post(...args) }),
+      ...typedApiMock({
+        get: (...args) => get(...args),
+        post: (...args) => post(...args),
+        delete: (...args) => del(...args),
+      }),
       upload: vi.fn(),
     }),
   };
@@ -29,6 +34,7 @@ function run(overrides: Record<string, unknown>) {
     retryable: false,
     started_at: '2026-10-27T10:00:00Z',
     finished_at: null,
+    archive_deleted_at: null,
     ...overrides,
   };
 }
@@ -46,6 +52,9 @@ describe('SlackImportSection', () => {
   beforeEach(() => {
     get.mockReset();
     post.mockReset().mockResolvedValue({ data: run({ status: 'pending' }) });
+    del
+      .mockReset()
+      .mockResolvedValue({ data: run({ status: 'failed', archive_deleted_at: '2026-10-28T10:00:00Z' }) });
   });
 
   it('offers to start a run the worker lost again', async () => {
@@ -72,5 +81,32 @@ describe('SlackImportSection', () => {
     await waitFor(() =>
       expect(post).toHaveBeenCalledWith('/workspaces/{ws_id}/slack-imports/{import_id}/retry', undefined),
     );
+  });
+
+  it('discards a failed run’s export once the admin confirms', async () => {
+    get.mockResolvedValue({ data: [run({ id: 'lost', status: 'failed', retryable: true })] });
+    renderSection();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Discard' }));
+    expect(screen.getByText('Discard this export?')).toBeInTheDocument();
+    expect(del).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId('slack-import-discard-dialog-confirm'));
+    await waitFor(() =>
+      expect(del).toHaveBeenCalledWith('/workspaces/{ws_id}/slack-imports/{import_id}/archive', undefined),
+    );
+  });
+
+  it('says why a failed run whose export is gone cannot be started again', async () => {
+    get.mockResolvedValue({
+      data: [run({ id: 'gone', status: 'failed', archive_deleted_at: '2026-10-28T10:00:00Z' })],
+    });
+    renderSection();
+
+    expect(await screen.findByTestId('slack-import-archive-gone')).toHaveTextContent(
+      "so this run can't be started again",
+    );
+    expect(screen.queryByRole('button', { name: 'Start again' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Discard' })).not.toBeInTheDocument();
   });
 });

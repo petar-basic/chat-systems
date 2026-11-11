@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH taken AS (\n                   DELETE FROM analytics_uncounted_imports i\n                    USING messages m, channels c\n                    WHERE i.message_id = m.id AND c.id = m.channel_id\n                      AND ($1::uuid IS NULL OR c.workspace_id = $1)\n                      AND ($2 OR EXISTS (SELECT 1 FROM analytics_backfill WHERE finished_at IS NOT NULL))\n                   RETURNING m.id, m.channel_id, m.user_id, m.created_at, m.metadata,\n                             c.workspace_id, c.channel_type::text AS kind\n               ),\n               posted AS (\n                   SELECT t.workspace_id, t.channel_id, t.user_id, t.kind,\n                          (t.created_at AT TIME ZONE 'UTC')::date AS day,\n                          (SELECT COUNT(*) FROM files f WHERE f.message_id = t.id)::int AS files\n                     FROM taken t\n                     JOIN users u ON u.id = t.user_id\n                    WHERE t.metadata->>'kind' IS NULL\n                      AND NOT (t.metadata ? 'bot')\n                      AND NOT u.is_bot\n               ),\n               by_member AS (\n                   INSERT INTO member_daily_activity\n                       (workspace_id, user_id, day, public_messages, private_messages, direct_messages, files)\n                   SELECT workspace_id, user_id, day,\n                          (COUNT(*) FILTER (WHERE kind = 'public'))::int,\n                          (COUNT(*) FILTER (WHERE kind = 'private'))::int,\n                          (COUNT(*) FILTER (WHERE kind IN ('dm', 'group_dm')))::int,\n                          SUM(files)::int\n                     FROM posted\n                    GROUP BY workspace_id, user_id, day\n                   ON CONFLICT (workspace_id, user_id, day) DO UPDATE SET\n                       public_messages = member_daily_activity.public_messages + EXCLUDED.public_messages,\n                       private_messages = member_daily_activity.private_messages + EXCLUDED.private_messages,\n                       direct_messages = member_daily_activity.direct_messages + EXCLUDED.direct_messages,\n                       files = member_daily_activity.files + EXCLUDED.files\n               )\n               INSERT INTO channel_member_activity (channel_id, user_id, day, messages)\n               SELECT channel_id, user_id, day, COUNT(*)::int\n                 FROM posted\n                WHERE kind IN ('public', 'private')\n                GROUP BY channel_id, user_id, day\n               ON CONFLICT (channel_id, user_id, day) DO UPDATE SET\n                   messages = channel_member_activity.messages + EXCLUDED.messages",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "734796461555fa70fef9745b8f0a65773481e50f8bc4ce9f3ed83822449a3a98"
+}

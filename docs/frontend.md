@@ -537,7 +537,10 @@ sees *General*, *Members*, *User groups*, *Custom emoji*, *Apps*, *Integrations*
 *Exports*, *Slack import* and *Audit log*; a member sees the four they can use (`sections.ts`). *Slack import*
 lists the last runs with their counts (guests, people who left Slack and archived channels
 among them) and *Start again* under a failed run whose export is still stored
-(`retryable`), which calls `POST /workspaces/{id}/slack-imports/{run}/retry`. Each section is
+(`retryable`), which calls `POST /workspaces/{id}/slack-imports/{run}/retry`. *Discard* beside
+it asks first (`ConfirmDialog`) and calls `DELETE …/slack-imports/{run}/archive`; a failed run
+whose `archive_deleted_at` is set says when the export was deleted and that it has to be
+uploaded again. Each section is
 the former right panel's content (`MembersSection`, `IntegrationsSection`, …). `?settings=<section>`
 in the address opens it at that section and is then removed (`useSettingsDialog`).
 

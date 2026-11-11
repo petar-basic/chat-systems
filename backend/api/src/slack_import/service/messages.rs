@@ -93,6 +93,7 @@ impl Import<'_> {
                     .as_deref()
                     .and_then(|slack_id| self.users.get(slack_id))
                     .map(|(id, _)| *id)
+                    .filter(|id| !self.erased.contains(id))
                 {
                     if let Some(created_at) = parse_ts(&message.ts) {
                         self.import_files(target, user_id, message, created_at)
@@ -122,6 +123,10 @@ impl Import<'_> {
             );
             return Ok(());
         };
+        if self.erased.contains(&user_id) {
+            self.report.messages_by_erased += 1;
+            return Ok(());
+        }
 
         let content = mrkdwn::convert(&message.text, &self.users);
         let created_at = parse_ts(&message.ts).ok_or_else(|| {
@@ -250,7 +255,12 @@ impl Import<'_> {
         for reaction in &message.reactions {
             let emoji = self.reaction_emoji(&reaction.name);
             for slack_user_id in &reaction.users {
-                let Some(user_id) = self.users.get(slack_user_id).map(|(id, _)| *id) else {
+                let Some(user_id) = self
+                    .users
+                    .get(slack_user_id)
+                    .map(|(id, _)| *id)
+                    .filter(|id| !self.erased.contains(id))
+                else {
                     continue;
                 };
                 let added = self

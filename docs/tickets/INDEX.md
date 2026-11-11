@@ -433,7 +433,7 @@ role or a channel they should not have comes first.
 | CS-121a ✅ | A conversation stays between the people in it, and an archived channel stays read-only | backend |
 | CS-121b ✅ | Ownership is handed over, never taken | backend · frontend |
 | CS-121c ✅ | What someone built stops when they lose the right to it | backend · frontend |
-| CS-121d | A Slack import that respects what changed since the last run | backend |
+| CS-121d ✅ | A Slack import that respects what changed since the last run | backend · frontend |
 | CS-121e | A new message lands at the bottom | frontend |
 | CS-121f | Read when you read it, and a *New* line that knows what you read | frontend |
 | CS-121g | Threads that know where they are | frontend · backend |

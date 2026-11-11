@@ -3396,6 +3396,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{ws_id}/slack-imports/{import_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["discard_import_archive"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{ws_id}/slack-imports/{import_id}/retry": {
         parameters: {
             query?: never;
@@ -4123,6 +4139,8 @@ export interface components {
         };
         DataItem_ImportRun: {
             data: {
+                /** Format: date-time */
+                archive_deleted_at?: string | null;
                 dry_run: boolean;
                 error?: string | null;
                 /** Format: date-time */
@@ -4428,6 +4446,8 @@ export interface components {
         };
         DataList_ImportRun: {
             data: {
+                /** Format: date-time */
+                archive_deleted_at?: string | null;
                 dry_run: boolean;
                 error?: string | null;
                 /** Format: date-time */
@@ -5147,6 +5167,8 @@ export interface components {
             ttl: number;
         };
         ImportRun: {
+            /** Format: date-time */
+            archive_deleted_at?: string | null;
             dry_run: boolean;
             error?: string | null;
             /** Format: date-time */
@@ -12661,6 +12683,28 @@ export interface operations {
                 "multipart/form-data": string;
             };
         };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataItem_ImportRun"];
+                };
+            };
+        };
+    };
+    discard_import_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+                import_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             200: {
                 headers: {

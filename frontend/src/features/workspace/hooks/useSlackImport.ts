@@ -132,6 +132,19 @@ export const useRetrySlackImport = (workspaceId: string, instanceUrl?: string) =
   });
 };
 
+export const useDiscardSlackImport = (workspaceId: string, instanceUrl?: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (importId: string) =>
+      getApiForInstance(instanceUrl).typed((c) =>
+        c.DELETE('/workspaces/{ws_id}/slack-imports/{import_id}/archive', {
+          params: { path: { ws_id: workspaceId, import_id: importId } },
+        }),
+      ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.slackImports(workspaceId) }),
+  });
+};
+
 /// `Acme Slack export Jul 27 2026 - Aug 26 2026.zip` is the only place the
 /// workspace's name appears — Slack puts it in the file name and nowhere inside
 /// the archive, not even in the manifest.

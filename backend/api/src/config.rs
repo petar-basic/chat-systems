@@ -71,6 +71,8 @@ pub struct AppConfig {
     /// Retention deletes irreversibly, so the switch defaults to reporting only.
     pub retention_dry_run: bool,
 
+    pub slack_import_keep_failed_days: i32,
+
     /// Turning this on locks out every instance admin who has not enrolled, so
     /// it is opt-in — recommended for production, off by default.
     pub require_admin_totp: bool,
@@ -185,6 +187,7 @@ impl AppConfig {
             // Keep `client_max_body_size` in docker/nginx.conf in step with this.
             max_upload_bytes: parse_env("MAX_UPLOAD_BYTES", 100 * 1024 * 1024),
             retention_dry_run: parse_env("RETENTION_DRY_RUN", false),
+            slack_import_keep_failed_days: parse_env("SLACK_IMPORT_KEEP_FAILED_DAYS", 7),
             require_admin_totp: parse_env("REQUIRE_ADMIN_TOTP", false),
             oidc_issuer: env_or("OIDC_ISSUER", ""),
             oidc_client_id: env_or("OIDC_CLIENT_ID", ""),
@@ -363,6 +366,7 @@ impl AppConfig {
             trusted_proxies: crate::net::parse_trusted_proxies("127.0.0.0/8"),
             max_upload_bytes: 100 * 1024 * 1024,
             retention_dry_run: false,
+            slack_import_keep_failed_days: 7,
             require_admin_totp: false,
             oidc_issuer: String::new(),
             oidc_client_id: String::new(),

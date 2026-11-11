@@ -75,6 +75,7 @@ const ACTION_LABELS: Record<string, string> = {
   'scim.token_revoked': 'SCIM token revoked',
   'scim.token_rotated': 'SCIM token rotated',
   'slack_import.started': 'Slack import started',
+  'slack_import.discarded': 'Slack export discarded',
   'sso.linked': 'SSO account linked',
   'totp.enrolled': 'Two-factor enabled',
   'totp.disabled': 'Two-factor disabled',

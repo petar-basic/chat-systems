@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT su.slack_user_id, su.user_id,\n                   COALESCE(\n                       (SELECT wm.display_name FROM workspace_members wm\n                         WHERE wm.workspace_id = su.workspace_id AND wm.user_id = su.user_id),\n                       u.display_name, u.email\n                   ) AS \"name!\"\n            FROM slack_users su\n            JOIN users u ON u.id = su.user_id\n            WHERE su.workspace_id = $1\n            ",
+  "query": "\n            SELECT su.slack_user_id, su.user_id,\n                   COALESCE(\n                       (SELECT wm.display_name FROM workspace_members wm\n                         WHERE wm.workspace_id = su.workspace_id AND wm.user_id = su.user_id),\n                       u.display_name, u.email\n                   ) AS \"name!\",\n                   (u.email = 'deleted-' || u.id || '@invalid') AS \"erased!\"\n            FROM slack_users su\n            JOIN users u ON u.id = su.user_id\n            WHERE su.workspace_id = $1\n            ",
   "describe": {
     "columns": [
       {
@@ -30,6 +30,12 @@
         "name": "name!",
         "type_info": "Varchar",
         "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "erased!",
+        "type_info": "Bool",
+        "origin": "Expression"
       }
     ],
     "parameters": {
@@ -40,8 +46,9 @@
     "nullable": [
       false,
       false,
+      null,
       null
     ]
   },
-  "hash": "d86c1ecdd56bb54020d2b574303db184fdf8a4cccfc3a7390cdf691a509c4b26"
+  "hash": "1517c32872dfe56a936c9471b7df66ae2d18ee39939d8f5c5cea8e8f53a837f9"
 }

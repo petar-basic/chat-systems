@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO conversation_departures (channel_id, user_id, joined_at, left_at, last_read_at)\n            SELECT $1, user_id, NOW(), NOW(), NOW() FROM UNNEST($2::uuid[]) AS gone(user_id)\n            ON CONFLICT (channel_id, user_id) DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4f402a11c0d079c7634c694e833f0102a105fec19250b7125fcd9e956b63a3d8"
+}

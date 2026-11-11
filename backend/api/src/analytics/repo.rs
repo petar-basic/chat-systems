@@ -1,5 +1,5 @@
 use chrono::NaiveDate;
-use sqlx::PgPool;
+use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
 
 use super::models::{ChannelActivity, DailyActivity, MemberActivity, QuietChannel, WeeklyActivity};
@@ -174,6 +174,7 @@ impl AnalyticsRepo {
                   AND m.metadata->>'kind' IS NULL
                   AND NOT (m.metadata ? 'bot')
                   AND NOT u.is_bot
+                  AND NOT EXISTS (SELECT 1 FROM analytics_uncounted_imports i WHERE i.message_id = m.id)
                 GROUP BY 1, 2, 3
                ON CONFLICT (workspace_id, user_id, day) DO UPDATE SET
                    public_messages = member_daily_activity.public_messages + EXCLUDED.public_messages,
@@ -212,6 +213,7 @@ impl AnalyticsRepo {
                   AND m.metadata->>'kind' IS NULL
                   AND NOT (m.metadata ? 'bot')
                   AND NOT u.is_bot
+                  AND NOT EXISTS (SELECT 1 FROM analytics_uncounted_imports i WHERE i.message_id = m.id)
                 GROUP BY 1, 2, 3
                ON CONFLICT (channel_id, user_id, day) DO UPDATE SET
                    messages = channel_member_activity.messages + EXCLUDED.messages"#,
@@ -238,11 +240,74 @@ impl AnalyticsRepo {
         .execute(&mut *tx)
         .await?;
 
+        Self::count_imported_in(&mut tx, None, true).await?;
+
         sqlx::query!("UPDATE analytics_backfill SET finished_at = NOW()")
             .execute(&mut *tx)
             .await?;
         tx.commit().await?;
         Ok(true)
+    }
+
+    pub async fn count_imported(&self, workspace_id: Uuid) -> sqlx::Result<()> {
+        let mut conn = self.pool.acquire().await?;
+        Self::count_imported_in(&mut conn, Some(workspace_id), false).await
+    }
+
+    async fn count_imported_in(
+        conn: &mut PgConnection,
+        workspace_id: Option<Uuid>,
+        backfilling: bool,
+    ) -> sqlx::Result<()> {
+        sqlx::query!(
+            r#"WITH taken AS (
+                   DELETE FROM analytics_uncounted_imports i
+                    USING messages m, channels c
+                    WHERE i.message_id = m.id AND c.id = m.channel_id
+                      AND ($1::uuid IS NULL OR c.workspace_id = $1)
+                      AND ($2 OR EXISTS (SELECT 1 FROM analytics_backfill WHERE finished_at IS NOT NULL))
+                   RETURNING m.id, m.channel_id, m.user_id, m.created_at, m.metadata,
+                             c.workspace_id, c.channel_type::text AS kind
+               ),
+               posted AS (
+                   SELECT t.workspace_id, t.channel_id, t.user_id, t.kind,
+                          (t.created_at AT TIME ZONE 'UTC')::date AS day,
+                          (SELECT COUNT(*) FROM files f WHERE f.message_id = t.id)::int AS files
+                     FROM taken t
+                     JOIN users u ON u.id = t.user_id
+                    WHERE t.metadata->>'kind' IS NULL
+                      AND NOT (t.metadata ? 'bot')
+                      AND NOT u.is_bot
+               ),
+               by_member AS (
+                   INSERT INTO member_daily_activity
+                       (workspace_id, user_id, day, public_messages, private_messages, direct_messages, files)
+                   SELECT workspace_id, user_id, day,
+                          (COUNT(*) FILTER (WHERE kind = 'public'))::int,
+                          (COUNT(*) FILTER (WHERE kind = 'private'))::int,
+                          (COUNT(*) FILTER (WHERE kind IN ('dm', 'group_dm')))::int,
+                          SUM(files)::int
+                     FROM posted
+                    GROUP BY workspace_id, user_id, day
+                   ON CONFLICT (workspace_id, user_id, day) DO UPDATE SET
+                       public_messages = member_daily_activity.public_messages + EXCLUDED.public_messages,
+                       private_messages = member_daily_activity.private_messages + EXCLUDED.private_messages,
+                       direct_messages = member_daily_activity.direct_messages + EXCLUDED.direct_messages,
+                       files = member_daily_activity.files + EXCLUDED.files
+               )
+               INSERT INTO channel_member_activity (channel_id, user_id, day, messages)
+               SELECT channel_id, user_id, day, COUNT(*)::int
+                 FROM posted
+                WHERE kind IN ('public', 'private')
+                GROUP BY channel_id, user_id, day
+               ON CONFLICT (channel_id, user_id, day) DO UPDATE SET
+                   messages = channel_member_activity.messages + EXCLUDED.messages"#,
+            workspace_id,
+            backfilling
+        )
+        .execute(&mut *conn)
+        .await?;
+        Ok(())
     }
 
     pub async fn daily(
@@ -261,15 +326,17 @@ impl AnalyticsRepo {
                    SELECT wm.user_id, (wm.joined_at AT TIME ZONE 'UTC')::date AS joined_on
                      FROM workspace_members wm
                      JOIN users u ON u.id = wm.user_id
-                    WHERE wm.workspace_id = $1 AND NOT u.is_bot AND ($4 OR wm.role <> 'guest')
+                    WHERE wm.workspace_id = $1 AND NOT u.is_bot AND u.status = 'active'
+                      AND ($4 OR wm.role <> 'guest')
                ),
                activity AS (
-                   SELECT a.day, COUNT(*) AS active,
+                   SELECT a.day, COUNT(*) FILTER (WHERE u.status = 'active') AS active,
                           SUM(a.public_messages) AS public_messages,
                           SUM(a.private_messages) AS private_messages,
                           SUM(a.direct_messages) AS direct_messages,
                           SUM(a.files) AS files, SUM(a.reactions) AS reactions
                      FROM member_daily_activity a
+                     JOIN users u ON u.id = a.user_id
                      LEFT JOIN workspace_members wm
                        ON wm.workspace_id = a.workspace_id AND wm.user_id = a.user_id
                     WHERE a.workspace_id = $1 AND a.day BETWEEN $2 AND $3
@@ -307,8 +374,9 @@ impl AnalyticsRepo {
         sqlx::query_as!(
             WeeklyActivity,
             r#"SELECT date_trunc('week', a.day)::date AS "week!",
-                      COUNT(DISTINCT a.user_id) AS "active_members!"
+                      COUNT(DISTINCT a.user_id) FILTER (WHERE u.status = 'active') AS "active_members!"
                  FROM member_daily_activity a
+                 JOIN users u ON u.id = a.user_id
                  LEFT JOIN workspace_members wm
                    ON wm.workspace_id = a.workspace_id AND wm.user_id = a.user_id
                 WHERE a.workspace_id = $1 AND a.day BETWEEN $2 AND $3
@@ -334,9 +402,11 @@ impl AnalyticsRepo {
         sqlx::query_scalar!(
             r#"SELECT COUNT(DISTINCT a.user_id) AS "active!"
                  FROM member_daily_activity a
+                 JOIN users u ON u.id = a.user_id
                  LEFT JOIN workspace_members wm
                    ON wm.workspace_id = a.workspace_id AND wm.user_id = a.user_id
                 WHERE a.workspace_id = $1 AND a.day BETWEEN $2 AND $3
+                  AND u.status = 'active'
                   AND ($4 OR wm.role IS DISTINCT FROM 'guest')"#,
             workspace_id,
             from,
@@ -367,7 +437,8 @@ impl AnalyticsRepo {
                  LEFT JOIN member_daily_activity a
                    ON a.workspace_id = wm.workspace_id AND a.user_id = wm.user_id
                   AND a.day BETWEEN $2 AND $3
-                WHERE wm.workspace_id = $1 AND NOT u.is_bot AND ($4 OR wm.role <> 'guest')
+                WHERE wm.workspace_id = $1 AND NOT u.is_bot AND u.status = 'active'
+                  AND ($4 OR wm.role <> 'guest')
                 GROUP BY wm.workspace_id, wm.user_id, wm.role
                 ORDER BY 3 DESC, wm.user_id"#,
             workspace_id,

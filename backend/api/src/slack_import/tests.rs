@@ -593,10 +593,13 @@ async fn a_second_run_neither_archives_a_merged_channel_nor_opens_a_private_one(
 
     let first = import(&state, ws, &fixture.root, false).await;
     let second = import(&state, ws, &fixture.root, false).await;
-    assert_eq!(first.channels_archived, 1);
     assert_eq!(
-        second.channels_archived, 1,
+        first.channels_archived, 1,
         "only the channel the import made is archived"
+    );
+    assert_eq!(
+        second.channels_archived, 0,
+        "and only by the run that made it"
     );
     assert!(
         first
@@ -1599,4 +1602,537 @@ async fn a_run_the_worker_lost_fails_and_can_be_started_again(pool: PgPool) {
     .await;
     assert_eq!(finished["data"]["status"], "complete");
     assert_eq!(finished["data"]["report"]["messages_imported"], 8);
+    assert!(
+        !finished["data"]["archive_deleted_at"].is_null(),
+        "a finished run says its export is gone: {finished:?}"
+    );
+    assert!(
+        state.file_storage.download(&key).await.is_err(),
+        "and it is"
+    );
+}
+
+async fn channel_named(state: &Arc<AppState>, ws: Uuid, name: &str) -> Uuid {
+    sqlx::query_scalar("SELECT id FROM channels WHERE workspace_id = $1 AND name = $2")
+        .bind(ws)
+        .bind(name)
+        .fetch_one(&state.pool)
+        .await
+        .expect("the channel exists")
+}
+
+async fn user_with_email(state: &Arc<AppState>, email: &str) -> Uuid {
+    sqlx::query_scalar("SELECT id FROM users WHERE email = $1")
+        .bind(email)
+        .fetch_one(&state.pool)
+        .await
+        .expect("the account exists")
+}
+
+async fn is_channel_member(state: &Arc<AppState>, channel_id: Uuid, user_id: Uuid) -> bool {
+    sqlx::query_scalar(
+        "SELECT EXISTS (SELECT 1 FROM channel_members WHERE channel_id = $1 AND user_id = $2)",
+    )
+    .bind(channel_id)
+    .bind(user_id)
+    .fetch_one(&state.pool)
+    .await
+    .expect("membership")
+}
+
+fn write_json(root: &std::path::Path, path: &str, value: &serde_json::Value) {
+    if let Some(parent) = std::path::Path::new(path).parent() {
+        std::fs::create_dir_all(root.join(parent)).expect("directory");
+    }
+    std::fs::write(root.join(path), serde_json::to_vec(value).expect("json")).expect("write");
+}
+
+async fn store_archive(state: &Arc<AppState>, ws: Uuid, root: &PathBuf) -> String {
+    let archive = zip_of(root);
+    let bytes = std::fs::read(&archive).expect("read the zip");
+    let _ = std::fs::remove_file(&archive);
+    let key = format!("slack-imports/{ws}/{}.zip", Uuid::new_v4());
+    state
+        .file_storage
+        .upload(&key, bytes, "application/zip")
+        .await
+        .expect("store the archive");
+    key
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_second_run_leaves_a_channel_with_the_members_an_admin_left_it(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "import-left", false).await;
+    let ws = seed_workspace(&state, owner_id, "Imported").await;
+
+    let fixture = Fixture::write();
+    import(&state, ws, &fixture.root, false).await;
+    let incident = channel_named(&state, ws, "incident-2023").await;
+    let ivan = user_with_email(&state, "ivan@dev.local").await;
+    assert!(is_channel_member(&state, incident, ivan).await);
+
+    sqlx::query("DELETE FROM channel_members WHERE channel_id = $1 AND user_id = $2")
+        .bind(incident)
+        .bind(ivan)
+        .execute(&state.pool)
+        .await
+        .expect("an admin takes Ivan out of the private channel");
+
+    let second = import(&state, ws, &fixture.root, false).await;
+
+    assert!(
+        !is_channel_member(&state, incident, ivan).await,
+        "the next run does not put him back"
+    );
+    assert_eq!(second.memberships, 0);
+    assert_eq!(second.memberships_left_alone, 1);
+    assert!(
+        second
+            .notes
+            .iter()
+            .any(|n| n.contains("#incident-2023") && n.contains("1 of its Slack members")),
+        "the report says who was left out and why: {:?}",
+        second.notes
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn someone_removed_from_the_workspace_joins_none_of_its_channels_on_the_next_run(
+    pool: PgPool,
+) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "import-removed", false).await;
+    let ws = seed_workspace(&state, owner_id, "Imported").await;
+
+    let fixture = Fixture::write();
+    import(&state, ws, &fixture.root, false).await;
+    let ivan = user_with_email(&state, "ivan@dev.local").await;
+    {
+        let mut conn = state.pool.acquire().await.expect("connection");
+        state
+            .workspace_service
+            .repo
+            .remove_member_in(&mut conn, ws, ivan)
+            .await
+            .expect("an admin removes Ivan");
+    }
+
+    write_json(
+        &fixture.root,
+        "channels.json",
+        &json!([
+            { "id": "C1", "name": "general-chat", "members": ["U1", "U2"] },
+            { "id": "C3", "name": "fresh-start", "members": ["U1", "U2"] }
+        ]),
+    );
+    write_json(
+        &fixture.root,
+        "fresh-start/2023-11-20.json",
+        &json!([{ "type": "message", "user": "U1", "text": "new here", "ts": "1700500000.000100" }]),
+    );
+    write_json(
+        &fixture.root,
+        "dms.json",
+        &json!([
+            { "id": "D01ANAIVAN", "members": ["U1", "U2"] },
+            { "id": "D02ANAIVAN", "members": ["U1", "U2"] }
+        ]),
+    );
+    write_json(
+        &fixture.root,
+        "D02ANAIVAN/2023-11-21.json",
+        &json!([{ "type": "message", "user": "U2", "text": "before I left", "ts": "1700600000.000100" }]),
+    );
+
+    let second = import(&state, ws, &fixture.root, false).await;
+
+    let joined: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM channel_members cm JOIN channels c ON c.id = cm.channel_id
+          WHERE c.workspace_id = $1 AND cm.user_id = $2",
+    )
+    .bind(ws)
+    .bind(ivan)
+    .fetch_one(&state.pool)
+    .await
+    .expect("memberships");
+    assert_eq!(joined, 0, "Ivan is in none of the workspace's channels");
+    let in_workspace: bool = sqlx::query_scalar(
+        "SELECT EXISTS (SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2)",
+    )
+    .bind(ws)
+    .bind(ivan)
+    .fetch_one(&state.pool)
+    .await
+    .expect("membership");
+    assert!(!in_workspace, "nor in the workspace");
+    assert_eq!(second.memberships_not_in_workspace, 4);
+    assert!(
+        second
+            .notes
+            .iter()
+            .any(|n| n.contains("4 Slack memberships") && n.contains("no longer in this workspace")),
+        "{:?}",
+        second.notes
+    );
+
+    let fresh = channel_named(&state, ws, "fresh-start").await;
+    let ana = user_with_email(&state, "ana@dev.local").await;
+    assert!(
+        is_channel_member(&state, fresh, ana).await,
+        "a channel the run made still gets the members who are here"
+    );
+
+    state
+        .workspace_service
+        .repo
+        .add_member(ws, ivan, &crate::workspace::models::WorkspaceRole::Member)
+        .await
+        .expect("Ivan comes back");
+    let mut conn = state.pool.acquire().await.expect("connection");
+    let restored =
+        crate::workspace::repo::WorkspaceRepo::restore_conversations_in(&mut conn, ws, ivan)
+            .await
+            .expect("restore");
+    assert_eq!(
+        restored.len(),
+        2,
+        "both DMs are his again, the one imported while he was away included"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_channel_an_admin_restored_stays_open_after_the_next_run(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "import-restored", false).await;
+    let ws = seed_workspace(&state, owner_id, "Imported").await;
+
+    let fixture = Fixture::write();
+    write_json(
+        &fixture.root,
+        "channels.json",
+        &json!([
+            { "id": "C1", "name": "general-chat", "members": ["U1", "U2"] },
+            { "id": "C2", "name": "old-launch", "is_archived": true, "members": ["U1"] }
+        ]),
+    );
+    let first = import(&state, ws, &fixture.root, false).await;
+    assert_eq!(first.channels_archived, 1);
+    let launch = channel_named(&state, ws, "old-launch").await;
+    sqlx::query("UPDATE channels SET is_archived = FALSE WHERE id = $1")
+        .bind(launch)
+        .execute(&state.pool)
+        .await
+        .expect("an admin restores it");
+
+    let second = import(&state, ws, &fixture.root, false).await;
+
+    assert_eq!(second.channels_archived, 0);
+    let archived: bool = sqlx::query_scalar("SELECT is_archived FROM channels WHERE id = $1")
+        .bind(launch)
+        .fetch_one(&state.pool)
+        .await
+        .expect("channel");
+    assert!(!archived, "the restored channel stays open");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn starting_a_run_again_finishes_the_channels_it_made(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "import-finish", false).await;
+    let ws = seed_workspace(&state, owner_id, "Imported").await;
+
+    let fixture = Fixture::write();
+    write_json(
+        &fixture.root,
+        "channels.json",
+        &json!([{ "id": "C2", "name": "old-launch", "is_archived": true, "members": ["U1"] }]),
+    );
+    let run = state
+        .slack_import_repo
+        .queue_run(
+            ws,
+            "export.zip",
+            "slack-imports/elsewhere.zip",
+            owner_id,
+            false,
+        )
+        .await
+        .expect("queue");
+
+    let attempt = || async {
+        let slack = StubSlack::new();
+        let mut source = DirectorySource::new(&fixture.root);
+        Import::open(&state, &slack, ws, false)
+            .await
+            .expect("the workspace exists")
+            .reporting_into(run.id)
+            .run(&mut source)
+            .await
+            .expect("import runs")
+    };
+    attempt().await;
+    let launch = channel_named(&state, ws, "old-launch").await;
+    let ana = user_with_email(&state, "ana@dev.local").await;
+    sqlx::query("UPDATE channels SET is_archived = FALSE WHERE id = $1")
+        .bind(launch)
+        .execute(&state.pool)
+        .await
+        .expect("stands in for a run that stopped before archiving");
+    sqlx::query("DELETE FROM channel_members WHERE channel_id = $1 AND user_id = $2")
+        .bind(launch)
+        .bind(ana)
+        .execute(&state.pool)
+        .await
+        .expect("and before adding everybody");
+
+    let again = attempt().await;
+
+    assert_eq!(again.channels_created, 1, "the channel is this run's");
+    assert_eq!(again.channels_archived, 1);
+    assert!(is_channel_member(&state, launch, ana).await);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_failed_runs_export_is_deleted_after_the_limit_or_when_discarded(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "import-keep", false).await;
+    let ws = seed_workspace(&state, owner_id, "Imported").await;
+    let (member_id, _, member_token) = seed_and_login(&app, &state, "import-keep-m", false).await;
+    add_ws_member(&state, ws, member_id, "member").await;
+
+    let fixture = Fixture::write();
+    let mut failed = Vec::new();
+    for source in ["old.zip", "recent.zip"] {
+        let key = store_archive(&state, ws, &fixture.root).await;
+        let run = state
+            .slack_import_repo
+            .queue_run(ws, source, &key, owner_id, false)
+            .await
+            .expect("queue");
+        state
+            .slack_import_repo
+            .claim_next()
+            .await
+            .expect("claim")
+            .expect("a job");
+        state
+            .slack_import_repo
+            .fail_run(run.id, "stopped")
+            .await
+            .expect("fail");
+        failed.push((run.id, key));
+    }
+    let (old, old_key) = failed[0].clone();
+    let (recent, recent_key) = failed[1].clone();
+    sqlx::query("UPDATE slack_imports SET finished_at = NOW() - interval '8 days' WHERE id = $1")
+        .bind(old)
+        .execute(&state.pool)
+        .await
+        .expect("a week and a day ago");
+
+    crate::slack_import::job::delete_kept_archives(&state).await;
+
+    let shown = |id: Uuid| {
+        let app = app.clone();
+        let token = owner_token.clone();
+        async move {
+            send(
+                &app,
+                "GET",
+                &format!("/api/slack-imports/{id}"),
+                Some(&token),
+                None,
+            )
+            .await
+            .1
+        }
+    };
+    let gone = shown(old).await;
+    assert_eq!(gone["data"]["retryable"], false);
+    assert!(!gone["data"]["archive_deleted_at"].is_null(), "{gone:?}");
+    assert!(state.file_storage.download(&old_key).await.is_err());
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws}/slack-imports/{old}/retry"),
+        Some(&owner_token),
+        None,
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::CONFLICT,
+        "there is nothing to start again"
+    );
+
+    let kept = shown(recent).await;
+    assert_eq!(
+        kept["data"]["retryable"], true,
+        "a recent failure keeps its export"
+    );
+    assert!(state.file_storage.download(&recent_key).await.is_ok());
+
+    let discard = format!("/api/workspaces/{ws}/slack-imports/{recent}/archive");
+    let (status, _) = send(&app, "DELETE", &discard, Some(&member_token), None).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, discarded) = send(&app, "DELETE", &discard, Some(&owner_token), None).await;
+    assert_eq!(status, StatusCode::OK, "{discarded:?}");
+    assert_eq!(discarded["data"]["retryable"], false);
+    assert!(!discarded["data"]["archive_deleted_at"].is_null());
+    assert!(state.file_storage.download(&recent_key).await.is_err());
+    let (status, _) = send(&app, "DELETE", &discard, Some(&owner_token), None).await;
+    assert_eq!(status, StatusCode::CONFLICT);
+
+    let audited: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM audit_log WHERE action = 'slack_import.discarded' AND resource_id = $1",
+    )
+    .bind(recent)
+    .fetch_one(&state.pool)
+    .await
+    .expect("audit");
+    assert_eq!(audited, 1);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_retry_does_not_write_back_what_an_erased_account_wrote(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "import-erased", false).await;
+    let ws = seed_workspace(&state, owner_id, "Imported").await;
+    let (_, _, instance_admin) = seed_and_login(&app, &state, "import-erased-i", true).await;
+
+    let fixture = Fixture::write();
+    import(&state, ws, &fixture.root, false).await;
+    let ivan = user_with_email(&state, "ivan@dev.local").await;
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/admin/users/{ivan}/data"),
+        Some(&instance_admin),
+        Some(json!({ "hard_delete": true })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let again = import(&state, ws, &fixture.root, false).await;
+
+    let written: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM messages WHERE user_id = $1")
+        .bind(ivan)
+        .fetch_one(&state.pool)
+        .await
+        .expect("count");
+    assert_eq!(written, 0, "nothing Ivan wrote comes back");
+    assert_eq!(again.messages_imported, 0);
+    assert_eq!(again.messages_by_erased, 4);
+    assert!(
+        again
+            .notes
+            .iter()
+            .any(|n| n.contains("4 messages") && n.contains("erased")),
+        "{:?}",
+        again.notes
+    );
+}
+
+async fn imported_activity(state: &Arc<AppState>, ws: Uuid) -> (i64, i64, i64, i64, i64) {
+    sqlx::query_as(
+        "SELECT COALESCE(SUM(public_messages), 0)::bigint, COALESCE(SUM(private_messages), 0)::bigint,
+                COALESCE(SUM(direct_messages), 0)::bigint, COALESCE(SUM(files), 0)::bigint,
+                COUNT(DISTINCT day)
+           FROM member_daily_activity WHERE workspace_id = $1",
+    )
+    .bind(ws)
+    .fetch_one(&state.pool)
+    .await
+    .expect("activity")
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn imported_history_is_counted_once_and_a_leaver_is_not_a_member(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "import-counted", false).await;
+    let before = seed_workspace(&state, owner_id, "Before the backfill").await;
+    let after = seed_workspace(&state, owner_id, "After the backfill").await;
+    let fixture = Fixture::write();
+    let expected = (6, 1, 2, 1, 3);
+
+    import(&state, before, &fixture.root, false).await;
+    assert_eq!(
+        imported_activity(&state, before).await,
+        (0, 0, 0, 0, 0),
+        "the backfill has not run, so it is the one to count this"
+    );
+    assert!(state.analytics_repo.backfill().await.expect("backfill"));
+    assert_eq!(imported_activity(&state, before).await, expected);
+
+    import(&state, after, &fixture.root, false).await;
+    assert_eq!(imported_activity(&state, after).await, expected);
+    import(&state, after, &fixture.root, false).await;
+    assert_eq!(
+        imported_activity(&state, after).await,
+        expected,
+        "a second run counts nothing twice"
+    );
+    assert_eq!(imported_activity(&state, before).await, expected);
+
+    let channel: i64 = sqlx::query_scalar(
+        "SELECT COALESCE(SUM(a.messages), 0)::bigint FROM channel_member_activity a
+           JOIN channels c ON c.id = a.channel_id WHERE c.workspace_id = $1",
+    )
+    .bind(after)
+    .fetch_one(&state.pool)
+    .await
+    .expect("channel activity");
+    assert_eq!(
+        channel, 7,
+        "public and private messages count for their channels"
+    );
+
+    sqlx::query("UPDATE users SET status = 'active' WHERE email = 'ana@dev.local'")
+        .execute(&state.pool)
+        .await
+        .expect("Ana claims her account");
+    let from = chrono::NaiveDate::from_ymd_opt(2023, 11, 1).expect("date");
+    let to = chrono::Utc::now().date_naive();
+    let ana = user_with_email(&state, "ana@dev.local").await;
+    let mut members: Vec<Uuid> = state
+        .analytics_repo
+        .members(after, from, to, true)
+        .await
+        .expect("members")
+        .into_iter()
+        .map(|m| m.user_id)
+        .collect();
+    members.sort();
+    let mut active = vec![owner_id, ana];
+    active.sort();
+    assert_eq!(
+        members, active,
+        "the suspended leaver and the unclaimed account are not members"
+    );
+    let today = state
+        .analytics_repo
+        .daily(after, to, to, true)
+        .await
+        .expect("daily");
+    assert_eq!(today[0].members, 2);
+    let active = state
+        .analytics_repo
+        .active_between(after, from, to, true)
+        .await
+        .expect("active");
+    assert_eq!(
+        active, 1,
+        "only Ana, of the three who wrote, counts as an active member"
+    );
+    let imported_days = state
+        .analytics_repo
+        .daily(after, from, to, true)
+        .await
+        .expect("daily");
+    let messages: i64 = imported_days
+        .iter()
+        .map(|d| d.public_messages + d.private_messages + d.direct_messages)
+        .sum();
+    assert_eq!(messages, 9, "while everything they wrote still counts");
 }
