@@ -75,12 +75,7 @@ export function WorkspaceSettingsModal({
         />
       )}
       {active === 'exports' && (
-        <ExportsSection
-          workspaceId={id}
-          instanceUrl={instanceUrl}
-          isOwner={viewer.role === 'owner'}
-          members={members}
-        />
+        <ExportsSection workspaceId={id} instanceUrl={instanceUrl} isOwner={viewer.role === 'owner'} />
       )}
       {active === 'slack-import' && <SlackImportSection workspaceId={id} instanceUrl={instanceUrl} />}
       {active === 'audit-log' && <AuditLogSection workspaceId={id} instanceUrl={instanceUrl} />}

@@ -16,7 +16,7 @@ vi.mock('@/features/messaging/hooks/useConversations', () => ({
 }));
 vi.mock('@/features/huddle', () => ({ useStartHuddle: () => ({ mutateAsync: vi.fn() }) }));
 
-function person(extra: { title?: string | null; pronouns?: string | null }) {
+function person(extra: { title?: string | null; pronouns?: string | null; left?: boolean }) {
   useUserCache.setState({
     users: new Map([
       ['u-ana', { id: 'u-ana', email: 'ana@x.test', display_name: 'Ana', avatar_url: null, ...extra }],
@@ -55,6 +55,16 @@ describe('UserHoverCard', () => {
 
     expect(screen.queryByTestId('hover-card-title')).not.toBeInTheDocument();
     expect(screen.queryByTestId('hover-card-pronouns')).not.toBeInTheDocument();
+  });
+
+  it('says someone who left is no longer here and offers no message or huddle', () => {
+    person({ left: true });
+    renderCard();
+
+    expect(screen.getByTestId('hover-card-left')).toHaveTextContent('No longer in this workspace');
+    expect(screen.queryByText('Offline')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('hover-card-message')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('hover-card-huddle')).not.toBeInTheDocument();
   });
 });
 

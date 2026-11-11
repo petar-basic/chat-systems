@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-interface UserInfo {
+export interface UserInfo {
   id: string;
   email: string;
   display_name: string;
@@ -13,6 +13,7 @@ interface UserInfo {
   notifications_paused_until?: string | null;
   timezone?: string | null;
   is_bot?: boolean;
+  left?: boolean;
 }
 
 interface UserCacheState {

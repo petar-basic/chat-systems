@@ -223,13 +223,18 @@ impl ProfileRepo {
             .map(|(_, name)| name))
     }
 
-    pub async fn shares_a_workspace(&self, a: Uuid, b: Uuid) -> sqlx::Result<bool> {
+    pub async fn has_shared_a_workspace(&self, a: Uuid, b: Uuid) -> sqlx::Result<bool> {
         sqlx::query_scalar!(
             r#"
             SELECT EXISTS(
               SELECT 1 FROM workspace_members mine
-                JOIN workspace_members theirs ON theirs.workspace_id = mine.workspace_id
-               WHERE mine.user_id = $1 AND theirs.user_id = $2
+               WHERE mine.user_id = $1
+                 AND (
+                   EXISTS (SELECT 1 FROM workspace_members theirs
+                            WHERE theirs.workspace_id = mine.workspace_id AND theirs.user_id = $2)
+                   OR EXISTS (SELECT 1 FROM workspace_departures gone
+                               WHERE gone.workspace_id = mine.workspace_id AND gone.user_id = $2)
+                 )
             ) AS "exists!"
             "#,
             a,

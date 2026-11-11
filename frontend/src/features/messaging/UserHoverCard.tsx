@@ -77,6 +77,7 @@ function UserCardBody({
   const [busy, setBusy] = useState(false);
 
   const isSelf = self?.id === userId;
+  const left = !!cached?.left;
   const displayName = displayNameOf(cached?.display_name ?? name);
   const title = cached?.title?.trim();
   const pronouns = cached?.pronouns?.trim();
@@ -134,10 +135,16 @@ function UserCardBody({
               {title}
             </div>
           )}
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <PresenceDot userId={userId} className="w-2 h-2" />
-            <span className="text-xs text-muted">{t(`presence.${presence}`, { ns: 'common' })}</span>
-          </div>
+          {left ? (
+            <div className="text-xs text-muted mt-0.5" data-qa="hover-card-left">
+              {t('hoverCard.left')}
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <PresenceDot userId={userId} className="w-2 h-2" />
+              <span className="text-xs text-muted">{t(`presence.${presence}`, { ns: 'common' })}</span>
+            </div>
+          )}
           {paused && (
             <div className="flex items-center gap-1 text-xs text-muted mt-1" data-qa="hover-card-paused">
               <Moon className="w-3 h-3 shrink-0" />
@@ -167,7 +174,7 @@ function UserCardBody({
 
       {cached?.email && <div className="text-xs text-muted truncate">{cached.email}</div>}
 
-      {!isSelf && (
+      {!isSelf && !left && (
         <div className="flex gap-2">
           <button
             onClick={() => void onMessage()}

@@ -96,6 +96,14 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ### Fixed
 
+- Messages from someone who has left the workspace keep their name and photo, as in Slack, in
+  channels, threads, DMs, search and the sidebar, instead of *Unknown user*. Their profile card
+  says *No longer in this workspace* and has no *Message* or *Huddle*. People who left before
+  this release get their account name and photo; from now on the name and photo they had in the
+  workspace are kept, and they get them back if they rejoin. An erased account reads *Deleted
+  user*. Apps with `users:read` get the same list from `GET /workspaces/{ws_id}/former-members`.
+- A DM with someone who has left shows the name they had in the workspace, in the sidebar, the
+  header and *… is no longer in this workspace*, not their account name.
 - A workspace export has `users.jsonl`, naming every person it mentions by id, name and email,
   people who have left included, so every message's author can be told without the database.
 - In the desktop app, clicking a link to another site in a message, a link preview, a bookmark

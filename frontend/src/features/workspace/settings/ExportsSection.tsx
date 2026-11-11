@@ -5,8 +5,8 @@ import { Button } from '@/shared/components/Button/Button';
 import { Checkbox } from '@/shared/components/Form/Checkbox';
 import { toUserMessage } from '@/lib/errors';
 import { formatDateTime } from '@/lib/datetime';
-import { getUserDisplay } from '@/lib/userHelpers';
-import type { WorkspaceMember } from '@/stores/workspace';
+import { displayNameOf } from '@/lib/userHelpers';
+import { useUserCache } from '@/stores/users';
 import {
   useExports,
   useStartWorkspaceExport,
@@ -17,26 +17,14 @@ interface Props {
   workspaceId: string;
   instanceUrl?: string;
   isOwner: boolean;
-  members: WorkspaceMember[];
 }
 
-function ExportRow({
-  row,
-  members,
-  fetched,
-  onFetch,
-}: {
-  row: ExportDetail;
-  members: WorkspaceMember[];
-  fetched: boolean;
-  onFetch: () => void;
-}) {
+function ExportRow({ row, fetched, onFetch }: { row: ExportDetail; fetched: boolean; onFetch: () => void }) {
   const job = row.export;
   const running = job.status === 'pending' || job.status === 'running';
+  const person = useUserCache((s) => (job.subject_user_id ? s.getUser(job.subject_user_id) : undefined));
   const subject =
-    job.scope === 'user' && job.subject_user_id
-      ? getUserDisplay(job.subject_user_id, members).displayName
-      : 'Whole workspace';
+    job.scope === 'user' && job.subject_user_id ? displayNameOf(person?.display_name) : 'Whole workspace';
 
   return (
     <div className="flex items-center gap-3 px-4 py-3 border-b border-line/40" data-qa="export-row">
@@ -79,7 +67,7 @@ function ExportRow({
   );
 }
 
-export function ExportsSection({ workspaceId, instanceUrl, isOwner, members }: Props) {
+export function ExportsSection({ workspaceId, instanceUrl, isOwner }: Props) {
   const { data: rows = [], isLoading, error } = useExports(workspaceId, instanceUrl);
   const start = useStartWorkspaceExport(workspaceId, instanceUrl);
   const [includeDms, setIncludeDms] = useState(false);
@@ -134,7 +122,6 @@ export function ExportsSection({ workspaceId, instanceUrl, isOwner, members }: P
           <ExportRow
             key={row.export.id}
             row={row}
-            members={members}
             fetched={fetched.has(row.export.id)}
             onFetch={() => setFetched((prev) => new Set(prev).add(row.export.id))}
           />

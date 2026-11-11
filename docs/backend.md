@@ -252,8 +252,9 @@ feature — see `dm` below.)
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/members` | — | `{ data: MemberWithUser[] }` — name, photo, bio, title and pronouns as shown in that workspace (its own, else the account's), its status, `notifications_paused_until` (`null` unless their notifications are paused now), and the account's `timezone` (`null` until set) |
+| GET | `/workspaces/:ws_id/former-members` | — | `{ data: FormerMember[] }` — `{ user_id, display_name, avatar_url }` of everyone who left and has not come back, with the name and photo they had in the workspace (else the account's), so old messages keep their author. A guest gets only the ones who wrote in a conversation the guest is in. Leaving keeps that snapshot in `workspace_departures`; joining again puts it back on the new membership (where it set nothing of its own) and drops the row; an erase clears it, so the name becomes *Deleted user* |
 | PATCH | `/workspaces/:ws_id/members/:user_id/role` | `{ role }` | `WorkspaceMember` — admins, for someone below them and to a role no higher than their own; an owner may step down to `admin` on their own row while another active owner remains, else 403 "Make someone else an owner first"; nobody demotes another owner |
-| DELETE | `/workspaces/:ws_id/members/:user_id` | — | `{ status: "removed" }` — yourself, or someone below you as an admin; an owner leaves only while another active owner remains, with the same 403 |
+| DELETE | `/workspaces/:ws_id/members/:user_id` | — | `{ status: "removed" }` — yourself, or someone below you as an admin; an owner leaves only while another active owner remains, with the same 403; the person's name and photo in the workspace are kept in `workspace_departures` |
 
 When the owner `workspaces.owner_id` names steps down or leaves, it moves to the remaining
 active owner who joined first, in the same transaction, which locks the workspace row so two
@@ -1363,7 +1364,8 @@ members, which belong to no workspace. `download_url` is there only for whoever 
 export (or an instance admin) and only while the single-use link is unspent and unexpired.
 `users.jsonl` names everyone the other files mention (`user_id`, `created_by` or `edited_by`
 anywhere in a row, and the people in a list's person columns) as `{ id, name, email }`: the
-workspace profile name for a member, the account name for someone who has left.
+workspace profile name for a member, and for someone who has left the name they had in the
+workspace when they left (else the account name).
 `files.jsonl` follows the same choices as `messages.jsonl`: without `include_dms` it leaves out
 files posted in DMs, and `since`/`until` bound files by their upload time. Edits, reactions, polls and votes follow their message's date. Each workspace's
 purge is audited as one `retention.purge` row with that workspace's counts; the run's total

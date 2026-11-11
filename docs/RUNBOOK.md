@@ -574,7 +574,8 @@ Exports*; a person's export and erasure are on their row in *Members*, for an in
 
 **What an erase removes.** Either way, the account becomes *Deleted user* with a
 `deleted-<id>@invalid` address and no password, timezone or preferences; every workspace
-profile loses its name, photo, bio, title, pronouns and status; every photo under
+profile loses its name, photo, bio, title, pronouns and status, and so does the name and photo
+kept for a workspace they had left; every photo under
 `avatars/<user id>/` in storage goes, including those of workspaces the person had already
 left; their passkeys, authenticator and recovery codes, notification keywords, push
 subscriptions, sidebar sections, sign-in codes and reset links are deleted; their sessions end,

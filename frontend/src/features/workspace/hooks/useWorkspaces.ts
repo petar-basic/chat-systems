@@ -78,6 +78,19 @@ export const workspaceMembersQuery = (workspaceId: string, instanceUrl?: string)
 export const useWorkspaceMembers = (workspaceId: string | null, instanceUrl?: string) =>
   useQuery({ ...workspaceMembersQuery(workspaceId ?? '', instanceUrl), enabled: !!workspaceId });
 
+export const useFormerMembers = (workspaceId: string | null, instanceUrl?: string) =>
+  useQuery({
+    queryKey: QUERY_KEYS.formerMembers(workspaceId ?? ''),
+    queryFn: async () => {
+      const response = await getApiForInstance(instanceUrl).typed((c) =>
+        c.GET('/workspaces/{ws_id}/former-members', { params: { path: { ws_id: workspaceId ?? '' } } }),
+      );
+      return response.data;
+    },
+    enabled: !!workspaceId,
+    staleTime: 1000 * 60 * 5,
+  });
+
 export const useWorkspaceInvites = (workspaceId: string | null, instanceUrl?: string, enabled = true) => {
   return useQuery({
     queryKey: QUERY_KEYS.workspaceInvites(workspaceId ?? ''),

@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT COALESCE(NULLIF(BTRIM(COALESCE(wd.display_name, u.display_name)), ''), 'Somebody') AS \"name!\"\n              FROM conversation_departures d\n              JOIN channels c ON c.id = d.channel_id\n              JOIN users u ON u.id = d.user_id\n              LEFT JOIN workspace_departures wd\n                ON wd.workspace_id = c.workspace_id AND wd.user_id = d.user_id\n             WHERE d.channel_id = $1 AND c.channel_type = 'dm'\n             ORDER BY d.left_at\n             LIMIT 1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "557b5aab102bcc86341a429ccd730f31a67cbb7e38171a47d1186b759c5c958a"
+}

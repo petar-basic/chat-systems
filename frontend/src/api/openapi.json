@@ -7521,6 +7521,47 @@
         }
       }
     },
+    "/workspaces/{ws_id}/former-members": {
+      "get": {
+        "tags": [
+          "workspaces",
+          "bot"
+        ],
+        "operationId": "list_former_members",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_FormerMember"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "bot": [
+              "users:read"
+            ]
+          }
+        ]
+      }
+    },
     "/workspaces/{ws_id}/groups": {
       "get": {
         "tags": [
@@ -13574,6 +13615,41 @@
           }
         }
       },
+      "DataList_FormerMember": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "user_id"
+              ],
+              "properties": {
+                "avatar_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "display_name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "user_id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          }
+        }
+      },
       "DataList_Hook": {
         "type": "object",
         "required": [
@@ -16010,6 +16086,30 @@
           },
           "title": {
             "type": "string"
+          }
+        }
+      },
+      "FormerMember": {
+        "type": "object",
+        "required": [
+          "user_id"
+        ],
+        "properties": {
+          "avatar_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },

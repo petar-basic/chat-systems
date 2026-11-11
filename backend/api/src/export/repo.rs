@@ -414,6 +414,12 @@ impl ExportRepo {
         .execute(&mut *tx)
         .await?;
         sqlx::query!(
+            "UPDATE workspace_departures SET display_name = NULL, avatar_url = NULL WHERE user_id = $1",
+            user_id
+        )
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query!(
             r"
             UPDATE users
                SET email = 'deleted-' || id || '@invalid',

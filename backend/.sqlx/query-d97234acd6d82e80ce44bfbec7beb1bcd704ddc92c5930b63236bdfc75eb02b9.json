@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH back AS (\n                DELETE FROM workspace_departures WHERE workspace_id = $1 AND user_id = $2\n                RETURNING display_name, avatar_url\n            )\n            UPDATE workspace_members wm\n               SET display_name = COALESCE(wm.display_name, back.display_name),\n                   avatar_url = COALESCE(wm.avatar_url, back.avatar_url)\n              FROM back\n             WHERE wm.workspace_id = $1 AND wm.user_id = $2\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d97234acd6d82e80ce44bfbec7beb1bcd704ddc92c5930b63236bdfc75eb02b9"
+}

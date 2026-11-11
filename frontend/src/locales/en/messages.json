@@ -239,6 +239,7 @@
     "paused": "Notifications paused until {{time}}",
     "localTime": "{{time}} local time",
     "message": "Message",
-    "huddle": "Huddle"
+    "huddle": "Huddle",
+    "left": "No longer in this workspace"
   }
 }

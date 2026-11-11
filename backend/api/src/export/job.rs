@@ -323,10 +323,11 @@ async fn export_workspace(
         r#"
         SELECT jsonb_build_object(
                  'id', u.id,
-                 'name', COALESCE(wm.display_name, u.display_name),
+                 'name', COALESCE(wm.display_name, d.display_name, u.display_name),
                  'email', u.email) AS "row!"
           FROM users u
           LEFT JOIN workspace_members wm ON wm.user_id = u.id AND wm.workspace_id = $1
+          LEFT JOIN workspace_departures d ON d.user_id = u.id AND d.workspace_id = $1
          WHERE u.id = ANY($2)
          ORDER BY u.id
         "#,

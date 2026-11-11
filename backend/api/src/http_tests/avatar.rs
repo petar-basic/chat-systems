@@ -616,3 +616,31 @@ async fn an_erase_removes_the_photo_of_a_workspace_they_had_already_left(pool: P
         );
     }
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn the_photo_of_someone_who_left_still_shows_where_they_were(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "left-photo-owner", false).await;
+    let (_, _, outsider) = seed_and_login(&app, &state, "left-photo-out", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Left photo").await;
+    let (alice_id, _, alice) = seed_and_login(&app, &state, "left-photo-alice", false).await;
+    add_ws_member(&state, ws_id, alice_id, "member").await;
+
+    let (status, me) = upload_photo(&app, &alice, PNG).await;
+    assert_eq!(status, StatusCode::OK, "{me:?}");
+    let photo = download_path(me["avatar_url"].as_str().expect("avatar url"));
+    assert_eq!(fetch(&app, &photo, &owner).await, StatusCode::OK);
+
+    let (status, body) = send(
+        &app,
+        "DELETE",
+        &format!("/api/workspaces/{ws_id}/members/{alice_id}"),
+        Some(&alice),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+
+    assert_eq!(fetch(&app, &photo, &owner).await, StatusCode::OK);
+    assert_eq!(fetch(&app, &photo, &outsider).await, StatusCode::FORBIDDEN);
+}

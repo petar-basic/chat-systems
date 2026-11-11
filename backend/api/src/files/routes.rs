@@ -275,7 +275,7 @@ async fn download_file(
                 None => {
                     state
                         .profile_repo
-                        .shares_a_workspace(auth.user_id, owner)
+                        .has_shared_a_workspace(auth.user_id, owner)
                         .await?
                 }
             };

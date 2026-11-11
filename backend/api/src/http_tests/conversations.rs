@@ -1215,3 +1215,58 @@ async fn a_conversation_outlives_a_departure_and_carries_on_when_they_come_back(
         "removed by an admin is the same as leaving"
     );
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_dm_with_someone_who_left_uses_the_name_they_had_in_the_workspace(pool: PgPool) {
+    let (app, _state, ws_id, _owner_id, owner_token, bob_id, bob_token, _carol_id, _carol_token) =
+        seed_trio(pool).await;
+
+    let (status, body) = send(
+        &app,
+        "PATCH",
+        &format!("/api/workspaces/{ws_id}/profile"),
+        Some(&bob_token),
+        Some(json!({ "display_name": "Bob in Ops" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    let (_, direct) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/conversations"),
+        Some(&owner_token),
+        Some(json!({ "participant_ids": [bob_id] })),
+    )
+    .await;
+    let direct = direct["id"].as_str().expect("direct").to_string();
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/workspaces/{ws_id}/members/{bob_id}"),
+        Some(&bob_token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let kept = conversation_in(&app, &owner_token, ws_id, &direct).await;
+    assert_eq!(
+        kept["departed"][0]["display_name"], "Bob in Ops",
+        "{kept:?}"
+    );
+    let (status, refused) = send(
+        &app,
+        "POST",
+        &format!("/api/channels/{direct}/messages"),
+        Some(&owner_token),
+        Some(json!({ "content": "still there?" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert!(
+        refused
+            .to_string()
+            .contains("Bob in Ops is no longer in this workspace"),
+        "{refused:?}"
+    );
+}

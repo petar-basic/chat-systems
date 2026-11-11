@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { ExportsSection } from './ExportsSection';
 import type { ExportDetail } from '@/features/workspace/hooks/useExports';
-import type { WorkspaceMember } from '@/stores/workspace';
+import { useUserCache } from '@/stores/users';
 
 const startMutate = vi.fn();
 let rows: ExportDetail[] = [];
@@ -34,14 +34,15 @@ const row = (over: Partial<ExportDetail['export']>, download_url: string | null 
   download_url,
 });
 
-const members = [
-  { user_id: 'bob-1', display_name: 'Bob Smith', email: 'bob@dev.local' },
-] as WorkspaceMember[];
-
 describe('ExportsSection', () => {
   beforeEach(() => {
     rows = [];
     startMutate.mockReset();
+    useUserCache.setState({
+      users: new Map([
+        ['bob-1', { id: 'bob-1', email: '', display_name: 'Bob Smith', avatar_url: null, left: true }],
+      ]),
+    });
   });
 
   it('lists past exports with their status and a download for the requester', () => {
@@ -50,7 +51,7 @@ describe('ExportsSection', () => {
       row({}, 'http://localhost:3000/api/exports/download/tok'),
       row({ id: 'exp-3', scope: 'user', workspace_id: null, subject_user_id: 'bob-1' }),
     ];
-    render(<ExportsSection workspaceId="ws-1" isOwner members={members} />);
+    render(<ExportsSection workspaceId="ws-1" isOwner />);
 
     const [running, ready, person] = screen.getAllByTestId('export-row');
     expect(within(running).getByTestId('export-status')).toHaveTextContent('running');
@@ -67,7 +68,7 @@ describe('ExportsSection', () => {
   });
 
   it('starts a workspace export, with direct messages only when asked', () => {
-    render(<ExportsSection workspaceId="ws-1" isOwner members={members} />);
+    render(<ExportsSection workspaceId="ws-1" isOwner />);
     fireEvent.click(screen.getByTestId('export-start'));
     expect(startMutate).toHaveBeenLastCalledWith(false);
 
@@ -77,7 +78,7 @@ describe('ExportsSection', () => {
   });
 
   it('leaves starting one to the owner', () => {
-    render(<ExportsSection workspaceId="ws-1" isOwner={false} members={members} />);
+    render(<ExportsSection workspaceId="ws-1" isOwner={false} />);
     expect(screen.queryByTestId('export-start')).not.toBeInTheDocument();
     expect(screen.getByText('No exports yet.')).toBeInTheDocument();
   });

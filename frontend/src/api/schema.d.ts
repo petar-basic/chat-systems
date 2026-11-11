@@ -2709,6 +2709,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{ws_id}/former-members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_former_members"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{ws_id}/groups": {
         parameters: {
             query?: never;
@@ -4438,6 +4454,14 @@ export interface components {
                 user_id: string;
             })[];
         };
+        DataList_FormerMember: {
+            data: {
+                avatar_url?: string | null;
+                display_name?: string | null;
+                /** Format: uuid */
+                user_id: string;
+            }[];
+        };
         DataList_Hook: {
             data: {
                 /** Format: uuid */
@@ -5123,6 +5147,12 @@ export interface components {
             /** Format: date-time */
             submitted_at?: string | null;
             title: string;
+        };
+        FormerMember: {
+            avatar_url?: string | null;
+            display_name?: string | null;
+            /** Format: uuid */
+            user_id: string;
         };
         ForwardedFrom: {
             /** Format: uuid */
@@ -11344,6 +11374,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExportCreated"];
+                };
+            };
+        };
+    };
+    list_former_members: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_FormerMember"];
                 };
             };
         };

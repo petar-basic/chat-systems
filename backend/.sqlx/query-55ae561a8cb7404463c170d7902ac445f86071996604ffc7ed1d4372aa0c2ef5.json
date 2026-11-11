@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH gone AS (\n                DELETE FROM workspace_members WHERE workspace_id = $1 AND user_id = $2\n                RETURNING workspace_id, user_id, display_name, avatar_url\n            )\n            INSERT INTO workspace_departures (workspace_id, user_id, display_name, avatar_url)\n            SELECT workspace_id, user_id, display_name, avatar_url FROM gone\n            ON CONFLICT (workspace_id, user_id) DO UPDATE\n               SET display_name = EXCLUDED.display_name,\n                   avatar_url = EXCLUDED.avatar_url,\n                   left_at = NOW()\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "55ae561a8cb7404463c170d7902ac445f86071996604ffc7ed1d4372aa0c2ef5"
+}
