@@ -6,6 +6,7 @@ import type { BotApp, BotAppWithToken } from '@/features/workspace/hooks/useBotA
 type Options = { onSuccess?: (app: BotAppWithToken) => void };
 
 const rotateMutate = vi.fn();
+const enableMutate = vi.fn();
 const removeMutate = vi.fn();
 const setScopesMutate = vi.fn();
 const configureMutate = vi.fn();
@@ -14,6 +15,7 @@ const makeAppTokenMutate = vi.fn();
 vi.mock('@/features/workspace/hooks/useBotApps', () => ({
   useBotAppActions: () => ({
     rotate: { mutate: rotateMutate, isPending: false, error: null },
+    enable: { mutate: enableMutate, isPending: false, error: null },
     remove: { mutateAsync: removeMutate, isPending: false, error: null },
     setScopes: { mutateAsync: setScopesMutate, isPending: false, error: null },
     configure: { mutate: configureMutate, isPending: false, error: null },
@@ -44,6 +46,8 @@ const app = (over: Partial<BotApp> = {}): BotApp => ({
   connected_sockets: 0,
   failing_since: null,
   last_failure: null,
+  disabled_at: null,
+  disabled_reason: null,
   created_by: 'admin-1',
   created_at: '2026-10-29T00:00:00Z',
   updated_at: '2026-10-29T00:00:00Z',
@@ -62,6 +66,11 @@ describe('BotAppControls', () => {
       .mockReset()
       .mockImplementation((_id: string, options?: Options) =>
         options?.onSuccess?.({ ...app(), token: 'cbot-rotated' }),
+      );
+    enableMutate
+      .mockReset()
+      .mockImplementation((_id: string, options?: Options) =>
+        options?.onSuccess?.({ ...app(), token: 'cbot-turned-on' }),
       );
     removeMutate.mockReset().mockResolvedValue({ status: 'deleted' });
     setScopesMutate.mockReset().mockResolvedValue(app());
@@ -82,6 +91,26 @@ describe('BotAppControls', () => {
     expect(screen.getByTestId('bot-app-token-value')).toHaveTextContent('cbot-rotated');
     fireEvent.click(screen.getByTestId('bot-app-token-dismiss'));
     expect(screen.queryByText('cbot-rotated')).not.toBeInTheDocument();
+  });
+
+  it('turns a stopped app back on with a token shown once', () => {
+    renderControls({
+      disabled_at: '2026-11-10T09:00:00Z',
+      disabled_reason: 'Its creator left the workspace',
+    });
+    expect(screen.queryByTestId('bot-app-rotate')).not.toBeInTheDocument();
+    expect(screen.getByTestId('bot-app-stopped')).toHaveTextContent('new token and signing secret');
+
+    fireEvent.click(screen.getByTestId('bot-app-enable'));
+
+    expect(enableMutate.mock.calls[0][0]).toBe('app-1');
+    expect(screen.getByTestId('bot-app-token-value')).toHaveTextContent('cbot-turned-on');
+    expect(screen.queryByTestId('bot-app-stopped')).not.toBeInTheDocument();
+  });
+
+  it('offers no Turn on to an app that is on', () => {
+    renderControls();
+    expect(screen.queryByTestId('bot-app-enable')).not.toBeInTheDocument();
   });
 
   it('asks again before an app gets a scope it did not have', async () => {

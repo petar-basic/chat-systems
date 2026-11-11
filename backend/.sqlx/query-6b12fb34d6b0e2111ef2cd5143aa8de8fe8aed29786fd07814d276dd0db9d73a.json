@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT b.id, b.bot_user_id, b.scopes, b.events,\n                      c.channel_type::text AS \"channel_type!\",\n                      EXISTS (SELECT 1 FROM channel_members m\n                               WHERE m.channel_id = c.id AND m.user_id = b.bot_user_id) AS \"is_member!\"\n                 FROM bot_apps b\n                 JOIN channels c ON c.id = $2 AND c.workspace_id = b.workspace_id\n                WHERE b.workspace_id = $1\n                  AND cardinality(b.events) > 0\n                  AND (b.socket_mode OR b.request_url IS NOT NULL)",
+  "query": "SELECT b.id, b.bot_user_id, b.scopes, b.events,\n                      c.channel_type::text AS \"channel_type!\",\n                      EXISTS (SELECT 1 FROM channel_members m\n                               WHERE m.channel_id = c.id AND m.user_id = b.bot_user_id) AS \"is_member!\"\n                 FROM bot_apps b\n                 JOIN channels c ON c.id = $2 AND c.workspace_id = b.workspace_id\n                WHERE b.workspace_id = $1\n                  AND b.disabled_at IS NULL\n                  AND cardinality(b.events) > 0\n                  AND (b.socket_mode OR b.request_url IS NOT NULL)",
   "describe": {
     "columns": [
       {
@@ -75,5 +75,5 @@
       null
     ]
   },
-  "hash": "0265b7c44e982533a1932c50db071d5a06b1088b3e18dbde09a9166882f93feb"
+  "hash": "6b12fb34d6b0e2111ef2cd5143aa8de8fe8aed29786fd07814d276dd0db9d73a"
 }

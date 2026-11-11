@@ -2699,3 +2699,29 @@ page didn't have: `GET /admin/workspaces` now carries the owners with their acco
 `POST /admin/workspaces/{id}/owners` makes a member an owner, taking `owner_id` when it names
 nobody who is still an active owner, audited as a role change with `instance_admin: true`. The
 list query moved from the admin route into `WorkspaceRepo::list_for_instance`.
+
+### [CS-121c] What someone built stops when they lose the right to it ✅ shipped
+Wave 27 stopped hooks and workflows with their creator; five things were left out. `invoke` now
+asks `authz::command_still_acting` before it dispatches a registered command: the creator's
+account is active, they are still in the workspace and still an admin. It checks without a
+channel, not with `hook_still_acting`, because a workspace-wide command is called from private
+channels its creator was never in, and that is no reason to stop it. A command that fails is
+turned off with the reason and the caller gets `unknown_command`; one an app owns answers the
+same while the app is off. Turning a hook back on mints a new incoming `token` or outgoing
+`secret` inside `HookRepo::enable`, so `PATCH /hooks/{id}` answers `{ hook, secrets }` with the
+new value once; the shape changed because the redacted hook alone could not carry it, and
+`rotate_hook` and the turn-on share `credential_key`. Apps follow the hooks' rule, which is
+stricter than Slack's: `bot_apps` gained `disabled_at` and `disabled_reason`, `stand_down`
+turns off the apps the person created, clears the app-level token and deletes the sockets, and
+the bot-token lookup, the app-token lookup, `subscribers`, `claim_http` and the realtime socket
+queries all skip a stopped app. `POST /bot-apps/{id}/enable` is the admin's way back, with a
+new bot token, a new signing secret, no app-level token and the admin as `created_by`, the
+same hand-over turning a hook on does. `stand_down` also deletes the link invites the person
+made, and keeps email invites, which name somebody else. Apps and invites stop only for a
+suspension or a removal, not a demotion: an admin demoted to member keeps their apps, as in
+Slack, and their links already carry no role above the one they made them with (CS-121b).
+`stand_down` returns `StoodDown`, whose `audit` writes `hook.disabled`, `workflow.disabled`,
+`bot_app.disabled` and `invite.revoked`, by the admin who suspended the person or with no actor
+when they were removed, so a removal is now audited too. SCIM deactivation already went through
+`detach`, so it needed nothing of its own. The two bot-app read routes went to admins; the only
+screen that calls them was already an admin's.

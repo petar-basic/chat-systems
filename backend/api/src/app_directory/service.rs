@@ -241,7 +241,13 @@ fn bot_app(row: BotAppRow) -> Draft {
             Permission::new(scope, text)
         })
         .collect();
-    if let Some(since) = row.failing_since {
+    if let Some(since) = row.disabled_at {
+        app.health = Health {
+            state: HealthState::Disabled,
+            reason: row.disabled_reason,
+            since: Some(since),
+        };
+    } else if let Some(since) = row.failing_since {
         app.health = Health {
             state: HealthState::Failing,
             reason: row.last_failure,

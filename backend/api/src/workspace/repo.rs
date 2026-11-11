@@ -808,6 +808,25 @@ impl WorkspaceRepo {
         .await
     }
 
+    pub async fn delete_link_invites_by(
+        &self,
+        workspace_id: Option<Uuid>,
+        created_by: Uuid,
+    ) -> sqlx::Result<Vec<RevokedInvite>> {
+        sqlx::query_as!(
+            RevokedInvite,
+            r"DELETE FROM workspace_invites
+               WHERE created_by = $2
+                 AND email IS NULL
+                 AND ($1::uuid IS NULL OR workspace_id = $1)
+              RETURNING id, workspace_id",
+            workspace_id,
+            created_by
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
     pub async fn delete_invite(&self, id: Uuid) -> sqlx::Result<()> {
         sqlx::query!("DELETE FROM workspace_invites WHERE id = $1", id)
             .execute(&self.pool)

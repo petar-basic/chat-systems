@@ -70,6 +70,7 @@ impl AppSockets {
                  AND s.connected_at IS NULL
                  AND s.opened_at > NOW() - INTERVAL '30 seconds'
                  AND b.id = s.app_id AND b.socket_mode AND b.app_token_hash IS NOT NULL
+                 AND b.disabled_at IS NULL
               RETURNING s.id, s.app_id",
             ticket
         )
@@ -174,7 +175,7 @@ impl AppSockets {
                      JOIN bot_apps b ON b.id = d.app_id
                     WHERE d.app_id = ANY($1)
                       AND d.delivered_at IS NULL AND d.failed_at IS NULL
-                      AND b.socket_mode
+                      AND b.socket_mode AND b.disabled_at IS NULL
                     ORDER BY d.app_id, d.channel_id, d.seq
                ), due AS (
                    SELECT id FROM heads

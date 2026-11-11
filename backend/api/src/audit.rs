@@ -91,6 +91,8 @@ pub enum AuditAction {
     BotAppTokenRotated,
     BotAppRemoved,
     BotAppCalled,
+    BotAppDisabled,
+    BotAppEnabled,
 }
 
 impl AuditAction {
@@ -172,6 +174,8 @@ impl AuditAction {
             Self::BotAppTokenRotated => "bot_app.token_rotated",
             Self::BotAppRemoved => "bot_app.removed",
             Self::BotAppCalled => "bot_app.called",
+            Self::BotAppDisabled => "bot_app.disabled",
+            Self::BotAppEnabled => "bot_app.enabled",
         }
     }
 
@@ -242,7 +246,9 @@ impl AuditAction {
             | Self::BotAppUpdated
             | Self::BotAppTokenRotated
             | Self::BotAppRemoved
-            | Self::BotAppCalled => "bot_app",
+            | Self::BotAppCalled
+            | Self::BotAppDisabled
+            | Self::BotAppEnabled => "bot_app",
         }
     }
 }

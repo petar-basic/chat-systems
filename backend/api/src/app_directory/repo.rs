@@ -38,7 +38,7 @@ impl AppDirectoryRepo {
             BotAppRow,
             r#"SELECT b.id, b.name, b.description, b.scopes, b.created_by,
                       COALESCE(wm.display_name, u.display_name) AS "created_by_name?",
-                      b.created_at, b.failing_since, b.last_failure,
+                      b.created_at, b.failing_since, b.last_failure, b.disabled_at, b.disabled_reason,
                       ARRAY(SELECT cm.channel_id
                               FROM channel_members cm
                               JOIN channels c ON c.id = cm.channel_id

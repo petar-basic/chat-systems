@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT b.id, b.socket_mode\n                FROM bot_apps b\n                JOIN workspaces w ON w.id = b.workspace_id\n               WHERE b.app_token_hash = $1 AND w.deleted_at IS NULL",
+  "query": "SELECT b.id, b.socket_mode\n                FROM bot_apps b\n                JOIN workspaces w ON w.id = b.workspace_id\n               WHERE b.app_token_hash = $1 AND b.disabled_at IS NULL AND w.deleted_at IS NULL",
   "describe": {
     "columns": [
       {
@@ -36,5 +36,5 @@
       false
     ]
   },
-  "hash": "4e011e2f2c431cb58cabd648f033bbba5deacc51ba4a22944aa69e761e57de52"
+  "hash": "2ee0c7e48e49ebdd54b0dd03993d78dd4136d42df8aebfd28159d75323afb5ae"
 }

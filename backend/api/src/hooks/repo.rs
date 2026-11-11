@@ -264,16 +264,23 @@ impl HookRepo {
         Ok(())
     }
 
-    pub async fn enable(&self, id: Uuid, created_by: Uuid) -> sqlx::Result<Hook> {
+    pub async fn enable(
+        &self,
+        id: Uuid,
+        created_by: Uuid,
+        config: &serde_json::Value,
+    ) -> sqlx::Result<Hook> {
         sqlx::query_as!(
             Hook,
             r#"UPDATE hooks
-                  SET is_active = true, disabled_reason = NULL, created_by = $2, updated_at = NOW()
+                  SET is_active = true, disabled_reason = NULL, created_by = $2, config = $3,
+                      updated_at = NOW()
                 WHERE id = $1
             RETURNING id, workspace_id, created_by, hook_type AS "hook_type: HookType", name, description,
                       config, is_active AS "is_active!", disabled_reason, app_id, created_at, updated_at"#,
             id,
-            created_by
+            created_by,
+            config
         )
         .fetch_one(&self.pool)
         .await

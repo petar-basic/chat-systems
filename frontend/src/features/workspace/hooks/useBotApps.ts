@@ -59,6 +59,12 @@ export function useBotAppActions(workspaceId: string | undefined) {
       apiClient.typed((c) => c.POST('/bot-apps/{app_id}/rotate', { params: { path: { app_id: appId } } })),
   });
 
+  const enable = useMutation({
+    mutationFn: (appId: string) =>
+      apiClient.typed((c) => c.POST('/bot-apps/{app_id}/enable', { params: { path: { app_id: appId } } })),
+    onSuccess: refetch,
+  });
+
   const remove = useMutation({
     mutationFn: (appId: string) =>
       apiClient.typed((c) => c.DELETE('/bot-apps/{app_id}', { params: { path: { app_id: appId } } })),
@@ -105,5 +111,5 @@ export function useBotAppActions(workspaceId: string | undefined) {
       ),
   });
 
-  return { create, rotate, remove, configure, setScopes, makeAppToken, revokeAppToken, revealSecret };
+  return { create, rotate, enable, remove, configure, setScopes, makeAppToken, revokeAppToken, revealSecret };
 }

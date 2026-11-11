@@ -173,6 +173,23 @@ async fn invoke(
         .find_slash_command(channel.workspace_id, &command)
         .await?
         .ok_or_else(|| AppError::NotFound("unknown_command".into()))?;
+    if let Some(why) =
+        authz::command_still_acting(&state, channel.workspace_id, hook.created_by).await?
+    {
+        tracing::info!(hook_id = %hook.id, "slash command stopped: {}", why.reason());
+        state.hook_repo.disable(hook.id, why.reason()).await?;
+        return Err(AppError::NotFound("unknown_command".into()));
+    }
+    if let Some(app_id) = hook.app_id {
+        if state
+            .bot_repo
+            .find(app_id)
+            .await?
+            .is_none_or(|app| app.disabled_at.is_some())
+        {
+            return Err(AppError::NotFound("unknown_command".into()));
+        }
+    }
 
     // Registered in some channels, not all: the scoping from CS-019 applies
     // here for the same reason it applies there -- invoking it sends what

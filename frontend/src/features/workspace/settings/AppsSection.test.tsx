@@ -117,8 +117,16 @@ describe('AppsSection', () => {
     );
     expect(screen.getByTestId('app-page-health')).toHaveTextContent('Its URL kept failing');
 
+    enableMutate.mockImplementation((_id: string, options?: { onSuccess?: (turnedOn: unknown) => void }) =>
+      options?.onSuccess?.({
+        hook: {},
+        secrets: { incoming_url: 'https://chat.example/api/hooks/incoming/tok-new', config: {} },
+      }),
+    );
     fireEvent.click(screen.getByTestId('app-reinstall'));
-    expect(enableMutate).toHaveBeenCalledWith('h-ci');
+    expect(enableMutate.mock.calls[0][0]).toBe('h-ci');
+    expect(screen.getByTestId('app-rotated-url')).toHaveTextContent('tok-new');
+    expect(screen.getByTestId('app-rotated-url')).toHaveTextContent('The URL it had before no longer works');
 
     fireEvent.click(screen.getByTestId('app-page-back'));
     expect(rows()).toHaveLength(2);

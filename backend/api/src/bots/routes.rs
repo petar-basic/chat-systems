@@ -26,6 +26,7 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(this_bot_app))
         .routes(routes!(get_bot_app, update_bot_app, remove_bot_app))
         .routes(routes!(rotate_bot_token))
+        .routes(routes!(enable_bot_app))
 }
 
 fn name_taken(e: sqlx::Error) -> AppError {
@@ -57,7 +58,7 @@ async fn list_bot_apps(
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<DataList<BotApp>>> {
-    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
+    authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
     Ok(Json(state.bot_repo.list(ws_id).await?.into()))
 }
 
@@ -130,9 +131,7 @@ async fn get_bot_app(
     auth: AuthUser,
     Path(app_id): Path<Uuid>,
 ) -> AppResult<Json<BotApp>> {
-    let app = find_app(&state, app_id).await?;
-    authz::require_workspace_member(&state, app.workspace_id, auth.user_id).await?;
-    Ok(Json(app))
+    Ok(Json(find_app_as_admin(&state, app_id, auth.user_id).await?))
 }
 
 #[utoipa::path(patch, path = "/bot-apps/{app_id}", tag = "bot-apps",
@@ -216,6 +215,44 @@ async fn rotate_bot_token(
             .workspace(app.workspace_id)
             .resource(app.id)
             .ip(&ip),
+    )
+    .await;
+
+    Ok(Json(BotAppWithToken { app, token }))
+}
+
+#[utoipa::path(post, path = "/bot-apps/{app_id}/enable", tag = "bot-apps",
+    responses((status = 200, body = BotAppWithToken)))]
+async fn enable_bot_app(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    ip: ClientIp,
+    Path(app_id): Path<Uuid>,
+) -> AppResult<Json<BotAppWithToken>> {
+    let current = find_app_as_admin(&state, app_id, auth.user_id).await?;
+    if current.disabled_at.is_none() {
+        return Err(AppError::Conflict("This app is already on".into()));
+    }
+
+    let token = generate_token();
+    let signing_secret = app_events::sender::seal_secret(&state, &app_events::generate_secret())?;
+    let app = state
+        .bot_repo
+        .enable(app_id, auth.user_id, &hash_token(&token), &signing_secret)
+        .await?
+        .ok_or_else(|| AppError::Conflict("This app is already on".into()))?;
+
+    audit::record(
+        &state,
+        AuditEntry::new(AuditAction::BotAppEnabled, auth.user_id)
+            .workspace(app.workspace_id)
+            .resource(app.id)
+            .ip(&ip)
+            .details(serde_json::json!({
+                "name": app.name,
+                "previous_creator": current.created_by,
+                "disabled_reason": current.disabled_reason,
+            })),
     )
     .await;
 

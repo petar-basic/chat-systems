@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT b.id, b.name, b.description, b.scopes, b.created_by,\n                      COALESCE(wm.display_name, u.display_name) AS \"created_by_name?\",\n                      b.created_at, b.failing_since, b.last_failure,\n                      ARRAY(SELECT cm.channel_id\n                              FROM channel_members cm\n                              JOIN channels c ON c.id = cm.channel_id\n                             WHERE cm.user_id = b.bot_user_id\n                               AND c.channel_type IN ('public', 'private')\n                               AND c.is_archived IS NOT TRUE) AS \"channel_ids!\"\n                 FROM bot_apps b\n                 LEFT JOIN users u ON u.id = b.created_by\n                 LEFT JOIN workspace_members wm\n                        ON wm.workspace_id = b.workspace_id AND wm.user_id = b.created_by\n                WHERE b.workspace_id = $1\n                ORDER BY lower(b.name)",
+  "query": "SELECT b.id, b.name, b.description, b.scopes, b.created_by,\n                      COALESCE(wm.display_name, u.display_name) AS \"created_by_name?\",\n                      b.created_at, b.failing_since, b.last_failure, b.disabled_at, b.disabled_reason,\n                      ARRAY(SELECT cm.channel_id\n                              FROM channel_members cm\n                              JOIN channels c ON c.id = cm.channel_id\n                             WHERE cm.user_id = b.bot_user_id\n                               AND c.channel_type IN ('public', 'private')\n                               AND c.is_archived IS NOT TRUE) AS \"channel_ids!\"\n                 FROM bot_apps b\n                 LEFT JOIN users u ON u.id = b.created_by\n                 LEFT JOIN workspace_members wm\n                        ON wm.workspace_id = b.workspace_id AND wm.user_id = b.created_by\n                WHERE b.workspace_id = $1\n                ORDER BY lower(b.name)",
   "describe": {
     "columns": [
       {
@@ -99,6 +99,28 @@
       },
       {
         "ordinal": 9,
+        "name": "disabled_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "disabled_at"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "disabled_reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "disabled_reason"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
         "name": "channel_ids!",
         "type_info": "UuidArray",
         "origin": "Expression"
@@ -119,8 +141,10 @@
       false,
       true,
       true,
+      true,
+      true,
       null
     ]
   },
-  "hash": "efd28eeb47e2ff28c09658cc95b464861f961c7d54bb4b2f68e0492f1264bc03"
+  "hash": "72161fa95cd3fe9a862bd3349ec0f239ebdf85c4451032084faa4115f6138291"
 }

@@ -65,7 +65,7 @@ describe('IntegrationsSection', () => {
       return created;
     });
     deleteMutate.mockReset().mockResolvedValue(undefined);
-    enableMutate.mockReset().mockResolvedValue(hook({}));
+    enableMutate.mockReset().mockResolvedValue({ hook: hook({}), secrets: null });
     revealMutate.mockReset().mockResolvedValue(secrets({}));
     rotateMutate.mockReset().mockResolvedValue(
       secrets({
@@ -210,8 +210,17 @@ describe('IntegrationsSection', () => {
     hooks = [hook({ is_active: false, disabled_reason: 'Its creator is no longer allowed to make it' })];
     renderPanel();
 
+    enableMutate.mockResolvedValue({
+      hook: hook({}),
+      secrets: secrets({
+        config: { token: 'tok-new' },
+        incoming_url: 'http://localhost:8080/api/hooks/incoming/tok-new',
+      }),
+    });
+
     fireEvent.click(screen.getByTestId('hook-enable'));
     await waitFor(() => expect(enableMutate).toHaveBeenCalledWith('hook-1'));
+    expect(await screen.findByTestId('hook-secrets')).toHaveTextContent('tok-new');
   });
 
   it('offers nothing to turn on for a running hook', () => {

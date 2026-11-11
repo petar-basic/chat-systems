@@ -102,6 +102,11 @@ pub struct AdminWorkspace {
     pub owners: sqlx::types::Json<Vec<WorkspacePerson>>,
 }
 
+pub struct RevokedInvite {
+    pub id: Uuid,
+    pub workspace_id: Uuid,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct WorkspaceInvite {
     pub id: Uuid,

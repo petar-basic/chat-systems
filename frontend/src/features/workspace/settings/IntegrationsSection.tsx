@@ -285,7 +285,8 @@ export function IntegrationsSection({ workspaceId, instanceUrl, channels }: Prop
   const handleEnable = async (hookId: string) => {
     setError(null);
     try {
-      await enableHook.mutateAsync(hookId);
+      const { secrets } = await enableHook.mutateAsync(hookId);
+      if (secrets) remember(secrets);
     } catch (err: unknown) {
       failWith('Failed to turn the webhook on')(err);
     }

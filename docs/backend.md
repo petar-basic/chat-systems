@@ -551,7 +551,7 @@ Incoming/outgoing webhooks, bots and slash commands. A background task executes 
 | GET | `/workspaces/:ws_id/hooks` | — | `{ data: Hook[] }` |
 | POST | `/workspaces/:ws_id/hooks` | `{ hook_type, name, description?, config?, app_id? }` | `Hook` — `app_id` hangs it off an app of the workspace (admin; a slash command needs the app's `commands` scope), and it is removed with the app |
 | GET | `/hooks/:hook_id` | — | `Hook` |
-| PATCH | `/hooks/:hook_id` | `{ is_active: true }` | `Hook` — turns a stopped hook back on for someone allowed to make it (its type's role and every channel it is bound to), who becomes its creator; `disabled_reason` clears and `hook.enabled` is audited. `false` is a 422: a hook is turned off by deleting it |
+| PATCH | `/hooks/:hook_id` | `{ is_active: true }` | `{ hook, secrets }` — turns a stopped hook back on for someone allowed to make it (its type's role and every channel it is bound to), who becomes its creator; `disabled_reason` clears and `hook.enabled` is audited with the `credential` it minted. An incoming webhook gets a new `token` and an outgoing one a new `secret`, returned once in `secrets` (the `reveal` shape), so the URL or secret the last creator had stops; a slash command carries none and `secrets` is `null`, as it is for a hook that was already on. `false` is a 422: a hook is turned off by deleting it |
 | POST | `/hooks/:hook_id/reveal` | — | `{ hook_id, hook_type, config, incoming_url }` — config unredacted, written to `audit_log` |
 | POST | `/hooks/:hook_id/rotate` | — | same shape, after minting a fresh `token` (incoming) or `secret` (outgoing); the previous value stops working immediately |
 | DELETE | `/hooks/:hook_id` | — | `{ status: "deleted" }` |
@@ -583,10 +583,17 @@ time an incoming webhook is called, `authz::hook_still_acting` asks whether its 
 account is active, they are still in the workspace, they can still read the channel, and they
 still hold the role it takes to make that hook (an admin for outgoing webhooks and slash
 commands, a channel moderator for incoming ones). If not, the hook is
-turned off with the reason in `Hook.disabled_reason` and nothing is sent or posted. Suspending
-or erasing an account turns off all of that person's hooks and workflows at once
-(`hook.disabled` / `workflow.disabled`, by the admin who did it); removing someone from a
-workspace turns off theirs in it. Activating the account again turns nothing back on.
+turned off with the reason in `Hook.disabled_reason` and nothing is sent or posted. A
+registered slash command asks the same of its creator before `invoke` dispatches it
+(`authz::command_still_acting`, without a channel, since a workspace-wide command is called from
+channels its creator was never in): one that fails is turned off and the caller gets
+`unknown_command`, and a command an app owns answers `unknown_command` while the app is off.
+`membership::stand_down` is what a departure runs: suspending or erasing an account does it for
+every workspace and removing someone from a workspace for that one. It turns off the person's
+hooks, workflows and apps, and deletes the link invites they made (email invites stay: they name
+somebody else). Each is audited, `hook.disabled`, `workflow.disabled`, `bot_app.disabled` and
+`invite.revoked`, by the admin who suspended the person, or with no actor for a removal.
+Activating the account again turns nothing back on.
 Creating an `incoming_webhook` requires `config.channel_id`, and the server mints a
 `config.token`. **`POST /hooks/incoming/:token` is authenticated by that URL token,
 not a session** (Slack-compatible `{ "text": ... }`); it posts to the bound channel
@@ -1140,12 +1147,13 @@ writes one is [bot-api.md](./bot-api.md).
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
-| GET | `/workspaces/:ws_id/bot-apps` | — | `{ data: BotApp[] }` — any member |
+| GET | `/workspaces/:ws_id/bot-apps` | — | `{ data: BotApp[] }` — admin |
 | POST | `/workspaces/:ws_id/bot-apps` | `{ name, description?, icon_url?, scopes }` | `BotApp & { token }` — admin; 409 for a name the workspace already has |
 | GET | `/bot-apps/me` | bot token | `BotApp` — the app the token belongs to |
-| GET | `/bot-apps/:app_id` | — | `BotApp` — any member of its workspace |
+| GET | `/bot-apps/:app_id` | — | `BotApp` — admin of its workspace |
 | PATCH | `/bot-apps/:app_id` | `{ name?, description?, icon_url?, scopes?, events?, request_url?, socket_mode? }` | `BotApp` — admin; the bot user's name and photo follow; a new `request_url` must answer the challenge first, `""` clears it |
 | POST | `/bot-apps/:app_id/rotate` | — | `BotApp & { token }` — admin; the old token stops at once |
+| POST | `/bot-apps/:app_id/enable` | — | `BotApp & { token }` — admin, for an app that stopped with its creator; a new bot token (shown once) and signing secret, no app-level token, and the admin becomes `created_by`; `bot_app.enabled` is audited; 409 for an app that is on |
 | DELETE | `/bot-apps/:app_id` | — | `{ status: "deleted" }` — admin |
 | GET | `/bot-apps/:app_id/signing-secret` | — | `{ app_id, signing_secret }` — admin |
 | POST | `/bot-apps/:app_id/app-token` | — | `{ app_id, app_token }` — admin; replaces the last one and closes its sockets |
@@ -1160,8 +1168,14 @@ invites) can reach one, and the mention digest skips them. Removing the app dele
 (and with it, by `ON DELETE CASCADE`, every hook whose `app_id` is the app), suspends the bot
 user and takes it out of the workspace and its channels.
 
+**An app stops with the admin who made it.** `stand_down` sets `bot_apps.disabled_at` and
+`disabled_reason` on the apps the person created, clears the app-level token and deletes the
+app's sockets. `BotRepo::authenticate` and `by_app_token` refuse a stopped app, `subscribers`,
+`claim_http` and the realtime socket queries skip it, and the app directory shows it as
+`disabled` with the reason. Turning it back on is `POST /bot-apps/:app_id/enable`.
+
 **A bot token is refused everywhere by default.** `auth_middleware` resolves a `cbot-` bearer
-token through `BotRepo::authenticate` (the workspace must not be deleted) and puts an
+token through `BotRepo::authenticate` (the workspace must not be deleted, the app must be on) and puts an
 `AuthUser` with `bot: Some(BotToken { app_id, workspace_id, scopes })` in the request. The
 `AuthUser` extractor then answers 403 for it, so a handler accepts a bot only by taking
 `bots::Caller` instead and calling `caller.scoped(Scope::…)`, which is a no-op for a person

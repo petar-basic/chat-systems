@@ -54,6 +54,7 @@ impl AppEventRepo {
                  FROM bot_apps b
                  JOIN channels c ON c.id = $2 AND c.workspace_id = b.workspace_id
                 WHERE b.workspace_id = $1
+                  AND b.disabled_at IS NULL
                   AND cardinality(b.events) > 0
                   AND (b.socket_mode OR b.request_url IS NOT NULL)"#,
             workspace_id,
@@ -91,6 +92,7 @@ impl AppEventRepo {
                     WHERE d.delivered_at IS NULL AND d.failed_at IS NULL
                       AND d.kind = 'event'
                       AND NOT b.socket_mode AND b.request_url IS NOT NULL
+                      AND b.disabled_at IS NULL
                     ORDER BY d.app_id, d.channel_id, d.seq
                ), due AS (
                    SELECT id FROM heads
