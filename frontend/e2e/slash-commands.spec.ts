@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
-import { API, authHeaders, login, send, devWorkspace } from './helpers';
+import { API, authHeaders, login, send, devWorkspace, userContext } from './helpers';
 
 // Three round trips through the composer plus a sign-in; the default 30s is
 // tight on a seeded instance.
@@ -86,5 +86,41 @@ test('typing a slash offers the commands, and picking one fills it in', async ({
     await expect(editor).toHaveText('/shrug');
   } finally {
     await admin.dispose();
+  }
+});
+
+test('a command typed in a direct message runs, and the other person gets nothing', async ({ page }) => {
+  const { ctx: admin } = await userContext('admin@dev.local');
+  const { ctx: bob, userId: bobId } = await userContext('bob@dev.local');
+  const workspace = await devWorkspace(admin);
+  const conversation = await (
+    await admin.post(`${API}/workspaces/${workspace.id}/conversations`, {
+      data: { participant_ids: [bobId] },
+    })
+  ).json();
+
+  try {
+    await login(page, 'admin@dev.local');
+    await page.goto(`/app/${workspace.id}/c/${conversation.id}`);
+    await expect(page.locator('[data-qa="conversation-title"]')).toBeVisible({ timeout: 20_000 });
+
+    const editor = page.locator('.ProseMirror[contenteditable="true"]').last();
+    await editor.click();
+    await editor.pressSequentially('/aw');
+    await expect(page.getByTestId('command-suggestion').first()).toContainText('/away');
+    await editor.fill('');
+
+    await send(page, '/away');
+    await expect(page.locator('[data-qa="command-response"]')).toContainText('You are set to away');
+
+    const seen = (await (await bob.get(`${API}/channels/${conversation.id}/messages`)).json()).data;
+    expect(
+      seen.some((m: { content: string }) => m.content.includes('/away')),
+      'the command is not sent to the other person',
+    ).toBe(false);
+  } finally {
+    await admin.put(`${API}/users/me/presence`, { data: { away: false } });
+    await admin.dispose();
+    await bob.dispose();
   }
 });

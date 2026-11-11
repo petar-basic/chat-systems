@@ -16,6 +16,7 @@ use super::repo::NewInvocation;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
 use crate::dto::{DataList, StatusResponse};
+use crate::messaging::routes::thread_root;
 use crate::middleware::AuthUser;
 use crate::state::AppState;
 
@@ -98,6 +99,8 @@ pub struct InvokeRequest {
     pub command: String,
     #[serde(default)]
     pub text: String,
+    #[serde(default)]
+    pub thread_parent_id: Option<Uuid>,
 }
 
 #[utoipa::path(get, path = "/workspaces/{ws_id}/commands", tag = "commands", responses((status = 200, body = DataList<CommandInfo>)))]
@@ -150,13 +153,20 @@ async fn invoke(
     if command.is_empty() {
         return Err(AppError::NotFound("unknown_command".into()));
     }
+    let thread_parent_id = match req.thread_parent_id {
+        Some(parent) => Some(thread_root(&state, ch_id, parent).await?.id),
+        None => None,
+    };
 
     if let Some(response) =
         builtin::run(&state, ch_id, auth.user_id, &ip, &command, &req.text).await?
     {
         return finish(
             &state,
-            ch_id,
+            Place {
+                channel_id: ch_id,
+                thread_parent_id,
+            },
             auth.user_id,
             &command,
             response,
@@ -215,6 +225,7 @@ async fn invoke(
         "command": command,
         "text": req.text,
         "channel_id": ch_id,
+        "thread_parent_id": thread_parent_id,
         "workspace_id": channel.workspace_id,
         "user_id": auth.user_id,
     });
@@ -230,6 +241,7 @@ async fn invoke(
             payload: &payload,
             uses: delivery::RESPONSE_URL_USES,
             ttl_secs: delivery::RESPONSE_URL_TTL_SECS,
+            thread_parent_id,
         })
         .await?;
 
@@ -283,7 +295,10 @@ async fn invoke(
 
     finish(
         &state,
-        ch_id,
+        Place {
+            channel_id: ch_id,
+            thread_parent_id,
+        },
         auth.user_id,
         &command,
         response,
@@ -329,9 +344,14 @@ async fn respond(
 
 /// An `in_channel` answer becomes a real message from the command; an ephemeral
 /// one is handed straight back and stored nowhere.
+struct Place {
+    channel_id: Uuid,
+    thread_parent_id: Option<Uuid>,
+}
+
 async fn finish(
     state: &AppState,
-    ch_id: Uuid,
+    place: Place,
     user_id: Uuid,
     command: &str,
     response: CommandResponse,
@@ -347,8 +367,16 @@ async fn finish(
         return Ok(Json(CommandResponse::ephemeral(response.text)));
     }
     if !response.text.trim().is_empty() {
-        let message_id =
-            delivery::post_in_channel(state, ch_id, user_id, command, &response.text, None).await?;
+        let message_id = delivery::post_in_channel(
+            state,
+            place.channel_id,
+            place.thread_parent_id,
+            user_id,
+            command,
+            &response.text,
+            None,
+        )
+        .await?;
         if let Some(invocation) = invocation {
             state
                 .command_repo

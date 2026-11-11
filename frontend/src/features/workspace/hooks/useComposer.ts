@@ -1,10 +1,7 @@
-import { useCallback, useEffect } from 'react';
-import { asAttachments, useComposerAttachments, useSendMessage } from '@/features/messaging';
+import { useCallback } from 'react';
+import { asAttachments, useComposerAttachments, useSendMessage, useSlashCommand } from '@/features/messaging';
 import type { Channel, Workspace } from '@/stores/workspace';
-import { commandResultText, parseCommand, runCommand } from '@/lib/slashCommands';
-import { toUserMessage } from '@/lib/errors';
 import { useTypingSignal, typingTargetOf } from '@/shared/hooks/useTypingSignal';
-import { useCommandAnswerStore } from '@/stores/commandAnswer';
 
 interface Args {
   currentWorkspace: Workspace | null;
@@ -27,68 +24,24 @@ export function useComposer({ currentWorkspace, currentChannel, userId, currentW
     currentWorkspace?.instanceUrl,
   );
 
-  const answer = useCommandAnswerStore((s) => s.answer);
-  const showAnswer = useCommandAnswerStore((s) => s.show);
-  const dismissAnswer = useCommandAnswerStore((s) => s.dismiss);
-  const shown = answer && answer.channelId === currentChannel?.id ? answer : null;
-
-  useEffect(() => {
-    if (!shown || shown.pending) return undefined;
-    const timer = setTimeout(dismissAnswer, 10_000);
-    return () => clearTimeout(timer);
-  }, [shown, dismissAnswer]);
+  const command = useSlashCommand(currentChannel?.id, undefined, currentWsInstanceUrl);
 
   const handleSend = useCallback(
     async (content: string) => {
       if (!currentChannel || !userId) return;
       stopTyping();
-
-      const command = parseCommand(content);
-      if (command) {
-        let result;
-        try {
-          result = await runCommand(currentChannel.id, content, currentWsInstanceUrl);
-        } catch (e) {
-          showAnswer({ text: toUserMessage(e), channelId: currentChannel.id, pending: false });
-          return;
-        }
-        if (!result) {
-          showAnswer({
-            text: `/${command.command} is not a command here. To post it as text, put it in \`backticks\`.`,
-            channelId: currentChannel.id,
-            pending: false,
-          });
-          throw new Error(`Unknown command /${command.command}`);
-        }
-        if (result.response_type === 'in_channel') dismissAnswer();
-        else
-          showAnswer({
-            text: commandResultText(result),
-            channelId: currentChannel.id,
-            pending: result.response_type === 'pending',
-          });
-        return;
-      }
+      if (await command.run(content)) return;
 
       const id = crypto.randomUUID();
       sendMessageMutation.mutate({ content, id, attachments: asAttachments(attachments.take()) });
     },
-    [
-      currentChannel,
-      userId,
-      stopTyping,
-      sendMessageMutation,
-      currentWsInstanceUrl,
-      attachments,
-      showAnswer,
-      dismissAnswer,
-    ],
+    [currentChannel, userId, stopTyping, command, sendMessageMutation, attachments],
   );
 
   return {
-    ephemeral: shown?.text ?? null,
-    ephemeralPending: shown?.pending ?? false,
-    dismissEphemeral: dismissAnswer,
+    ephemeral: command.answer,
+    ephemeralPending: command.pending,
+    dismissEphemeral: command.dismiss,
     handleTyping: signalTyping,
     handleSend,
     attachments,

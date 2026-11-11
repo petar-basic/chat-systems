@@ -41,6 +41,9 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   claimed are no longer counted; what they wrote still counts in the message totals.
 - Sending a message while scrolled up in a channel takes you down to it, as in Slack. A message
   from somebody else still waits behind *New messages*.
+- A registered slash command typed in a thread is told so: its payload carries
+  `thread_parent_id` (null outside a thread), as Slack's `thread_ts`, and an `in_channel`
+  answer to it is posted as a reply in that thread.
 
 ### Security
 
@@ -118,6 +121,13 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   it has no replies, instead of offering a reply that fails.
 - Scheduling a thread reply with *Also send to channel* ticked clears the box, so the next reply
   goes to the thread only.
+- Slash commands work in a DM, a group DM, a thread and a *Threads* card as they do in a
+  channel, and `/` offers them there too. Before, `/away` or `/dnd 60` typed in a DM was sent to
+  the other person as a message. A command typed in a thread answers in that thread: `/shrug`
+  posts its reply there.
+- A command whose app never answers stops waiting after 30 minutes with *No answer from /x*,
+  and one waiting when the connection drops says so once it is back. Each channel, DM and
+  thread keeps its own answer, so a second command elsewhere no longer replaces the first one's.
 
 ## [4.6.0] — 2026-11-10
 

@@ -16,6 +16,8 @@ export {
 } from './hooks/useConversations';
 export type { Conversation } from './hooks/useConversations';
 export { prefetchMessages, useSendMessage } from './hooks/useMessages';
+export { useSlashCommand } from './hooks/useSlashCommand';
+export { CommandAnswer } from './CommandAnswer';
 export type { MessagesInfiniteData, OutgoingMessage } from './hooks/useMessages';
 export { REMIND_PRESETS, formatScheduleHint, toLocalInputValue } from './schedulePresets';
 export { asAttachments, useComposerAttachments } from './useComposerAttachments';

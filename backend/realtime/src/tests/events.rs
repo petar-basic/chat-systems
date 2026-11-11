@@ -712,12 +712,14 @@ async fn a_command_answer_reaches_only_whoever_ran_it(pool: PgPool) {
     let caller = Uuid::new_v4();
     let other = Uuid::new_v4();
     let channel = Uuid::new_v4();
+    let root = Uuid::new_v4();
     let (_caller_conn, mut caller_rx) = fake_conn(&cm, caller);
     let (_other_conn, mut other_rx) = fake_conn(&cm, other);
 
     let payload = json!({
         "user_id": caller.to_string(),
         "channel_id": channel.to_string(),
+        "thread_parent_id": root.to_string(),
         "command": "deploy",
         "response_type": "ephemeral",
         "text": "deployed",
@@ -727,6 +729,7 @@ async fn a_command_answer_reaches_only_whoever_ran_it(pool: PgPool) {
     let frame = next_json(&mut caller_rx).expect("the caller hears the answer");
     assert_eq!(frame["type"], "command.response");
     assert_eq!(frame["channel_id"], channel.to_string());
+    assert_eq!(frame["thread_parent_id"], root.to_string());
     assert_eq!(frame["command"], "deploy");
     assert_eq!(frame["text"], "deployed");
     assert!(next_json(&mut other_rx).is_none());

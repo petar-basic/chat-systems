@@ -2,7 +2,14 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Hash, Lock, Menu, MessageCircle, MessagesSquare } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { RichTextDisplay, MessageInput, asAttachments, useComposerAttachments } from '@/features/messaging';
+import {
+  CommandAnswer,
+  RichTextDisplay,
+  MessageInput,
+  asAttachments,
+  useComposerAttachments,
+  useSlashCommand,
+} from '@/features/messaging';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { Checkbox } from '@/shared/components/Form/Checkbox';
 import { useUserCache } from '@/stores/users';
@@ -224,7 +231,9 @@ function ThreadCard({
     onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.followedThreads(workspaceId) }),
   };
 
+  const command = useSlashCommand(root.channel_id, root.id, instanceUrl);
   const handleSend = async (content: string) => {
+    if (await command.run(content)) return;
     sendReply.mutate(
       { content, id: crypto.randomUUID(), attachments: asAttachments(attachments.take()), alsoToChannel },
       refreshThreads,
@@ -302,12 +311,14 @@ function ThreadCard({
             dataQa="thread-card-also-to-channel"
             className="px-4 pt-3 pb-2"
           />
+          <CommandAnswer text={command.answer} pending={command.pending} onDismiss={command.dismiss} />
           <MessageInput
             channelName=""
             placeholder={t('view.reply')}
             members={members}
             channels={channels}
             draftKey={`thread:${root.id}`}
+            slashCommands
             onSend={handleSend}
             attachments={attachments}
             workspaceId={workspaceId}

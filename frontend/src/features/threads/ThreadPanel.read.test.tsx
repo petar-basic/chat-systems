@@ -35,6 +35,8 @@ vi.mock('@/features/messaging', () => ({
   asAttachments: () => [],
   useComposerAttachments: () => ({ take: () => [] }),
   GalleryProvider: ({ children }: { children: ReactNode }) => children,
+  CommandAnswer: () => null,
+  useSlashCommand: () => ({ run: async () => false, answer: null, pending: false, dismiss: vi.fn() }),
 }));
 vi.mock('@/features/channel', () => ({
   useChannelModeration: () => ({ canBroadcast: false, members: [] }),

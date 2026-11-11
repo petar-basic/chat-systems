@@ -393,6 +393,7 @@ pub(crate) async fn handle_event_for(
             };
             let frame = ServerFrame::CommandResponse {
                 channel_id,
+                thread_parent_id: field("thread_parent_id"),
                 command: text("command").unwrap_or_default(),
                 response_type: text("response_type").unwrap_or_default(),
                 text: text("text").unwrap_or_default(),

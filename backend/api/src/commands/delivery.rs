@@ -15,8 +15,11 @@ use super::routes::CommandResponse;
 use crate::authz;
 use crate::hooks::models::Hook;
 use crate::hooks::{executor, ssrf};
+use crate::messaging::routes::thread_root;
 use crate::sealed;
 use crate::state::AppState;
+use crate::threads::repo::ReplyFollows;
+use crate::threads::routes::announce_reply;
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -155,12 +158,17 @@ pub async fn call(
 pub async fn post_in_channel(
     state: &AppState,
     channel_id: Uuid,
+    thread_parent_id: Option<Uuid>,
     user_id: Uuid,
     command: &str,
     text: &str,
     replacing: Option<Uuid>,
 ) -> AppResult<Uuid> {
     let channel = authz::find_channel(state, channel_id).await?;
+    let root = match (thread_parent_id, replacing) {
+        (Some(parent), None) => Some(thread_root(state, channel_id, parent).await?),
+        _ => None,
+    };
     let mut tx = state.pool.begin().await?;
     let (message_id, staged) = match replacing {
         Some(message_id) => {
@@ -179,8 +187,32 @@ pub async fn post_in_channel(
                 serde_json::json!({ "bot": { "name": format!("/{command}"), "icon_url": null } });
             let msg = state
                 .message_repo
-                .create_bot_message_in(&mut tx, channel_id, user_id, text, &metadata, &[])
+                .create_bot_reply_in(
+                    &mut tx,
+                    channel_id,
+                    root.as_ref().map(|root| root.id),
+                    user_id,
+                    text,
+                    &metadata,
+                    &[],
+                )
                 .await?;
+            if let Some(root) = &root {
+                state
+                    .thread_repo
+                    .follow_on_reply_in(
+                        &mut tx,
+                        ReplyFollows {
+                            root_message_id: root.id,
+                            workspace_id: channel.workspace_id,
+                            replier_id: user_id,
+                            root_author_id: root.user_id,
+                            mentioned: &[],
+                            replied_at: msg.created_at,
+                        },
+                    )
+                    .await?;
+            }
             let staged = state
                 .publisher
                 .stage_message_created(&mut tx, &msg, channel.workspace_id, &[])
@@ -190,6 +222,9 @@ pub async fn post_in_channel(
     };
     tx.commit().await?;
     state.publisher.dispatch(staged).await;
+    if let Some(root) = &root {
+        announce_reply(state, root.id, channel.workspace_id).await;
+    }
     Ok(message_id)
 }
 
@@ -197,6 +232,7 @@ pub async fn tell(state: &AppState, invocation: &Invocation, response_type: &str
     let payload = serde_json::json!({
         "user_id": invocation.user_id,
         "channel_id": invocation.channel_id,
+        "thread_parent_id": invocation.thread_parent_id,
         "command": invocation.command,
         "response_type": response_type,
         "text": text,
@@ -225,6 +261,7 @@ pub async fn answer(
     let message_id = post_in_channel(
         state,
         invocation.channel_id,
+        invocation.thread_parent_id,
         invocation.user_id,
         &invocation.command,
         &response.text,

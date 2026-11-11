@@ -3,11 +3,13 @@ import i18n from '@/lib/i18n';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ThreadSummary } from '@/features/threads/hooks/useThreads';
+import { useCommandAnswerStore } from '@/stores/commandAnswer';
 import { ThreadsView } from './ThreadsView';
 
 const markRead = vi.fn();
 let composer: Record<string, unknown> = {};
 const sendReply = vi.fn();
+const runCommand = vi.hoisted(() => vi.fn());
 let threads: ThreadSummary[] = [];
 
 const message = (id: string, user: string, content: string, at: string, parent: string | null = 'root') => ({
@@ -58,6 +60,11 @@ vi.mock('@/features/threads/hooks/useThreads', () => ({
   useSendThreadReply: () => ({ mutate: sendReply }),
 }));
 
+vi.mock('@/lib/slashCommands', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/slashCommands')>()),
+  runCommand,
+}));
+
 vi.mock('@/features/messaging/MessageInput', () => ({
   default: (props: { onSend: (content: string) => Promise<void> }) => {
     composer = props;
@@ -104,6 +111,8 @@ describe('ThreadsView', () => {
     vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
     markRead.mockClear();
     sendReply.mockClear();
+    runCommand.mockReset();
+    useCommandAnswerStore.setState({ answers: {} });
     onOpenThread.mockClear();
     onOpenChannel.mockClear();
     onOpenConversation.mockClear();
@@ -147,14 +156,28 @@ describe('ThreadsView', () => {
     expect(markRead).toHaveBeenCalledWith('root');
   });
 
-  it('replies in place', () => {
+  it('replies in place', async () => {
     threads = [thread(0)];
     renderView();
-    fireEvent.click(screen.getByText('send'));
+    await act(async () => fireEvent.click(screen.getByText('send')));
+    expect(runCommand).not.toHaveBeenCalled();
     expect(sendReply).toHaveBeenCalledWith(expect.objectContaining({ content: 'on it' }), expect.anything());
   });
 
-  it('schedules and sends to the channel as the thread panel does', () => {
+  it('runs a command typed in a card in that thread instead of replying with it', async () => {
+    threads = [thread(0)];
+    runCommand.mockResolvedValue({ response_type: 'ephemeral', text: 'You are away' });
+    renderView();
+    expect(composer.slashCommands).toBe(true);
+
+    await act(() => (composer.onSend as (content: string) => Promise<void>)('/away'));
+
+    expect(runCommand).toHaveBeenCalledWith('ch-1', '/away', undefined, 'root');
+    expect(sendReply).not.toHaveBeenCalled();
+    expect(screen.getByTestId('command-response')).toHaveTextContent('You are away');
+  });
+
+  it('schedules and sends to the channel as the thread panel does', async () => {
     threads = [thread(0)];
     renderView();
     expect(composer.scheduleTarget).toEqual({
@@ -165,7 +188,7 @@ describe('ThreadsView', () => {
 
     fireEvent.click(screen.getByLabelText('Also send to #design'));
     expect(composer.scheduleTarget).toEqual(expect.objectContaining({ alsoToChannel: true }));
-    fireEvent.click(screen.getByText('send'));
+    await act(async () => fireEvent.click(screen.getByText('send')));
     expect(sendReply).toHaveBeenCalledWith(
       expect.objectContaining({ content: 'on it', alsoToChannel: true }),
       expect.anything(),

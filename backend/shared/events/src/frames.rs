@@ -256,6 +256,7 @@ pub enum ServerFrame {
     #[serde(rename = "command.response")]
     CommandResponse {
         channel_id: Uuid,
+        thread_parent_id: Option<Uuid>,
         command: String,
         response_type: String,
         text: String,

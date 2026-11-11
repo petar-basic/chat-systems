@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE command_invocations\n                SET retry_at = NOW() + make_interval(secs => $1)\n              WHERE id IN (\n                  SELECT id FROM command_invocations\n                   WHERE retry_at <= NOW()\n                   ORDER BY retry_at\n                   FOR UPDATE SKIP LOCKED\n                   LIMIT 20\n              )\n          RETURNING id, hook_id, workspace_id, channel_id, user_id, command, payload, attempts,\n                    answer_message_id",
+  "query": "UPDATE command_invocations\n                SET retry_at = NOW() + make_interval(secs => $1)\n              WHERE id IN (\n                  SELECT id FROM command_invocations\n                   WHERE retry_at <= NOW()\n                   ORDER BY retry_at\n                   FOR UPDATE SKIP LOCKED\n                   LIMIT 20\n              )\n          RETURNING id, hook_id, workspace_id, channel_id, user_id, command, payload, attempts,\n                    answer_message_id, thread_parent_id",
   "describe": {
     "columns": [
       {
@@ -101,6 +101,17 @@
             "name": "answer_message_id"
           }
         }
+      },
+      {
+        "ordinal": 9,
+        "name": "thread_parent_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "command_invocations",
+            "name": "thread_parent_id"
+          }
+        }
       }
     ],
     "parameters": {
@@ -117,8 +128,9 @@
       false,
       false,
       false,
+      true,
       true
     ]
   },
-  "hash": "72749dff8d4c7758187a687664ca96eab14e5c1c54360b0b47f0b48d49d166c0"
+  "hash": "ab07d276f920a7abd8d01e70b7fd000a295d99e9512e289f6174c924d536a8bc"
 }

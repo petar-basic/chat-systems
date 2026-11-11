@@ -26,6 +26,8 @@ import {
   asAttachments,
   useComposerAttachments,
   GalleryProvider,
+  CommandAnswer,
+  useSlashCommand,
 } from '@/features/messaging';
 import { useChannelModeration, useChannelPreview } from '@/features/channel';
 import { useQueryClient } from '@tanstack/react-query';
@@ -134,7 +136,9 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
     instanceUrl: currentWorkspace?.instanceUrl,
     resetKey: parentMessage.id,
   });
+  const command = useSlashCommand(parentMessage.channel_id, parentMessage.id, currentWorkspace?.instanceUrl);
   const handleSend = async (content: string) => {
+    if (await command.run(content)) return;
     sendReply.mutate({
       content,
       id: crypto.randomUUID(),
@@ -287,6 +291,7 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
                 dataQa="thread-also-to-channel"
                 className="px-4 pt-3 pb-2"
               />
+              <CommandAnswer text={command.answer} pending={command.pending} onDismiss={command.dismiss} />
               <MessageInput
                 key={`thread:${parentMessage.id}`}
                 channelName=""
@@ -297,6 +302,7 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
                 canBroadcast={canBroadcast}
                 channelMemberCount={channelMembers.length}
                 draftKey={`thread:${parentMessage.id}`}
+                slashCommands
                 onSend={handleSend}
                 attachments={attachments}
                 workspaceId={currentWorkspace?.id}

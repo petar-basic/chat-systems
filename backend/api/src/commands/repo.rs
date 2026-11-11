@@ -12,6 +12,7 @@ pub struct Invocation {
     pub payload: serde_json::Value,
     pub attempts: i32,
     pub answer_message_id: Option<Uuid>,
+    pub thread_parent_id: Option<Uuid>,
 }
 
 pub struct NewInvocation<'a> {
@@ -24,6 +25,7 @@ pub struct NewInvocation<'a> {
     pub payload: &'a serde_json::Value,
     pub uses: i32,
     pub ttl_secs: f64,
+    pub thread_parent_id: Option<Uuid>,
 }
 
 #[derive(Clone)]
@@ -39,8 +41,9 @@ impl CommandRepo {
     pub async fn create(&self, new: NewInvocation<'_>) -> sqlx::Result<()> {
         sqlx::query!(
             "INSERT INTO command_invocations
-                 (id, hook_id, workspace_id, channel_id, user_id, command, payload, uses_left, expires_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW() + make_interval(secs => $9))",
+                 (id, hook_id, workspace_id, channel_id, user_id, command, payload, uses_left, expires_at,
+                  thread_parent_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW() + make_interval(secs => $9), $10)",
             new.id,
             new.hook_id,
             new.workspace_id,
@@ -49,7 +52,8 @@ impl CommandRepo {
             new.command,
             new.payload,
             new.uses,
-            new.ttl_secs
+            new.ttl_secs,
+            new.thread_parent_id
         )
         .execute(&self.pool)
         .await?;
@@ -99,7 +103,7 @@ impl CommandRepo {
                    LIMIT 20
               )
           RETURNING id, hook_id, workspace_id, channel_id, user_id, command, payload, attempts,
-                    answer_message_id",
+                    answer_message_id, thread_parent_id",
             lease_secs
         )
         .fetch_all(&self.pool)
@@ -113,7 +117,7 @@ impl CommandRepo {
                 SET uses_left = uses_left - 1
               WHERE id = $1 AND uses_left > 0 AND expires_at > NOW()
           RETURNING id, hook_id, workspace_id, channel_id, user_id, command, payload, attempts,
-                    answer_message_id",
+                    answer_message_id, thread_parent_id",
             id
         )
         .fetch_optional(&self.pool)

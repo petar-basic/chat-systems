@@ -3,6 +3,7 @@ import { instanceManager, type InstanceClients } from '../lib/instances';
 import { requestPasskey, wasCancelled } from '../lib/webauthn';
 import { useWsStatusStore } from './wsStatus';
 import { backfillAfterReconnect } from '../lib/realtimeBackfill';
+import { giveUpOnAnswers } from '../lib/commandAnswers';
 import { toast } from '@/shared/components/Toast';
 import { ErrorLabels } from '@/shared/constants';
 import type { components } from '@/api/schema';
@@ -145,6 +146,7 @@ async function adoptSsoSession(
       store.removeInstance(origin);
     };
     clients.ws.addReconnectListener(backfillAfterReconnect);
+    clients.ws.addReconnectListener(giveUpOnAnswers);
     clients.ws.connect();
     return { url: origin, user };
   } catch {
@@ -184,6 +186,7 @@ async function signInTo(
       get().removeInstance(normalized);
     };
     clients.ws.addReconnectListener(backfillAfterReconnect);
+    clients.ws.addReconnectListener(giveUpOnAnswers);
 
     const res = await signIn(clients.api);
 
@@ -240,6 +243,7 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
           get().removeInstance(config.url);
         };
         clients.ws.addReconnectListener(backfillAfterReconnect);
+        clients.ws.addReconnectListener(giveUpOnAnswers);
 
         try {
           const normalized = instanceManager.normalize(config.url);
