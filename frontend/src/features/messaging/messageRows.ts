@@ -39,13 +39,10 @@ export function buildMessageRows<M extends Groupable>(
   messages: M[],
   /// The last message the reader had seen. The line goes after it, once —
   /// the count in the sidebar says how many, this says where.
-  lastReadId?: string | null,
+  boundary?: ReadBoundary | null,
 ): Array<MessageRow<M>> {
   const rows: Array<MessageRow<M>> = [];
-  const lastReadIndex = lastReadId ? messages.findIndex((m) => m.id === lastReadId) : -1;
-  // Nothing to mark when the boundary is the last message, or is not in the
-  // page that was loaded.
-  const unreadFrom = lastReadIndex >= 0 && lastReadIndex < messages.length - 1 ? lastReadIndex + 1 : -1;
+  const unreadFrom = boundary ? firstUnread(messages, boundary) : -1;
 
   messages.forEach((message, i) => {
     const previous = messages[i - 1];
@@ -84,6 +81,16 @@ export function buildMessageRows<M extends Groupable>(
 export interface ReadBoundary {
   id: string;
   at: string | null;
+}
+
+function firstUnread(messages: Array<{ id: string; created_at: string }>, boundary: ReadBoundary): number {
+  const lastRead = messages.findIndex((m) => m.id === boundary.id);
+  if (lastRead >= 0) return lastRead < messages.length - 1 ? lastRead + 1 : -1;
+  const oldest = messages[0];
+  if (!oldest || !boundary.at) return -1;
+  const at = Date.parse(boundary.at);
+  if (Date.parse(oldest.created_at) > at) return -1;
+  return messages.findIndex((m) => Date.parse(m.created_at) > at);
 }
 
 export function boundaryReached(

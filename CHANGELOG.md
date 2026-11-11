@@ -99,6 +99,15 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   page or more up the history until the window was refocused.
 - *New messages* goes all the way to the newest message instead of stopping short of it after a
   long jump, and shows for a message that arrives just after older messages have loaded.
+- A channel, DM or thread is no longer marked read while the app is in the background or its
+  tab is hidden: a reconnect, a server restart or a new reply used to read it, so the badge went
+  out and the mention email was never sent. It is read when you come back to it.
+- The *New* line marks what arrived since you last read the channel each time you open it,
+  without a reload: it no longer goes missing after messages arrive while you are elsewhere,
+  and no longer comes back above messages you have already read. If the last message you read
+  was deleted, the line is above the first message after it.
+- Unread counts no longer double after switching back to a workspace, or after the connection
+  comes back: three new messages show as 3, not 6.
 
 ## [4.6.0] — 2026-11-10
 

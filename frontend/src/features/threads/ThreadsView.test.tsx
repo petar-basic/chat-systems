@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import i18n from '@/lib/i18n';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ThreadSummary } from '@/features/threads/hooks/useThreads';
 import { ThreadsView } from './ThreadsView';
@@ -84,7 +84,11 @@ const renderView = (channelName = 'design') =>
   );
 
 describe('ThreadsView', () => {
+  let focused = true;
   beforeEach(() => {
+    focused = true;
+    vi.spyOn(document, 'hasFocus').mockImplementation(() => focused);
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
     markRead.mockClear();
     sendReply.mockClear();
     onOpenThread.mockClear();
@@ -108,6 +112,22 @@ describe('ThreadsView', () => {
     renderView();
     expect(screen.getByTestId('thread-new')).toHaveTextContent('2 new replies');
     expect(screen.getAllByTestId('thread-reply-new')).toHaveLength(2);
+    expect(markRead).toHaveBeenCalledTimes(1);
+    expect(markRead).toHaveBeenCalledWith('root');
+  });
+
+  it('leaves a thread unread while the window is in the background, and reads it on return', () => {
+    focused = false;
+    threads = [thread(2)];
+    renderView();
+    expect(screen.getByTestId('thread-new')).toHaveTextContent('2 new replies');
+    expect(markRead).not.toHaveBeenCalled();
+
+    focused = true;
+    act(() => {
+      window.dispatchEvent(new Event('focus'));
+    });
+
     expect(markRead).toHaveBeenCalledTimes(1);
     expect(markRead).toHaveBeenCalledWith('root');
   });

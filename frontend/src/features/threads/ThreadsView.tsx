@@ -20,6 +20,7 @@ import { QUERY_KEYS } from '@/shared/constants';
 import { useUnsent } from '@/stores/unsent';
 import { discardUnsent } from '@/lib/unsent';
 import { DAY_AND_TIME, formatClock } from '@/lib/datetime';
+import { useWindowInUse } from '@/lib/readOnScreen';
 
 interface Props {
   workspaceId: string;
@@ -77,14 +78,16 @@ export function ThreadsView({
   }
 
   const { mutate } = markRead;
+  const inUse = useWindowInUse();
   useEffect(() => {
+    if (!inUse) return;
     for (const [rootId, entry] of Object.entries(seen)) {
       const key = `${rootId}:${entry.readAt}`;
       if (marked.current.has(key)) continue;
       marked.current.add(key);
       mutate(rootId);
     }
-  }, [seen, mutate]);
+  }, [seen, mutate, inUse]);
 
   const placeOf = (root: ThreadSummary['root']) => {
     const channel = channels.find((c) => c.id === root.channel_id);

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ReactNode } from 'react';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -64,7 +64,11 @@ function queryOf(call: unknown[]) {
 }
 
 describe('useMessages read mark', () => {
+  let visibility: DocumentVisibilityState = 'visible';
   beforeEach(() => {
+    visibility = 'visible';
+    vi.spyOn(document, 'hasFocus').mockReturnValue(true);
+    vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => visibility);
     get.mockReset();
     get.mockImplementation(
       async (_path: string, { params }: { params: { query: { mark_read?: boolean } } }) => ({
@@ -89,6 +93,22 @@ describe('useMessages read mark', () => {
       mark_read: undefined,
       cursor: `msg-${MESSAGES_PAGE_SIZE - 1}`,
     });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('does not mark the channel read when a reconnect refetches it in a hidden tab', async () => {
+    const { queryClient, view } = setup('ws-1');
+    await waitFor(() => expect(view.result.current.isSuccess).toBe(true));
+    expect(queryOf(get.mock.calls[0]).mark_read).toBe(true);
+
+    visibility = 'hidden';
+    await act(() => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.messagesAll() }));
+
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(queryOf(get.mock.calls[1])).toMatchObject({ mark_read: undefined, cursor: undefined });
   });
 
   it('leaves the read position alone where nobody asked for it', async () => {

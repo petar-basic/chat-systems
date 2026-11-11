@@ -2774,3 +2774,23 @@ the newest message; it now calls the virtualizer's `scrollToEnd`, which keeps co
 the rows are measured. Sending while scrolled up also takes you down to your message, as in
 Slack: `MessageList` passes the last row's key as `followKey` when the message is yours, and
 somebody else's message still waits behind *New messages*.
+
+### [CS-121f] Read when you read it, and a *New* line that knows what you read ✅ shipped
+One rule for every read: `windowInUse()` (visible and focused) or nothing is marked. The first
+page's `mark_read` asks it through `marksRead`, so the refetch `backfillAfterReconnect` sets off
+in a hidden tab no longer reads the open channel, and a marking fetch tells `readOnScreen` what
+it read (`noteRead`) so coming back does not post it again. The thread panel and *Threads* ask
+it through `useWindowInUse`, a `useSyncExternalStore` over focus, blur and visibility, and read
+what they hold back when it turns true. The `useThreadState` refetch that `refetchAfterGap`
+sets off still reads the open thread; it needs a gap longer than the replay log and was left.
+The *New* line stopped reading `useUnreadChannels`, a 30-second cache that `message.new` and the
+read-state events never touch. Each first page now carries a `fetch` number, and `MessageList`
+takes the boundary from the first page numbered after the channel opened: a page copied by
+`upsertMessage` keeps its number, so a cached page from an earlier visit cannot pass for the
+opening fetch. When the boundary's message is gone, `messageRows` puts the line above the first
+message newer than `last_read_before_at`, once the list reaches back that far, the same rule
+`boundaryReached` already paged by. After `sync.complete` with `replayed > 0`,
+`recountAfterReplay` refetches the unread counts and the conversations and hydrates the store
+itself: the refetch usually returns the counts it had, and structural sharing then keeps the
+old object, so the effect in `useWorkspaceData` would never run again. Reproduced by hand before
+the change: three messages while away from the workspace showed 6 on return, and 3 after.

@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   eachPageOldestFirst,
+  marksRead,
   olderMessagesCursor,
   messagesOldestFirst,
   type MessagesInfiniteData,
@@ -8,6 +9,7 @@ import {
 } from './useMessages';
 import { MESSAGES_PAGE_SIZE } from '@/shared/constants';
 import { newestFirst, removeMessageById, upsertMessage } from '@/lib/messageCache';
+import { useKeptUnread } from '@/stores/keptUnread';
 import type { Message } from '@/stores/workspace';
 
 const BASE = Date.parse('2026-01-01T12:00:00.000Z');
@@ -117,5 +119,41 @@ describe('a message added to a channel that has loaded more than one page', () =
     const timestamps = shown(arrived).map((m) => Date.parse(m.created_at));
 
     expect([...timestamps].sort((x, y) => x - y)).toEqual(timestamps);
+  });
+});
+
+describe('marksRead', () => {
+  let focused = true;
+  let visibility: DocumentVisibilityState = 'visible';
+  beforeEach(() => {
+    focused = true;
+    visibility = 'visible';
+    vi.spyOn(document, 'hasFocus').mockImplementation(() => focused);
+    vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => visibility);
+    useKeptUnread.setState({ channelId: null });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('marks the open channel read with its newest page while you are looking at it', () => {
+    expect(marksRead('ch-1', 'ws-1', undefined)).toBe(true);
+  });
+
+  it('leaves it unread when the refetch runs in a hidden tab', () => {
+    visibility = 'hidden';
+    expect(marksRead('ch-1', 'ws-1', undefined)).toBe(false);
+  });
+
+  it('leaves it unread when the window is in the background', () => {
+    focused = false;
+    expect(marksRead('ch-1', 'ws-1', undefined)).toBe(false);
+  });
+
+  it('never marks with an older page, a channel kept unread, or a list that does not read', () => {
+    expect(marksRead('ch-1', 'ws-1', 'msg-49')).toBe(false);
+    expect(marksRead('ch-1', undefined, undefined)).toBe(false);
+    useKeptUnread.setState({ channelId: 'ch-1' });
+    expect(marksRead('ch-1', 'ws-1', undefined)).toBe(false);
   });
 });

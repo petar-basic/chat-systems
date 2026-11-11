@@ -99,9 +99,13 @@ together:
 | A message in a channel or DM | That channel or DM is read (opened, *Mark read*, *Mark all read*) | The channel's or DM's unread / @ count |
 | A reply in a thread | That thread is read (opened in the panel or in *Threads*) | *Threads* unread |
 
-- **On screen counts as read.** A message that arrives in the channel or DM open in a focused
-  window is read straight away (`readOnScreen`), and so is a notification about it that lands
-  after the message; a reply that arrives in the open thread re-reads that thread.
+- **On screen counts as read, and nothing else does.** A message that arrives in the channel or
+  DM open in a focused window is read straight away (`readOnScreen`), and so is a notification
+  about it that lands after the message; a reply that arrives in the open thread, or in
+  *Threads*, re-reads that thread. Every read asks `windowInUse()` (visible and focused) first:
+  the first page's `mark_read` (`marksRead`), the thread panel and *Threads* (`useWindowInUse`).
+  A refetch after a reconnect in a hidden or unfocused window leaves the channel unread, and
+  coming back (`readOnReturn`, or the hook for threads) reads what was shown.
 - **Marked unread stays unread until you leave.** *Mark unread* on a message in the open
   channel or DM holds it (`stores/keptUnread`): `readOnScreen` skips it, and a refetch of its
   messages goes without `mark_read`, so a new message or a reconnect does not read it again.
@@ -264,10 +268,12 @@ thread panel of an archived channel says so in place of its composer.
 Infinite-scrolling, virtualized message list; newest messages at the bottom. Scrolling to top triggers `fetchNextPage()`.
 
 Opening a channel with unread messages lands on the first of them under a *New* divider, loading
-older pages until the last read message is in the list. The boundary comes from the sidebar's
-unread counts when they are loaded, and otherwise from the first page's `last_read_before` (the
-server reports where the reader stopped when that page marks the channel read), so a cold load
-draws it too. *Jump to first unread* shows while the divider is above the view and the end of
+older pages until the last read message is in the list. The boundary is the `last_read_before`
+of the first page fetched after the channel opened, the fetch that marks it read (each first
+page carries a `fetch` number, and a page from before the opening does not count); until that
+page arrives no line is drawn, and opening the channel again draws none. When the last read
+message is gone, deleted or a thread reply, the line goes above the first message newer than
+`last_read_before_at`. *Jump to first unread* shows while the divider is above the view and the end of
 the channel is not; *New messages* shows when something arrives while the reader is above the
 end, and goes to the very end with the virtualizer's `scrollToEnd`, which keeps correcting while
 the rows on the way are measured. A message of your own that lands as the last row takes you
@@ -933,7 +939,7 @@ cap 30s).
 - `subscribe(wsId)`, `joinChannel(chId)`, `leaveChannel(chId)` — send `subscribe` / `channel.join` / `channel.leave` and remember the desired state for replay
 - `addReconnectListener(fn)` — fires after a *reconnect* (used to wire `backfillAfterReconnect`)
 - Waking up does not wait for the backoff: `online`, and the tab becoming visible, reconnect at once when the socket is closed. A socket that still looks open is sent a `ping`; if nothing arrives within two seconds (a laptop's half-open socket after sleep) it is replaced. `disconnect()` and a revoked session stop all of this
-- `lib/realtimeBackfill.ts`: after every reconnect `backfillAfterReconnect` refetches the open views (messages, Activity, conversations, active huddles) and leaves counters to the replayed events, since a refetched unread count already includes a message the replay then bumps again. On `sync.refetch_required`, when there is no replay, `refetchAfterGap` also invalidates threads and their state, followed threads, every `['channels', …]` key (pins, unread counts, members), `unreads`, the sidebar and *Later*
+- `lib/realtimeBackfill.ts`: after every reconnect `backfillAfterReconnect` refetches the open views (messages, Activity, conversations, active huddles) and leaves counters to the replayed events, since a refetched unread count already includes a message the replay then bumps again. A count fetched while the replay was on its way (coming back to a workspace refetches it) has the message as well, so when `sync.complete` reports `replayed > 0`, `recountAfterReplay` (`lib/readState.ts`) refetches the unread counts and the conversations once the replay is in and hydrates the store from them. On `sync.refetch_required`, when there is no replay, `refetchAfterGap` also invalidates threads and their state, followed threads, every `['channels', …]` key (pins, unread counts, members), `unreads`, the sidebar and *Later*
 - `on(type, handler)` — subscribe to event type (returns unsub fn)
 - All received events are forwarded to `globalEventBus` with the client's instance URL, which a handler gets as its second argument
 - Singleton `wsClient` for default; `instanceManager.get(url).ws` for others

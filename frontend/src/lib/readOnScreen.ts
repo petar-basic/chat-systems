@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from 'react';
 import type { InfiniteData, QueryClient } from '@tanstack/react-query';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { useWorkspaceStore, type Message } from '@/stores/workspace';
@@ -21,8 +22,31 @@ export function newestSentIn(queryClient: QueryClient, channelId: string): strin
   return newest?.id ?? null;
 }
 
+export function windowInUse(): boolean {
+  return document.visibilityState === 'visible' && document.hasFocus();
+}
+
+function onUseChange(listener: () => void): () => void {
+  window.addEventListener('focus', listener);
+  window.addEventListener('blur', listener);
+  document.addEventListener('visibilitychange', listener);
+  return () => {
+    window.removeEventListener('focus', listener);
+    window.removeEventListener('blur', listener);
+    document.removeEventListener('visibilitychange', listener);
+  };
+}
+
+export function useWindowInUse(): boolean {
+  return useSyncExternalStore(onUseChange, windowInUse);
+}
+
+export function noteRead(channelId: string, messageId: string) {
+  sent.set(channelId, messageId);
+}
+
 export function onScreen(channelId: string): 'channel' | 'conversation' | null {
-  if (document.visibilityState !== 'visible' || !document.hasFocus()) return null;
+  if (!windowInUse()) return null;
   const { currentChannel, currentConversationId } = useWorkspaceStore.getState();
   if (currentChannel?.id === channelId) return 'channel';
   if (currentConversationId === channelId) return 'conversation';

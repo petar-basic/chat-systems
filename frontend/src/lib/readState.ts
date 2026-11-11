@@ -1,4 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
+import type { components } from '@/api/schema';
 import type { Conversation } from '@/features/messaging/hooks/useConversations';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { QUERY_KEYS } from '@/shared/constants';
@@ -22,4 +23,20 @@ export function applyReadState(queryClient: QueryClient, update: ReadStateUpdate
     return;
   }
   store.setChannelReadState(update.channel_id, update.unread_count, update.mention_count);
+}
+
+type UnreadChannels = components['schemas']['UnreadChannels'];
+
+export async function recountAfterReplay(queryClient: QueryClient, workspaceId: string) {
+  const here = () => useWorkspaceStore.getState().currentWorkspace?.id === workspaceId;
+  if (!here()) return;
+  await Promise.all([
+    queryClient.refetchQueries({ queryKey: QUERY_KEYS.channelsUnread(workspaceId) }),
+    queryClient.refetchQueries({ queryKey: QUERY_KEYS.conversations(workspaceId) }),
+  ]);
+  const unread = queryClient.getQueryData<UnreadChannels>(QUERY_KEYS.channelsUnread(workspaceId));
+  if (!unread || !here()) return;
+  const store = useWorkspaceStore.getState();
+  store.hydrateUnreadChannels(unread.channel_ids);
+  store.hydrateUnreadCounts(unread.counts);
 }

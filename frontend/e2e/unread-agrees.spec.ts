@@ -222,3 +222,50 @@ test('after Mark all read the channel opens on one page, with the line above wha
     await Promise.all([admin, alice, bob].map((ctx) => ctx.dispose()));
   }
 });
+
+test('the line comes from opening the channel, and is gone the next time it opens', async ({ page }) => {
+  const { ctx: admin } = await userContext('admin@dev.local');
+  const { ctx: alice } = await userContext('alice@dev.local');
+  const { ctx: bob, userId: bobId } = await userContext('bob@dev.local');
+  const workspace = await devWorkspace(bob);
+  const here = await createChannel(admin, workspace.id, 'line-here');
+  const there = await createChannel(admin, workspace.id, 'line-there');
+  const stamp = Date.now();
+
+  try {
+    for (const channel of [here, there]) {
+      await admin.post(`${API}/channels/${channel.id}/members`, { data: { user_id: bobId } });
+    }
+    await post(admin, here.id, { content: `here ${stamp}` });
+    await post(alice, there.id, { content: `read before ${stamp}` });
+    await bob.get(`${API}/channels/${there.id}/messages?mark_read=true`);
+
+    await login(page, 'bob@dev.local');
+    await page.goto(`/app/${workspace.id}/${here.id}`);
+    const list = page.locator('[data-qa="message-list"]');
+    await expect(list.getByText(`here ${stamp}`)).toBeVisible({ timeout: 15_000 });
+
+    for (let i = 0; i < 3; i++) await post(alice, there.id, { content: `new ${stamp} #${i}` });
+    const thereRow = page.locator('[data-qa="sidebar-channel-row"]', { hasText: there.name });
+    await expect(thereRow.locator('[data-qa="channel-unread-badge"]')).toHaveText('3', { timeout: 15_000 });
+
+    await thereRow.click();
+    const divider = list.locator('[data-qa="unread-divider"]');
+    await expect(divider).toHaveCount(1);
+    const top = async (locator: Locator) => (await locator.boundingBox())?.y ?? NaN;
+    const line = await top(divider);
+    expect(line).toBeGreaterThan(await top(list.getByText(`read before ${stamp}`)));
+    expect(line).toBeLessThan(await top(list.getByText(`new ${stamp} #0`)));
+
+    await page.locator('[data-qa="sidebar-channel-row"]', { hasText: here.name }).click();
+    await expect(list.getByText(`here ${stamp}`)).toBeVisible();
+    await thereRow.click();
+    await expect(list.getByText(`new ${stamp} #2`)).toBeVisible();
+    await page.waitForTimeout(1_000);
+    await expect(divider, 'everything was read the first time').toHaveCount(0);
+  } finally {
+    await admin.delete(`${API}/channels/${here.id}`);
+    await admin.delete(`${API}/channels/${there.id}`);
+    await Promise.all([admin, alice, bob].map((ctx) => ctx.dispose()));
+  }
+});
