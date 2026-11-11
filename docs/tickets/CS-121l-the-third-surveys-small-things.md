@@ -1,7 +1,7 @@
 # CS-121l — The third survey's small things
 
 **Wave:** 32a — what the 2026-11-10 survey of 4.6.0 found
-**Area:** realtime · frontend
+**Area:** realtime · frontend · backend
 **Blocked by:** CS-121h
 **Blocks:** —
 
@@ -24,6 +24,11 @@ Smaller findings, confirmed in the code:
 - **Drafts are shared by everyone who signs in on a browser.** `stores/drafts.ts` keys a draft
   by place only, while the unsent store is filtered by user, so on a shared computer the next
   person sees the last one's half-written message.
+- **A slash command without channels is refused as an outgoing webhook.** `create_hook` reads a
+  slash command's channels with `parse_channel_ids`, whose error always says "outgoing_webhook
+  requires a non-empty channel_ids array in config". Registering `/deploy` without
+  `channel_ids` answers that, naming a kind of hook the caller never asked for. Found while
+  testing CS-121c.
 
 ## Approach
 
@@ -31,6 +36,7 @@ Smaller findings, confirmed in the code:
 - An emoticon at the end of the text is converted when the message is sent, by the same table.
 - The banner moves to the signed-in app's layout.
 - Drafts are keyed by user as well as by place.
+- `parse_channel_ids` takes the hook type and names it in the error.
 
 ## Acceptance
 
@@ -38,6 +44,8 @@ Smaller findings, confirmed in the code:
 - [ ] `thanks :)` and Enter sends `thanks 🙂`.
 - [ ] The banner appears on the instance admin page.
 - [ ] A second account on the same browser sees none of the first one's drafts.
+- [ ] A slash command without `channel_ids` is refused with "slash_command requires a non-empty
+  channel_ids array in config".
 
 ## Tests
 
