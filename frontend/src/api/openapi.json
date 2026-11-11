@@ -1635,6 +1635,36 @@
         }
       }
     },
+    "/bot-apps/{app_id}/enable": {
+      "post": {
+        "tags": [
+          "bot-apps"
+        ],
+        "operationId": "enable_bot_app",
+        "parameters": [
+          {
+            "name": "app_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotAppWithToken"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/bot-apps/{app_id}/rotate": {
       "post": {
         "tags": [
@@ -3220,7 +3250,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Hook"
+                  "$ref": "#/components/schemas/EnabledHook"
                 }
               }
             }
@@ -10545,6 +10575,19 @@
               "null"
             ]
           },
+          "disabled_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "disabled_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "events": {
             "type": "array",
             "items": {
@@ -12689,6 +12732,19 @@
                   "format": "uuid"
                 },
                 "description": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "disabled_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "disabled_reason": {
                   "type": [
                     "string",
                     "null"
@@ -15271,6 +15327,27 @@
           },
           "url": {
             "type": "string"
+          }
+        }
+      },
+      "EnabledHook": {
+        "type": "object",
+        "required": [
+          "hook"
+        ],
+        "properties": {
+          "hook": {
+            "$ref": "#/components/schemas/Hook"
+          },
+          "secrets": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/HookSecrets"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },

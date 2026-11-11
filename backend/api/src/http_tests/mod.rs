@@ -32,6 +32,7 @@ mod channel_integrations;
 mod channels;
 mod commands;
 mod conversations;
+mod creator_stops;
 mod file_content_search;
 mod file_search;
 mod files;

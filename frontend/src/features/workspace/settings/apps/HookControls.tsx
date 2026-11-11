@@ -5,8 +5,33 @@ import { ConfirmDialog } from '@/shared/components/ConfirmDialog/ConfirmDialog';
 import { CopyField } from '@/shared/components/CopyField/CopyField';
 import { toUserMessage } from '@/lib/errors';
 import { useWorkspaceStore } from '@/stores/workspace';
-import { useDeleteHook, useEnableHook, useRotateHook } from '@/features/workspace/hooks/useHooks';
+import {
+  useDeleteHook,
+  useEnableHook,
+  useRotateHook,
+  type HookSecrets,
+} from '@/features/workspace/hooks/useHooks';
 import type { InstalledApp } from '@/features/workspace/hooks/useAppDirectory';
+
+interface Minted {
+  label: string;
+  value: string;
+  note: string;
+}
+
+function mintedFrom(secrets: HookSecrets | null | undefined, note: string): Minted | null {
+  if (secrets?.incoming_url) {
+    return { label: 'Webhook URL', value: secrets.incoming_url, note };
+  }
+  const secret = (secrets?.config as { secret?: unknown } | undefined)?.secret;
+  return typeof secret === 'string'
+    ? {
+        label: 'Signing secret',
+        value: secret,
+        note: 'Copy it now: it is not shown again. It signs everything sent from now on.',
+      }
+    : null;
+}
 
 interface Props {
   workspaceId: string;
@@ -19,7 +44,7 @@ export function HookControls({ workspaceId, app, onRemoved }: Props) {
   const enable = useEnableHook(workspaceId, instanceUrl);
   const rotate = useRotateHook(instanceUrl);
   const remove = useDeleteHook(workspaceId, instanceUrl);
-  const [url, setUrl] = useState<string | null>(null);
+  const [minted, setMinted] = useState<Minted | null>(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const failure = enable.error ?? rotate.error ?? remove.error;
 
@@ -32,7 +57,17 @@ export function HookControls({ workspaceId, app, onRemoved }: Props) {
             variant="primary"
             icon={<RotateCcw className="h-4 w-4" />}
             loading={enable.isPending}
-            onClick={() => enable.mutate(app.id)}
+            onClick={() =>
+              enable.mutate(app.id, {
+                onSuccess: (turnedOn) =>
+                  setMinted(
+                    mintedFrom(
+                      turnedOn.secrets,
+                      'Copy it now: it is not shown again. The URL it had before no longer works.',
+                    ),
+                  ),
+              })
+            }
             data-qa="app-reinstall"
           >
             Reinstall
@@ -43,7 +78,14 @@ export function HookControls({ workspaceId, app, onRemoved }: Props) {
             size="sm"
             icon={<RefreshCw className="h-4 w-4" />}
             loading={rotate.isPending}
-            onClick={() => rotate.mutate(app.id, { onSuccess: (made) => setUrl(made.incoming_url ?? null) })}
+            onClick={() =>
+              rotate.mutate(app.id, {
+                onSuccess: (made) =>
+                  setMinted(
+                    mintedFrom(made, 'Copy it now: it is not shown again. The old URL stopped working.'),
+                  ),
+              })
+            }
             data-qa="app-rotate"
           >
             Rotate URL
@@ -59,12 +101,10 @@ export function HookControls({ workspaceId, app, onRemoved }: Props) {
           Remove
         </Button>
       </div>
-      {url && (
+      {minted && (
         <div data-qa="app-rotated-url">
-          <CopyField label="Webhook URL" value={url} />
-          <p className="mt-1 text-xs text-muted">
-            Copy it now: it is not shown again. The old URL stopped working.
-          </p>
+          <CopyField label={minted.label} value={minted.value} />
+          <p className="mt-1 text-xs text-muted">{minted.note}</p>
         </div>
       )}
       {failure && (

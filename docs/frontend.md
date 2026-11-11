@@ -570,6 +570,12 @@ on their own row, which asks first and makes them an admin. The invite page (`/i
 when the instance has it, starting `/api/auth/oidc/start?invite=<token>`, and so does the
 sign-in page when it was reached from an invite.
 
+An integration that stopped with its creator says why on its page in *Apps* and in
+*Integrations*. Turning a webhook back on (*Reinstall* in `HookControls`, *Turn on* in
+*Integrations*) shows the new URL or signing secret the server minted, once, since the old one
+no longer works. A stopped app has *Turn on* in place of *Rotate token* (`BotAppControls`),
+which shows its new token once in `TokenReveal`.
+
 **API calls:** PATCH `/workspaces/{id}`, DELETE `/workspaces/{id}` (optionally `?hard=true`),
 POST `/workspaces/{id}/invites` `{ email, role }`, and each section's own.
 

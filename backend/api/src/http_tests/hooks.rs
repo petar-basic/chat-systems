@@ -1321,6 +1321,7 @@ async fn an_admin_turns_a_stopped_hook_back_on_and_owns_it(pool: PgPool) {
 
     let (status, revived) = send(&app, "PATCH", &route, Some(&owner), Some(on)).await;
     assert_eq!(status, StatusCode::OK, "{revived:?}");
+    let revived = &revived["hook"];
     assert_eq!(revived["is_active"], true);
     assert!(revived["disabled_reason"].is_null());
     assert_eq!(revived["created_by"], owner_id.to_string());

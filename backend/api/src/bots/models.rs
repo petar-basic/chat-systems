@@ -146,9 +146,17 @@ pub struct BotApp {
     pub connected_sockets: i64,
     pub failing_since: Option<DateTime<Utc>>,
     pub last_failure: Option<String>,
+    pub disabled_at: Option<DateTime<Utc>>,
+    pub disabled_reason: Option<String>,
     pub created_by: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+pub struct DisabledApp {
+    pub id: Uuid,
+    pub workspace_id: Uuid,
+    pub name: String,
 }
 
 #[derive(Debug, Serialize, ToSchema)]

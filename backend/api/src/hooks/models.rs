@@ -82,6 +82,12 @@ pub struct HookSecrets {
 }
 
 #[derive(Debug, Serialize, ToSchema)]
+pub struct EnabledHook {
+    pub hook: Hook,
+    pub secrets: Option<HookSecrets>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
 pub struct IncomingAccepted {
     pub status: &'static str,
     pub message_id: Uuid,

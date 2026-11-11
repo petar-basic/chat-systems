@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE hooks\n                  SET is_active = true, disabled_reason = NULL, created_by = $2, updated_at = NOW()\n                WHERE id = $1\n            RETURNING id, workspace_id, created_by, hook_type AS \"hook_type: HookType\", name, description,\n                      config, is_active AS \"is_active!\", disabled_reason, app_id, created_at, updated_at",
+  "query": "UPDATE hooks\n                  SET is_active = true, disabled_reason = NULL, created_by = $2, config = $3,\n                      updated_at = NOW()\n                WHERE id = $1\n            RETURNING id, workspace_id, created_by, hook_type AS \"hook_type: HookType\", name, description,\n                      config, is_active AS \"is_active!\", disabled_reason, app_id, created_at, updated_at",
   "describe": {
     "columns": [
       {
@@ -150,7 +150,8 @@
     "parameters": {
       "Left": [
         "Uuid",
-        "Uuid"
+        "Uuid",
+        "Jsonb"
       ]
     },
     "nullable": [
@@ -168,5 +169,5 @@
       false
     ]
   },
-  "hash": "5e045e9819dd4989803e156e602e0792b68c237cdd9a5dada905037be0ebafed"
+  "hash": "637cbf083fe6a707dd80eca87e8cd84203212be6f5d53cb835e5289aa09edb2d"
 }

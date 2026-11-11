@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { RefreshCw, Trash2 } from 'lucide-react';
+import { RefreshCw, RotateCcw, Trash2 } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
 import { Checkbox } from '@/shared/components/Form/Checkbox';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog/ConfirmDialog';
@@ -22,7 +22,7 @@ interface Props {
 }
 
 export function BotAppControls({ app, scopes: offered, onRemoved }: Props) {
-  const { rotate, remove, setScopes } = useBotAppActions(app.workspace_id);
+  const { rotate, enable, remove, setScopes } = useBotAppActions(app.workspace_id);
   const [minted, setMinted] = useState<BotAppWithToken | null>(null);
   const [scopes, setChosen] = useState<BotScope[]>(app.scopes);
   const [consenting, setConsenting] = useState(false);
@@ -42,20 +42,34 @@ export function BotAppControls({ app, scopes: offered, onRemoved }: Props) {
     else void save();
   };
 
-  const failure = rotate.error ?? remove.error ?? setScopes.error;
+  const stopped = !!app.disabled_at;
+  const failure = rotate.error ?? enable.error ?? remove.error ?? setScopes.error;
 
   return (
     <div className="space-y-4" data-qa="bot-app-controls">
       <div className="flex flex-wrap gap-2">
-        <Button
-          size="sm"
-          icon={<RefreshCw className="h-4 w-4" />}
-          loading={rotate.isPending}
-          onClick={() => rotate.mutate(app.id, { onSuccess: setMinted })}
-          data-qa="bot-app-rotate"
-        >
-          Rotate token
-        </Button>
+        {stopped ? (
+          <Button
+            size="sm"
+            variant="primary"
+            icon={<RotateCcw className="h-4 w-4" />}
+            loading={enable.isPending}
+            onClick={() => enable.mutate(app.id, { onSuccess: setMinted })}
+            data-qa="bot-app-enable"
+          >
+            Turn on
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            icon={<RefreshCw className="h-4 w-4" />}
+            loading={rotate.isPending}
+            onClick={() => rotate.mutate(app.id, { onSuccess: setMinted })}
+            data-qa="bot-app-rotate"
+          >
+            Rotate token
+          </Button>
+        )}
         <Button
           size="sm"
           variant="danger"
@@ -66,6 +80,12 @@ export function BotAppControls({ app, scopes: offered, onRemoved }: Props) {
           Remove
         </Button>
       </div>
+      {stopped && !minted && (
+        <p className="text-xs text-muted" data-qa="bot-app-stopped">
+          Turning it on gives it a new token and signing secret, and you become the person it acts for. The
+          token and secret it had stay refused.
+        </p>
+      )}
       {minted && <TokenReveal name={minted.name} token={minted.token} onDismiss={() => setMinted(null)} />}
 
       <form onSubmit={submit} className="space-y-2" data-qa="bot-app-scopes-form">

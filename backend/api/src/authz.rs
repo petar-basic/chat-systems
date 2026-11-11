@@ -409,6 +409,23 @@ pub async fn hook_still_acting(
     Ok((!access.can_manage_hook(hook_type)).then_some(Stopped::Demoted))
 }
 
+pub async fn command_still_acting(
+    state: &AppState,
+    workspace_id: Uuid,
+    user_id: Uuid,
+) -> AppResult<Option<Stopped>> {
+    if let Some(stopped) = still_acting(state, workspace_id, user_id, None).await? {
+        return Ok(Some(stopped));
+    }
+    let admin = state
+        .workspace_service
+        .repo
+        .get_member(workspace_id, user_id)
+        .await?
+        .is_some_and(|member| member.role.has_at_least(&WorkspaceRole::Admin));
+    Ok((!admin).then_some(Stopped::Demoted))
+}
+
 pub async fn can_moderate_channel(state: &AppState, channel: &Channel, user_id: Uuid) -> bool {
     let member = match state
         .workspace_service

@@ -45,6 +45,20 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   owner through the API, and an owner or a guest who opened a member link became a member.
 - `/invite` follows the rules of adding someone in *Channel details*: guests can't, an archived
   channel takes nobody, and it is in the audit log.
+- A slash command stops when its creator is demoted, suspended or removed, as webhooks already
+  did: it answers `unknown_command`, and *Apps* says why it stopped. Before, it kept sending
+  what people typed to its creator's server.
+- Turning a webhook back on gives it a new URL (incoming) or signing secret (outgoing), shown
+  once. Before, the URL a removed admin still had posted again, in the new admin's name.
+- An app stops when the admin who made it is suspended, removed or deprovisioned through SCIM:
+  its token answers 401, its socket closes and no events go out, and its page says why. An
+  admin turns it back on from its page, which gives it a new token and signing secret; the old
+  ones stay refused.
+- Removing or suspending someone deletes the invite links they made, so a removed admin can't
+  come back through their own link. Email invites stay.
+- Only admins can read a workspace's apps through the API (`GET /workspaces/{id}/bot-apps` and
+  `GET /bot-apps/{id}`), which carry each app's request URL and scopes. Members and guests get
+  403; the app directory still shows them what it showed before.
 
 ### Fixed
 

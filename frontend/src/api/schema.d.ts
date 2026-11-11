@@ -755,6 +755,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/bot-apps/{app_id}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["enable_bot_app"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/bot-apps/{app_id}/rotate": {
         parameters: {
             query?: never;
@@ -3614,6 +3630,9 @@ export interface components {
             /** Format: uuid */
             created_by?: string | null;
             description?: string | null;
+            /** Format: date-time */
+            disabled_at?: string | null;
+            disabled_reason?: string | null;
             events: components["schemas"]["AppEvent"][];
             /** Format: date-time */
             failing_since?: string | null;
@@ -4189,6 +4208,9 @@ export interface components {
                 /** Format: uuid */
                 created_by?: string | null;
                 description?: string | null;
+                /** Format: date-time */
+                disabled_at?: string | null;
+                disabled_reason?: string | null;
                 events: components["schemas"]["AppEvent"][];
                 /** Format: date-time */
                 failing_since?: string | null;
@@ -4900,6 +4922,10 @@ export interface components {
             id: string;
             name: string;
             url: string;
+        };
+        EnabledHook: {
+            hook: components["schemas"]["Hook"];
+            secrets?: components["schemas"]["HookSecrets"] | null;
         };
         /** @enum {string} */
         EnterKey: "send" | "newline";
@@ -7638,6 +7664,27 @@ export interface operations {
             };
         };
     };
+    enable_bot_app: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                app_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BotAppWithToken"];
+                };
+            };
+        };
+    };
     rotate_bot_token: {
         parameters: {
             query?: never;
@@ -8600,7 +8647,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Hook"];
+                    "application/json": components["schemas"]["EnabledHook"];
                 };
             };
         };

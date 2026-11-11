@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
 
-use super::models::{AppEvent, BotApp, BotToken, Scope};
+use super::models::{AppEvent, BotApp, BotToken, DisabledApp, Scope};
 use crate::sealed::Sealed;
 
 struct BotAppRow {
@@ -20,6 +20,8 @@ struct BotAppRow {
     connected_sockets: i64,
     failing_since: Option<DateTime<Utc>>,
     last_failure: Option<String>,
+    disabled_at: Option<DateTime<Utc>>,
+    disabled_reason: Option<String>,
     created_by: Option<Uuid>,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
@@ -42,6 +44,8 @@ impl From<BotAppRow> for BotApp {
             connected_sockets: row.connected_sockets,
             failing_since: row.failing_since,
             last_failure: row.last_failure,
+            disabled_at: row.disabled_at,
+            disabled_reason: row.disabled_reason,
             created_by: row.created_by,
             created_at: row.created_at,
             updated_at: row.updated_at,
@@ -146,7 +150,7 @@ impl BotRepo {
                         (SELECT COUNT(*) FROM app_sockets s
                           WHERE s.app_id = bot_apps.id AND s.connected_at IS NOT NULL
                             AND s.seen_at > NOW() - INTERVAL '30 seconds') AS "connected_sockets!",
-                        failing_since, last_failure,
+                        failing_since, last_failure, disabled_at, disabled_reason,
                         created_by, created_at, updated_at"#,
             app.workspace_id,
             bot_user_id,
@@ -174,7 +178,7 @@ impl BotRepo {
                      (SELECT COUNT(*) FROM app_sockets s
                        WHERE s.app_id = bot_apps.id AND s.connected_at IS NOT NULL
                          AND s.seen_at > NOW() - INTERVAL '30 seconds') AS "connected_sockets!",
-                     failing_since, last_failure,
+                     failing_since, last_failure, disabled_at, disabled_reason,
                      created_by, created_at, updated_at
                 FROM bot_apps WHERE workspace_id = $1 ORDER BY lower(name), id"#,
             workspace_id
@@ -193,7 +197,7 @@ impl BotRepo {
                      (SELECT COUNT(*) FROM app_sockets s
                        WHERE s.app_id = bot_apps.id AND s.connected_at IS NOT NULL
                          AND s.seen_at > NOW() - INTERVAL '30 seconds') AS "connected_sockets!",
-                     failing_since, last_failure,
+                     failing_since, last_failure, disabled_at, disabled_reason,
                      created_by, created_at, updated_at
                 FROM bot_apps WHERE id = $1"#,
             id
@@ -231,7 +235,7 @@ impl BotRepo {
                         (SELECT COUNT(*) FROM app_sockets s
                           WHERE s.app_id = bot_apps.id AND s.connected_at IS NOT NULL
                             AND s.seen_at > NOW() - INTERVAL '30 seconds') AS "connected_sockets!",
-                        failing_since, last_failure,
+                        failing_since, last_failure, disabled_at, disabled_reason,
                         created_by, created_at, updated_at"#,
             id,
             changes.name,
@@ -268,6 +272,68 @@ impl BotRepo {
         .execute(&self.pool)
         .await?;
         Ok(updated.rows_affected() == 1)
+    }
+
+    pub async fn disable_by_creator(
+        &self,
+        workspace_id: Option<Uuid>,
+        created_by: Uuid,
+        reason: &str,
+    ) -> sqlx::Result<Vec<DisabledApp>> {
+        let mut tx = self.pool.begin().await?;
+        let apps = sqlx::query_as!(
+            DisabledApp,
+            r"UPDATE bot_apps
+                 SET disabled_at = NOW(), disabled_reason = $3, app_token_hash = NULL, updated_at = NOW()
+               WHERE created_by = $2
+                 AND ($1::uuid IS NULL OR workspace_id = $1)
+                 AND disabled_at IS NULL
+              RETURNING id, workspace_id, name",
+            workspace_id,
+            created_by,
+            reason
+        )
+        .fetch_all(&mut *tx)
+        .await?;
+        let ids: Vec<Uuid> = apps.iter().map(|app| app.id).collect();
+        sqlx::query!("DELETE FROM app_sockets WHERE app_id = ANY($1)", &ids)
+            .execute(&mut *tx)
+            .await?;
+        tx.commit().await?;
+        Ok(apps)
+    }
+
+    pub async fn enable(
+        &self,
+        id: Uuid,
+        enabled_by: Uuid,
+        token_hash: &str,
+        signing_secret: &Sealed,
+    ) -> sqlx::Result<Option<BotApp>> {
+        let row = sqlx::query_as!(
+            BotAppRow,
+            r#"UPDATE bot_apps
+                 SET disabled_at = NULL, disabled_reason = NULL, created_by = $2,
+                     token_hash = $3, app_token_hash = NULL,
+                     signing_secret_encrypted = $4, signing_secret_nonce = $5, signing_secret_key_id = $6,
+                     failing_since = NULL, last_failure = NULL, updated_at = NOW()
+               WHERE id = $1 AND disabled_at IS NOT NULL
+              RETURNING id, workspace_id, bot_user_id, name, description, icon_url, scopes, events,
+                        request_url, socket_mode,
+                        (app_token_hash IS NOT NULL) AS "has_app_token!",
+                        0::bigint AS "connected_sockets!",
+                        failing_since, last_failure, disabled_at, disabled_reason,
+                        created_by, created_at, updated_at"#,
+            id,
+            enabled_by,
+            token_hash,
+            signing_secret.ciphertext,
+            signing_secret.nonce,
+            signing_secret.key_id
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row.map(Into::into))
     }
 
     pub async fn remove_in(&self, conn: &mut PgConnection, id: Uuid) -> sqlx::Result<bool> {
@@ -349,7 +415,7 @@ impl BotRepo {
             r"SELECT b.id, b.socket_mode
                 FROM bot_apps b
                 JOIN workspaces w ON w.id = b.workspace_id
-               WHERE b.app_token_hash = $1 AND w.deleted_at IS NULL",
+               WHERE b.app_token_hash = $1 AND b.disabled_at IS NULL AND w.deleted_at IS NULL",
             token_hash
         )
         .fetch_optional(&self.pool)
@@ -373,7 +439,7 @@ impl BotRepo {
             r"SELECT b.id, b.workspace_id, b.bot_user_id, b.scopes
                 FROM bot_apps b
                 JOIN workspaces w ON w.id = b.workspace_id
-               WHERE b.token_hash = $1 AND w.deleted_at IS NULL",
+               WHERE b.token_hash = $1 AND b.disabled_at IS NULL AND w.deleted_at IS NULL",
             token_hash
         )
         .fetch_optional(&self.pool)

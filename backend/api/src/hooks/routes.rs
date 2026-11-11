@@ -372,14 +372,14 @@ async fn require_hook_manager(state: &AppState, hook_id: Uuid, user_id: Uuid) ->
     Ok(hook)
 }
 
-#[utoipa::path(patch, path = "/hooks/{hook_id}", tag = "hooks", request_body = UpdateHookRequest, responses((status = 200, body = Hook)))]
+#[utoipa::path(patch, path = "/hooks/{hook_id}", tag = "hooks", request_body = UpdateHookRequest, responses((status = 200, body = EnabledHook)))]
 async fn update_hook(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
     Path(hook_id): Path<Uuid>,
     Json(req): Json<UpdateHookRequest>,
-) -> AppResult<Json<Hook>> {
+) -> AppResult<Json<EnabledHook>> {
     let hook = state
         .hook_repo
         .find_hook_by_id(hook_id)
@@ -392,7 +392,10 @@ async fn update_hook(
     }
     require_hook_maker(&state, &hook, auth.user_id).await?;
     if hook.is_active {
-        return Ok(Json(redacted(hook)));
+        return Ok(Json(EnabledHook {
+            hook: redacted(hook),
+            secrets: None,
+        }));
     }
     if hook.hook_type == HookType::SlashCommand {
         let command = hook
@@ -412,7 +415,18 @@ async fn update_hook(
         }
     }
 
-    let enabled = state.hook_repo.enable(hook.id, auth.user_id).await?;
+    let mut config = hook.config.clone();
+    let minted = credential_key(&hook.hook_type);
+    if let Some(key) = minted {
+        config
+            .as_object_mut()
+            .ok_or_else(|| AppError::Internal("hook config is not an object".into()))?
+            .insert(key.to_string(), serde_json::json!(generate_token()));
+    }
+    let enabled = state
+        .hook_repo
+        .enable(hook.id, auth.user_id, &config)
+        .await?;
     audit::record(
         &state,
         AuditEntry::new(AuditAction::HookEnabled, auth.user_id)
@@ -423,10 +437,23 @@ async fn update_hook(
                 "name": hook.name,
                 "previous_creator": hook.created_by,
                 "disabled_reason": hook.disabled_reason,
+                "credential": minted,
             })),
     )
     .await;
-    Ok(Json(redacted(enabled)))
+    let secrets = minted.map(|_| secrets_response(&state, &enabled));
+    Ok(Json(EnabledHook {
+        hook: redacted(enabled),
+        secrets,
+    }))
+}
+
+fn credential_key(hook_type: &HookType) -> Option<&'static str> {
+    match hook_type {
+        HookType::IncomingWebhook => Some("token"),
+        HookType::OutgoingWebhook => Some("secret"),
+        HookType::SlashCommand => None,
+    }
 }
 
 #[utoipa::path(post, path = "/hooks/{hook_id}/reveal", tag = "hooks", responses((status = 200, body = HookSecrets)))]
@@ -457,15 +484,11 @@ async fn rotate_hook(
 ) -> AppResult<Json<HookSecrets>> {
     let hook = require_hook_manager(&state, hook_id, auth.user_id).await?;
 
-    let rotated_key = match hook.hook_type {
-        HookType::IncomingWebhook => "token",
-        HookType::OutgoingWebhook => "secret",
-        _ => {
-            return Err(AppError::BadRequest(
-                "Only incoming and outgoing webhooks carry a rotatable credential".into(),
-            ))
-        }
-    };
+    let rotated_key = credential_key(&hook.hook_type).ok_or_else(|| {
+        AppError::BadRequest(
+            "Only incoming and outgoing webhooks carry a rotatable credential".into(),
+        )
+    })?;
 
     let mut config = hook.config.clone();
     let obj = config

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, workspace_id, bot_user_id, name, description, icon_url, scopes, events,\n                     request_url, socket_mode,\n                     (app_token_hash IS NOT NULL) AS \"has_app_token!\",\n                     (SELECT COUNT(*) FROM app_sockets s\n                       WHERE s.app_id = bot_apps.id AND s.connected_at IS NOT NULL\n                         AND s.seen_at > NOW() - INTERVAL '30 seconds') AS \"connected_sockets!\",\n                     failing_since, last_failure,\n                     created_by, created_at, updated_at\n                FROM bot_apps WHERE id = $1",
+  "query": "UPDATE bot_apps\n                 SET name = COALESCE($2, name),\n                     description = CASE WHEN $3::text IS NULL THEN description ELSE NULLIF($3, '') END,\n                     icon_url = CASE WHEN $4::text IS NULL THEN icon_url ELSE NULLIF($4, '') END,\n                     scopes = COALESCE($5, scopes),\n                     events = COALESCE($6, events),\n                     request_url = CASE WHEN $7::text IS NULL THEN request_url ELSE NULLIF($7, '') END,\n                     socket_mode = COALESCE($8, socket_mode),\n                     failing_since = CASE WHEN $7::text IS NULL AND $8::bool IS NULL THEN failing_since END,\n                     last_failure = CASE WHEN $7::text IS NULL AND $8::bool IS NULL THEN last_failure END,\n                     updated_at = NOW()\n               WHERE id = $1\n              RETURNING id, workspace_id, bot_user_id, name, description, icon_url, scopes, events,\n                        request_url, socket_mode,\n                        (app_token_hash IS NOT NULL) AS \"has_app_token!\",\n                        (SELECT COUNT(*) FROM app_sockets s\n                          WHERE s.app_id = bot_apps.id AND s.connected_at IS NOT NULL\n                            AND s.seen_at > NOW() - INTERVAL '30 seconds') AS \"connected_sockets!\",\n                        failing_since, last_failure, disabled_at, disabled_reason,\n                        created_by, created_at, updated_at",
   "describe": {
     "columns": [
       {
@@ -149,6 +149,28 @@
       },
       {
         "ordinal": 14,
+        "name": "disabled_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "disabled_at"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "disabled_reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "disabled_reason"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
         "name": "created_by",
         "type_info": "Uuid",
         "origin": {
@@ -159,7 +181,7 @@
         }
       },
       {
-        "ordinal": 15,
+        "ordinal": 17,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -170,7 +192,7 @@
         }
       },
       {
-        "ordinal": 16,
+        "ordinal": 18,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -183,7 +205,14 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Uuid",
+        "Varchar",
+        "Text",
+        "Text",
+        "TextArray",
+        "TextArray",
+        "Text",
+        "Bool"
       ]
     },
     "nullable": [
@@ -202,9 +231,11 @@
       true,
       true,
       true,
+      true,
+      true,
       false,
       false
     ]
   },
-  "hash": "e262d63f1a1cfa2c9bf794caba1d080a75aeb08bafb53493b3bd31b6233af917"
+  "hash": "0dba55901d7e96e2b44a6cd0f9d682536a2190c0db810bc12f9bc81d2fc03760"
 }

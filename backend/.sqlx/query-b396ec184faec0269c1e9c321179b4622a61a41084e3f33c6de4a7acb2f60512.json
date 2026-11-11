@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "WITH heads AS (\n                   SELECT DISTINCT ON (d.app_id, d.channel_id)\n                          d.id, d.leased_until, d.expires_at\n                     FROM app_deliveries d\n                     JOIN bot_apps b ON b.id = d.app_id\n                    WHERE d.app_id = ANY($1)\n                      AND d.delivered_at IS NULL AND d.failed_at IS NULL\n                      AND b.socket_mode\n                    ORDER BY d.app_id, d.channel_id, d.seq\n               ), due AS (\n                   SELECT id FROM heads\n                    WHERE expires_at > NOW()\n                      AND (leased_until IS NULL OR leased_until < NOW())\n                    LIMIT $3\n               )\n               UPDATE app_deliveries d\n                  SET leased_until = NOW() + make_interval(secs => $2),\n                      attempts = d.attempts + 1\n                 FROM due\n                WHERE d.id = due.id\n                  AND d.delivered_at IS NULL\n                  AND (d.leased_until IS NULL OR d.leased_until < NOW())\n               RETURNING d.id, d.app_id, d.kind, d.body, d.attempts",
+  "query": "WITH heads AS (\n                   SELECT DISTINCT ON (d.app_id, d.channel_id)\n                          d.id, d.leased_until, d.expires_at\n                     FROM app_deliveries d\n                     JOIN bot_apps b ON b.id = d.app_id\n                    WHERE d.app_id = ANY($1)\n                      AND d.delivered_at IS NULL AND d.failed_at IS NULL\n                      AND b.socket_mode AND b.disabled_at IS NULL\n                    ORDER BY d.app_id, d.channel_id, d.seq\n               ), due AS (\n                   SELECT id FROM heads\n                    WHERE expires_at > NOW()\n                      AND (leased_until IS NULL OR leased_until < NOW())\n                    LIMIT $3\n               )\n               UPDATE app_deliveries d\n                  SET leased_until = NOW() + make_interval(secs => $2),\n                      attempts = d.attempts + 1\n                 FROM due\n                WHERE d.id = due.id\n                  AND d.delivered_at IS NULL\n                  AND (d.leased_until IS NULL OR d.leased_until < NOW())\n               RETURNING d.id, d.app_id, d.kind, d.body, d.attempts",
   "describe": {
     "columns": [
       {
@@ -74,5 +74,5 @@
       false
     ]
   },
-  "hash": "7deac6abe423ae0efe88f1996ce7b875584d85c05ac2fb7a22a1fa9df09517b4"
+  "hash": "b396ec184faec0269c1e9c321179b4622a61a41084e3f33c6de4a7acb2f60512"
 }

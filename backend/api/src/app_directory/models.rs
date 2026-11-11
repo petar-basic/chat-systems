@@ -129,6 +129,8 @@ pub struct BotAppRow {
     pub created_at: DateTime<Utc>,
     pub failing_since: Option<DateTime<Utc>>,
     pub last_failure: Option<String>,
+    pub disabled_at: Option<DateTime<Utc>>,
+    pub disabled_reason: Option<String>,
     pub channel_ids: Vec<Uuid>,
 }
 

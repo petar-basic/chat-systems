@@ -36,6 +36,8 @@ const ACTION_LABELS: Record<string, string> = {
   'bot_app.token_rotated': 'App token replaced',
   'bot_app.removed': 'App deleted',
   'bot_app.called': 'App called the API',
+  'bot_app.disabled': 'App turned off',
+  'bot_app.enabled': 'App turned back on',
   'workflow.created': 'Workflow created',
   'workflow.updated': 'Workflow edited',
   'workflow.enabled': 'Workflow published',
