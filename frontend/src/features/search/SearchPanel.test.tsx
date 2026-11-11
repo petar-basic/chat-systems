@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import i18n from '@/lib/i18n';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import SearchPanel from './SearchPanel';
 import { useWorkspaceStore } from '@/stores/workspace';
@@ -178,5 +179,53 @@ describe('SearchPanel', () => {
     renderPanel();
     typeAndSubmit('budget');
     await waitFor(() => expect(screen.getByTestId('search-result')).toHaveTextContent('#design'));
+  });
+});
+
+describe('SearchPanel in Japanese', () => {
+  const hostile = '<img src=x onerror="alert(1)"> {{name}}';
+  beforeEach(async () => {
+    get.mockReset();
+    get.mockImplementation(async (path: string) => ({
+      data: path === '/search/files' ? [hit('9', hostile, 'application/pdf', 'pdf')] : [],
+    }));
+    useWorkspaceStore.setState({
+      currentWorkspace: { id: 'ws-1', name: 'WS' } as never,
+      currentUserId: 'u-me',
+    });
+    await i18n.changeLanguage('ja');
+  });
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('explains how to narrow a search before anything is typed', () => {
+    renderPanel();
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['メッセージ', 'ファイル']);
+    expect(screen.getByRole('textbox', { name: 'メッセージを検索' })).toBeInTheDocument();
+    const tip = screen.getByText(
+      (_, el) => el?.tagName === 'P' && !!el.textContent?.startsWith('上の絞り込み'),
+    );
+    expect(tip.textContent).toBe(
+      '上の絞り込みを使うか、from:@名前、in:#チャンネル、has:file、after:2026-10-01 のように入力して絞り込めます',
+    );
+    expect(tip.querySelectorAll('code')).toHaveLength(4);
+  });
+
+  it('repeats a search that found nothing, as text', async () => {
+    renderPanel();
+    typeAndSubmit(hostile);
+    expect(await screen.findByText(`「${hostile}」に一致するメッセージはありません`)).toBeInTheDocument();
+    expect(screen.getByTestId('search-summary').textContent).toBe('0 件');
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
+
+  it('names a file to download as text', async () => {
+    renderPanel();
+    fireEvent.click(screen.getByTestId('search-tab-files'));
+    typeAndSubmit('budget');
+    expect(await screen.findByRole('link', { name: `${hostile} をダウンロード` })).toBeInTheDocument();
+    expect(screen.getByTestId('search-summary').textContent).toBe('1 件');
+    expect(document.querySelector('[onerror]')).toBeNull();
   });
 });

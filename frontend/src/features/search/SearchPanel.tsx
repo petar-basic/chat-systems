@@ -1,4 +1,6 @@
 import { useState, useCallback, useRef, useEffect, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Trans } from '@/shared/components/Trans/Trans';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import { toUserMessage } from '@/lib/errors';
@@ -40,10 +42,7 @@ interface Props {
   onOpenMessage?: (messageId: string) => void;
 }
 
-const TABS: { tab: SearchTab; label: string }[] = [
-  { tab: 'messages', label: 'Messages' },
-  { tab: 'files', label: 'Files' },
-];
+const TABS: SearchTab[] = ['messages', 'files'];
 
 const LIMIT = 20;
 
@@ -114,6 +113,7 @@ function Hit({
 }
 
 export default function SearchPanel({ members, onClose, onOpenMessage }: Props) {
+  const { t } = useTranslation('search');
   useEscapeToClose(onClose);
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState<SearchFilters>({});
@@ -187,12 +187,12 @@ export default function SearchPanel({ members, onClose, onOpenMessage }: Props) 
           setFiles([]);
         }
         setMore(false);
-        setError(toUserMessage(err, 'Search failed'));
+        setError(toUserMessage(err, t('panel.failed')));
       } finally {
         if (request === requestRef.current) setBusy(false);
       }
     },
-    [workspaceId, instanceUrl],
+    [workspaceId, instanceUrl, t],
   );
 
   const search = (text: string, active: SearchFilters, delay: number, on: SearchTab = tab) => {
@@ -222,12 +222,11 @@ export default function SearchPanel({ members, onClose, onOpenMessage }: Props) 
   };
 
   const filtered = hasFilters(forTab(filters, tab));
-  const noun = tab === 'files' ? 'files' : 'messages';
   const count = tab === 'files' ? files.length : results.length;
   const showMore = () => void doSearch(query, filters, tab, count);
   const images = files.filter((file) => isRenderableImage(file.mime_type));
   const placeOf = (channelName: string | null | undefined) =>
-    channelName ? `#${channelName}` : 'Direct message';
+    channelName ? `#${channelName}` : t('panel.directMessage');
   const openFile = (file: FileSearchHit) => {
     if (isRenderableImage(file.mime_type)) return () => setViewing(images.indexOf(file));
     return onOpenMessage ? () => onOpenMessage(file.message_id) : undefined;
@@ -235,28 +234,32 @@ export default function SearchPanel({ members, onClose, onOpenMessage }: Props) 
 
   return (
     <div className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 flex flex-col border-l border-line/50 bg-app lg:bg-app/80">
-      <PanelHeader title="Search" icon={<Search className="h-4 w-4 text-muted" />} onClose={onClose} />
+      <PanelHeader
+        title={t('panel.title')}
+        icon={<Search className="h-4 w-4 text-muted" />}
+        onClose={onClose}
+      />
 
       <div className="px-3 py-3 border-b border-line/30 space-y-2">
         <div className="flex gap-1" role="tablist">
-          {TABS.map((t) => (
+          {TABS.map((each) => (
             <button
-              key={t.tab}
+              key={each}
               type="button"
               role="tab"
-              aria-selected={tab === t.tab}
-              data-qa={`search-tab-${t.tab}`}
-              onClick={() => changeTab(t.tab)}
+              aria-selected={tab === each}
+              data-qa={`search-tab-${each}`}
+              onClick={() => changeTab(each)}
               className={`rounded-full px-2.5 py-1 text-xs transition ${
-                tab === t.tab ? 'bg-purple-600 text-white' : 'text-fg-dim hover:bg-raised'
+                tab === each ? 'bg-purple-600 text-white' : 'text-fg-dim hover:bg-raised'
               }`}
             >
-              {t.label}
+              {t(`panel.tabs.${each}`)}
             </button>
           ))}
         </div>
         <TextInput
-          label={`Search ${noun}`}
+          label={t(`panel.label.${tab}`)}
           labelHidden
           ref={inputRef}
           value={query}
@@ -264,13 +267,13 @@ export default function SearchPanel({ members, onClose, onOpenMessage }: Props) 
           onKeyDown={(e) => {
             if (e.key === 'Enter') apply(query, true);
           }}
-          placeholder={`Search ${noun}...`}
-          data-tooltip={`Narrow with from:@name in:#channel ${tab === 'files' ? 'type:pdf' : 'has:file'} before:2026-10-01 after: on:`}
+          placeholder={t(`panel.placeholder.${tab}`)}
+          data-tooltip={t(`panel.hint.${tab}`)}
           leading={<Search className="w-4 h-4" />}
           trailing={
             query && (
               <IconButton
-                label="Clear search"
+                label={t('panel.clear')}
                 icon={<X className="w-3.5 h-3.5" />}
                 onClick={() => {
                   setQuery('');
@@ -288,9 +291,7 @@ export default function SearchPanel({ members, onClose, onOpenMessage }: Props) 
           className="flex items-center justify-between px-4 pt-2 text-xs text-muted"
           data-qa="search-summary"
         >
-          <span>
-            {more ? `${count}+` : count} {count === 1 ? 'result' : 'results'}
-          </span>
+          <span>{more ? t('panel.resultsMore', { count }) : t('panel.results', { count })}</span>
           {filtered && (
             <button
               type="button"
@@ -298,7 +299,7 @@ export default function SearchPanel({ members, onClose, onOpenMessage }: Props) 
               data-qa="search-clear-filters"
               className="text-accent hover:text-accent-soft cursor-pointer"
             >
-              Clear filters
+              {t('panel.clearFilters')}
             </button>
           )}
         </div>
@@ -315,13 +316,9 @@ export default function SearchPanel({ members, onClose, onOpenMessage }: Props) 
           </div>
         ) : searched && count === 0 ? (
           <div className="text-center py-8 text-muted text-sm">
-            {query.trim() ? (
-              <>
-                No {noun} found for &ldquo;{query.trim()}&rdquo;{filtered && ' with these filters'}
-              </>
-            ) : (
-              `No ${noun} match these filters`
-            )}
+            {query.trim()
+              ? t(filtered ? `panel.noneForFiltered.${tab}` : `panel.noneFor.${tab}`, { query: query.trim() })
+              : t(`panel.noneFiltered.${tab}`)}
           </div>
         ) : tab === 'files' && files.length > 0 ? (
           <div className="space-y-1" data-qa="file-results">
@@ -343,7 +340,7 @@ export default function SearchPanel({ members, onClose, onOpenMessage }: Props) 
                 onClick={showMore}
                 data-qa="search-show-more"
               >
-                Show more
+                {t('panel.showMore')}
               </Button>
             )}
           </div>
@@ -373,20 +370,15 @@ export default function SearchPanel({ members, onClose, onOpenMessage }: Props) 
                 onClick={showMore}
                 data-qa="search-show-more"
               >
-                Show more
+                {t('panel.showMore')}
               </Button>
             )}
           </div>
         ) : (
           <div className="px-4 py-8 text-center text-sm text-muted space-y-1">
-            <p>
-              {tab === 'files'
-                ? 'Find a file by any part of its name'
-                : 'Search across all messages in this workspace'}
-            </p>
+            <p>{t(`panel.empty.${tab}`)}</p>
             <p className="text-xs text-subtle">
-              Narrow it with the filters, or type <code>from:@name</code>, <code>in:#channel</code>,{' '}
-              <code>{tab === 'files' ? 'type:pdf' : 'has:file'}</code> or <code>after:2026-10-01</code>
+              <Trans t={t} i18nKey={`panel.tip.${tab}`} components={{ code: <code /> }} />
             </p>
           </div>
         )}
