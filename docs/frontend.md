@@ -81,10 +81,14 @@ renders lives in `features/messaging`, even when it is small and general-looking
   workspaces, their icons drawn by the page as small PNGs (the rail has no session to load
   them with), and their unread Activity to the app and opens the workspace, or the create
   dialog, that the app's rail asks for, and `WorkspaceSidebar` draws no rail and no *Add
-  instance*. The sign-in page signs in to the server the window shows, with no *Server URL*
-  field. `showNotification` hands the notification to the app, which raises a native
-  one and, on a click, shows this server and runs the click handler; the Dock badge is the
-  sum of the unread counts every server reported. The theme store reports the theme the page
+  instance*. A page with no session for its server, signed out or not restored after a
+  reload, reports no workspaces (`useEmptyRailWhenSignedOut`, in `App`), so the app drops
+  them from the rail, the menu and the badge. The sign-in page signs in to the server the
+  window shows, with no *Server URL* field. `showNotification` hands the notification to the
+  app, which raises a native one and, on a click, shows this server and runs the click
+  handler. Its key starts with an id chosen once per page load, so a click on a banner from
+  before a reload finds no handler and only shows the server; the Dock badge is the sum of
+  the unread counts every server reported. The theme store reports the theme the page
   shows, at start and on every change, and `useWorkspaceTheme` reports the colours of the
   workspace's own theme (`desktopColours`), or none; the app paints its rail and title bar to
   match the server in front. In a browser nothing changes.

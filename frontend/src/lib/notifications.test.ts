@@ -79,4 +79,30 @@ describe('notifications', () => {
 
     expect(shell.notify).not.toHaveBeenCalled();
   });
+
+  it('never opens a newer message for a click on a notification from before a reload', async () => {
+    vi.resetModules();
+    const firstLoad = await import('./notifications');
+    const before = fakeShell();
+    window.chatSystemsDesktop = before.shell;
+    const opensOld = vi.fn();
+    firstLoad.showNotification('Maya', 'from before', 'general', opensOld);
+    const { key: oldKey } = vi.mocked(before.shell.notify).mock.calls[0][0];
+
+    vi.resetModules();
+    const reloaded = await import('./notifications');
+    const after = fakeShell();
+    window.chatSystemsDesktop = after.shell;
+    const opensNew = vi.fn();
+    reloaded.showNotification('Lena', 'after the reload', 'random', opensNew);
+    const { key: newKey } = vi.mocked(after.shell.notify).mock.calls[0][0];
+
+    expect(newKey).toMatch(/^[0-9a-f-]{1,64}$/);
+    expect(newKey).not.toBe(oldKey);
+    after.send({ kind: 'open-notification', key: oldKey });
+    expect(opensNew).not.toHaveBeenCalled();
+    expect(opensOld).not.toHaveBeenCalled();
+    after.send({ kind: 'open-notification', key: newKey });
+    expect(opensNew).toHaveBeenCalledOnce();
+  });
 });

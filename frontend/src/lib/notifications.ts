@@ -7,6 +7,9 @@ const MOST_PENDING_CLICKS = 50;
 let permissionGranted = false;
 let audioCtx: AudioContext | null = null;
 let lastSoundAt = 0;
+const pageKey = Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) =>
+  b.toString(16).padStart(2, '0'),
+).join('');
 let nextKey = 0;
 const pendingClicks = new Map<string, () => void>();
 const listening = new WeakSet<DesktopShell>();
@@ -114,7 +117,7 @@ function notifyDesktop(
   origin: NotificationOrigin,
   onClick?: () => void,
 ) {
-  const key = (nextKey++).toString(16);
+  const key = `${pageKey}-${(nextKey++).toString(16)}`;
   if (onClick) {
     listenForClicks(shell);
     pendingClicks.set(key, onClick);
