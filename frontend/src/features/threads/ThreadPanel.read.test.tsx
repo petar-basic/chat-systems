@@ -38,6 +38,7 @@ vi.mock('@/features/messaging', () => ({
 }));
 vi.mock('@/features/channel', () => ({
   useChannelModeration: () => ({ canBroadcast: false, members: [] }),
+  useChannelPreview: () => ({ data: undefined }),
 }));
 
 const at = (i: number) => new Date(Date.UTC(2026, 10, 11, 9, i)).toISOString();

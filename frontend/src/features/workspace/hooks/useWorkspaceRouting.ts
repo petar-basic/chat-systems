@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useLocation, useMatch, useNavigate, useParams, useSearchParams } from 'react-router';
 import { ROUTE_PATTERNS, ROUTES } from '@/shared/constants';
@@ -6,7 +6,7 @@ import { messagePath, useMessageLocation } from '@/features/messaging';
 import { useChannelPreview } from '@/features/channel';
 import { toast } from '@/shared/components/Toast';
 import { useWorkspaceStore, type Message, type Workspace, type Channel } from '@/stores/workspace';
-import { lastWorkspaceId, placeIn, rememberPlace } from '../lastPlace';
+import { forgetPlace, lastWorkspaceId, placeIn, rememberPlace } from '../lastPlace';
 import type { useRightPanel } from './useRightPanel';
 
 interface Args {
@@ -14,6 +14,9 @@ interface Args {
   deletedWorkspaces: Workspace[];
   noWorkspaces: boolean;
   channels: Channel[];
+  conversations: { id: string }[];
+  conversationsLoaded: boolean;
+  refetchConversations: () => Promise<unknown>;
   markConversationReadServer: (conversationId: string) => void;
   panel: ReturnType<typeof useRightPanel>;
 }
@@ -43,6 +46,9 @@ export function useWorkspaceRouting({
   deletedWorkspaces,
   noWorkspaces,
   channels,
+  conversations,
+  conversationsLoaded,
+  refetchConversations,
   markConversationReadServer,
   panel,
 }: Args) {
@@ -228,6 +234,27 @@ export function useWorkspaceRouting({
     markChannelRead,
     navigate,
   ]);
+
+  const unlistedConversationId =
+    workspaceReady &&
+    routeConversationId &&
+    conversationsLoaded &&
+    !conversations.some((c) => c.id === routeConversationId)
+      ? routeConversationId
+      : undefined;
+  const refetchedFor = useRef<string | null>(null);
+  const [checkedConversation, setCheckedConversation] = useState<string | null>(null);
+  useEffect(() => {
+    if (!unlistedConversationId || !workspaceId) return;
+    if (checkedConversation === unlistedConversationId) {
+      forgetPlace(workspaceId, ROUTES.conversation(workspaceId, unlistedConversationId));
+      navigate(ROUTES.workspace(workspaceId), { replace: true });
+      return;
+    }
+    if (refetchedFor.current === unlistedConversationId) return;
+    refetchedFor.current = unlistedConversationId;
+    void refetchConversations().then(() => setCheckedConversation(unlistedConversationId));
+  }, [unlistedConversationId, checkedConversation, workspaceId, refetchConversations, navigate]);
 
   useEffect(() => {
     if (!routeConversationId) return;

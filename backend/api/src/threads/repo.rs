@@ -4,6 +4,7 @@ use uuid::Uuid;
 
 use super::models::{FollowedThread, FollowerState, ThreadState};
 use crate::messaging::models::Message;
+use crate::workspace::models::ChannelType;
 
 pub struct ReplyFollows<'a> {
     pub root_message_id: Uuid,
@@ -190,7 +191,9 @@ impl ThreadRepo {
             SELECT f.root_message_id, f.last_read_at, latest.at AS "last_reply_at!",
                    (SELECT count(*) FROM messages m
                      WHERE m.thread_parent_id = f.root_message_id AND m.deleted_at IS NULL
-                       AND m.user_id <> f.user_id AND m.created_at > f.last_read_at) AS "unread_count!"
+                       AND m.user_id <> f.user_id AND m.created_at > f.last_read_at) AS "unread_count!",
+                   c.name AS channel_name, c.channel_type AS "channel_type: ChannelType",
+                   c.is_archived AS "channel_archived!", joined.yes AS "is_member!"
               FROM thread_follows f
               JOIN messages r ON r.id = f.root_message_id
               JOIN channels c ON c.id = r.channel_id
@@ -199,14 +202,16 @@ impl ThreadRepo {
                     SELECT max(m.created_at) AS at FROM messages m
                      WHERE m.thread_parent_id = r.id AND m.deleted_at IS NULL
                    ) latest
+             CROSS JOIN LATERAL (
+                    SELECT EXISTS (SELECT 1 FROM channel_members cm
+                                    WHERE cm.channel_id = r.channel_id AND cm.user_id = f.user_id) AS yes
+                   ) joined
              WHERE f.user_id = $1
                AND f.workspace_id = $2
                AND f.following
                AND latest.at IS NOT NULL
                AND ($3::timestamptz IS NULL OR latest.at < $3)
-               AND (EXISTS (SELECT 1 FROM channel_members cm
-                             WHERE cm.channel_id = r.channel_id AND cm.user_id = f.user_id)
-                    OR (c.channel_type = 'public' AND wm.role <> 'guest'))
+               AND (joined.yes OR (c.channel_type = 'public' AND wm.role <> 'guest'))
              ORDER BY latest.at DESC
              LIMIT $4
             "#,

@@ -67,10 +67,11 @@ export function useWorkspaceData(workspaceId: string | undefined, currentUserId:
   );
   const restoreWorkspace = useRestoreWorkspace();
 
-  const { data: conversations = [] } = useConversations(
-    workspaceId || storeWorkspaceId || null,
-    currentWsInstanceUrl,
-  );
+  const {
+    data: conversations = [],
+    isSuccess: conversationsLoaded,
+    refetch: refetchConversations,
+  } = useConversations(workspaceId || storeWorkspaceId || null, currentWsInstanceUrl);
   const { mutate: markConversationReadServer } = useMarkConversationRead(
     workspaceId || storeWorkspaceId || '',
     currentWsInstanceUrl,
@@ -181,6 +182,8 @@ export function useWorkspaceData(workspaceId: string | undefined, currentUserId:
     channelsPending,
     workspaceMembers,
     conversations,
+    conversationsLoaded,
+    refetchConversations,
     restoreWorkspace,
     markConversationReadServer,
     getUser,

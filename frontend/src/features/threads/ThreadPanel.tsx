@@ -27,7 +27,7 @@ import {
   useComposerAttachments,
   GalleryProvider,
 } from '@/features/messaging';
-import { useChannelModeration } from '@/features/channel';
+import { useChannelModeration, useChannelPreview } from '@/features/channel';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUnsent, withUnsent } from '@/stores/unsent';
 import { discardUnsent } from '@/lib/unsent';
@@ -66,9 +66,12 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
   const landedOn = useRef<string | null>(null);
   const { data: threadState, refetch: markRead } = useThreadState(parentMessage.id);
   const currentChannel = useWorkspaceStore((s) => s.currentChannel);
-  const channel =
+  const known =
     channels?.find((ch) => ch.id === parentMessage.channel_id) ??
     (currentChannel?.id === parentMessage.channel_id ? currentChannel : undefined);
+  const { data: fetched } = useChannelPreview(known ? undefined : parentMessage.channel_id);
+  const channel = known ?? fetched;
+  const isConversation = channel?.channel_type === 'dm' || channel?.channel_type === 'group_dm';
   const { canBroadcast, members: channelMembers } = useChannelModeration(
     parentMessage.channel_id,
     channel?.settings,
@@ -265,7 +268,7 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
         <div className="border-t border-line/50">
           {channel?.is_archived ? (
             <p data-qa="thread-archived" className="px-4 py-3 text-sm text-muted">
-              #{channel.name} is archived, so its threads take no new replies.
+              {t('panel.archived', { name: channel.name })}
             </p>
           ) : isClosedThread(parentMessage, loaded, loading) ? (
             <p data-qa="thread-closed" className="px-4 py-3 text-sm text-muted">
@@ -275,7 +278,9 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
             <>
               <Checkbox
                 label={
-                  channel ? t('view.alsoToChannel', { name: channel.name }) : t('view.alsoToConversation')
+                  channel && !isConversation
+                    ? t('view.alsoToChannel', { name: channel.name })
+                    : t('view.alsoToConversation')
                 }
                 checked={alsoToChannel}
                 onChange={setAlsoToChannel}
@@ -301,6 +306,7 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
                   threadParentId: parentMessage.id,
                   alsoToChannel,
                 }}
+                onScheduled={() => setAlsoToChannel(false)}
                 pollTarget={{
                   channelId: parentMessage.channel_id,
                   threadParentId: parentMessage.id,

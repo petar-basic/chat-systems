@@ -9,7 +9,9 @@ use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
-use super::models::{ThreadPage, ThreadState, ThreadSummary, ThreadsQuery, UnreadThreads};
+use super::models::{
+    ThreadChannel, ThreadPage, ThreadState, ThreadSummary, ThreadsQuery, UnreadThreads,
+};
 use crate::authz;
 use crate::messaging::models::Message;
 use crate::middleware::AuthUser;
@@ -119,6 +121,12 @@ async fn list_threads(
         .filter_map(|thread| {
             Some(ThreadSummary {
                 root: roots.remove(&thread.root_message_id)?,
+                channel: ThreadChannel {
+                    name: thread.channel_name,
+                    channel_type: thread.channel_type,
+                    is_archived: thread.channel_archived,
+                    is_member: thread.is_member,
+                },
                 latest_replies: replies.remove(&thread.root_message_id).unwrap_or_default(),
                 unread_count: thread.unread_count,
                 last_read_at: thread.last_read_at,

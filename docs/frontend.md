@@ -155,7 +155,9 @@ leaves the selected channel as it was.
 A conversation is a channel of type `dm`/`group_dm`, so with a `conversationId` the page
 renders `ConversationView` — a header with the participants over the same `MessageList`,
 `MessageInput`, `TypingIndicator` and `ThreadPanel` a channel uses, keyed on the
-conversation id as the channel id. A participant who left the workspace keeps their name and
+conversation id as the channel id. An id that is not one of your conversations refetches the
+list once, and if it is still not there the page opens the workspace's root and drops it as
+the remembered place (`forgetPlace`), so a stale link does not leave a spinner. A participant who left the workspace keeps their name and
 photo from the conversation's `departed`; a DM with them says *<name> is no longer in this
 workspace* in place of the composer, and a group DM says it above the composer.
 *Add people* in the header, offered while somebody else is still there and the group has room
@@ -502,9 +504,18 @@ Side panel showing thread replies for a parent message.
 **Reads:** `useThreadMessages(parentId)`, `useUserCache`
 **API calls:** GET `/messages/{id}/thread`, POST `/messages/{id}/thread`
 
-A deleted root with no replies left takes none: the composer gives way to *This thread was
-deleted* (`isClosedThread`). A card in *Threads* replies as the panel does, with *Also send to*
-and scheduling.
+The root is read live (`useLiveMessage`) from the channel's message cache, and a
+`message.deleted` for it marks the copy the panel opened with, since a root with no replies is
+dropped from the cache rather than marked. A deleted root with no replies left takes none: the
+composer gives way to *This thread was deleted* (`isClosedThread`). The channel comes from the
+sidebar or the open channel, and otherwise from `GET /channels/{id}`, so the thread of an
+archived channel opened from *Threads* says so in place of the composer. Scheduling a reply
+clears *Also send to* through `MessageInput`'s `onScheduled`, as sending does.
+
+A card in *Threads* replies as the panel does, with *Also send to* and scheduling. It is placed
+by the summary's `channel`, not by the sidebar's channels, which carry neither archived
+channels nor public ones you left: the card names its channel and its name opens it as
+*Browse channels* would, and an archived channel's card has no composer.
 
 ---
 

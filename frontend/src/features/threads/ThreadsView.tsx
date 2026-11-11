@@ -89,29 +89,31 @@ export function ThreadsView({
     }
   }, [seen, mutate, inUse]);
 
-  const placeOf = (root: ThreadSummary['root']) => {
-    const channel = channels.find((c) => c.id === root.channel_id);
-    if (channel) {
+  const placeOf = ({ root, channel }: ThreadSummary): Place => {
+    if (channel.channel_type === 'dm' || channel.channel_type === 'group_dm') {
+      const conversation = conversations.find((c) => c.id === root.channel_id);
       return {
-        title: channel.name ?? t('view.channelFallback'),
-        alsoTo: t('view.alsoToChannel', { name: channel.name }),
-        icon:
-          channel.channel_type === 'private' ? (
-            <Lock className="w-4 h-4 text-muted shrink-0" />
-          ) : (
-            <Hash className="w-4 h-4 text-muted shrink-0" />
-          ),
-        open: () => onOpenChannel(channel.id),
+        title: conversation
+          ? conversationTitle(conversation, currentUserId, (id) => getUser(id)?.display_name)
+          : t('view.dmFallback'),
+        alsoTo: t('view.alsoToConversation'),
+        icon: <MessageCircle className="w-4 h-4 text-muted shrink-0" />,
+        open: () => onOpenConversation(root.channel_id),
+        archived: null,
       };
     }
-    const conversation = conversations.find((c) => c.id === root.channel_id);
+    const name = channel.name ?? t('view.channelFallback');
     return {
-      title: conversation
-        ? conversationTitle(conversation, currentUserId, (id) => getUser(id)?.display_name)
-        : t('view.dmFallback'),
-      alsoTo: t('view.alsoToConversation'),
-      icon: <MessageCircle className="w-4 h-4 text-muted shrink-0" />,
-      open: () => onOpenConversation(root.channel_id),
+      title: name,
+      alsoTo: t('view.alsoToChannel', { name }),
+      icon:
+        channel.channel_type === 'private' ? (
+          <Lock className="w-4 h-4 text-muted shrink-0" />
+        ) : (
+          <Hash className="w-4 h-4 text-muted shrink-0" />
+        ),
+      open: () => onOpenChannel(root.channel_id),
+      archived: channel.is_archived ? t('panel.archived', { name }) : null,
     };
   };
 
@@ -150,7 +152,7 @@ export function ThreadsView({
             key={thread.root.id}
             thread={thread}
             seen={seen[thread.root.id]}
-            place={placeOf(thread.root)}
+            place={placeOf(thread)}
             workspaceId={workspaceId}
             instanceUrl={instanceUrl}
             currentUserId={currentUserId}
@@ -175,10 +177,18 @@ export function ThreadsView({
   );
 }
 
+interface Place {
+  title: string;
+  alsoTo: string;
+  icon: ReactNode;
+  open: () => void;
+  archived: string | null;
+}
+
 interface CardProps {
   thread: ThreadSummary;
   seen?: Seen;
-  place: { title: string; alsoTo: string; icon: ReactNode; open: () => void };
+  place: Place;
   workspaceId: string;
   instanceUrl?: string;
   currentUserId: string;
@@ -279,28 +289,35 @@ function ThreadCard({
           />
         ))}
       </ol>
-      <div className="border-t border-line/50" data-qa="thread-card-reply">
-        <Checkbox
-          label={place.alsoTo}
-          checked={alsoToChannel}
-          onChange={setAlsoToChannel}
-          dataQa="thread-card-also-to-channel"
-          className="px-4 pt-3 pb-2"
-        />
-        <MessageInput
-          channelName=""
-          placeholder={t('view.reply')}
-          members={members}
-          channels={channels}
-          draftKey={`thread:${root.id}`}
-          onSend={handleSend}
-          attachments={attachments}
-          workspaceId={workspaceId}
-          instanceUrl={instanceUrl}
-          scheduleTarget={{ channelId: root.channel_id, threadParentId: root.id, alsoToChannel }}
-          pollTarget={{ channelId: root.channel_id, threadParentId: root.id, instanceUrl }}
-        />
-      </div>
+      {place.archived ? (
+        <p className="border-t border-line/50 px-4 py-3 text-sm text-muted" data-qa="thread-card-archived">
+          {place.archived}
+        </p>
+      ) : (
+        <div className="border-t border-line/50" data-qa="thread-card-reply">
+          <Checkbox
+            label={place.alsoTo}
+            checked={alsoToChannel}
+            onChange={setAlsoToChannel}
+            dataQa="thread-card-also-to-channel"
+            className="px-4 pt-3 pb-2"
+          />
+          <MessageInput
+            channelName=""
+            placeholder={t('view.reply')}
+            members={members}
+            channels={channels}
+            draftKey={`thread:${root.id}`}
+            onSend={handleSend}
+            attachments={attachments}
+            workspaceId={workspaceId}
+            instanceUrl={instanceUrl}
+            scheduleTarget={{ channelId: root.channel_id, threadParentId: root.id, alsoToChannel }}
+            onScheduled={() => setAlsoToChannel(false)}
+            pollTarget={{ channelId: root.channel_id, threadParentId: root.id, instanceUrl }}
+          />
+        </div>
+      )}
     </section>
   );
 }

@@ -302,6 +302,40 @@ async fn a_thread_in_a_channel_you_left_drops_out(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn a_thread_names_its_channel_once_it_is_archived_or_left(pool: PgPool) {
+    let room = room(pool).await;
+    let root = id_of(&post(&room, &room.owner.1, "release notes", None).await);
+    post(&room, &room.colleague.1, "looks good", Some(root)).await;
+    let channel = |threads: &[Value]| threads[0]["channel"].clone();
+
+    assert_eq!(
+        channel(&threads(&room, &room.colleague.1).await),
+        json!({ "name": "threads", "channel_type": "public", "is_archived": false, "is_member": true })
+    );
+
+    sqlx::query("DELETE FROM channel_members WHERE channel_id = $1 AND user_id = $2")
+        .bind(room.ch_id)
+        .bind(room.colleague.0)
+        .execute(&room.state.pool)
+        .await
+        .expect("leave");
+    assert_eq!(
+        channel(&threads(&room, &room.colleague.1).await)["is_member"],
+        json!(false)
+    );
+
+    sqlx::query("UPDATE channels SET is_archived = true WHERE id = $1")
+        .bind(room.ch_id)
+        .execute(&room.state.pool)
+        .await
+        .expect("archive");
+    assert_eq!(
+        channel(&threads(&room, &room.owner.1).await),
+        json!({ "name": "threads", "channel_type": "public", "is_archived": true, "is_member": true })
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn followers_hear_about_a_reply_and_the_mentioned_hear_it_once(pool: PgPool) {
     let room = room(pool).await;
     let root = id_of(&post(&room, &room.owner.1, "design review", None).await);

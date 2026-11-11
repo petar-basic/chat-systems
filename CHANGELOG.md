@@ -108,6 +108,16 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   was deleted, the line is above the first message after it.
 - Unread counts no longer double after switching back to a workspace, or after the connection
   comes back: three new messages show as 3, not 6.
+- *Threads* names the channel of a thread in an archived channel or in a public channel you
+  left, instead of *Direct message*, and its name opens that channel. An archived channel's
+  thread takes no reply there. Before, the name opened a spinner, and the app went back to it
+  after switching workspaces.
+- A link or a remembered place that is no longer one of your conversations opens the
+  workspace instead of a spinner.
+- A thread whose first message is deleted while it is open says *This thread was deleted* when
+  it has no replies, instead of offering a reply that fails.
+- Scheduling a thread reply with *Also send to channel* ticked clears the box, so the next reply
+  goes to the thread only.
 
 ## [4.6.0] — 2026-11-10
 
