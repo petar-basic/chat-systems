@@ -2817,3 +2817,25 @@ the card; `MessageInput` takes `onScheduled`. Checked by hand: the three cards (
 archived), each name opening its place, a remembered dead conversation landing on #general, a
 new group DM opened at once staying put, a root deleted under an open panel, and the box after
 scheduling.
+
+### [CS-121h] Slash commands in every message box ✅ shipped
+Only `useComposer`, the channel composer, read commands, so a DM, a thread and a *Threads*
+card sent `/away` as a message, and their `MessageInput` had `slashCommands` off. The command
+branch became `useSlashCommand(channelId, threadParentId, instanceUrl)`, which the four share;
+the server already took any channel, and CS-121a already refuses what does not belong in a DM.
+`invoke` takes `thread_parent_id`, resolved to the root with `thread_root` so a reply stands for
+its thread and another channel's thread is a 422, and keeps it on `command_invocations`. A
+built-in `in_channel` answer and a registered one through `response_url` both post as a reply:
+`create_bot_reply_in` writes the bot message into the thread, counts it on the root and leaves
+the channel's unread alone, and the reply follows the thread as one from a person does. A
+registered command receives `thread_parent_id` in its payload, Slack's `thread_ts`, and the
+`command.response` frame carries it so the answer finds its way back to the thread. Answers
+were one value for the whole app, so a second command anywhere replaced the first one's; the
+store now keys them by place, and a pending one had no end: it now turns into *No answer from
+/x* when the response URL's 30 minutes run out, and on a reconnect, since the frame is live and
+lost while the socket is down.
+Checked by hand: `/` offering commands in a DM, the thread panel and a *Threads* card; `/away`
+in a DM answering only its caller with nothing sent to the other person; `/shrug` in a thread
+posting a reply there; a registered command answering a thread and its channel separately, an
+`in_channel` answer landing live in its card, and a reconnect turning the channel's wait into
+*No answer from /qaslow*.

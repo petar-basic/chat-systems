@@ -28,7 +28,7 @@ import {
   CreateChannelModal,
 } from '@/features/channel';
 import { canAddChannelMembers, creatableChannelKinds } from '@/lib/channelPermissions';
-import { MessageList, MessageInput } from '@/features/messaging';
+import { CommandAnswer, MessageList, MessageInput } from '@/features/messaging';
 import ConversationView from '@/features/messaging/ConversationView';
 import { AllUnreadsView } from '@/features/unreads';
 import { ThreadsView } from '@/features/threads';
@@ -328,29 +328,7 @@ export default function WorkspacePage() {
                 )}
               </div>
 
-              {c.ephemeral && (
-                <div
-                  data-qa="command-response"
-                  data-pending={c.ephemeralPending || undefined}
-                  role="status"
-                  className="mx-4 mb-2 px-3 py-2 rounded-lg bg-surface/80 border border-line text-sm text-fg-dim flex items-start gap-2"
-                >
-                  <span
-                    className={`flex-1 whitespace-pre-wrap ${c.ephemeralPending ? 'italic animate-pulse' : ''}`}
-                  >
-                    {c.ephemeral}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={c.dismissEphemeral}
-                    aria-label="Dismiss"
-                    data-tooltip="Dismiss"
-                    className="text-subtle hover:text-fg transition cursor-pointer"
-                  >
-                    ×
-                  </button>
-                </div>
-              )}
+              <CommandAnswer text={c.ephemeral} pending={c.ephemeralPending} onDismiss={c.dismissEphemeral} />
 
               {currentChannel?.is_archived && (
                 <ChannelArchivedBar channel={currentChannel} canUnarchive={canModerate} />

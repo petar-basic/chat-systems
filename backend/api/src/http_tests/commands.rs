@@ -822,3 +822,149 @@ async fn a_400_or_a_500_is_an_answer_not_a_retry(pool: PgPool) {
         );
     }
 }
+
+async fn thread_in(c: &Commanded) -> Uuid {
+    let (status, root) = send(
+        &c.app,
+        "POST",
+        &format!("/api/channels/{}/messages", c.ch_id),
+        Some(&c.token),
+        Some(json!({ "content": "release plan" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{root:?}");
+    root["id"].as_str().expect("id").parse().expect("uuid")
+}
+
+async fn replies_to(c: &Commanded, root: Uuid) -> Vec<(String, bool)> {
+    sqlx::query_as(
+        "SELECT content, metadata ? 'bot' FROM messages WHERE thread_parent_id = $1 ORDER BY created_at",
+    )
+    .bind(root)
+    .fetch_all(&c.state.pool)
+    .await
+    .expect("replies")
+}
+
+async fn reply_count(c: &Commanded, root: Uuid) -> i32 {
+    sqlx::query_scalar("SELECT reply_count FROM messages WHERE id = $1")
+        .bind(root)
+        .fetch_one(&c.state.pool)
+        .await
+        .expect("reply count")
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_built_in_command_from_a_thread_answers_in_the_thread(pool: PgPool) {
+    let (url, _) = scripted_command_endpoint(vec![(200, "")]).await;
+    let c = commanded(pool, &url).await;
+    let root = thread_in(&c).await;
+
+    let (status, body) = send(
+        &c.app,
+        "POST",
+        &format!("/api/channels/{}/commands", c.ch_id),
+        Some(&c.token),
+        Some(json!({ "command": "shrug", "text": "oh well", "thread_parent_id": root })),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["response_type"], "in_channel");
+    assert_eq!(
+        replies_to(&c, root).await,
+        vec![("oh well ¯\\_(ツ)_/¯".to_string(), true)]
+    );
+    assert_eq!(reply_count(&c, root).await, 1);
+    assert!(
+        bot_messages(&c).await.len() == 1,
+        "the answer is the thread's reply, not a second message in the channel"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_registered_command_from_a_thread_is_told_the_thread_and_answers_in_it(pool: PgPool) {
+    let (url, calls) = scripted_command_endpoint(vec![(200, "")]).await;
+    let c = commanded(pool, &url).await;
+    let root = thread_in(&c).await;
+    let (status, reply) = send(
+        &c.app,
+        "POST",
+        &format!("/api/channels/{}/messages", c.ch_id),
+        Some(&c.token),
+        Some(json!({ "content": "a reply", "thread_parent_id": root })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{reply:?}");
+
+    let (status, body) = send(
+        &c.app,
+        "POST",
+        &format!("/api/channels/{}/commands", c.ch_id),
+        Some(&c.token),
+        Some(json!({ "command": "deploy", "text": "prod", "thread_parent_id": reply["id"] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(
+        calls.lock().expect("calls")[0].1["thread_parent_id"],
+        json!(root),
+        "a reply's id names its thread's root"
+    );
+
+    let mut events = command_events().await;
+    assert_eq!(
+        answer_later(
+            &c,
+            &response_url_of(&calls),
+            json!({ "text": "deploying", "response_type": "in_channel" })
+        )
+        .await,
+        StatusCode::OK
+    );
+    assert_eq!(
+        replies_to(&c, root).await,
+        vec![
+            ("a reply".to_string(), false),
+            ("deploying".to_string(), true)
+        ]
+    );
+    assert_eq!(reply_count(&c, root).await, 2);
+    let told = answer_for(&mut events, c.caller)
+        .await
+        .expect("the caller hears the answer landed");
+    assert_eq!(told["thread_parent_id"], json!(root));
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_command_cannot_name_a_thread_of_another_channel(pool: PgPool) {
+    let (url, _) = scripted_command_endpoint(vec![(200, "")]).await;
+    let c = commanded(pool, &url).await;
+    let elsewhere: Uuid = sqlx::query_scalar(
+        "SELECT id FROM channels WHERE name = 'general' AND workspace_id = (SELECT workspace_id FROM channels WHERE id = $1)",
+    )
+    .bind(c.ch_id)
+    .fetch_one(&c.state.pool)
+    .await
+    .expect("the workspace's #general");
+    let (status, root) = send(
+        &c.app,
+        "POST",
+        &format!("/api/channels/{elsewhere}/messages"),
+        Some(&c.token),
+        Some(json!({ "content": "over there" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{root:?}");
+
+    let (status, _) = send(
+        &c.app,
+        "POST",
+        &format!("/api/channels/{}/commands", c.ch_id),
+        Some(&c.token),
+        Some(json!({ "command": "shrug", "thread_parent_id": root["id"] })),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+}

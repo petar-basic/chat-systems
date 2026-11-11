@@ -5277,6 +5277,8 @@ export interface components {
         InvokeRequest: {
             command: string;
             text?: string;
+            /** Format: uuid */
+            thread_parent_id?: string | null;
         };
         KeywordList: {
             keywords: string[];

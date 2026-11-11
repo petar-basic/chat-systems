@@ -21,6 +21,8 @@ import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import { OffHoursNote } from './OffHoursNote';
 import { asAttachments, useComposerAttachments } from './useComposerAttachments';
+import { useSlashCommand } from './hooks/useSlashCommand';
+import { CommandAnswer } from './CommandAnswer';
 
 interface Props {
   workspaceId: string;
@@ -75,8 +77,10 @@ export default function ConversationView({
   const sendMutation = useSendMessage(conversation.id, currentUserId);
   const { signalTyping, stopTyping } = useTypingSignal(typingTargetOf(conversation.id), instanceUrl);
   const attachments = useComposerAttachments({ workspaceId, instanceUrl, resetKey: conversation.id });
+  const command = useSlashCommand(conversation.id, undefined, instanceUrl);
   const handleSend = async (content: string) => {
     stopTyping();
+    if (await command.run(content)) return;
     sendMutation.mutate({ content, id: crypto.randomUUID(), attachments: asAttachments(attachments.take()) });
   };
 
@@ -196,6 +200,8 @@ export default function ConversationView({
           </div>
         )}
 
+        <CommandAnswer text={command.answer} pending={command.pending} onDismiss={command.dismiss} />
+
         {!gone && (
           <MessageInput
             key={`conversation:${conversation.id}`}
@@ -209,6 +215,7 @@ export default function ConversationView({
             onTyping={signalTyping}
             scheduleTarget={{ channelId: conversation.id }}
             pollTarget={{ channelId: conversation.id, instanceUrl }}
+            slashCommands
             workspaceId={workspaceId}
             instanceUrl={instanceUrl}
           />

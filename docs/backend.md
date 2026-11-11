@@ -564,7 +564,7 @@ Built-in commands run before any registered one and never leave the instance: `/
 `/dnd`, `/topic`, `/invite`, `/shrug` and `/remind`. `/topic` and `/invite` run what
 `PATCH /channels/:ch_id` and `POST /channels/:ch_id/members` run, checks and audit row
 included; `/topic` answers with an empty `in_channel`, since the topic message is the answer.
-An `in_channel` answer where the caller may not post comes back ephemeral. `/away` switches `manual_away` on or off. `/remind` understands `me in 30m to ship`,
+An `in_channel` answer where the caller may not post comes back ephemeral, and one from a thread is a reply in that thread. `/away` switches `manual_away` on or off. `/remind` understands `me in 30m to ship`,
 `me at 15:00 to call back` and `me tomorrow at 9am standup`; clock times are resolved in the
 caller's own timezone and a time already past means tomorrow. Reminding somebody else needs
 workspace admin, the same rule `POST /workspaces/:ws_id/later` applies. A reminder lands in the person's *Later* list.
@@ -606,21 +606,23 @@ notification about it is titled with the bot's name.
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/commands` | — | `{ data: CommandInfo[] }` — built-in and registered commands the caller can run |
-| POST | `/channels/:ch_id/commands` | `{ command, text }` | `CommandResponse` — `{ response_type: "ephemeral" \| "in_channel" \| "pending", text }` |
+| POST | `/channels/:ch_id/commands` | `{ command, text, thread_parent_id? }` | `CommandResponse` — `{ response_type: "ephemeral" \| "in_channel" \| "pending", text }`; `thread_parent_id` runs it from that thread of the channel, a reply standing for its root (422 for a thread of another channel) |
 | POST | `/commands/responses/:token` | `{ text, response_type?, replace_original? }` | `{ status: "ok" }` — authenticated by the token in the URL, not a session |
 
 A registered command is a `slash_command` hook whose `config.url` receives a signed POST
 (`X-ChatSystems-Signature`, the outgoing-webhook HMAC) with `{ command, text, channel_id,
-workspace_id, user_id, request_id, response_url }` and the header `X-Chat-Request-Id` equal to
+thread_parent_id, workspace_id, user_id, request_id, response_url }`, `thread_parent_id` being
+the thread it was typed in or null, as Slack's `thread_ts`, and the header `X-Chat-Request-Id` equal to
 `request_id`. The app has three seconds. A body of `{ text, response_type }` is the answer
 there and then; an empty 2xx body acknowledges, and the caller sees */deploy is working on it…*
 until the app answers through `response_url`. That URL takes up to five answers within 30
 minutes (`command_invocations.uses_left`, `expires_at`); after that, or with a forged token, it
 is a 404. It is `{PUBLIC_URL}/api/commands/responses/{id}.{mac}`, the mac an HMAC of the
 invocation id under the `command-responses` key of `SECRETS_KEYS`, so the token itself is never
-stored. `in_channel` posts a bot message as the caller, if they may post there, and
+stored. `in_channel` posts a bot message as the caller, if they may post there, as a reply when
+the command came from a thread (`command_invocations.thread_parent_id`), and
 `replace_original` edits the one the invocation posted before; `ephemeral` (the default) goes
-as a `command.response` frame to the caller's sockets only. An answer still needs the caller to
+as a `command.response` frame, carrying `thread_parent_id`, to the caller's sockets only. An answer still needs the caller to
 read the channel and the hook to be on (403 otherwise).
 
 A connection error, a timeout or a 502–504 is retried by the worker's `command_retrier` after 2

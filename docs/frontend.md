@@ -171,7 +171,7 @@ at once.
 - **`features/workspace/hooks/useWorkspaceController`** — composes the page's hooks and
   returns one object the view consumes: `useWorkspaceData` (queries, store hydration,
   socket joins), `useWorkspaceRouting` (URL↔store sync), `useComposer` (send, slash
-  commands, uploads, typing) and `useMessageActions` (save, forward). `noWorkspaces` is
+  commands through `useSlashCommand`, uploads, typing) and `useMessageActions` (save, forward). `noWorkspaces` is
   true once both workspace lists have loaded empty: routing then moves a workspace url to
   `/app`, and the page says *You're not in a workspace yet* instead of waiting on channels
   that will never load.
@@ -297,6 +297,16 @@ Given a `pollTarget` (the channel, DM or thread it writes to), it has a poll but
 paperclip and reads `/poll` before sending: `/poll` alone opens `PollDialog`,
 `/poll "Q" "A" "B"` creates the poll straight away (`parsePollCommand` in
 `features/polls/pollCommand.ts`), and a malformed one is a toast, not a message.
+
+With `slashCommands` on, which the channel, DM and thread composers and each Threads card all
+set, a `/` at the start offers the workspace's commands. `useSlashCommand(channelId,
+threadParentId, instanceUrl)` is the command branch they share: it runs the command instead of
+sending it, from a thread with that thread's id, and `CommandAnswer` shows the answer above the
+composer. Answers live in `useCommandAnswerStore`, one per place (`answerPlace`: the channel or
+DM id, or `thread:{root}`), so a second command elsewhere does not replace the first one's
+answer. A final answer goes away after ten seconds. A pending one turns into *No answer from
+/x* once the response URL's 30 minutes are up, and on any reconnect, since a `command.response`
+frame sent while the socket was down is lost.
 
 ---
 

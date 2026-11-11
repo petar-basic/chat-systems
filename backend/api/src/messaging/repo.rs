@@ -178,22 +178,50 @@ impl MessageRepo {
         metadata: &serde_json::Value,
         mentioned: &[Uuid],
     ) -> sqlx::Result<Message> {
+        self.create_bot_reply_in(
+            conn, channel_id, None, posted_by, content, metadata, mentioned,
+        )
+        .await
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn create_bot_reply_in(
+        &self,
+        conn: &mut PgConnection,
+        channel_id: Uuid,
+        thread_parent_id: Option<Uuid>,
+        posted_by: Uuid,
+        content: &str,
+        metadata: &serde_json::Value,
+        mentioned: &[Uuid],
+    ) -> sqlx::Result<Message> {
         let msg = sqlx::query_as!(
             Message,
             r#"
-            INSERT INTO messages (channel_id, user_id, content, metadata)
-            VALUES ($1, $2, $3, $4::jsonb)
+            INSERT INTO messages (channel_id, user_id, content, metadata, thread_parent_id)
+            VALUES ($1, $2, $3, $4::jsonb, $5)
             RETURNING id, channel_id, user_id, client_message_id, content, metadata AS "metadata!", thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at
             "#,
             channel_id,
             posted_by,
             content,
-            metadata
+            metadata,
+            thread_parent_id
         )
         .fetch_one(&mut *conn)
         .await?;
 
-        bump_unread(conn, channel_id, posted_by, mentioned).await?;
+        match thread_parent_id {
+            Some(parent_id) => {
+                sqlx::query!(
+                    "UPDATE messages SET reply_count = reply_count + 1 WHERE id = $1",
+                    parent_id
+                )
+                .execute(&mut *conn)
+                .await?;
+            }
+            None => bump_unread(conn, channel_id, posted_by, mentioned).await?,
+        }
 
         Ok(msg)
     }

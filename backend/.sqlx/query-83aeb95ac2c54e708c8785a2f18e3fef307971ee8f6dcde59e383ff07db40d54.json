@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO command_invocations\n                 (id, hook_id, workspace_id, channel_id, user_id, command, payload, uses_left, expires_at,\n                  thread_parent_id)\n             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW() + make_interval(secs => $9), $10)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Jsonb",
+        "Int4",
+        "Float8",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "83aeb95ac2c54e708c8785a2f18e3fef307971ee8f6dcde59e383ff07db40d54"
+}

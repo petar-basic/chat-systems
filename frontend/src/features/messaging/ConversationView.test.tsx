@@ -1,15 +1,31 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import i18n from '@/lib/i18n';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
+import { useCommandAnswerStore } from '@/stores/commandAnswer';
 import type { WorkspaceMember } from '@/stores/workspace';
 import type { Conversation } from '@/features/messaging/hooks/useConversations';
 import ConversationView from './ConversationView';
 
+const view = vi.hoisted(() => ({
+  composer: {} as Record<string, unknown>,
+  send: vi.fn(),
+  runCommand: vi.fn(),
+}));
+
+vi.mock('@/lib/slashCommands', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/slashCommands')>()),
+  runCommand: view.runCommand,
+}));
 vi.mock('./MessageList', () => ({ default: () => <div data-qa="feed" /> }));
-vi.mock('./MessageInput', () => ({ default: () => <div aria-label="composer" role="textbox" /> }));
+vi.mock('./MessageInput', () => ({
+  default: (props: Record<string, unknown>) => {
+    view.composer = props;
+    return <div aria-label="composer" role="textbox" />;
+  },
+}));
 vi.mock('./OffHoursNote', () => ({ OffHoursNote: () => null }));
 vi.mock('@/features/messaging/TypingIndicator', () => ({ default: () => null }));
-vi.mock('@/features/messaging/hooks/useMessages', () => ({ useSendMessage: () => ({ mutate: vi.fn() }) }));
+vi.mock('@/features/messaging/hooks/useMessages', () => ({ useSendMessage: () => ({ mutate: view.send }) }));
 vi.mock('./useComposerAttachments', () => ({
   useComposerAttachments: () => ({ add: vi.fn(), take: () => [] }),
   asAttachments: () => [],
@@ -118,6 +134,48 @@ describe('ConversationView', () => {
 
     expect(screen.queryByTestId('conversation-departed')).not.toBeInTheDocument();
     expect(screen.getByLabelText('composer')).toBeInTheDocument();
+  });
+});
+
+describe('a command typed in a conversation', () => {
+  const typed = (content: string) =>
+    act(() => (view.composer.onSend as (c: string) => Promise<void>)(content));
+
+  beforeEach(() => {
+    view.send.mockReset();
+    view.runCommand.mockReset();
+    useCommandAnswerStore.setState({ answers: {} });
+  });
+
+  it('runs instead of being sent, and answers only here', async () => {
+    view.runCommand.mockResolvedValue({ response_type: 'ephemeral', text: 'You are away' });
+    renderView(conversation({ participant_ids: ['me', 'ana'], departed: [] }));
+    expect(view.composer.slashCommands).toBe(true);
+
+    await typed('/away');
+
+    expect(view.runCommand).toHaveBeenCalledWith('conv-1', '/away', 'https://chat.example', undefined);
+    expect(view.send).not.toHaveBeenCalled();
+    expect(screen.getByTestId('command-response')).toHaveTextContent('You are away');
+  });
+
+  it('keeps an unknown command in the composer and says so', async () => {
+    view.runCommand.mockResolvedValue(null);
+    renderView(conversation({ participant_ids: ['me', 'ana'], departed: [] }));
+
+    await expect(typed('/nosuch thing')).rejects.toThrow();
+
+    expect(view.send).not.toHaveBeenCalled();
+    expect(await screen.findByTestId('command-response')).toHaveTextContent('/nosuch is not a command here');
+  });
+
+  it('sends a message that is not a command', async () => {
+    renderView(conversation({ participant_ids: ['me', 'ana'], departed: [] }));
+
+    await typed('hello');
+
+    expect(view.runCommand).not.toHaveBeenCalled();
+    expect(view.send).toHaveBeenCalledWith(expect.objectContaining({ content: 'hello' }));
   });
 });
 

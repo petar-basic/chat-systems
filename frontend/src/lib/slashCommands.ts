@@ -29,6 +29,7 @@ export async function runCommand(
   channelId: string,
   content: string,
   instanceUrl?: string,
+  threadParentId?: string,
 ): Promise<CommandResult | null> {
   const parsed = parseCommand(content);
   if (!parsed) return null;
@@ -36,10 +37,13 @@ export async function runCommand(
   const client = getApiForInstance(instanceUrl);
   try {
     return await client.typed((c) =>
-      c.POST('/channels/{ch_id}/commands', { params: { path: { ch_id: channelId } }, body: parsed }),
+      c.POST('/channels/{ch_id}/commands', {
+        params: { path: { ch_id: channelId } },
+        body: { ...parsed, thread_parent_id: threadParentId ?? null },
+      }),
     );
   } catch (e) {
-    if (e instanceof ApiError && e.status === 404) return null;
+    if (e instanceof ApiError && e.status === 404 && e.message === 'unknown_command') return null;
     throw e;
   }
 }

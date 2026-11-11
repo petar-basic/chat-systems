@@ -16575,6 +16575,13 @@
           },
           "text": {
             "type": "string"
+          },
+          "thread_parent_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
           }
         }
       },
