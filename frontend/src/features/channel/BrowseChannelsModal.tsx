@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/shared/components/Button/Button';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { Select } from '@/shared/components/Form/Select';
@@ -45,6 +46,7 @@ function ChannelRow({
   onLeave: () => void;
   onOpen: () => void;
 }) {
+  const { t } = useTranslation('channel');
   const about = channel.topic || channel.description;
   const Icon = channel.is_archived ? Archive : channel.channel_type === 'private' ? Lock : Hash;
   const opens = channel.is_member || channel.is_archived;
@@ -63,22 +65,26 @@ function ChannelRow({
       >
         <Icon className="h-4 w-4 shrink-0 text-muted" />
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium text-fg-soft">{channel.name || 'Channel'}</span>
+          <span className="block truncate text-sm font-medium text-fg-soft">
+            {channel.name || t('browse.fallbackName')}
+          </span>
           <span className="block truncate text-xs text-muted">
             {channel.is_archived ? (
               <span data-qa="browse-channel-archived">
-                {channel.channel_type === 'private' ? 'Archived private channel · ' : 'Archived · '}
+                {channel.channel_type === 'private' ? t('browse.archivedPrivate') : t('browse.archived')}
+                {t('browse.separator')}
               </span>
             ) : (
               channel.is_member && (
                 <span className="text-success">
                   <Check className="mr-0.5 inline h-3 w-3 align-[-2px]" />
-                  Joined ·{' '}
+                  {t('browse.joined')}
+                  {t('browse.separator')}
                 </span>
               )
             )}
-            {channel.member_count} {channel.member_count === 1 ? 'member' : 'members'}
-            {about ? ` · ${about}` : ''}
+            {t('browse.members', { count: channel.member_count })}
+            {about ? `${t('browse.separator')}${about}` : ''}
           </span>
         </span>
       </button>
@@ -88,10 +94,12 @@ function ChannelRow({
           onClick={channel.is_member ? onLeave : onJoin}
           disabled={busy}
           data-qa={channel.is_member ? 'browse-channel-leave' : 'browse-channel-join'}
-          aria-label={`${channel.is_member ? 'Leave' : 'Join'} ${channel.name || 'channel'}`}
+          aria-label={t(channel.is_member ? 'browse.leaveNamed' : 'browse.joinNamed', {
+            name: channel.name || t('browse.fallbackLabel'),
+          })}
           className="shrink-0 transition-opacity [@media(hover:hover)]:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
         >
-          {channel.is_member ? 'Leave' : 'Join'}
+          {channel.is_member ? t('browse.leave') : t('browse.join')}
         </Button>
       )}
     </div>
@@ -106,6 +114,7 @@ export default function BrowseChannelsModal({
   onOpenChannel,
   onCreateChannel,
 }: Props) {
+  const { t } = useTranslation('channel');
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortKey>('name');
   const [error, setError] = useState<string | null>(null);
@@ -133,7 +142,7 @@ export default function BrowseChannelsModal({
       onOpenChannel(channelId);
       onClose();
     } catch (err: unknown) {
-      setError(toUserMessage(err, 'Failed to join the channel'));
+      setError(toUserMessage(err, t('browse.joinFailed')));
     }
   };
 
@@ -143,7 +152,7 @@ export default function BrowseChannelsModal({
     try {
       await leave.mutateAsync(channelId);
     } catch (err: unknown) {
-      setError(toUserMessage(err, 'Failed to leave the channel'));
+      setError(toUserMessage(err, t('browse.leaveFailed')));
     }
   };
 
@@ -151,7 +160,7 @@ export default function BrowseChannelsModal({
 
   return (
     <Modal
-      title="Browse channels"
+      title={t('browse.title')}
       onClose={onClose}
       dataQa="browse-channels-modal"
       size="lg"
@@ -163,7 +172,7 @@ export default function BrowseChannelsModal({
             onClick={onCreateChannel}
             data-qa="browse-channels-create"
           >
-            Create channel
+            {t('browse.create')}
           </Button>
         )
       }
@@ -171,31 +180,31 @@ export default function BrowseChannelsModal({
       <div className="sticky top-0 z-10 -mx-6 -mt-1 bg-surface px-6 pt-1 pb-3">
         <div className="flex gap-2">
           <TextInput
-            label="Search channels"
+            label={t('browse.search')}
             labelHidden
             leading={<Search className="h-4 w-4" />}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search channels…"
+            placeholder={t('browse.searchPlaceholder')}
             dataQa="browse-channels-search"
             className="flex-1"
           />
           <Select
-            label="Sort channels"
+            label={t('browse.sort')}
             labelHidden
             value={sort}
             onChange={(e) => setSort(e.target.value as SortKey)}
             dataQa="browse-channels-sort"
             className="w-40"
           >
-            <option value="name">Name (A–Z)</option>
-            <option value="members">Most members</option>
-            <option value="newest">Newest</option>
+            <option value="name">{t('browse.byName')}</option>
+            <option value="members">{t('browse.byMembers')}</option>
+            <option value="newest">{t('browse.newest')}</option>
           </Select>
         </div>
         {!isLoading && !isError && (
           <p className="mt-3 text-xs text-muted" data-qa="browse-channels-count" aria-live="polite">
-            {matches.length} {matches.length === 1 ? 'channel' : 'channels'}
+            {t('browse.count', { count: matches.length })}
           </p>
         )}
         {error && (
@@ -211,10 +220,10 @@ export default function BrowseChannelsModal({
             <Spinner />
           </div>
         ) : isError ? (
-          <div className="text-center py-8 text-sm text-danger">Failed to load channels</div>
+          <div className="text-center py-8 text-sm text-danger">{t('browse.loadFailed')}</div>
         ) : matches.length === 0 ? (
           <div className="text-center py-8 text-sm text-muted" data-qa="browse-channels-empty">
-            No channels found
+            {t('browse.empty')}
           </div>
         ) : (
           matches.map((channel) => (

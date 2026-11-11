@@ -103,5 +103,101 @@
         "off": "オフ ・ 作成: {{name}} さん"
       }
     }
+  },
+  "archived": {
+    "text": "<name>#{{name}}</name> はアーカイブされています。過去の履歴は閲覧できますが、新しい投稿はできません。",
+    "unarchive": "アーカイブを解除",
+    "unarchiveFailed": "アーカイブを解除できませんでした。"
+  },
+  "preview": {
+    "text": "<name>#{{name}}</name> を閲覧中です。投稿するには、チャンネルに参加してください。",
+    "join": "チャンネルに参加",
+    "joinFailed": "チャンネルに参加できませんでした。"
+  },
+  "intro": {
+    "title": "#{{name}} の始まりです",
+    "defaultPurpose": "ワークスペースの全員が参加しています。お知らせや、チーム全員に見てほしい内容に使いましょう。",
+    "noPurpose": "このチャンネルの目的はまだ書かれていません。ここに投稿できる人なら誰でも、チャンネル詳細で説明を追加できます。",
+    "addPeople": "メンバーを追加",
+    "addBookmark": "ブックマークを追加"
+  },
+  "browse": {
+    "title": "チャンネルを探す",
+    "create": "チャンネルを作成",
+    "search": "チャンネルを検索",
+    "searchPlaceholder": "チャンネルを検索…",
+    "sort": "チャンネルの並べ替え",
+    "byName": "名前順",
+    "byMembers": "メンバーが多い順",
+    "newest": "新しい順",
+    "count_other": "チャンネル {{count}} 件",
+    "loadFailed": "チャンネルを読み込めませんでした",
+    "empty": "チャンネルが見つかりません",
+    "fallbackName": "チャンネル",
+    "fallbackLabel": "チャンネル",
+    "separator": " ・ ",
+    "archived": "アーカイブ済み",
+    "archivedPrivate": "アーカイブ済みのプライベートチャンネル",
+    "joined": "参加中",
+    "members_other": "メンバー {{count}} 人",
+    "join": "参加",
+    "leave": "退出",
+    "joinNamed": "{{name}} に参加",
+    "leaveNamed": "{{name}} から退出",
+    "joinFailed": "チャンネルに参加できませんでした。",
+    "leaveFailed": "チャンネルから退出できませんでした。"
+  },
+  "files": {
+    "tabs": {
+      "all": "すべて",
+      "image": "画像",
+      "video": "動画",
+      "audio": "音声",
+      "document": "文書"
+    },
+    "filterLabel": "ファイル名で絞り込む",
+    "filterPlaceholder": "ファイル名で絞り込む",
+    "loading": "読み込み中…",
+    "failed": "ファイルを読み込めませんでした。",
+    "noMatch": "「{{name}}」に一致するファイルはありません",
+    "empty": "まだ何も共有されていません",
+    "loadMore": "さらに読み込む",
+    "showInConversation": "会話で表示",
+    "download": "{{name}} をダウンロード"
+  },
+  "pins": {
+    "empty": "ピン留めしたメッセージはまだありません",
+    "hint": "大事なメッセージをピン留めしておくと、あとで見つけやすくなります"
+  },
+  "members": {
+    "title": "{{name}} のメンバー",
+    "close": "メンバー一覧を閉じる",
+    "count": "メンバー（{{total}}）",
+    "you": "（自分）",
+    "roleAdmin": "チャンネル管理者",
+    "roleMember": "メンバー",
+    "promoteNamed": "{{name}} さんをチャンネル管理者にする",
+    "promote": "チャンネル管理者にする",
+    "demoteNamed": "{{name}} さんをチャンネル管理者から外す",
+    "demote": "チャンネル管理者から外す",
+    "leave": "チャンネルから退出",
+    "removeNamed": "{{name}} さんをチャンネルから外す",
+    "remove": "チャンネルから外す",
+    "add": "メンバーを追加",
+    "addTo": "チャンネルに追加",
+    "everyoneIn": "ワークスペースの全員が、すでにこのチャンネルに参加しています。",
+    "addFailed": "メンバーを追加できませんでした",
+    "removeFailed": "メンバーを外せませんでした"
+  },
+  "bookmarks": {
+    "add": "ブックマークを追加",
+    "labelLabel": "ブックマーク名",
+    "labelPlaceholder": "名前",
+    "link": "ブックマークのリンク",
+    "save": "追加",
+    "cancel": "キャンセル",
+    "needs": "名前とリンクの両方を入力してください",
+    "failed": "ブックマークを追加できませんでした",
+    "remove": "ブックマーク「{{name}}」を削除"
   }
 }

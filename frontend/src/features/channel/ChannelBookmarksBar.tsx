@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/shared/components/Button/Button';
 import { toUserMessage } from '@/lib/errors';
 import { Plus, X, ExternalLink } from 'lucide-react';
@@ -29,6 +30,7 @@ export default function ChannelBookmarksBar({
   adding,
   onAddingChange,
 }: Props) {
+  const { t } = useTranslation('channel');
   const { data: bookmarks = [] } = useChannelBookmarks(channelId, instanceUrl);
   const { canModerate: moderates } = useChannelModeration(channelId);
   const archived = useChannelArchived(channelId);
@@ -44,7 +46,7 @@ export default function ChannelBookmarksBar({
     const trimmedLabel = label.trim();
     const trimmedUrl = url.trim();
     if (!trimmedLabel || !trimmedUrl) {
-      setError('A bookmark needs a label and a link');
+      setError(t('bookmarks.needs'));
       return;
     }
     setError(null);
@@ -54,7 +56,7 @@ export default function ChannelBookmarksBar({
       setUrl('');
       onAddingChange(false);
     } catch (err) {
-      setError(toUserMessage(err, 'Failed to add that bookmark'));
+      setError(toUserMessage(err, t('bookmarks.failed')));
     }
   };
 
@@ -88,8 +90,8 @@ export default function ChannelBookmarksBar({
           {canModerate && (
             <button
               onClick={() => deleteBookmark.mutate(bookmark.id)}
-              aria-label={`Remove bookmark ${bookmark.label}`}
-              data-tooltip={`Remove bookmark ${bookmark.label}`}
+              aria-label={t('bookmarks.remove', { name: bookmark.label })}
+              data-tooltip={t('bookmarks.remove', { name: bookmark.label })}
               data-qa="channel-bookmark-remove"
               className="p-0.5 rounded text-subtle hover:text-danger transition cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100"
             >
@@ -106,25 +108,25 @@ export default function ChannelBookmarksBar({
           className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs text-muted hover:text-fg hover:bg-raised/50 transition cursor-pointer"
         >
           <Plus className="w-3 h-3" />
-          Add a bookmark
+          {t('bookmarks.add')}
         </button>
       )}
 
       {adding && (
         <div className="flex items-center gap-1.5 flex-wrap">
           <TextInput
-            label="Bookmark label"
+            label={t('bookmarks.labelLabel')}
             labelHidden
             compact
             autoFocus
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            placeholder="Label"
+            placeholder={t('bookmarks.labelPlaceholder')}
             dataQa="channel-bookmark-label"
             className="w-32"
           />
           <TextInput
-            label="Bookmark link"
+            label={t('bookmarks.link')}
             labelHidden
             compact
             type="url"
@@ -141,7 +143,7 @@ export default function ChannelBookmarksBar({
             disabled={createBookmark.isPending}
             data-qa="channel-bookmark-save"
           >
-            Add
+            {t('bookmarks.save')}
           </Button>
           <button
             onClick={() => {
@@ -150,7 +152,7 @@ export default function ChannelBookmarksBar({
             }}
             className="px-2 py-1 text-xs text-muted hover:text-fg transition cursor-pointer"
           >
-            Cancel
+            {t('bookmarks.cancel')}
           </button>
           {error && (
             <span className="text-2xs text-danger" data-qa="channel-bookmark-error">

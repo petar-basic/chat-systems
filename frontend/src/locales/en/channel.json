@@ -105,5 +105,103 @@
         "off": "Off · built by {{name}}"
       }
     }
+  },
+  "archived": {
+    "text": "<name>#{{name}}</name> is archived. Its history stays readable, and nothing new can be posted.",
+    "unarchive": "Unarchive",
+    "unarchiveFailed": "Failed to unarchive the channel"
+  },
+  "preview": {
+    "text": "You are viewing <name>#{{name}}</name>. Join to post here.",
+    "join": "Join channel",
+    "joinFailed": "Failed to join the channel"
+  },
+  "intro": {
+    "title": "This is the very beginning of #{{name}}",
+    "defaultPurpose": "Everyone in the workspace is here. Use it for announcements and for anything the whole team should see.",
+    "noPurpose": "Nobody has said what this channel is for yet. Anyone who posts here can add one in the channel details.",
+    "addPeople": "Add people",
+    "addBookmark": "Add a bookmark"
+  },
+  "browse": {
+    "title": "Browse channels",
+    "create": "Create channel",
+    "search": "Search channels",
+    "searchPlaceholder": "Search channels…",
+    "sort": "Sort channels",
+    "byName": "Name (A–Z)",
+    "byMembers": "Most members",
+    "newest": "Newest",
+    "count_one": "{{count}} channel",
+    "count_other": "{{count}} channels",
+    "loadFailed": "Failed to load channels",
+    "empty": "No channels found",
+    "fallbackName": "Channel",
+    "fallbackLabel": "channel",
+    "separator": " · ",
+    "archived": "Archived",
+    "archivedPrivate": "Archived private channel",
+    "joined": "Joined",
+    "members_one": "{{count}} member",
+    "members_other": "{{count}} members",
+    "join": "Join",
+    "leave": "Leave",
+    "joinNamed": "Join {{name}}",
+    "leaveNamed": "Leave {{name}}",
+    "joinFailed": "Failed to join the channel",
+    "leaveFailed": "Failed to leave the channel"
+  },
+  "files": {
+    "tabs": {
+      "all": "All",
+      "image": "Images",
+      "video": "Videos",
+      "audio": "Audio",
+      "document": "Documents"
+    },
+    "filterLabel": "Filter files by name",
+    "filterPlaceholder": "Filter by name",
+    "loading": "Loading…",
+    "failed": "Couldn't load the files.",
+    "noMatch": "No files named like “{{name}}”",
+    "empty": "Nothing shared here yet",
+    "loadMore": "Load more",
+    "showInConversation": "Show in conversation",
+    "download": "Download {{name}}"
+  },
+  "pins": {
+    "empty": "No pinned messages yet",
+    "hint": "Pin important messages to find them later"
+  },
+  "members": {
+    "title": "{{name}} members",
+    "close": "Close members",
+    "count": "Members ({{total}})",
+    "you": " (you)",
+    "roleAdmin": "Channel admin",
+    "roleMember": "Member",
+    "promoteNamed": "Make {{name}} a channel admin",
+    "promote": "Make channel admin",
+    "demoteNamed": "Remove channel admin from {{name}}",
+    "demote": "Remove channel admin",
+    "leave": "Leave channel",
+    "removeNamed": "Remove {{name}} from channel",
+    "remove": "Remove from channel",
+    "add": "Add member",
+    "addTo": "Add to channel",
+    "everyoneIn": "Everyone in the workspace is already in this channel.",
+    "addFailed": "Failed to add member",
+    "removeFailed": "Failed to remove member"
+  },
+  "bookmarks": {
+    "add": "Add a bookmark",
+    "labelLabel": "Bookmark label",
+    "labelPlaceholder": "Label",
+    "link": "Bookmark link",
+    "save": "Add",
+    "cancel": "Cancel",
+    "needs": "A bookmark needs a label and a link",
+    "failed": "Failed to add that bookmark",
+    "remove": "Remove bookmark {{name}}"
   }
 }

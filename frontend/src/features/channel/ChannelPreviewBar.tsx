@@ -1,4 +1,6 @@
 import { Hash } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Trans } from '@/shared/components/Trans/Trans';
 import { Button } from '@/shared/components/Button/Button';
 import { toast } from '@/shared/components/Toast';
 import { toUserMessage } from '@/lib/errors';
@@ -11,10 +13,11 @@ interface Props {
 }
 
 export function ChannelPreviewBar({ channel, instanceUrl }: Props) {
+  const { t } = useTranslation('channel');
   const join = useJoinChannel(channel.workspace_id, instanceUrl);
   const onJoin = () =>
     join.mutate(channel.id, {
-      onError: (err) => toast.error(toUserMessage(err, 'Failed to join the channel')),
+      onError: (err) => toast.error(toUserMessage(err, t('preview.joinFailed'))),
     });
 
   return (
@@ -24,8 +27,12 @@ export function ChannelPreviewBar({ channel, instanceUrl }: Props) {
     >
       <Hash className="w-4 h-4 shrink-0" />
       <span className="flex-1 min-w-0">
-        You are viewing <span className="font-semibold text-fg-soft">#{channel.name}</span>. Join to post
-        here.
+        <Trans
+          t={t}
+          i18nKey="preview.text"
+          values={{ name: channel.name }}
+          components={{ name: <span className="font-semibold text-fg-soft" /> }}
+        />
       </span>
       <Button
         variant="primary"
@@ -34,7 +41,7 @@ export function ChannelPreviewBar({ channel, instanceUrl }: Props) {
         onClick={onJoin}
         data-qa="channel-preview-join"
       >
-        Join channel
+        {t('preview.join')}
       </Button>
     </div>
   );

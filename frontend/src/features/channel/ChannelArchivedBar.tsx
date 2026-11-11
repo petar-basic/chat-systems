@@ -1,4 +1,6 @@
 import { Archive } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Trans } from '@/shared/components/Trans/Trans';
 import { Button } from '@/shared/components/Button/Button';
 import { toast } from '@/shared/components/Toast';
 import { toUserMessage } from '@/lib/errors';
@@ -11,10 +13,11 @@ interface Props {
 }
 
 export function ChannelArchivedBar({ channel, canUnarchive }: Props) {
+  const { t } = useTranslation('channel');
   const unarchive = useUnarchiveChannel(channel.workspace_id);
   const onUnarchive = () =>
     unarchive.mutate(channel.id, {
-      onError: (err) => toast.error(toUserMessage(err, 'Failed to unarchive the channel')),
+      onError: (err) => toast.error(toUserMessage(err, t('archived.unarchiveFailed'))),
     });
 
   return (
@@ -24,8 +27,12 @@ export function ChannelArchivedBar({ channel, canUnarchive }: Props) {
     >
       <Archive className="w-4 h-4 shrink-0" />
       <span className="flex-1 min-w-0">
-        <span className="font-semibold text-fg-soft">#{channel.name}</span> is archived. Its history stays
-        readable, and nothing new can be posted.
+        <Trans
+          t={t}
+          i18nKey="archived.text"
+          values={{ name: channel.name }}
+          components={{ name: <span className="font-semibold text-fg-soft" /> }}
+        />
       </span>
       {canUnarchive && (
         <Button
@@ -35,7 +42,7 @@ export function ChannelArchivedBar({ channel, canUnarchive }: Props) {
           onClick={onUnarchive}
           data-qa="channel-unarchive"
         >
-          Unarchive
+          {t('archived.unarchive')}
         </Button>
       )}
     </div>
