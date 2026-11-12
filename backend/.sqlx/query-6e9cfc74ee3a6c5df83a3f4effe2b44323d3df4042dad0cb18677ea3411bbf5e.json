@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, user_id, workspace_id, notification_type AS \"notification_type: NotificationType\",\n                   title, body, data AS \"data!\", is_read AS \"is_read!\", created_at\n              FROM notifications\n             WHERE user_id = $1 AND workspace_id = $2\n             ORDER BY created_at DESC\n             LIMIT $3 OFFSET $4\n            ",
+  "query": "\n            INSERT INTO notifications (user_id, workspace_id, notification_type, body, data)\n            VALUES ($1, $2, $3, $4, $5)\n            ON CONFLICT DO NOTHING\n            RETURNING id, user_id, workspace_id, notification_type AS \"notification_type: NotificationType\",\n                   body, data AS \"data!: Json<NotificationData>\", is_read AS \"is_read!\", created_at\n            ",
   "describe": {
     "columns": [
       {
@@ -66,17 +66,6 @@
       },
       {
         "ordinal": 4,
-        "name": "title",
-        "type_info": "Varchar",
-        "origin": {
-          "Table": {
-            "table": "notifications",
-            "name": "title"
-          }
-        }
-      },
-      {
-        "ordinal": 5,
         "name": "body",
         "type_info": "Text",
         "origin": {
@@ -87,8 +76,8 @@
         }
       },
       {
-        "ordinal": 6,
-        "name": "data!",
+        "ordinal": 5,
+        "name": "data!: Json<NotificationData>",
         "type_info": "Jsonb",
         "origin": {
           "Table": {
@@ -98,7 +87,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 6,
         "name": "is_read!",
         "type_info": "Bool",
         "origin": {
@@ -109,7 +98,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 7,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -124,12 +113,29 @@
       "Left": [
         "Uuid",
         "Uuid",
-        "Int8",
-        "Int8"
+        {
+          "Custom": {
+            "name": "notification_type",
+            "kind": {
+              "Enum": [
+                "mention",
+                "dm",
+                "reply",
+                "reaction",
+                "call",
+                "reminder",
+                "system",
+                "keyword",
+                "list"
+              ]
+            }
+          }
+        },
+        "Text",
+        "Jsonb"
       ]
     },
     "nullable": [
-      false,
       false,
       false,
       false,
@@ -140,5 +146,5 @@
       false
     ]
   },
-  "hash": "a099d9970bc8612e5ba7b054564870eefc980d52f8684927d645f1ce67273108"
+  "hash": "6e9cfc74ee3a6c5df83a3f4effe2b44323d3df4042dad0cb18677ea3411bbf5e"
 }

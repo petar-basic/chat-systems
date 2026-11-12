@@ -27,15 +27,73 @@ pub enum NotifyLevel {
     Nothing,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum SystemNotice {
+    WorkflowStopped,
+    AppRequested,
+    NotDelivered,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct NotificationData {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel_id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message_id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_parent_id: Option<Uuid>,
+    #[serde(default)]
+    pub in_channel: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub list_id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub item_id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sender_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub keyword: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub item_title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub list_title: Option<String>,
+    #[serde(default)]
+    pub assigned: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub huddle_id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub from_user_id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notice: Option<SystemNotice>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workflow_id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workflow_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stopped: Option<crate::authz::Stopped>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub app_request: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requested_by: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scheduled_message_id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failure: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub later_id: Option<Uuid>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct Notification {
     pub id: Uuid,
     pub user_id: Uuid,
     pub workspace_id: Uuid,
     pub notification_type: NotificationType,
-    pub title: String,
     pub body: Option<String>,
-    pub data: serde_json::Value,
+    #[schema(value_type = NotificationData)]
+    pub data: sqlx::types::Json<NotificationData>,
     pub is_read: bool,
     pub created_at: DateTime<Utc>,
 }

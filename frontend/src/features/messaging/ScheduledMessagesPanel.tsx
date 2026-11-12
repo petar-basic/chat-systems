@@ -20,6 +20,7 @@ import { toLocalInputValue } from '@/features/messaging/schedulePresets';
 import { useUserCache } from '@/stores/users';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { TextInput } from '@/shared/components/Form/TextInput';
+import { failureKey } from '@/lib/scheduledFailure';
 
 interface Props {
   workspaceId: string;
@@ -28,17 +29,6 @@ interface Props {
   conversations: Conversation[];
   onClose: () => void;
 }
-
-const FAILURES = [
-  'not_authorized',
-  'author_inactive',
-  'channel_archived',
-  'recipient_left',
-  'workspace_unavailable',
-  'thread_gone',
-] as const;
-
-const failureKey = (failure: string) => FAILURES.find((known) => known === failure) ?? 'unknown';
 
 function ScheduledRow({
   scheduled,

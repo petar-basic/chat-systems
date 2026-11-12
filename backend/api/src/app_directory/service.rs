@@ -13,7 +13,7 @@ use crate::authz;
 use crate::bots::models::Scope;
 use crate::hooks::models::HookType;
 use crate::integrations::models::Provider;
-use crate::notifications::models::NotificationType;
+use crate::notifications::models::{NotificationData, NotificationType, SystemNotice};
 use crate::state::AppState;
 use crate::workflows::models::{Definition, RunStatus, Step, Trigger};
 use crate::workspace::models::WorkspaceRole;
@@ -111,10 +111,8 @@ pub async fn request(
         .repo()
         .find_by_id(requester)
         .await?
-        .and_then(|u| u.display_name)
-        .unwrap_or_else(|| "A member".into());
+        .and_then(|u| u.display_name);
 
-    let title = format!("{who} asked for an app");
     let name = req.name.trim();
     let body = match req
         .reason
@@ -125,7 +123,13 @@ pub async fn request(
         Some(reason) => format!("{name}: {reason}"),
         None => name.to_string(),
     };
-    let data = serde_json::json!({ "app_request": name, "requested_by": requester });
+    let data = NotificationData {
+        notice: Some(SystemNotice::AppRequested),
+        app_request: Some(name.to_string()),
+        requested_by: Some(requester),
+        sender_name: who,
+        ..Default::default()
+    };
 
     for admin in state.app_directory_repo.admins(workspace_id).await? {
         if admin == requester {
@@ -137,18 +141,12 @@ pub async fn request(
                 admin,
                 workspace_id,
                 &NotificationType::System,
-                &title,
                 Some(&body),
                 &data,
             )
             .await?;
-        let event = serde_json::json!({
-            "user_id": admin.to_string(),
-            "workspace_id": workspace_id.to_string(),
-            "title": title,
-            "body": body,
-            "kind": "system",
-        });
+        let event =
+            crate::notifications::push_event(admin, workspace_id, "system", Some(&body), &data);
         let _ = state.publisher.publish("notification.push", event).await;
     }
     Ok(())

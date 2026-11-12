@@ -3,7 +3,7 @@ use axum::http::StatusCode;
 use serde_json::json;
 use sqlx::PgPool;
 
-use crate::notifications::models::NotificationType;
+use crate::notifications::models::{NotificationData, NotificationType};
 
 async fn seed_notification(
     state: &crate::state::AppState,
@@ -16,9 +16,11 @@ async fn seed_notification(
             user_id,
             ws_id,
             &NotificationType::Mention,
-            "You were mentioned",
             Some("hello"),
-            &json!({ "message_id": uuid::Uuid::new_v4() }),
+            &NotificationData {
+                message_id: Some(uuid::Uuid::new_v4()),
+                ..Default::default()
+            },
         )
         .await
         .expect("seed notification")
@@ -1100,9 +1102,8 @@ async fn seed_about(
             user_id,
             ws_id,
             &NotificationType::Mention,
-            "You were mentioned",
             Some("hello"),
-            &data,
+            &serde_json::from_value::<NotificationData>(data).expect("notification data"),
         )
         .await
         .expect("seed notification");

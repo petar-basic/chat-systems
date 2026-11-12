@@ -6,7 +6,6 @@ const raw = (overrides: Partial<RawNotification> = {}): RawNotification => ({
   workspace_id: 'ws1',
   user_id: 'u1',
   notification_type: 'mention',
-  title: 'You were mentioned',
   body: 'hey @you',
   data: { channel_id: 'ch1', message_id: 'msg1' },
   is_read: false,
@@ -22,7 +21,7 @@ describe('normalizeNotification', () => {
   });
 
   it('defaults missing data fields to null (not undefined) so navigation guards work', () => {
-    const n = normalizeNotification(raw({ data: null }));
+    const n = normalizeNotification(raw({ data: {} }));
     expect(n.channel_id).toBeNull();
     expect(n.message_id).toBeNull();
   });
@@ -37,6 +36,14 @@ describe('normalizeNotification', () => {
     expect(n.message_id).toBeNull();
     expect(n.list_id).toBe('l1');
     expect(n.item_id).toBe('i1');
+  });
+
+  it('keeps what the title is written from', () => {
+    const n = normalizeNotification(
+      raw({ notification_type: 'dm', data: { sender_name: 'Ana', message_id: 'msg1' } }),
+    );
+    expect(n.data.sender_name).toBe('Ana');
+    expect(n).not.toHaveProperty('title');
   });
 
   it('coerces a null body to an empty string', () => {

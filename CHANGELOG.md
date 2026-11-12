@@ -44,6 +44,15 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - A registered slash command typed in a thread is told so: its payload carries
   `thread_parent_id` (null outside a thread), as Slack's `thread_ts`, and an `in_channel`
   answer to it is posted as a reply in that thread.
+- Notifications are written in your language. *Activity* and desktop notifications follow the
+  language the app is in; push notifications and the mention email digest follow the language
+  set in *Preferences → Language & region*, and are English while it is *Same as my browser*.
+  A text not translated yet shows in English.
+- **API:** a notification has no `title` any more, and neither has the `notification` frame.
+  Both carry `data` (`NotificationData`) with what the text is written from (`sender_name`,
+  `channel_name`, `keyword`, `item_title`, `list_title`, `assigned`, a system `notice`), and
+  the frame's ids moved into it. `body` is only what somebody wrote. Existing notifications
+  keep their sender, keyword and item.
 
 ### Security
 

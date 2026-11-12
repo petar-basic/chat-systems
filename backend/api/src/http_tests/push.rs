@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use super::common::*;
 use crate::notifications::consumer::notify_message;
-use crate::notifications::models::{NotificationType, NotifyLevel};
+use crate::notifications::models::{NotificationData, NotificationType, NotifyLevel};
 use crate::push::sender::{PushSender, VapidKeys};
 use crate::state::AppState;
 
@@ -87,9 +87,11 @@ async fn queue_due(state: &AppState, user_id: Uuid, workspace_id: Uuid, direct: 
             user_id,
             workspace_id,
             &kind,
-            "You were mentioned",
             None,
-            &json!({ "message_id": message_id }),
+            &NotificationData {
+                message_id: Some(message_id),
+                ..Default::default()
+            },
         )
         .await
         .expect("an unread notification");
@@ -456,9 +458,11 @@ async fn after_leaving_a_workspace_the_push_badge_agrees_with_the_app(pool: PgPo
                 target,
                 ws_id,
                 &NotificationType::Mention,
-                "You were mentioned",
                 None,
-                &json!({ "message_id": Uuid::new_v4() }),
+                &NotificationData {
+                    message_id: Some(Uuid::new_v4()),
+                    ..Default::default()
+                },
             )
             .await
             .expect("an unread notification");
@@ -1115,6 +1119,66 @@ async fn the_digest_counts_mentions_and_direct_messages_apart(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn each_notification_carries_what_its_words_are_written_from(pool: PgPool) {
+    let s = scene(pool).await;
+    let author = s
+        .state
+        .profile_repo
+        .name(s.ws_id, s.author)
+        .await
+        .expect("name")
+        .expect("the author has a name");
+    let dm = s.direct_conversation().await;
+    s.post(s.ch_id, "look", true, None).await;
+    s.post(dm, "lunch?", false, None).await;
+
+    let rows: Vec<(String, Option<String>, serde_json::Value)> = sqlx::query_as(
+        "SELECT notification_type::text, body, data FROM notifications \
+          WHERE user_id = $1 ORDER BY created_at",
+    )
+    .bind(s.target)
+    .fetch_all(&s.state.pool)
+    .await
+    .expect("notifications");
+    let kinds: Vec<&str> = rows.iter().map(|(kind, _, _)| kind.as_str()).collect();
+    assert_eq!(kinds, ["mention", "dm"]);
+
+    let (_, body, mention) = &rows[0];
+    assert_eq!(body.as_deref(), Some("look"));
+    assert_eq!(mention["sender_name"], author.as_str());
+    assert_eq!(mention["channel_name"], "levels");
+    assert_eq!(mention["channel_id"], json!(s.ch_id));
+    assert!(mention.get("keyword").is_none());
+
+    let (_, body, direct) = &rows[1];
+    assert_eq!(body.as_deref(), Some("lunch?"));
+    assert_eq!(direct["sender_name"], author.as_str());
+    assert_eq!(direct["channel_id"], json!(dm));
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn the_digest_is_written_in_the_language_the_reader_chose(pool: PgPool) {
+    let s = scene(pool).await;
+    sqlx::query(
+        "UPDATE users SET preferences = preferences || '{\"language\": \"ja\"}' WHERE id = $1",
+    )
+    .bind(s.target)
+    .execute(&s.state.pool)
+    .await
+    .expect("prefer Japanese");
+    queue_due(&s.state, s.target, s.ws_id, false).await;
+
+    assert_eq!(crate::notifications::email::flush_due(&s.state).await, 1);
+    let subject: String =
+        sqlx::query_scalar("SELECT subject FROM outbound_emails ORDER BY created_at DESC LIMIT 1")
+            .fetch_one(&s.state.pool)
+            .await
+            .expect("email");
+    let japanese = crate::notifications::text::words(crate::profile::models::Language::Ja);
+    assert_eq!(subject, japanese.get("email.mentioned", &[]));
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_keyword_matches_whole_words_whatever_the_case_or_accents(pool: PgPool) {
     let s = scene(pool).await;
     s.keywords(s.target, &["deploy", "c++", "a.b", "Čačak", "on call"])
@@ -1145,14 +1209,15 @@ async fn a_keyword_matches_whole_words_whatever_the_case_or_accents(pool: PgPool
     let activity = s.activity().await;
     assert_eq!(activity.len(), expected);
     assert!(activity.iter().all(|kind| kind == "keyword"));
-    let title: String = sqlx::query_scalar(
-        "SELECT title FROM notifications WHERE user_id = $1 ORDER BY created_at LIMIT 1",
+    let data: serde_json::Value = sqlx::query_scalar(
+        "SELECT data FROM notifications WHERE user_id = $1 ORDER BY created_at LIMIT 1",
     )
     .bind(s.target)
     .fetch_one(&s.state.pool)
     .await
-    .expect("title");
-    assert_eq!(title, "Matched \"deploy\" in #levels");
+    .expect("data");
+    assert_eq!(data["keyword"], "deploy");
+    assert_eq!(data["channel_name"], "levels");
 }
 
 #[test_macros::db_test(migrations = "../migrations")]

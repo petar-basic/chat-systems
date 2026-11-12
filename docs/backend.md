@@ -608,7 +608,7 @@ Creating an `incoming_webhook` requires `config.channel_id`, and the server mint
 not a session** (Slack-compatible `{ "text": ... }`); it posts to the bound channel
 under the hook's creator's id with `metadata.bot = { hook_id, name, icon_url }`, and is
 rate-limited per token. The creator is notified of it like any other member, and a
-notification about it is titled with the bot's name.
+notification about it names the bot as its sender.
 
 **Slash commands:**
 
@@ -715,6 +715,19 @@ and the email queued in one transaction, so two workers cannot send it twice. Th
 `system` from the other producers; the client rings and counts on it rather than deciding
 for itself. Channel listings and conversation summaries carry the caller's `notify_level` and
 `effective_notify_level`.
+
+**In the reader's words.** A notification has no title. Its `data` (`NotificationData`) holds
+the ids it opens and what its words need: `sender_name`, `channel_name`, `keyword`,
+`item_title`, `list_title` and `assigned`, and on a `system` row a `notice`
+(`workflow_stopped` with `workflow_name` and `stopped`, `app_requested` with `app_request`,
+`not_delivered` with `failure`). `body` is only what somebody wrote: the message, the comment,
+the request. The `notification` frame carries the same `kind`, `body` and `data`, so the client
+writes the title, and any line the server used to write, from its own translations in
+Activity and in a desktop banner. Push and the email digest are written on the server by
+`notifications::text` from `api/locales/{en,ja}.json`, whose `activity` keys are the
+client's `notifications:activity` keys. The catalog is the recipient's `preferences.language`;
+`browser`, which the server cannot see, reads English, and so does a string a language does not
+have yet. Counts take `key_one` for one, else `key_other`, else `key`, as i18next does.
 
 **Active, not just connected.** An open socket is not someone looking: a tab left in the
 background, or a phone that kept its socket for a while, used to hold back every push. The

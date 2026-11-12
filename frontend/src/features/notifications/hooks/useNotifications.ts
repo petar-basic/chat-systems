@@ -6,6 +6,7 @@ import { toast } from '@/shared/components/Toast';
 import { logger } from '@/lib/logger';
 import { ErrorLabels } from '@/shared/constants';
 import { useWorkspaceStore, type Workspace } from '@/stores/workspace';
+import type { NotificationData } from '../notificationText';
 
 export type NotificationKind = components['schemas']['NotificationType'];
 
@@ -18,8 +19,8 @@ export interface AppNotification {
   workspace_id: string;
   user_id: string;
   notification_type: NotificationKind;
-  title: string;
   body: string;
+  data: NotificationData;
   channel_id: string | null;
   message_id: string | null;
   thread_parent_id: string | null;
@@ -57,8 +58,8 @@ export function normalizeNotification(raw: RawNotification): AppNotification {
     workspace_id: raw.workspace_id,
     user_id: raw.user_id,
     notification_type: raw.notification_type,
-    title: raw.title,
     body: raw.body ?? '',
+    data: raw.data,
     ...deepLink(raw.data),
     is_read: raw.is_read,
     created_at: raw.created_at,

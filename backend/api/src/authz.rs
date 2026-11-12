@@ -340,7 +340,10 @@ pub async fn require_channel_edit(
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, utoipa::ToSchema,
+)]
+#[serde(rename_all = "snake_case")]
 pub enum Stopped {
     Inactive,
     LeftWorkspace,

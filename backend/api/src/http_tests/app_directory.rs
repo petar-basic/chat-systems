@@ -352,10 +352,9 @@ async fn a_request_lands_with_every_admin(pool: PgPool) {
             .find(|n| n["data"]["app_request"] == "PagerDuty")
             .unwrap_or_else(|| panic!("no request in {seen:?}"));
         assert_eq!(request["notification_type"], "system");
-        assert!(request["title"]
-            .as_str()
-            .expect("title")
-            .ends_with("asked for an app"));
+        assert!(request.get("title").is_none());
+        assert_eq!(request["data"]["notice"], "app_requested");
+        assert!(request["data"]["sender_name"].is_string());
         assert_eq!(request["body"], "PagerDuty: On-call alerts in #ops");
         assert_eq!(request["data"]["requested_by"], json!(member_id));
     }

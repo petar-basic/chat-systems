@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { globalEventBus } from '@/lib/globalEventBus';
 import { useWorkspaceStore, type Channel, type Workspace } from '@/stores/workspace';
@@ -11,6 +12,7 @@ import { QUERY_KEYS, ROUTES } from '@/shared/constants';
 import { useOpenMessage } from '@/features/messaging';
 import { NotificationType } from '@/shared/models/enums';
 import { onScreen, readOnScreen } from '@/lib/readOnScreen';
+import { notificationText } from './notificationText';
 
 function placeOf(queryClient: QueryClient, workspaceId: string | undefined, channelId: string | null) {
   if (!workspaceId) return '';
@@ -34,11 +36,16 @@ export function NotificationStream() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const openMessage = useOpenMessage();
+  const { t } = useTranslation(['notifications', 'messages']);
 
   useEffect(() => {
     return globalEventBus.on('notification', (event, instanceUrl) => {
-      const { workspace_id, channel_id, message_id, thread_parent_id, list_id, item_id, title, body, kind } =
-        event;
+      const { workspace_id, kind, data } = event;
+      const channel_id = data.channel_id ?? null;
+      const message_id = data.message_id ?? null;
+      const thread_parent_id = data.thread_parent_id ?? null;
+      const list_id = data.list_id ?? null;
+      const item_id = data.item_id ?? null;
       const isMention = kind === NotificationType.mention;
       const isReply = kind === NotificationType.reply;
       const isList = kind === NotificationType.list;
@@ -82,16 +89,17 @@ export function NotificationStream() {
               : wsId && channel_id
                 ? () => navigate(ROUTES.channel(wsId, channel_id))
                 : undefined;
+        const { title, body } = notificationText(t, kind, data, event.body);
         showNotification(
           isMention ? `🔔 ${title}` : title,
-          flattenMentions(body ?? ''),
+          flattenMentions(body),
           channel_id ?? 'chat-systems',
           onClick,
           { place: placeOf(queryClient, wsId, channel_id), workspaceId: wsId ?? null },
         );
       }
     });
-  }, [navigate, queryClient, openMessage]);
+  }, [navigate, queryClient, openMessage, t]);
 
   return null;
 }

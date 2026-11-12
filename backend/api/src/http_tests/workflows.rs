@@ -786,24 +786,20 @@ async fn a_creator_leaving_turns_their_workflows_off_and_tells_the_admins(pool: 
         .await
         .unwrap();
     assert!(!enabled);
-    let told: Vec<(String, Option<String>)> = sqlx::query_as(
-        "SELECT title, body FROM notifications WHERE user_id = $1 AND data ->> 'workflow_id' = $2",
+    let told: Vec<(Option<String>, Value)> = sqlx::query_as(
+        "SELECT body, data FROM notifications WHERE user_id = $1 AND data ->> 'workflow_id' = $2",
     )
     .bind(owner_id)
     .bind(id.to_string())
     .fetch_all(&state.pool)
     .await
     .unwrap();
-    assert_eq!(
-        told,
-        vec![(
-            "A workflow was turned off".to_string(),
-            Some(
-                "\u{201c}Pager\u{201d} stopped because the person who built it left the workspace."
-                    .to_string()
-            )
-        )]
-    );
+    assert_eq!(told.len(), 1);
+    let (body, data) = &told[0];
+    assert_eq!(*body, None);
+    assert_eq!(data["notice"], "workflow_stopped");
+    assert_eq!(data["workflow_name"], "Pager");
+    assert_eq!(data["stopped"], "left_workspace");
     let (status, _) = call(&app, &hook_path(&workflow), None, json!({})).await;
     assert_eq!(status, StatusCode::CONFLICT);
 
@@ -904,18 +900,18 @@ async fn a_suspended_creators_workflow_stops_and_an_admin_can_take_it_over(pool:
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    let told: Vec<Option<String>> = sqlx::query_scalar(
-        "SELECT body FROM notifications WHERE user_id = $1 AND data ->> 'workflow_id' = $2 ORDER BY created_at",
+    let told: Vec<(Option<String>, Value)> = sqlx::query_as(
+        "SELECT body, data FROM notifications WHERE user_id = $1 AND data ->> 'workflow_id' = $2 ORDER BY created_at",
     )
     .bind(owner_id)
     .bind(id.to_string())
     .fetch_all(&state.pool)
     .await
     .unwrap();
-    assert_eq!(
-        told.last().cloned().flatten().as_deref(),
-        Some("\u{201c}Pager\u{201d} stopped because the person who built it was suspended.")
-    );
+    let (body, data) = told.last().expect("the owner is told");
+    assert_eq!(*body, None);
+    assert_eq!(data["workflow_name"], "Pager");
+    assert_eq!(data["stopped"], "inactive");
     let audited: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM audit_log WHERE action = 'workflow.disabled' AND resource_id = $1",
     )

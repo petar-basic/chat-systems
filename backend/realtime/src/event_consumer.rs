@@ -262,14 +262,13 @@ pub(crate) async fn handle_event_for(
             if let Some(uid) = field("user_id") {
                 let frame = ServerFrame::Notification {
                     workspace_id: field("workspace_id"),
-                    channel_id: field("channel_id"),
-                    message_id: field("message_id"),
-                    thread_parent_id: field("thread_parent_id"),
-                    list_id: field("list_id"),
-                    item_id: field("item_id"),
-                    title: text("title").unwrap_or_default(),
-                    body: text("body"),
                     kind: text("kind"),
+                    body: text("body"),
+                    data: payload
+                        .get("data")
+                        .filter(|data| data.is_object())
+                        .cloned()
+                        .unwrap_or_else(|| serde_json::json!({})),
                 };
                 cm.send_to_user(audience, uid, &framed(&frame)).await;
             }

@@ -3,9 +3,8 @@ import { API, login, userContext, devWorkspace, createChannel } from './helpers'
 
 interface NotificationFrame {
   type: string;
-  channel_id: string | null;
-  message_id: string | null;
   kind: string | null;
+  data: { channel_id?: string; message_id?: string };
 }
 
 test('a channel set to Nothing keeps its badge but sends no notification', async ({ page }) => {
@@ -70,8 +69,8 @@ test('a channel set to Nothing keeps its badge but sends no notification', async
     expect(loud.status(), 'admin mentions bob again on the default level').toBe(200);
     const loudId = (await loud.json()).id as string;
 
-    await expect.poll(() => frames.some((f) => f.message_id === loudId), { timeout: 15_000 }).toBe(true);
-    expect(frames.filter((f) => f.message_id === quietId)).toEqual([]);
+    await expect.poll(() => frames.some((f) => f.data.message_id === loudId), { timeout: 15_000 }).toBe(true);
+    expect(frames.filter((f) => f.data.message_id === quietId)).toEqual([]);
 
     const activity = await (await bob.get(`${API}/workspaces/${workspace.id}/notifications`)).json();
     const forChannel = activity.data.filter(

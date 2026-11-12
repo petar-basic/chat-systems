@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use uuid::Uuid;
 
+use super::text::{self, Words};
 use crate::email::outbox::{self, NewEmail};
 use crate::state::AppState;
 
@@ -15,8 +16,8 @@ pub struct PendingMention<'a> {
     pub workspace_id: Uuid,
     pub channel_id: Option<Uuid>,
     pub message_id: Option<Uuid>,
-    pub sender_name: &'a str,
-    pub channel_name: &'a str,
+    pub sender_name: Option<&'a str>,
+    pub channel_name: Option<&'a str>,
     pub direct: bool,
 }
 
@@ -59,6 +60,7 @@ struct DueDigest {
     user_id: Uuid,
     workspace_id: Uuid,
     email: String,
+    language: Option<String>,
     mentions: i64,
     direct_messages: i64,
     channels: Vec<String>,
@@ -94,6 +96,7 @@ pub async fn flush_due(state: &AppState) -> usize {
         DueDigest,
         r#"
         SELECT p.user_id, p.workspace_id, u.email,
+               u.preferences->>'language' AS "language?",
                COUNT(*) FILTER (WHERE NOT p.direct) AS "mentions!",
                COUNT(*) FILTER (WHERE p.direct) AS "direct_messages!",
                COALESCE(ARRAY_AGG(DISTINCT COALESCE(p.channel_name, '')) FILTER (WHERE NOT p.direct), '{}') AS "channels!",
@@ -105,7 +108,7 @@ pub async fn flush_due(state: &AppState) -> usize {
          WHERE p.created_at <= $1
            AND NOT u.is_bot
            AND public.notifications_paused_until(p.workspace_id, p.user_id, $2) IS NULL
-         GROUP BY p.user_id, p.workspace_id, u.email
+         GROUP BY p.user_id, p.workspace_id, u.email, u.preferences->>'language'
         "#,
         cutoff,
         now
@@ -156,8 +159,9 @@ async fn send_digest(
         return Ok(false);
     }
 
-    let subject = subject_for(digest);
-    let body = body_for(digest, &state.config.public_url);
+    let words = text::words(text::language(digest.language.as_deref()));
+    let subject = subject_for(digest, &words);
+    let body = body_for(digest, &state.config.public_url, &words);
     outbox::enqueue(
         &mut *tx,
         NewEmail {
@@ -172,41 +176,32 @@ async fn send_digest(
     Ok(true)
 }
 
-fn counted(n: i64, one: &str, many: &str) -> String {
-    match n {
-        1 => format!("1 {one}"),
-        n => format!("{n} {many}"),
-    }
-}
-
-fn what_happened(digest: &DueDigest) -> String {
+fn what_happened(digest: &DueDigest, words: &Words) -> String {
+    let mentions = || words.count("email.mentions", digest.mentions, &[]);
+    let dms = || words.count("email.directMessages", digest.direct_messages, &[]);
     match (digest.mentions, digest.direct_messages) {
-        (0, dms) => format!(
-            "You have {}",
-            counted(dms, "direct message", "direct messages")
-        ),
-        (mentions, 0) => format!("You have {}", counted(mentions, "mention", "mentions")),
-        (mentions, dms) => format!(
-            "You have {} and {}",
-            counted(mentions, "mention", "mentions"),
-            counted(dms, "direct message", "direct messages")
+        (0, _) => words.get("email.youHave", &[("things", &dms())]),
+        (_, 0) => words.get("email.youHave", &[("things", &mentions())]),
+        _ => words.get(
+            "email.youHaveBoth",
+            &[("mentions", &mentions()), ("directMessages", &dms())],
         ),
     }
 }
 
-fn subject_for(digest: &DueDigest) -> String {
+fn subject_for(digest: &DueDigest, words: &Words) -> String {
     match (digest.mentions, digest.direct_messages) {
-        (1, 0) => "You were mentioned".to_string(),
-        (n, 0) => format!("You were mentioned {n} times"),
-        (0, 1) => "You have a direct message".to_string(),
-        _ => what_happened(digest),
+        (1, 0) => words.get("email.mentioned", &[]),
+        (n, 0) => words.count("email.mentionedTimes", n, &[]),
+        (0, 1) => words.get("email.aDirectMessage", &[]),
+        _ => what_happened(digest, words),
     }
 }
 
 /// Who, where, and a link. Not what was said: mail sits in an inbox on somebody
 /// else's server indefinitely, and is the least private transport this product
 /// touches.
-fn body_for(digest: &DueDigest, public_url: &str) -> String {
+fn body_for(digest: &DueDigest, public_url: &str, words: &Words) -> String {
     let people: Vec<&str> = digest
         .senders
         .iter()
@@ -220,18 +215,22 @@ fn body_for(digest: &DueDigest, public_url: &str) -> String {
         .map(|c| format!("#{c}"))
         .collect();
 
-    let mut lines = vec![format!("{} while you were away.", what_happened(digest))];
+    let summary = what_happened(digest, words);
+    let mut lines = vec![words.get("email.whileAway", &[("summary", &summary)])];
     if !people.is_empty() {
-        lines.push(format!("From: {}", people.join(", ")));
+        lines.push(words.get("email.from", &[("people", &people.join(", "))]));
     }
     if !places.is_empty() {
-        lines.push(format!("In: {}", places.join(", ")));
+        lines.push(words.get("email.in", &[("places", &places.join(", "))]));
     }
     lines.push(String::new());
     let workspace = format!("{public_url}/app/{}", digest.workspace_id);
     lines.push(match (digest.channel_id, digest.message_id) {
-        (Some(channel), Some(message)) => format!("Open it: {workspace}/{channel}/{message}"),
-        _ => format!("Open the workspace: {workspace}"),
+        (Some(channel), Some(message)) => words.get(
+            "email.openIt",
+            &[("link", &format!("{workspace}/{channel}/{message}"))],
+        ),
+        _ => words.get("email.openWorkspace", &[("link", &workspace)]),
     });
     lines.join("\n")
 }
@@ -249,5 +248,68 @@ pub async fn start_digest_job(state: std::sync::Arc<AppState>) {
         if sent > 0 {
             tracing::info!("sent {} mention digest emails", sent);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::profile::models::Language;
+
+    const JA: &str = r#"{
+        "email": {
+            "mentioned": "メンションされました",
+            "mentions_other": "{{count}} 件のメンション",
+            "youHave": "{{things}}があります"
+        }
+    }"#;
+
+    fn digest(mentions: i64, direct_messages: i64) -> DueDigest {
+        DueDigest {
+            user_id: Uuid::nil(),
+            workspace_id: Uuid::nil(),
+            email: "ana@test.local".into(),
+            language: Some("ja".into()),
+            mentions,
+            direct_messages,
+            channels: vec!["general".into()],
+            senders: vec!["Bo".into()],
+            channel_id: None,
+            message_id: None,
+        }
+    }
+
+    #[test]
+    fn the_digest_is_written_in_the_readers_language() {
+        let catalog = text::Catalog::parse(include_str!("../../locales/en.json"), JA);
+        let ja = catalog.words(Language::Ja);
+        assert_eq!(subject_for(&digest(1, 0), &ja), "メンションされました");
+        assert_eq!(
+            subject_for(&digest(0, 2), &ja),
+            "2 direct messagesがあります"
+        );
+        let body = body_for(&digest(3, 0), "https://chat.test", &ja);
+        assert!(
+            body.starts_with("3 件のメンションがあります while you were away."),
+            "{body}"
+        );
+        assert!(body.contains("From: Bo"), "{body}");
+    }
+
+    #[test]
+    fn without_the_strings_the_digest_is_english() {
+        let catalog = text::Catalog::parse(include_str!("../../locales/en.json"), "{}");
+        let ja = catalog.words(Language::Ja);
+        assert_eq!(
+            subject_for(&digest(2, 0), &ja),
+            "You were mentioned 2 times"
+        );
+        assert_eq!(
+            subject_for(&digest(2, 1), &ja),
+            "You have 2 mentions and 1 direct message"
+        );
+        assert!(body_for(&digest(1, 0), "https://chat.test", &ja).ends_with(
+            "Open the workspace: https://chat.test/app/00000000-0000-0000-0000-000000000000"
+        ));
     }
 }

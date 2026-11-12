@@ -11,7 +11,7 @@ use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
 use crate::lists::models::ColumnKind;
 use crate::messaging::publisher::Staged;
-use crate::notifications::models::NotificationType;
+use crate::notifications::models::{NotificationData, NotificationType, SystemNotice};
 use crate::rate_limit::{self, LimiterFailure};
 use crate::state::AppState;
 use crate::workspace::models::{ChannelType, WhoMay, WorkspaceMember, WorkspaceRole};
@@ -787,7 +787,7 @@ pub async fn stop_creators_workflows(
     state: &AppState,
     workspace_id: Option<Uuid>,
     user_id: Uuid,
-    because: &str,
+    why: authz::Stopped,
 ) -> Vec<super::repo::StoppedWorkflow> {
     let stopped = match state
         .workflow_repo
@@ -821,41 +821,29 @@ pub async fn stop_creators_workflows(
                 });
             slot.insert(admins);
         }
-        let body = format!(
-            "\u{201c}{}\u{201d} stopped because {because}.",
-            workflow.name
-        );
+        let data = NotificationData {
+            notice: Some(SystemNotice::WorkflowStopped),
+            workflow_id: Some(workflow.id),
+            workflow_name: Some(workflow.name.clone()),
+            stopped: Some(why),
+            ..Default::default()
+        };
         for admin in &admins_of[&workflow.workspace_id] {
-            tell(state, *admin, workflow.workspace_id, workflow.id, &body).await;
+            tell(state, *admin, workflow.workspace_id, &data).await;
         }
     }
     stopped
 }
 
-async fn tell(state: &AppState, user_id: Uuid, workspace_id: Uuid, workflow_id: Uuid, body: &str) {
-    const TITLE: &str = "A workflow was turned off";
-    let data = serde_json::json!({ "workflow_id": workflow_id });
+async fn tell(state: &AppState, user_id: Uuid, workspace_id: Uuid, data: &NotificationData) {
     if let Err(e) = state
         .notification_repo
-        .create(
-            user_id,
-            workspace_id,
-            &NotificationType::System,
-            TITLE,
-            Some(body),
-            &data,
-        )
+        .create(user_id, workspace_id, &NotificationType::System, None, data)
         .await
     {
         tracing::warn!("could not tell an admin a workflow stopped: {}", e);
         return;
     }
-    let event = serde_json::json!({
-        "user_id": user_id.to_string(),
-        "workspace_id": workspace_id.to_string(),
-        "title": TITLE,
-        "body": body,
-        "kind": "system",
-    });
+    let event = crate::notifications::push_event(user_id, workspace_id, "system", None, data);
     let _ = state.publisher.publish("notification.push", event).await;
 }

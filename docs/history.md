@@ -2992,3 +2992,34 @@ typed as the admin in #general was not in Alice's composer after she signed in o
 hers was kept apart, and signing back in as the admin brought back the admin's. Registering
 `/deploy` with no `channel_ids` and with `[]` answered *slash_command requires a non-empty
 channel_ids array in config*, and an outgoing webhook still names itself.
+
+### [CS-121m] Notifications in the reader's language ✅ shipped
+Every notification title was an English string the server wrote and stored: *You were
+mentioned*, *Matched "deploy" in #ops*, *Ana assigned you to Fix login*, *Incoming huddle*, and
+the bodies of a call, a stopped workflow and an unsent scheduled message as well. A person using
+the app in Japanese saw English in *Activity*, in desktop banners, in push and in email. The
+`title` column is gone. A notification keeps its `kind` and a typed `NotificationData` with what
+its words need (who, where, the keyword, the item, the list, and for a system row which notice it
+is), and `body` keeps only what somebody wrote. `notificationText` on the client writes the title
+and body from `notifications:activity`, for an Activity row and a desktop banner alike, so both
+follow the language the app is in and change with it. Push and the email digest are written on
+the server by `notifications::text` from `backend/api/locales/{en,ja}.json`, keyed like the
+client's strings, in the language stored in the recipient's preferences; *Same as my browser*
+reads English, since the server cannot see the browser, and so does any string a language does
+not have yet. The `notification` frame lost its flat ids and title for the same `data`, so a
+banner and its row are written from one shape. The migration moves what the old titles said into
+`data` (the DM sender, the keyword and channel, the list item and its sender, the workflow and
+the requester), so existing rows still read as before, then drops the column. The scheduled
+message reasons the client already had are reused; the new strings are in English only, for the
+translator.
+
+Checked by hand on the Docker build. Bob mentioned Alice in #general, wrote her a DM and a
+message with her keyword: *Activity* read *You were mentioned*, *Bob Smith* and *Matched
+"deploy" in #general*, and the API sent no title, with the sender, channel and keyword in
+`data`. With a stand-in for the app's bridge, a desktop banner read *Bob Smith* over *Dev Team*
+and the message. The migration ran on the dev database and its old rows read as they did. With
+Alice's language set to Japanese and no Japanese strings yet, the titles stayed English inside a
+Japanese page, and her digest said *You have a direct message*. With two strings put in Japanese
+for the check on the dev server, *Activity* and the banner read メンションされました, and the
+keyword row #general で「deploy」に一致. A digest in Japanese is left to its test, since the
+server has no Japanese strings yet.

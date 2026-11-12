@@ -1589,15 +1589,23 @@ async fn mentions_and_assignments_notify_whoever_can_see_the_list(pool: PgPool) 
         .await;
     }
 
-    let rows: Vec<(Uuid, String, Value)> = sqlx::query_as(
-        "SELECT user_id, title, data FROM notifications
-          WHERE workspace_id = $1 AND notification_type = 'list' ORDER BY created_at, title",
+    let rows: Vec<(Uuid, Option<String>, Value)> = sqlx::query_as(
+        "SELECT user_id, body, data FROM notifications
+          WHERE workspace_id = $1 AND notification_type = 'list'
+          ORDER BY created_at, (data ->> 'assigned')::boolean DESC",
     )
     .bind(ws)
     .fetch_all(&state.pool)
     .await
     .unwrap();
-    let titles: Vec<&str> = rows.iter().map(|(_, t, _)| t.as_str()).collect();
+    let english = crate::notifications::text::words(crate::profile::models::Language::En);
+    let titles: Vec<String> = rows
+        .iter()
+        .map(|(_, _, data)| {
+            let data = serde_json::from_value(data.clone()).expect("notification data");
+            crate::notifications::text::title(&english, "list", &data)
+        })
+        .collect();
     assert_eq!(
         titles,
         [
@@ -1605,6 +1613,17 @@ async fn mentions_and_assignments_notify_whoever_can_see_the_list(pool: PgPool) 
             "Ana mentioned you on Fix login"
         ]
     );
+    assert_eq!(rows[0].2["assigned"], true);
+    assert_eq!(rows[0].2["list_title"], "Launch plan");
+    assert_eq!(
+        rows[0].1, None,
+        "the client writes \"in Launch plan\" itself"
+    );
+    assert_eq!(rows[1].2["assigned"], false);
+    assert!(rows[1]
+        .1
+        .as_deref()
+        .is_some_and(|body| body.ends_with("take a look")));
     assert!(
         rows.iter().all(|(user, _, _)| *user == member_id),
         "nobody outside the channel, and not the author"

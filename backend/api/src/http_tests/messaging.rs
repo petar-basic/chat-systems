@@ -1150,9 +1150,12 @@ async fn mark_unread_restores_a_mention(pool: PgPool) {
             owner,
             ws_id,
             &crate::notifications::models::NotificationType::Mention,
-            "You were mentioned",
             None,
-            &json!({ "channel_id": ch_id, "message_id": mention }),
+            &crate::notifications::models::NotificationData {
+                channel_id: Some(ch_id),
+                message_id: Some(mention),
+                ..Default::default()
+            },
         )
         .await
         .expect("notification");

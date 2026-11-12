@@ -110,5 +110,32 @@
     "title": "Email me what I missed",
     "on": "On. A mention or direct message still unread five minutes later is emailed once, with a link to it.",
     "off": "Off. Unread mentions wait in Notifications until you open the app."
+  },
+  "activity": {
+    "someone": "Somebody",
+    "untitled": "Untitled",
+    "mention": "You were mentioned",
+    "reply": "New reply in a thread",
+    "keyword": "Matched \"{{keyword}}\"",
+    "keywordIn": "Matched \"{{keyword}}\" in #{{channel}}",
+    "message": "{{sender}} in #{{channel}}",
+    "listAssigned": "{{sender}} assigned you to {{item}}",
+    "listMentioned": "{{sender}} mentioned you on {{item}}",
+    "listIn": "in {{list}}",
+    "call": "Incoming huddle",
+    "callBody": "Someone is starting a huddle",
+    "reminder": "Reminder",
+    "reminderBody": "A message you saved for later",
+    "workflowStopped": "A workflow was turned off",
+    "workflowStoppedBody": "“{{workflow}}” stopped because {{reason}}.",
+    "workflowStops": {
+      "inactive": "the person who built it was suspended",
+      "left_workspace": "the person who built it left the workspace",
+      "lost_channel": "the person who built it left the workspace",
+      "demoted": "the person who built it is no longer allowed to"
+    },
+    "appRequested": "{{sender}} asked for an app",
+    "notDelivered": "Scheduled message was not delivered",
+    "notice": "Notification"
   }
 }

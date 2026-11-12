@@ -6,7 +6,7 @@ use uuid::Uuid;
 use super::models::ScheduledMessage;
 use crate::authz;
 use crate::messaging::models::NewMessage;
-use crate::notifications::models::NotificationType;
+use crate::notifications::models::{NotificationData, NotificationType, SystemNotice};
 use crate::state::AppState;
 
 const TICK_SECS: u64 = 15;
@@ -245,11 +245,13 @@ async fn deliver_to_channel(
 /// A message that silently evaporates is worse than one that fails loudly. The
 /// author wrote it and expects it to exist somewhere.
 async fn notify_author(state: &AppState, scheduled: &ScheduledMessage, failure: &DeliveryFailure) {
-    let data = serde_json::json!({
-        "scheduled_message_id": scheduled.id,
-        "channel_id": scheduled.channel_id,
-        "failure": failure.as_str(),
-    });
+    let data = NotificationData {
+        notice: Some(SystemNotice::NotDelivered),
+        scheduled_message_id: Some(scheduled.id),
+        channel_id: Some(scheduled.channel_id),
+        failure: Some(failure.as_str().to_string()),
+        ..Default::default()
+    };
 
     let result = state
         .notification_repo
@@ -257,8 +259,7 @@ async fn notify_author(state: &AppState, scheduled: &ScheduledMessage, failure: 
             scheduled.user_id,
             scheduled.workspace_id,
             &NotificationType::System,
-            "Scheduled message was not delivered",
-            Some(failure.author_message()),
+            None,
             &data,
         )
         .await;
@@ -270,13 +271,12 @@ async fn notify_author(state: &AppState, scheduled: &ScheduledMessage, failure: 
         );
     }
 
-    let event = serde_json::json!({
-        "user_id": scheduled.user_id.to_string(),
-        "workspace_id": scheduled.workspace_id.to_string(),
-        "channel_id": scheduled.channel_id,
-        "title": "Scheduled message was not delivered",
-        "body": failure.author_message(),
-        "kind": "system",
-    });
+    let event = crate::notifications::push_event(
+        scheduled.user_id,
+        scheduled.workspace_id,
+        "system",
+        None,
+        &data,
+    );
     let _ = state.publisher.publish("notification.push", event).await;
 }

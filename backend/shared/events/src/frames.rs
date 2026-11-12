@@ -123,14 +123,10 @@ pub enum ServerFrame {
     #[serde(rename = "notification")]
     Notification {
         workspace_id: Option<Uuid>,
-        channel_id: Option<Uuid>,
-        message_id: Option<Uuid>,
-        thread_parent_id: Option<Uuid>,
-        list_id: Option<Uuid>,
-        item_id: Option<Uuid>,
-        title: String,
-        body: Option<String>,
         kind: Option<String>,
+        body: Option<String>,
+        #[ts(type = "NotificationData")]
+        data: serde_json::Value,
     },
     #[serde(rename = "conversation.created")]
     ConversationCreated {
@@ -378,7 +374,8 @@ impl ServerFrame {
              type ListColumn = components['schemas']['ListColumn'];\n\
              type ListItem = components['schemas']['ListItem'];\n\
              type ListView = components['schemas']['ListView'];\n\
-             type ListComment = components['schemas']['ListComment'];\n\n\
+             type ListComment = components['schemas']['ListComment'];\n\
+             type NotificationData = components['schemas']['NotificationData'];\n\n\
              export {decl}\n"
         )
     }

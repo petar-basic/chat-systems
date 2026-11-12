@@ -910,6 +910,12 @@ Messages, threads, reactions, edits, pins, saved items and scheduled sends in a 
 use the channel hooks above with the conversation id as `channelId`.
 
 ### Notifications (`features/notifications/hooks/useNotifications.ts`)
+A notification arrives without a title. `notificationText(t, kind, data, body)` writes the
+title and body from `notifications:activity` (and `messages:scheduled.reasons` for a scheduled
+message that was not sent): the Activity row from its `notification_type` and `data`, the
+desktop banner from the frame's `kind` and `data`, so both follow the app's language and change
+with it. A string the language does not have yet reads in English.
+
 | Hook | Call | Description |
 |------|------|-------------|
 | `useNotifications(wsId)` | GET `/workspaces/{id}/notifications?limit=50` | Notifications list (normalized) |

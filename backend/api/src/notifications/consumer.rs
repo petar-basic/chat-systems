@@ -6,7 +6,7 @@ use tracing::{info, warn};
 
 use shared_events::Event;
 
-use super::models::{NotificationType, NotifyLevel, Recipient};
+use super::models::{NotificationData, NotificationType, NotifyLevel, Recipient};
 use super::repo::NotificationRepo;
 use crate::messaging::stream_group::StreamGroup;
 use crate::push::sender::{PushPayload, PushSender};
@@ -61,14 +61,12 @@ pub async fn start_consumer(
 pub struct Notice {
     pub activity: Option<NotificationType>,
     pub kind: &'static str,
-    pub title: String,
     pub email: bool,
 }
 
 #[derive(Clone, Copy)]
 pub struct Origin<'a> {
     pub workspace_id: Option<uuid::Uuid>,
-    pub channel_id: Option<&'a str>,
     pub channel_uuid: Option<uuid::Uuid>,
     pub message_id: Option<&'a str>,
     pub thread_parent_id: Option<&'a str>,
@@ -83,7 +81,6 @@ impl<'a> Origin<'a> {
         let text = |name: &str| payload.get(name).and_then(|v| v.as_str());
         Self {
             workspace_id: text("workspace_id").and_then(|v| v.parse().ok()),
-            channel_id: text("channel_id"),
             channel_uuid: text("channel_id").and_then(|v| v.parse().ok()),
             message_id: text("id"),
             thread_parent_id: text("thread_parent_id"),
@@ -91,6 +88,21 @@ impl<'a> Origin<'a> {
             sender_id: text("user_id"),
             content,
             list_item: None,
+        }
+    }
+
+    fn data(&self, names: &Names) -> NotificationData {
+        let uuid = |v: Option<&str>| v.and_then(|v| v.parse().ok());
+        NotificationData {
+            channel_id: self.channel_uuid,
+            message_id: uuid(self.message_id),
+            thread_parent_id: uuid(self.thread_parent_id),
+            in_channel: self.in_channel,
+            list_id: self.list_item.map(|(list_id, _)| list_id),
+            item_id: self.list_item.map(|(_, item_id)| item_id),
+            sender_name: names.sender.clone(),
+            channel_name: names.channel.clone(),
+            ..Default::default()
         }
     }
 }
@@ -156,8 +168,8 @@ pub fn reason_for(recipient: &Recipient, signals: Signals) -> Option<Reason> {
 }
 
 struct Names {
-    sender: String,
-    channel: String,
+    sender: Option<String>,
+    channel: Option<String>,
 }
 
 impl Names {
@@ -193,48 +205,37 @@ impl Names {
                 .and_then(|c| c.name),
             None => None,
         };
-        Self {
-            sender: sender.unwrap_or_else(|| "Somebody".to_string()),
-            channel: channel.unwrap_or_default(),
-        }
+        Self { sender, channel }
     }
+}
 
-    fn notice(&self, reason: Reason, keyword: Option<&str>) -> Notice {
-        match reason {
-            Reason::Mention => Notice {
-                activity: Some(NotificationType::Mention),
-                kind: "mention",
-                title: "You were mentioned".into(),
-                email: true,
-            },
-            Reason::Reply => Notice {
-                activity: Some(NotificationType::Reply),
-                kind: "reply",
-                title: "New reply in a thread".into(),
-                email: false,
-            },
-            Reason::Direct => Notice {
-                activity: Some(NotificationType::Dm),
-                kind: "dm",
-                title: self.sender.clone(),
-                email: true,
-            },
-            Reason::Keyword => Notice {
-                activity: Some(NotificationType::Keyword),
-                kind: "keyword",
-                title: match (keyword.unwrap_or_default(), self.channel.as_str()) {
-                    (word, "") => format!("Matched \"{word}\""),
-                    (word, channel) => format!("Matched \"{word}\" in #{channel}"),
-                },
-                email: false,
-            },
-            Reason::Message => Notice {
-                activity: None,
-                kind: "message",
-                title: format!("{} in #{}", self.sender, self.channel),
-                email: false,
-            },
-        }
+fn notice(reason: Reason) -> Notice {
+    match reason {
+        Reason::Mention => Notice {
+            activity: Some(NotificationType::Mention),
+            kind: "mention",
+            email: true,
+        },
+        Reason::Reply => Notice {
+            activity: Some(NotificationType::Reply),
+            kind: "reply",
+            email: false,
+        },
+        Reason::Direct => Notice {
+            activity: Some(NotificationType::Dm),
+            kind: "dm",
+            email: true,
+        },
+        Reason::Keyword => Notice {
+            activity: Some(NotificationType::Keyword),
+            kind: "keyword",
+            email: false,
+        },
+        Reason::Message => Notice {
+            activity: None,
+            kind: "message",
+            email: false,
+        },
     }
 }
 
@@ -313,7 +314,7 @@ pub async fn notify_message(
 
     let mut names = Names::of(state, &origin).await;
     if let Some(name) = bot.and_then(|b| b.get("name")).and_then(|v| v.as_str()) {
-        names.sender = name.to_string();
+        names.sender = Some(name.to_string());
     }
     let reply_origin = Origin {
         message_id: origin.thread_parent_id,
@@ -326,8 +327,14 @@ pub async fn notify_message(
         } else {
             &origin
         };
-        let notice = names.notice(reason, keywords.get(&uid).map(String::as_str));
-        deliver(&via, pub_conn, uid, at, &names, &notice).await;
+        let data = NotificationData {
+            keyword: keywords
+                .get(&uid)
+                .filter(|_| reason == Reason::Keyword)
+                .cloned(),
+            ..at.data(&names)
+        };
+        deliver(&via, pub_conn, uid, at, &notice(reason), &data).await;
     }
 }
 
@@ -370,54 +377,18 @@ async fn deliver(
     pub_conn: &mut redis::aio::ConnectionManager,
     uid: uuid::Uuid,
     origin: &Origin<'_>,
-    names: &Names,
     notice: &Notice,
+    data: &NotificationData,
 ) {
     let Via { state, repo, push } = *via;
-    let channel_id = origin.channel_id;
-    let message_id = origin.message_id;
     let content = origin.content;
     let Some(ws_id) = origin.workspace_id else {
         return;
     };
-
-    let mut data_json = serde_json::json!({
-        "channel_id": channel_id,
-        "message_id": message_id,
-        "thread_parent_id": origin.thread_parent_id,
-    });
-    if origin.in_channel {
-        data_json["in_channel"] = serde_json::json!(true);
-    }
-    let mut payload = serde_json::json!({
-        "user_id": uid.to_string(),
-        "workspace_id": ws_id.to_string(),
-        "channel_id": channel_id,
-        "message_id": message_id,
-        "thread_parent_id": origin.thread_parent_id,
-        "title": notice.title,
-        "body": content,
-        "kind": notice.kind,
-    });
-    if let Some((list_id, item_id)) = origin.list_item {
-        for fields in [&mut data_json, &mut payload] {
-            fields["list_id"] = serde_json::json!(list_id);
-            fields["item_id"] = serde_json::json!(item_id);
-        }
-    }
+    let body = Some(content).filter(|c| !c.is_empty());
 
     if let Some(activity) = &notice.activity {
-        if let Err(e) = repo
-            .create(
-                uid,
-                ws_id,
-                activity,
-                &notice.title,
-                Some(content),
-                &data_json,
-            )
-            .await
-        {
+        if let Err(e) = repo.create(uid, ws_id, activity, body, data).await {
             warn!(
                 user_id = %uid,
                 workspace_id = %ws_id,
@@ -433,7 +404,7 @@ async fn deliver(
 
     let notif_event = serde_json::json!({
         "event_type": "notification.push",
-        "payload": payload,
+        "payload": super::push_event(uid, ws_id, notice.kind, body, data),
     });
 
     let json = serde_json::to_string(&notif_event).unwrap_or_default();
@@ -445,10 +416,10 @@ async fn deliver(
             super::email::PendingMention {
                 user_id: uid,
                 workspace_id: ws_id,
-                channel_id: origin.channel_uuid,
-                message_id: message_id.and_then(|v| v.parse().ok()),
-                sender_name: &names.sender,
-                channel_name: &names.channel,
+                channel_id: data.channel_id,
+                message_id: data.message_id,
+                sender_name: data.sender_name.as_deref(),
+                channel_name: data.channel_name.as_deref(),
                 direct: notice.activity == Some(NotificationType::Dm),
             },
         )
@@ -459,16 +430,25 @@ async fn deliver(
         return;
     }
 
+    let language = state
+        .profile_repo
+        .preferences(uid)
+        .await
+        .ok()
+        .flatten()
+        .map(|prefs| prefs.language)
+        .unwrap_or_default();
+    let words = super::text::words(language);
     let badge = repo.unread_count_everywhere(uid).await.unwrap_or(0);
     push.send_to_user(
         uid,
         &PushPayload {
-            title: notice.title.clone(),
-            body: PushPayload::preview(content),
+            title: super::text::title(&words, notice.kind, data),
+            body: PushPayload::preview(&super::text::body(&words, notice.kind, data, content)),
             workspace_id: Some(ws_id.to_string()),
-            channel_id: channel_id.map(str::to_string),
-            message_id: message_id.map(str::to_string),
-            thread_parent_id: origin.thread_parent_id.map(str::to_string),
+            channel_id: data.channel_id.map(|id| id.to_string()),
+            message_id: data.message_id.map(|id| id.to_string()),
+            thread_parent_id: data.thread_parent_id.map(|id| id.to_string()),
             badge_count: badge,
         },
     )
@@ -503,18 +483,18 @@ pub async fn notify_ring(
         return;
     };
 
-    let data = serde_json::json!({
-        "huddle_id": huddle_id,
-        "from_user_id": event.payload.get("from_user_id"),
-    });
+    let data = NotificationData {
+        huddle_id: Some(huddle_id),
+        from_user_id: field("from_user_id"),
+        ..Default::default()
+    };
 
     let created = match repo
         .create(
             to_user_id,
             workspace_id,
             &NotificationType::Call,
-            "Incoming huddle",
-            Some("Someone is starting a huddle"),
+            None,
             &data,
         )
         .await
@@ -539,13 +519,7 @@ pub async fn notify_ring(
 
     let notif_event = serde_json::json!({
         "event_type": "notification.push",
-        "payload": {
-            "user_id": to_user_id.to_string(),
-            "workspace_id": workspace_id.to_string(),
-            "title": "Incoming huddle",
-            "body": "Someone is starting a huddle",
-            "kind": "call",
-        }
+        "payload": super::push_event(to_user_id, workspace_id, "call", None, &data),
     });
     let json = serde_json::to_string(&notif_event).unwrap_or_default();
     let _: Result<(), _> = pub_conn.publish("events:notification", &json).await;
@@ -564,20 +538,21 @@ pub async fn notify_list(
     let (Some(list_id), Some(item_id)) = (uuid("list_id"), uuid("item_id")) else {
         return;
     };
-    let item_title = match text("item_title").unwrap_or("Untitled") {
-        title if title.chars().count() > ITEM_TITLE_MAX_CHARS => {
-            let clipped: String = title.chars().take(ITEM_TITLE_MAX_CHARS - 1).collect();
-            format!("{clipped}…")
-        }
-        title => title.to_string(),
-    };
-    let list_title = text("list_title").unwrap_or_default();
+    let item_title = text("item_title")
+        .filter(|title| !title.trim().is_empty())
+        .map(|title| match title {
+            title if title.chars().count() > ITEM_TITLE_MAX_CHARS => {
+                let clipped: String = title.chars().take(ITEM_TITLE_MAX_CHARS - 1).collect();
+                format!("{clipped}…")
+            }
+            title => title.to_string(),
+        });
     let assigned = event.event_type == "list.assigned";
     let (actor, candidates, body) = if assigned {
         (
             text("actor_id"),
             ids_in(payload, "assignee_ids"),
-            format!("in {list_title}"),
+            String::new(),
         )
     } else {
         (
@@ -628,7 +603,6 @@ pub async fn notify_list(
 
     let origin = Origin {
         workspace_id: uuid("workspace_id"),
-        channel_id: text("channel_id"),
         channel_uuid: uuid("channel_id"),
         message_id: None,
         thread_parent_id: None,
@@ -641,16 +615,17 @@ pub async fn notify_list(
     let notice = Notice {
         activity: Some(NotificationType::List),
         kind: "list",
-        title: if assigned {
-            format!("{} assigned you to {item_title}", names.sender)
-        } else {
-            format!("{} mentioned you on {item_title}", names.sender)
-        },
         email: false,
+    };
+    let data = NotificationData {
+        item_title,
+        list_title: text("list_title").map(str::to_string),
+        assigned,
+        ..origin.data(&names)
     };
     let via = Via { state, repo, push };
     for uid in readers {
-        deliver(&via, pub_conn, uid, &origin, &names, &notice).await;
+        deliver(&via, pub_conn, uid, &origin, &notice, &data).await;
     }
 }
 
