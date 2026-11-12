@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Crown } from 'lucide-react';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog/ConfirmDialog';
@@ -23,6 +24,7 @@ function AppointOwnerDialog({
   instanceUrl: string | null;
   onClose: () => void;
 }) {
+  const { t } = useTranslation(['admin', 'common']);
   const { data: people, isLoading } = useAdminWorkspacePeople(instanceUrl, workspace.id);
   const appoint = useAppointOwner(instanceUrl);
   const candidates = (people ?? []).filter((p) => p.role !== 'owner' && p.status === 'active');
@@ -33,15 +35,15 @@ function AppointOwnerDialog({
     try {
       await appoint.mutateAsync({ workspaceId: workspace.id, userId });
     } catch (err) {
-      throw new Error(toUserMessage(err, 'Could not make them an owner. Try again.'), { cause: err });
+      throw new Error(toUserMessage(err, t('workspaces.appointFailed')), { cause: err });
     }
   };
 
   return (
     <ConfirmDialog
-      title={`Make an owner of ${workspace.name}`}
-      description="An owner runs data retention and exports, and can delete the workspace. The current owners stay owners."
-      confirmLabel="Make owner"
+      title={t('workspaces.appointTitle', { name: workspace.name })}
+      description={t('workspaces.appointDescription')}
+      confirmLabel={t('workspaces.appointConfirm')}
       tone="primary"
       confirmDisabled={!userId}
       onConfirm={confirm}
@@ -51,19 +53,18 @@ function AppointOwnerDialog({
       {isLoading ? (
         <Spinner className="text-accent" />
       ) : candidates.length === 0 ? (
-        <p className="text-sm text-muted">
-          Nobody in this workspace has an active account who isn't already an owner.
-        </p>
+        <p className="text-sm text-muted">{t('workspaces.noCandidates')}</p>
       ) : (
         <Select
-          label="Member"
+          label={t('workspaces.appointMember')}
           value={userId}
           onChange={(e) => setChosen(e.target.value)}
           dataQa="appoint-owner-select"
         >
           {candidates.map((p) => (
             <option key={p.user_id} value={p.user_id}>
-              {p.display_name ? `${p.display_name} (${p.email})` : p.email} · {p.role}
+              {p.display_name ? `${p.display_name} (${p.email})` : p.email} ·{' '}
+              {t(`common:workspaceRoles.${p.role}`)}
             </option>
           ))}
         </Select>
@@ -73,6 +74,7 @@ function AppointOwnerDialog({
 }
 
 export function AdminWorkspaces({ instanceUrl }: { instanceUrl: string | null }) {
+  const { t } = useTranslation(['admin', 'common']);
   const { data: workspaces = [], isLoading, error } = useAdminWorkspaces(instanceUrl);
   const [appointing, setAppointing] = useState<AdminWorkspace | null>(null);
 
@@ -94,22 +96,19 @@ export function AdminWorkspaces({ instanceUrl }: { instanceUrl: string | null })
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="mb-4 text-sm text-muted">
-        {workspaces.length} workspaces on this instance. When nobody who owns a workspace can still sign in,
-        make one of its members an owner.
-      </div>
+      <div className="mb-4 text-sm text-muted">{t('workspaces.count', { count: workspaces.length })}</div>
       <div className="bg-surface rounded-xl border border-line overflow-x-auto">
         <table className="w-full min-w-140">
           <thead>
             <tr className="border-b border-line">
               <th className="text-left px-4 py-3 text-xs font-medium text-muted uppercase tracking-wider">
-                Workspace
+                {t('workspaces.workspace')}
               </th>
               <th className="text-left px-4 py-3 text-xs font-medium text-muted uppercase tracking-wider">
-                Owners
+                {t('workspaces.owners')}
               </th>
               <th className="text-right px-4 py-3 text-xs font-medium text-muted uppercase tracking-wider">
-                Actions
+                {t('common:actions')}
               </th>
             </tr>
           </thead>
@@ -126,7 +125,9 @@ export function AdminWorkspaces({ instanceUrl }: { instanceUrl: string | null })
                     <div className="font-medium text-sm text-fg">{workspace.name}</div>
                     <div className="text-xs text-muted">
                       {workspace.slug}
-                      {!workspace.is_active && <span className="ml-2 text-danger">deleted</span>}
+                      {!workspace.is_active && (
+                        <span className="ml-2 text-danger">{t('workspaces.deleted')}</span>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-3">
@@ -137,7 +138,7 @@ export function AdminWorkspaces({ instanceUrl }: { instanceUrl: string | null })
                           <span className="truncate">{nameOf(owner)}</span>
                           {owner.status !== 'active' && (
                             <span className="px-1.5 py-0.5 rounded text-xs bg-red-500/10 text-danger">
-                              {owner.status}
+                              {t(`common:userStatus.${owner.status}`)}
                             </span>
                           )}
                         </li>
@@ -145,7 +146,7 @@ export function AdminWorkspaces({ instanceUrl }: { instanceUrl: string | null })
                     </ul>
                     {stranded && (
                       <div className="mt-1 text-xs text-danger" data-qa="admin-workspace-stranded">
-                        No owner can sign in
+                        {t('workspaces.stranded')}
                       </div>
                     )}
                   </td>
@@ -155,7 +156,7 @@ export function AdminWorkspaces({ instanceUrl }: { instanceUrl: string | null })
                       data-qa="admin-workspace-appoint"
                       className="px-2 py-1.5 rounded text-xs text-muted hover:text-fg hover:bg-raised transition cursor-pointer"
                     >
-                      Make an owner
+                      {t('workspaces.appoint')}
                     </button>
                   </td>
                 </tr>

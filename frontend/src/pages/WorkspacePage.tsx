@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Hash, LayoutGrid, Megaphone } from 'lucide-react';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { ROUTES, EmptyLabels } from '@/shared/constants';
@@ -52,6 +53,7 @@ import type { Workspace } from '@/stores/workspace';
 import { desktopShell } from '@/lib/desktopShell';
 
 export default function WorkspacePage() {
+  const { t } = useTranslation('workspace');
   const c = useWorkspaceController();
   const { panel, currentWorkspace, currentChannel, user } = c;
   const mayCreate = Object.values(useWorkspaceCreation()).some(Boolean);
@@ -372,10 +374,8 @@ export default function WorkspacePage() {
                   {c.noWorkspaces ? (
                     <div data-qa="no-workspaces" className="contents">
                       <LayoutGrid className="w-12 h-12 text-faint" />
-                      <p className="text-lg font-medium">{EmptyLabels.NoWorkspaces}</p>
-                      <p className="text-sm">
-                        {mayCreate ? EmptyLabels.NoWorkspacesHint : EmptyLabels.NoWorkspacesInviteHint}
-                      </p>
+                      <p className="text-lg font-medium">{t('empty.title')}</p>
+                      <p className="text-sm">{mayCreate ? t('empty.createHint') : t('empty.inviteHint')}</p>
                     </div>
                   ) : !c.channelsPending && c.channels.length === 0 ? (
                     <>

@@ -44,5 +44,16 @@
     "other": "File"
   },
   "unknownUser": "Unknown user",
-  "listSeparator": ", "
+  "listSeparator": ", ",
+  "workspaceRoles": {
+    "guest": "guest",
+    "member": "member",
+    "admin": "admin",
+    "owner": "owner"
+  },
+  "userStatus": {
+    "pending": "pending",
+    "active": "active",
+    "suspended": "suspended"
+  }
 }

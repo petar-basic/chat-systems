@@ -1,7 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import i18n from '@/lib/i18n';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { TestEmailCheck } from './TestEmailCheck';
 import type { EmailTest } from '@/features/instance/hooks/useAdmin';
+
+const HOSTILE = '<img src=x onerror="alert(1)"> {{name}}';
 
 const mutate = vi.fn();
 let mutation: { isPending: boolean; isError: boolean; error: unknown; data: EmailTest | undefined } = {
@@ -41,5 +44,27 @@ describe('TestEmailCheck', () => {
     render(<TestEmailCheck instanceUrl="http://chat.test" />);
     expect(screen.getByTestId('test-email-failed')).toHaveTextContent('Nothing accepted the connection');
     expect(screen.queryByTestId('test-email-sent')).toBeNull();
+  });
+});
+
+describe('TestEmailCheck in Japanese', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('explains the check and names the address as plain text', async () => {
+    await i18n.changeLanguage('ja');
+    mutation = { isPending: false, isError: false, error: null, data: { sent_to: HOSTILE, error: null } };
+    render(<TestEmailCheck instanceUrl="http://chat.test" />);
+    expect(
+      screen.getByText(
+        '招待やパスワード再設定のリンクはメールで届きます。SMTP の設定が正しいか、自分宛てにテストメールを送って確かめてください。',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('test-email-send')).toHaveTextContent('テストメールを送信');
+    expect(screen.getByTestId('test-email-sent').textContent).toBe(
+      `${HOSTILE} に送信しました。受信トレイと迷惑メールフォルダを確認してください。`,
+    );
+    expect(document.querySelector('[onerror]')).toBeNull();
   });
 });

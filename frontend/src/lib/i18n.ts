@@ -1,6 +1,7 @@
 import i18n, { type InitOptions } from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { logger } from '@/lib/logger';
+import enAdmin from '@/locales/en/admin.json';
 import enAuth from '@/locales/en/auth.json';
 import enChannel from '@/locales/en/channel.json';
 import enCommon from '@/locales/en/common.json';
@@ -13,6 +14,7 @@ import enSearch from '@/locales/en/search.json';
 import enSidebar from '@/locales/en/sidebar.json';
 import enThreads from '@/locales/en/threads.json';
 import enWorkspace from '@/locales/en/workspace.json';
+import jaAdmin from '@/locales/ja/admin.json';
 import jaAuth from '@/locales/ja/auth.json';
 import jaChannel from '@/locales/ja/channel.json';
 import jaCommon from '@/locales/ja/common.json';
@@ -38,6 +40,7 @@ export const LANGUAGE_NAMES: Record<Language, string> = {
 
 export const resources = {
   en: {
+    admin: enAdmin,
     auth: enAuth,
     channel: enChannel,
     common: enCommon,
@@ -52,6 +55,7 @@ export const resources = {
     workspace: enWorkspace,
   },
   ja: {
+    admin: jaAdmin,
     auth: jaAuth,
     channel: jaChannel,
     common: jaCommon,
@@ -128,6 +132,7 @@ export const i18nOptions = {
   fallbackLng: 'en',
   supportedLngs: LANGUAGES,
   ns: [
+    'admin',
     'auth',
     'channel',
     'common',

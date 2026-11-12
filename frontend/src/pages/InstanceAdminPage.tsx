@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { useNavigate } from 'react-router';
 import { UserX, UserCheck, ArrowLeft, RefreshCw } from 'lucide-react';
@@ -23,21 +24,10 @@ import { AdminWorkspaces } from '@/features/instance/AdminWorkspaces';
 
 type AdminTab = 'users' | 'workspaces' | 'audit' | 'email';
 
-const TAB_LABELS: Record<AdminTab, string> = {
-  users: 'Users',
-  workspaces: 'Workspaces',
-  audit: 'Audit log',
-  email: 'Email',
-};
-
-const ROLE_LABELS: Record<InstanceRole, string> = {
-  member: 'Member',
-  workspace_creator: 'Workspace creator',
-  admin: 'Instance admin',
-};
+const INSTANCE_ROLES: readonly InstanceRole[] = ['member', 'workspace_creator', 'admin'];
 
 function isInstanceRole(value: string): value is InstanceRole {
-  return value in ROLE_LABELS;
+  return (INSTANCE_ROLES as readonly string[]).includes(value);
 }
 
 function instanceLabel(url: string) {
@@ -49,6 +39,7 @@ function instanceLabel(url: string) {
 }
 
 export default function InstanceAdminPage() {
+  const { t } = useTranslation(['admin', 'common']);
   const navigate = useNavigate();
   const { data: currentUser } = useCurrentUser();
   const { instances, activeInstanceUrl } = useInstanceStore();
@@ -101,14 +92,14 @@ export default function InstanceAdminPage() {
       <div className="border-b border-surface px-4 sm:px-6 py-4 flex flex-wrap items-center gap-3 sm:gap-4">
         <button
           onClick={() => navigate('/app')}
-          aria-label="Back to the app"
-          data-tooltip="Back to the app"
+          aria-label={t('page.back')}
+          data-tooltip={t('page.back')}
           className="p-2 text-muted hover:text-fg hover:bg-surface rounded-lg transition cursor-pointer"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-lg font-bold truncate">Instance admin</h1>
+          <h1 className="text-lg font-bold truncate">{t('page.title')}</h1>
           {instance && <p className="text-xs text-muted truncate">{instanceLabel(instance.url)}</p>}
         </div>
         <div className="flex items-center gap-1 bg-surface rounded-lg p-1 shrink-0">
@@ -121,7 +112,7 @@ export default function InstanceAdminPage() {
                 tab === value ? 'bg-raised text-fg' : 'text-muted hover:text-fg'
               }`}
             >
-              <span className="whitespace-nowrap">{TAB_LABELS[value]}</span>
+              <span className="whitespace-nowrap">{t(`page.tabs.${value}`)}</span>
             </button>
           ))}
         </div>
@@ -131,7 +122,7 @@ export default function InstanceAdminPage() {
           className="flex items-center gap-2 px-3 py-2 text-sm text-muted hover:text-fg hover:bg-surface rounded-lg transition cursor-pointer disabled:opacity-50 shrink-0"
         >
           <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-          <span className="max-sm:sr-only">Refresh</span>
+          <span className="max-sm:sr-only">{t('page.refresh')}</span>
         </button>
       </div>
 
@@ -162,23 +153,23 @@ export default function InstanceAdminPage() {
             <div className="mb-6 bg-surface rounded-xl border border-line p-4 sm:p-6">
               <WorkspaceCreationSetting instanceUrl={instanceUrl} />
             </div>
-            <div className="mb-4 text-sm text-muted">{users.length} users on this instance</div>
+            <div className="mb-4 text-sm text-muted">{t('users.count', { count: users.length })}</div>
 
             <div className="bg-surface rounded-xl border border-line overflow-x-auto">
               <table className="w-full min-w-140">
                 <thead>
                   <tr className="border-b border-line">
                     <th className="text-left px-4 py-3 text-xs font-medium text-muted uppercase tracking-wider">
-                      User
+                      {t('users.user')}
                     </th>
                     <th className="text-left px-4 py-3 text-xs font-medium text-muted uppercase tracking-wider">
-                      Status
+                      {t('users.status')}
                     </th>
                     <th className="text-left px-4 py-3 text-xs font-medium text-muted uppercase tracking-wider">
-                      Role
+                      {t('users.role')}
                     </th>
                     <th className="text-right px-4 py-3 text-xs font-medium text-muted uppercase tracking-wider">
-                      Actions
+                      {t('common:actions')}
                     </th>
                   </tr>
                 </thead>
@@ -189,8 +180,8 @@ export default function InstanceAdminPage() {
                       <tr key={user.id} className="hover:bg-raised/30 transition">
                         <td className="px-4 py-3">
                           <div className="font-medium text-sm text-fg">
-                            {user.display_name || '(no name)'}
-                            {isSelf && <span className="ml-2 text-xs text-accent">(you)</span>}
+                            {user.display_name || t('users.noName')}
+                            {isSelf && <span className="ml-2 text-xs text-accent">{t('users.you')}</span>}
                           </div>
                           <div className="text-xs text-muted">{user.email}</div>
                         </td>
@@ -204,7 +195,7 @@ export default function InstanceAdminPage() {
                                   : 'bg-red-500/10 text-danger'
                             }`}
                           >
-                            {user.status}
+                            {t(`common:userStatus.${user.status}`, { defaultValue: user.status })}
                           </span>
                         </td>
                         <td className="px-4 py-3">
@@ -212,7 +203,7 @@ export default function InstanceAdminPage() {
                             <Spinner size="sm" className="text-accent" />
                           ) : (
                             <Select
-                              label={`Instance role for ${user.display_name || user.email}`}
+                              label={t('users.roleFor', { name: user.display_name || user.email })}
                               labelHidden
                               compact
                               value={user.instance_role}
@@ -221,9 +212,9 @@ export default function InstanceAdminPage() {
                               className="w-44"
                               dataQa="instance-role-select"
                             >
-                              {Object.entries(ROLE_LABELS).map(([role, label]) => (
+                              {INSTANCE_ROLES.map((role) => (
                                 <option key={role} value={role}>
-                                  {label}
+                                  {t(`instanceRoles.${role}`)}
                                 </option>
                               ))}
                             </Select>
@@ -235,7 +226,9 @@ export default function InstanceAdminPage() {
                               onClick={() => handleToggleStatus(user)}
                               disabled={isSelf || statusBusy(user) || user.status === 'pending'}
                               className="flex items-center gap-1 px-2 py-1.5 rounded text-xs transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed text-muted hover:text-danger hover:bg-raised"
-                              data-tooltip={user.status === 'active' ? 'Suspend user' : 'Activate user'}
+                              data-tooltip={
+                                user.status === 'active' ? t('users.suspendHint') : t('users.activateHint')
+                              }
                             >
                               {statusBusy(user) ? (
                                 <Spinner size="sm" />
@@ -244,7 +237,7 @@ export default function InstanceAdminPage() {
                               ) : (
                                 <UserCheck className="w-3.5 h-3.5" />
                               )}
-                              {user.status === 'active' ? 'Suspend' : 'Activate'}
+                              {user.status === 'active' ? t('users.suspend') : t('users.activate')}
                             </button>
                           </div>
                         </td>

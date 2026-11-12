@@ -1,4 +1,5 @@
 import { RadioCards } from '@/shared/components/Form/RadioCards';
+import { useTranslation } from 'react-i18next';
 import { useInstanceSettings, useUpdateInstanceSettings } from '@/features/instance';
 import { toUserMessage } from '@/lib/errors';
 
@@ -9,6 +10,7 @@ interface Props {
 type Who = 'everyone' | 'creators';
 
 export function WorkspaceCreationSetting({ instanceUrl }: Props) {
+  const { t } = useTranslation('admin');
   const { data } = useInstanceSettings(instanceUrl);
   const update = useUpdateInstanceSettings(instanceUrl);
   if (!data) return null;
@@ -18,7 +20,7 @@ export function WorkspaceCreationSetting({ instanceUrl }: Props) {
   return (
     <div className="space-y-2" data-qa="workspace-creation-setting">
       <RadioCards<Who>
-        label="Who can create workspaces"
+        label={t('creation.label')}
         value={who}
         onChange={(next) => {
           if (next !== who && !update.isPending)
@@ -27,22 +29,21 @@ export function WorkspaceCreationSetting({ instanceUrl }: Props) {
         options={[
           {
             value: 'creators',
-            label: 'Workspace creators and admins',
-            description:
-              'Give the Workspace creator role to the people who start workspaces. Everyone else joins the ones they are invited to.',
+            label: t('creation.creators'),
+            description: t('creation.creatorsHint'),
             dataQa: 'workspace-creation-creators',
           },
           {
             value: 'everyone',
-            label: 'Everyone',
-            description: 'Anyone who can sign in can start a workspace.',
+            label: t('creation.everyone'),
+            description: t('creation.everyoneHint'),
             dataQa: 'workspace-creation-everyone',
           },
         ]}
       />
       {update.isError && (
         <p className="text-sm text-danger" role="alert">
-          {toUserMessage(update.error, 'Could not save the setting')}
+          {toUserMessage(update.error, t('saveFailed'))}
         </p>
       )}
     </div>

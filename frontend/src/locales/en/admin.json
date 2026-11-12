@@ -1,0 +1,84 @@
+{
+  "setup": {
+    "title": "Set up {{name}}",
+    "subtitle": "Create the first admin account and workspace.",
+    "token": "Setup token",
+    "tokenHint": "The API prints it in its log on every start until setup is done.",
+    "name": "Your name",
+    "email": "Email",
+    "password": "Password",
+    "passwordTooShort": "At least 8 characters",
+    "workspaceName": "Workspace name",
+    "workspaceHint": "Your team's first workspace. You can add more later.",
+    "workspacePlaceholder": "Acme",
+    "submit": "Set up this instance",
+    "failed": "Setup failed",
+    "done": "You are the instance admin, and your workspace is ready.",
+    "open": "Open the workspace",
+    "alreadySetUp": "This instance is already set up.",
+    "signIn": "Sign in",
+    "unreachable": "Could not reach this instance"
+  },
+  "testEmail": {
+    "intro": "Invites and password resets go out by email. Send yourself one to check that the SMTP settings work.",
+    "send": "Send a test email",
+    "sent": "Sent to {{email}}. Check that inbox, and the spam folder.",
+    "failed": "Could not send the test email"
+  },
+  "emailCode": {
+    "label": "Sign in with an emailed code",
+    "on": "The sign-in page offers to email a six-digit code, so nobody needs a password to get in.",
+    "off": "Needs SMTP. Until this instance can send email, the sign-in page does not offer it."
+  },
+  "creation": {
+    "label": "Who can create workspaces",
+    "creators": "Workspace creators and admins",
+    "creatorsHint": "Give the Workspace creator role to the people who start workspaces. Everyone else joins the ones they are invited to.",
+    "everyone": "Everyone",
+    "everyoneHint": "Anyone who can sign in can start a workspace."
+  },
+  "saveFailed": "Could not save the setting",
+  "page": {
+    "title": "Instance admin",
+    "back": "Back to the app",
+    "refresh": "Refresh",
+    "tabs": {
+      "users": "Users",
+      "workspaces": "Workspaces",
+      "audit": "Audit log",
+      "email": "Email"
+    }
+  },
+  "users": {
+    "count": "{{count}} users on this instance",
+    "user": "User",
+    "status": "Status",
+    "role": "Role",
+    "noName": "(no name)",
+    "you": "(you)",
+    "roleFor": "Instance role for {{name}}",
+    "suspend": "Suspend",
+    "activate": "Activate",
+    "suspendHint": "Suspend user",
+    "activateHint": "Activate user"
+  },
+  "instanceRoles": {
+    "member": "Member",
+    "workspace_creator": "Workspace creator",
+    "admin": "Instance admin"
+  },
+  "workspaces": {
+    "count": "{{count}} workspaces on this instance. When nobody who owns a workspace can still sign in, make one of its members an owner.",
+    "workspace": "Workspace",
+    "owners": "Owners",
+    "deleted": "deleted",
+    "stranded": "No owner can sign in",
+    "appoint": "Make an owner",
+    "appointTitle": "Make an owner of {{name}}",
+    "appointDescription": "An owner runs data retention and exports, and can delete the workspace. The current owners stay owners.",
+    "appointConfirm": "Make owner",
+    "appointMember": "Member",
+    "noCandidates": "Nobody in this workspace has an active account who isn't already an owner.",
+    "appointFailed": "Could not make them an owner. Try again."
+  }
+}

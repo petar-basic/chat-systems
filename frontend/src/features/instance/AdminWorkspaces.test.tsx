@@ -1,7 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import type { AdminWorkspace, WorkspacePerson } from './hooks/useAdmin';
 import { AdminWorkspaces } from './AdminWorkspaces';
+import i18n from '@/lib/i18n';
+
+const HOSTILE = '<img src=x onerror="alert(1)"> {{name}}';
 
 const appoint = vi.fn();
 const person = (user_id: string, role: WorkspacePerson['role'], status: WorkspacePerson['status']) => ({
@@ -66,5 +69,53 @@ describe('AdminWorkspaces', () => {
     fireEvent.click(screen.getByTestId('appoint-owner-dialog-confirm'));
 
     await waitFor(() => expect(appoint).toHaveBeenCalledWith({ workspaceId: 'w1', userId: 'maya' }));
+  });
+});
+
+describe('AdminWorkspaces in Japanese', () => {
+  const name = orphaned.name;
+
+  beforeEach(() => {
+    orphaned.name = HOSTILE;
+  });
+
+  afterEach(async () => {
+    orphaned.name = name;
+    await i18n.changeLanguage('en');
+  });
+
+  it('flags the stranded workspace and asks who to make an owner', async () => {
+    await i18n.changeLanguage('ja');
+    render(<AdminWorkspaces instanceUrl="https://chat.example" />);
+
+    expect(
+      screen.getByText(
+        'サーバーのワークスペース: 2件。サインインできるオーナーがいなくなったワークスペースでは、メンバーの1人をオーナーにしてください。',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole('columnheader').map((h) => h.textContent)).toEqual([
+      'ワークスペース',
+      'オーナー',
+      '操作',
+    ]);
+    const [first] = screen.getAllByTestId('admin-workspace-row');
+    expect(within(first).getByText(HOSTILE, { exact: true })).toBeInTheDocument();
+    expect(within(first).getByText('停止中')).toBeInTheDocument();
+    expect(within(first).getByTestId('admin-workspace-stranded')).toHaveTextContent(
+      'サインインできるオーナーがいません',
+    );
+
+    fireEvent.click(within(first).getByTestId('admin-workspace-appoint'));
+    expect(within(first).getByTestId('admin-workspace-appoint')).toHaveTextContent('オーナーを追加');
+    const dialog = screen.getByTestId('appoint-owner-dialog');
+    expect(within(dialog).getByRole('heading').textContent).toBe(`${HOSTILE} にオーナーを追加`);
+    expect(
+      within(dialog).getByText(
+        'オーナーは、データの保持期間とエクスポートを管理し、ワークスペースを削除することもできます。今のオーナーは、そのままオーナーとして残ります。',
+      ),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole('option').textContent).toBe('maya (maya@x.test) · メンバー');
+    expect(screen.getByTestId('appoint-owner-dialog-confirm')).toHaveTextContent('オーナーにする');
+    expect(document.querySelector('[onerror]')).toBeNull();
   });
 });

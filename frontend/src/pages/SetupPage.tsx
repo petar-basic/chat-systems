@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { Rocket } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
@@ -11,13 +12,14 @@ import { toUserMessage } from '@/lib/errors';
 const origin = window.location.origin;
 
 export default function SetupPage() {
+  const { t } = useTranslation('admin');
   const navigate = useNavigate();
   const info = useInstanceInfo(origin);
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
 
   const body = workspaceId ? (
     <div className="space-y-6" data-qa="setup-done">
-      <p className="text-fg">You are the instance admin, and your workspace is ready.</p>
+      <p className="text-fg">{t('setup.done')}</p>
       <TestEmailCheck instanceUrl={origin} />
       <Button
         variant="primary"
@@ -25,7 +27,7 @@ export default function SetupPage() {
         onClick={() => navigate(`/app/${workspaceId}`, { replace: true })}
         data-qa="setup-continue"
       >
-        Open the workspace
+        {t('setup.open')}
       </Button>
     </div>
   ) : info.isPending ? (
@@ -33,14 +35,14 @@ export default function SetupPage() {
       <Spinner className="text-accent" />
     </div>
   ) : info.isError ? (
-    <p className="text-sm text-danger">{toUserMessage(info.error, 'Could not reach this instance')}</p>
+    <p className="text-sm text-danger">{toUserMessage(info.error, t('setup.unreachable'))}</p>
   ) : info.data.setup_required ? (
     <SetupForm onDone={setWorkspaceId} />
   ) : (
     <div className="space-y-6 text-center" data-qa="setup-not-needed">
-      <p className="text-muted">This instance is already set up.</p>
+      <p className="text-muted">{t('setup.alreadySetUp')}</p>
       <Button variant="primary" fullWidth onClick={() => navigate('/add-instance', { replace: true })}>
-        Sign in
+        {t('setup.signIn')}
       </Button>
     </div>
   );
@@ -52,8 +54,10 @@ export default function SetupPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-600 rounded-2xl mb-4">
             <Rocket className="w-8 h-8 text-fg" />
           </div>
-          <h1 className="text-3xl font-bold text-fg">Set up {info.data?.name ?? 'Chat Systems'}</h1>
-          <p className="text-muted mt-2">Create the first admin account and workspace.</p>
+          <h1 className="text-3xl font-bold text-fg">
+            {t('setup.title', { name: info.data?.name ?? 'Chat Systems' })}
+          </h1>
+          <p className="text-muted mt-2">{t('setup.subtitle')}</p>
         </div>
         <div className="bg-surface/50 backdrop-blur-xl border border-line rounded-2xl p-8 shadow-2xl">
           {body}
