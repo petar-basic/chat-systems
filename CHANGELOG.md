@@ -9,22 +9,36 @@ Images are published for every release:
 ```
 ghcr.io/petar-basic/chat-systems-backend:<version>
 ghcr.io/petar-basic/chat-systems-frontend:<version>
+ghcr.io/petar-basic/chat-systems-postgres:<version>
 ```
 
-Set `BACKEND_IMAGE`, `FRONTEND_IMAGE` and `VERSION` in `.env` to run them instead of building
-from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
+Set `BACKEND_IMAGE`, `FRONTEND_IMAGE`, `POSTGRES_IMAGE` and `VERSION` in `.env` to run them
+instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ## [Unreleased]
 
-### Upgrading
+## [4.7.0] — 2026-11-12
+
+### Upgrading from 4.6.0
 
 - Postgres now has to have [pg_bigm](https://github.com/pgbigm/pg_bigm). The compose files run
   the new `chat-systems-postgres` image, `postgres:16-alpine` with pg_bigm built in, on the same
-  data volume: pull or build `postgres` with the app, and with release images add
+  data volume: there is nothing to dump or restore. With release images, add
   `POSTGRES_IMAGE=ghcr.io/petar-basic/chat-systems-postgres` to `.env`. On a Postgres of your
   own, install it and add it to `shared_preload_libraries` first; until then the migration stops
   the `api` with a message that says so. See the
   [upgrade note](docs/RUNBOOK.md#upgrade-note-search-needs-pg_bigm).
+- Set `VERSION=4.7.0`, pull `postgres` and the app images, and restart `postgres`, `api`,
+  `realtime`, `worker` and `frontend` together. The `api` runs migrations 100 to 109 on start;
+  the search indexes are built without blocking writes. The desktop app needs no update: it
+  shows the server's own pages.
+
+### Added
+
+- More of the app is in Japanese, from cyberlib: search, huddles, the channel screens and
+  *Channel details*, threads, the profile card and the DM header, forwarding, scheduled
+  messages and polls, and a workspace that couldn't be created (#350, #351, #352, #355, #369,
+  #373, #374).
 
 ### Changed
 
@@ -134,6 +148,8 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - *A new version is available* shows on *Instance admin* too, not only in a workspace.
 - Unsent messages belong to the person who wrote them: someone else signing in on the same
   browser no longer finds them in the composer.
+- Channel visibility reads パブリック and プライベート in Japanese, and the newest English-only
+  strings are translated (#358, #370).
 - Registering a slash command without channels says *slash_command requires a non-empty
   channel_ids array in config*, not the same for an outgoing webhook.
 - Checking a password or a sign-in code no longer holds up other requests on the same server

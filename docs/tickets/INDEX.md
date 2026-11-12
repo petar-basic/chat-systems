@@ -25,7 +25,8 @@ feedback on 3.7.0 and CS-037, shipped in 4.0.0.
 After it, releases are bug fixes only for a while. Wave 29, a desktop app, shipped in 4.1.0. Wave 30,
 themes per workspace and the preferences a team from Slack looks for, shipped in 4.2.0. Wave 31, passkeys
 and emailed sign-in codes, shipped in 4.3.0. Wave 32, analytics for admins, shipped in 4.4.0. Wave 32a,
-which fixes what the 2026-11-10 survey of 4.6.0 found, comes next, then Wave 33 (mobile apps, 5.0.0).
+which fixes what the 2026-11-10 survey of 4.6.0 found, shipped in 4.7.0. Wave 33 (mobile apps, 5.0.0)
+comes next.
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
