@@ -1,4 +1,5 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/shared/components/Button/Button';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { useCompleteSetup, type SetupDraft } from '@/features/instance';
@@ -11,6 +12,7 @@ interface Props {
 const EMPTY: SetupDraft = { token: '', displayName: '', email: '', password: '', workspaceName: '' };
 
 export function SetupForm({ onDone }: Props) {
+  const { t } = useTranslation('admin');
   const complete = useCompleteSetup();
   const [draft, setDraft] = useState(EMPTY);
 
@@ -33,13 +35,13 @@ export function SetupForm({ onDone }: Props) {
           className="bg-red-500/10 border border-red-500/30 text-danger px-4 py-3 rounded-lg text-sm"
           data-qa="setup-error"
         >
-          {toUserMessage(complete.error, 'Setup failed')}
+          {toUserMessage(complete.error, t('setup.failed'))}
         </div>
       )}
 
       <TextInput
-        label="Setup token"
-        hint="The API prints it in its log on every start until setup is done."
+        label={t('setup.token')}
+        hint={t('setup.tokenHint')}
         value={draft.token}
         onChange={field('token')}
         autoComplete="off"
@@ -48,7 +50,7 @@ export function SetupForm({ onDone }: Props) {
         required
       />
       <TextInput
-        label="Your name"
+        label={t('setup.name')}
         value={draft.displayName}
         onChange={field('displayName')}
         autoComplete="name"
@@ -56,7 +58,7 @@ export function SetupForm({ onDone }: Props) {
         required
       />
       <TextInput
-        label="Email"
+        label={t('setup.email')}
         type="email"
         value={draft.email}
         onChange={field('email')}
@@ -65,27 +67,27 @@ export function SetupForm({ onDone }: Props) {
         required
       />
       <TextInput
-        label="Password"
+        label={t('setup.password')}
         type="password"
         value={draft.password}
         onChange={field('password')}
         autoComplete="new-password"
-        error={tooShort ? 'At least 8 characters' : undefined}
+        error={tooShort ? t('setup.passwordTooShort') : undefined}
         dataQa="setup-password"
         required
       />
       <TextInput
-        label="Workspace name"
-        hint="Your team's first workspace. You can add more later."
+        label={t('setup.workspaceName')}
+        hint={t('setup.workspaceHint')}
         value={draft.workspaceName}
         onChange={field('workspaceName')}
-        placeholder="Acme"
+        placeholder={t('setup.workspacePlaceholder')}
         dataQa="setup-workspace"
         required
       />
 
       <Button variant="primary" fullWidth type="submit" loading={complete.isPending} data-qa="setup-submit">
-        Set up this instance
+        {t('setup.submit')}
       </Button>
     </form>
   );

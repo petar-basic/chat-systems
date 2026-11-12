@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import i18n from '@/lib/i18n';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { WorkspaceCreationSetting } from './WorkspaceCreationSetting';
 
@@ -55,5 +56,23 @@ describe('WorkspaceCreationSetting', () => {
     settings.error = new Error('Not allowed');
     render(<WorkspaceCreationSetting instanceUrl="https://chat.example.com" />);
     expect(screen.getByRole('alert')).toHaveTextContent('Not allowed');
+  });
+});
+
+describe('WorkspaceCreationSetting in Japanese', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('names both choices', async () => {
+    await i18n.changeLanguage('ja');
+    render(<WorkspaceCreationSetting instanceUrl="https://chat.example.com" />);
+    expect(screen.getByText('ワークスペースを作成できる人')).toBeInTheDocument();
+    expect(screen.getByTestId('workspace-creation-creators')).toHaveTextContent(
+      'ワークスペース作成者とサーバー管理者',
+    );
+    expect(screen.getByTestId('workspace-creation-everyone')).toHaveTextContent(
+      'サインインできる人なら誰でも、ワークスペースを作成できます。',
+    );
   });
 });

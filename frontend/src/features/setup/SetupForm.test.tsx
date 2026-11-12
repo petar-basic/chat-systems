@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import i18n from '@/lib/i18n';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { SetupForm } from './SetupForm';
 
@@ -76,5 +77,32 @@ describe('SetupForm', () => {
     render(<SetupForm onDone={vi.fn()} />);
 
     expect(screen.getByTestId('setup-error')).toHaveTextContent('That setup token is not right');
+  });
+});
+
+describe('SetupForm in Japanese', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('labels every field', async () => {
+    await i18n.changeLanguage('ja');
+    render(<SetupForm onDone={vi.fn()} />);
+    for (const label of [
+      'セットアップトークン',
+      '名前',
+      'メールアドレス',
+      'パスワード',
+      'ワークスペース名',
+    ]) {
+      expect(screen.getByLabelText(label, { exact: false })).toBeInTheDocument();
+    }
+    expect(
+      screen.getByText('セットアップが終わるまで、API が起動するたびにログに出力します。'),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('setup-workspace')).toHaveAttribute('placeholder', '例: 営業部');
+    fireEvent.change(screen.getByTestId('setup-password'), { target: { value: 'short' } });
+    expect(screen.getByText('8文字以上にしてください')).toBeInTheDocument();
+    expect(screen.getByTestId('setup-submit')).toHaveTextContent('サーバーをセットアップ');
   });
 });

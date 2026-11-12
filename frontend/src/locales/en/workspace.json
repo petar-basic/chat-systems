@@ -22,5 +22,10 @@
     "namePlaceholder": "e.g. Acme",
     "submit": "Create",
     "failed": "Couldn't create the workspace"
+  },
+  "empty": {
+    "title": "You're not in a workspace yet",
+    "createHint": "Create one with + in the sidebar, or ask someone to invite you.",
+    "inviteHint": "Once someone invites you to one, it shows up here."
   }
 }

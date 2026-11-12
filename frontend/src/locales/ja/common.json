@@ -44,5 +44,16 @@
     "other": "ファイル"
   },
   "unknownUser": "不明なユーザー",
-  "listSeparator": "、"
+  "listSeparator": "、",
+  "workspaceRoles": {
+    "guest": "ゲスト",
+    "member": "メンバー",
+    "admin": "管理者",
+    "owner": "オーナー"
+  },
+  "userStatus": {
+    "pending": "招待中",
+    "active": "有効",
+    "suspended": "停止中"
+  }
 }
