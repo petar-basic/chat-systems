@@ -395,6 +395,9 @@ impl ExportRepo {
         )
         .execute(&mut *tx)
         .await?;
+        sqlx::query!("DELETE FROM invite_links WHERE user_id = $1", user_id)
+            .execute(&mut *tx)
+            .await?;
 
         sqlx::query!(
             r"

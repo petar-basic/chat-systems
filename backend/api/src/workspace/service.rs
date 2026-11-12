@@ -121,10 +121,9 @@ impl WorkspaceService {
         let email = invite.email.as_deref().ok_or_else(|| {
             AppError::BadRequest("Only an email invite has a link of its own".into())
         })?;
-        let expires_at = invite
-            .expires_at
-            .filter(|e| *e >= chrono::Utc::now())
-            .ok_or_else(|| AppError::BadRequest("This invite has expired".into()))?;
+        if !invite.expires_at.is_some_and(|e| e >= chrono::Utc::now()) {
+            return Err(AppError::BadRequest("This invite has expired".into()));
+        }
         if invite.max_uses.is_some_and(|max| invite.use_count >= max) {
             return Err(AppError::BadRequest("This invite was already used".into()));
         }
@@ -133,8 +132,7 @@ impl WorkspaceService {
             .find_by_email(email)
             .await?
             .ok_or_else(|| AppError::NotFound("Nobody holds this invite any more".into()))?;
-        let token =
-            auth_service.generate_registration_token(user.id, email, invite.id, expires_at)?;
+        let token = auth_service.issue_invite_link(user.id, invite.id).await?;
         Ok(format!("{}/invite/{}", self.config.public_url, token))
     }
 

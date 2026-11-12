@@ -196,7 +196,7 @@ async fn verify_invite(
     State(state): State<Arc<AppState>>,
     Path(token): Path<String>,
 ) -> AppResult<Json<InvitePreview>> {
-    let reg = state.auth_service.registration_invite(&token)?;
+    let reg = state.auth_service.registration_invite(&token).await?;
 
     let invalid = || AppError::Unauthorized("Invalid or expired invite".into());
 
@@ -238,7 +238,7 @@ async fn accept_invite(
     auth: AuthUser,
     Path(token): Path<String>,
 ) -> AppResult<Json<InviteAccepted>> {
-    let reg = state.auth_service.registration_invite(&token)?;
+    let reg = state.auth_service.registration_invite(&token).await?;
 
     if reg.user_id != auth.user_id {
         return Err(AppError::Forbidden(
@@ -279,7 +279,7 @@ async fn complete_registration(
     jar: CookieJar,
     Json(req): Json<RegisterCompleteRequest>,
 ) -> AppResult<(CookieJar, Json<AuthSession>)> {
-    let reg = state.auth_service.registration_invite(&req.token)?;
+    let reg = state.auth_service.registration_invite(&req.token).await?;
     state
         .workspace_service
         .open_email_invite(reg.invite_id, &reg.email)

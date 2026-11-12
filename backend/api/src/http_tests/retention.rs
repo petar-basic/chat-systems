@@ -132,9 +132,9 @@ async fn expired_tokens_are_cleaned_without_any_policy(pool: PgPool) {
     let (user_id, _, _) = seed_and_login(&app, &state, "ret-user", false).await;
 
     sqlx::query(
-        "INSERT INTO password_reset_tokens (jti, user_id, expires_at) VALUES ($1, $2, NOW() - INTERVAL '1 day')",
+        "INSERT INTO password_reset_tokens (token_hash, user_id, expires_at) VALUES ($1, $2, NOW() - INTERVAL '1 day')",
     )
-    .bind(Uuid::new_v4())
+    .bind(format!("spent-{}", Uuid::new_v4()))
     .bind(user_id)
     .execute(&state.pool)
     .await

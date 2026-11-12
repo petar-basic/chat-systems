@@ -17,6 +17,18 @@ instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ## [Unreleased]
 
+### Upgrading
+
+- Password reset and invite links emailed before this release stop working. A reset link
+  lived an hour anyway. Somebody whose invite is still open gets a new link from *Forgot
+  password* or *Email me a code* on the sign-in page, or from a new invite.
+
+### Security
+
+- The link in a password reset or invite email ends in 43 random characters, and the server
+  keeps only their hash. Before, each was a signed token of 400 characters or more, and an
+  invite link carried the invitee's address for anyone who saw it.
+
 ## [4.7.0] — 2026-11-12
 
 ### Upgrading from 4.6.0

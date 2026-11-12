@@ -87,8 +87,10 @@ in `main.rs`.
   `refresh` token-type claim and a `kid` naming the key. `shared_common::session_keys` signs
   with the first of `JWT_SIGNING_KEYS` and verifies against every listed key; the gateway
   gets only `JWT_PUBLIC_KEYS`. Any other algorithm, a missing `kid` or an unlisted one is
-  refused. Refresh tokens are DB-backed, single-use, and rotated; password reset is single-use
-  and revokes all sessions. Auth cookies are `HttpOnly; SameSite=Lax`, and `Secure` whenever
+  refused. Refresh tokens are DB-backed, single-use, and rotated. The links emailed for a
+  password reset and an invite carry no JWT: each is 32 random bytes (43 characters,
+  base64url) of which only the SHA-256 is stored, in `password_reset_tokens` and
+  `invite_links`. A reset link is single-use, lives an hour and revokes all sessions. Auth cookies are `HttpOnly; SameSite=Lax`, and `Secure` whenever
   `PUBLIC_URL` is https.
 - **Passkeys** (`auth/passkey*.rs`, `webauthn-rs`). The relying party is the host of
   `PUBLIC_URL` and its origin (any port on `localhost`), so a passkey belongs to one server and
@@ -273,10 +275,11 @@ owners stepping down at once can't both go. The Slack import makes its channels 
 | DELETE | `/workspaces/:ws_id/invites/:invite_id` | — | `{ status: "revoked" }` |
 | POST | `/invites/:token/accept` | — | `WorkspaceMember` — somebody already in the workspace gets their membership back as it is, role included, and uses nothing up |
 
-An email invite's link carries a registration token that names the invite row
-(`invite_id`) and expires when the invite does. Every use of it loads the row, so revoking
-the invite, its expiry and its use limit hold for the emailed link as they do for a shared
-one, and the role is the row's, not the token's.
+An email invite's link is a random token whose hash `invite_links` maps to the invite row
+and the person invited; it says nothing about either. Every use of it loads the row, so
+revoking the invite, its expiry and its use limit hold for the emailed link as they do for a
+shared one, and the role is the row's. Each link sent for an invite works while the invite
+does, and goes with it.
 
 **Channels:**
 

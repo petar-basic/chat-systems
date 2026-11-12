@@ -153,8 +153,9 @@ pub async fn email_invite(
         .expect("create invite");
     let token = state
         .auth_service
-        .generate_registration_token(invitee, email, invite.id, expires_at)
-        .expect("registration token");
+        .issue_invite_link(invitee, invite.id)
+        .await
+        .expect("invite link");
     (invite.id, token)
 }
 

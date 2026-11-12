@@ -275,7 +275,7 @@ async fn join_from_invite(
     token: &str,
 ) -> String {
     let back_to_invite = format!("/invite/{token}");
-    let Ok(reg) = state.auth_service.registration_invite(token) else {
+    let Ok(reg) = state.auth_service.registration_invite(token).await else {
         return back_to_invite;
     };
     if reg.user_id != user.id {
