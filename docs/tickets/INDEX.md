@@ -25,8 +25,8 @@ feedback on 3.7.0 and CS-037, shipped in 4.0.0.
 After it, releases are bug fixes only for a while. Wave 29, a desktop app, shipped in 4.1.0. Wave 30,
 themes per workspace and the preferences a team from Slack looks for, shipped in 4.2.0. Wave 31, passkeys
 and emailed sign-in codes, shipped in 4.3.0. Wave 32, analytics for admins, shipped in 4.4.0. Wave 32a,
-which fixes what the 2026-11-10 survey of 4.6.0 found, shipped in 4.7.0. Wave 33 (mobile apps, 5.0.0)
-comes next.
+which fixes what the 2026-11-10 survey of 4.6.0 found, shipped in 4.7.0. Wave 32b, the emails, comes
+next, then Wave 33 (mobile apps, 5.0.0).
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -446,6 +446,20 @@ role or a channel they should not have comes first.
 | CS-121m ✅ | Notifications in the reader's language | backend · frontend |
 | CS-121n ✅ | Search that reads Japanese | backend · frontend · ops · docs |
 
+### Wave 32b — Email
+
+Planned on 2026-11-12 from the emails 4.7.0 sends, read in MailHog. A reset link is 426
+characters and an invite link carries the invitee's address; six of the seven emails are plain
+text, three subjects name no instance, the digest has no way to turn it off, and no email has a
+`Message-ID`. The numbers carry a letter, as in Wave 32a, so the wave lands before Wave 33. The
+links come first, so the layout is written once around the short ones.
+
+| # | Ticket | Area |
+|---|---|---|
+| CS-121o | Short links that say nothing about who they are for | backend · frontend |
+| CS-121p | Emails that look like they come from a company | backend · frontend |
+| CS-121q | Emails in the reader's language | backend |
+
 ### Wave 33 — Mobile apps
 
 Planned on 2026-11-04, to go out as 5.0.0, the major version because CS-122 moves every
@@ -518,6 +532,8 @@ Tickets that touch the same files, and the order that avoids rework:
 | invite, role and member-removal routes in `workspace/routes.rs`, `accept_invite` | CS-121b |
 | `commands/routes.rs` `invoke` and `commands/builtin.rs` | CS-121a → CS-121c → CS-121h |
 | `hooks/repo.rs` `enable`, `bot_apps` and `stand_down` | CS-121c |
+| `auth/service/tokens.rs` reset and registration tokens, the `/auth/invites` routes | CS-121o |
+| `auth/service/email.rs`, `notifications/email.rs`, `email/` and `templates/` | CS-121o → CS-121p → CS-121q |
 | Slack import reuse branch and `analytics/repo.rs` | CS-121d |
 | `lib/messageCache.ts`, `useMessages.ts` and `message.new` in `wsQuerySync.ts` | CS-121e → CS-121f |
 | `readOnScreen`, `MessageList` read boundary and unread hydration | CS-121f |
