@@ -17,8 +17,13 @@ instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ## [Unreleased]
 
-### Upgrading
+## [4.7.1] — 2026-11-12
 
+### Upgrading from 4.7.0
+
+- Set `VERSION=4.7.1`, pull the app images and restart `api`, `realtime`, `worker` and
+  `frontend` together. The `api` runs migrations 110 and 111 on start; Postgres stays as it is.
+  The desktop app needs no update.
 - Password reset and invite links emailed before this release stop working. A reset link
   lived an hour anyway. Somebody whose invite is still open gets a new link from *Forgot
   password* or *Email me a code* on the sign-in page, or from a new invite.
@@ -38,6 +43,12 @@ instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - Every email has a `Message-ID` on the sender's domain, the same across retries, and
   `Auto-Submitted: auto-generated`, so spam filters and out-of-office replies treat it as
   the automatic mail it is.
+
+### Added
+
+- Setup and the instance admin screens are in Japanese, from cyberlib: first-run setup, the
+  users and their roles, who may create workspaces, the workspaces list, the email tab, and the
+  screen for somebody in no workspace (#378).
 
 ### Security
 
