@@ -31,6 +31,12 @@ codes, erase and export that cover everything, the desktop app after signing out
 notifications in the reader's language, and search that finds a word inside Japanese text, on
 pg_bigm.
 
+**Wave 32b — email**, next (CS-121o – CS-121q), planned on 2026-11-12 from what the emails of
+4.7.0 look like. Links under 70 characters instead of over 400, carrying no address, one
+layout for every email with a text part, subjects that say where they are from, a digest with
+one-click unsubscribe, the headers spam filters look for, and every email in the reader's
+language.
+
 Planned after it on 2026-11-04:
 
 - **Wave 33 — mobile apps**, 5.0.0 (CS-122 – CS-126): every route under `/api/v1`, a spike
