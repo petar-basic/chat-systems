@@ -6,6 +6,7 @@ use uuid::Uuid;
 
 use crate::auth::models::UserStatus;
 use crate::notifications::models::NotifyLevel;
+use crate::profile::models::Language;
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct Workspace {
@@ -377,6 +378,11 @@ pub struct CreateInviteRequest {
 /// there is no way to tell a legitimate outstanding link from a leaked one, so
 /// "unlimited and forever" is not offered.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Inviter {
+    pub user_id: Uuid,
+    pub language: Language,
+}
+
 pub struct InviteLifetime {
     pub max_uses: i32,
     pub expires_in_hours: i64,

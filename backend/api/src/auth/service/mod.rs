@@ -9,6 +9,7 @@ use shared_common::validation;
 use super::models::{AuthTokens, User, UserPublic, UserStatus};
 use super::repo::UserRepo;
 use crate::config::AppConfig;
+use crate::profile::models::Language;
 use crate::scim::repo::hash_token;
 
 mod email;
@@ -20,7 +21,7 @@ mod tokens;
 #[derive(Debug)]
 pub enum PasswordRecovery {
     Handled,
-    AwaitingInvite(Box<User>),
+    AwaitingInvite(Box<User>, Language),
 }
 
 pub struct AuthService {
@@ -200,19 +201,24 @@ impl AuthService {
         Ok(())
     }
 
-    pub async fn forgot_password(&self, email: &str) -> AppResult<PasswordRecovery> {
+    pub async fn forgot_password(
+        &self,
+        email: &str,
+        accept_language: Option<&str>,
+    ) -> AppResult<PasswordRecovery> {
         validation::validate_email(email)?;
 
         let Some(user) = self.repo.find_by_email(email).await? else {
             return Ok(PasswordRecovery::Handled);
         };
+        let language = self.language_for(user.id, accept_language).await?;
 
         if user.status == UserStatus::Pending {
-            return Ok(PasswordRecovery::AwaitingInvite(Box::new(user)));
+            return Ok(PasswordRecovery::AwaitingInvite(Box::new(user), language));
         }
 
         if user.password_hash.is_none() {
-            if let Err(e) = self.send_sso_reminder(&user.email).await {
+            if let Err(e) = self.send_sso_reminder(&user.email, language).await {
                 tracing::warn!("failed to send SSO reminder email: {}", e);
             }
             return Ok(PasswordRecovery::Handled);
@@ -222,7 +228,10 @@ impl AuthService {
             Ok(token) => {
                 let reset_url =
                     format!("{}/reset-password?token={}", self.config.public_url, token);
-                if let Err(e) = self.send_reset_email(&user.email, &reset_url).await {
+                if let Err(e) = self
+                    .send_reset_email(&user.email, &reset_url, language)
+                    .await
+                {
                     tracing::warn!("failed to send password reset email: {}", e);
                 }
             }

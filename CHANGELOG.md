@@ -17,6 +17,13 @@ instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ## [Unreleased]
 
+### Changed
+
+- Every email is written in its reader's language: the one set in *Preferences → Language &
+  region*, or, while that is *Same as my browser*, the browser's language when *Forgot
+  password* or *Email me a code* was asked for from it. An invite is in the language of the
+  admin who sent it. Text not translated yet shows in English.
+
 ## [4.7.1] — 2026-11-12
 
 ### Upgrading from 4.7.0

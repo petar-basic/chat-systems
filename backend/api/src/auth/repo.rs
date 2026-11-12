@@ -362,6 +362,16 @@ impl UserRepo {
         Ok(())
     }
 
+    pub async fn language(&self, user_id: Uuid) -> sqlx::Result<Option<String>> {
+        sqlx::query_scalar!(
+            r#"SELECT preferences->>'language' AS "language?" FROM users WHERE id = $1"#,
+            user_id
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map(Option::flatten)
+    }
+
     pub async fn store_reset_token(
         &self,
         token_hash: &str,

@@ -36,12 +36,25 @@ pub(super) fn build_mailer(config: &AppConfig) -> Option<AsyncSmtpTransport<Toki
 }
 
 impl AuthService {
-    fn words(&self) -> Words<'static> {
-        text::words(Language::En)
+    pub async fn language_for(
+        &self,
+        user_id: Uuid,
+        accept_language: Option<&str>,
+    ) -> AppResult<Language> {
+        let preference = self.repo.language(user_id).await?;
+        Ok(text::reader_language(
+            text::language(preference.as_deref()),
+            accept_language,
+        ))
     }
 
-    pub(super) async fn send_reset_email(&self, to_email: &str, reset_url: &str) -> AppResult<()> {
-        let words = self.words();
+    pub(super) async fn send_reset_email(
+        &self,
+        to_email: &str,
+        reset_url: &str,
+        language: Language,
+    ) -> AppResult<()> {
+        let words = text::words(language);
         let instance = self.config.instance_name.as_str();
         let email = Email {
             subject: words.get("email.reset.subject", &[("instance", instance)]),
@@ -63,8 +76,12 @@ impl AuthService {
         self.queue(to_email, email, &words).await
     }
 
-    pub(crate) async fn send_sso_reminder(&self, to_email: &str) -> AppResult<()> {
-        let words = self.words();
+    pub(crate) async fn send_sso_reminder(
+        &self,
+        to_email: &str,
+        language: Language,
+    ) -> AppResult<()> {
+        let words = text::words(language);
         let instance = self.config.instance_name.as_str();
         let email = Email {
             subject: words.get("email.sso.subject", &[("instance", instance)]),
@@ -87,8 +104,9 @@ impl AuthService {
         &self,
         to_email: &str,
         workspace_name: Option<&str>,
+        language: Language,
     ) -> AppResult<()> {
-        let words = self.words();
+        let words = text::words(language);
         let instance = self.config.instance_name.as_str();
         let (subject, what) = match workspace_name {
             Some(workspace) => (
@@ -120,8 +138,9 @@ impl AuthService {
         to_email: &str,
         code: &str,
         lifetime_mins: i32,
+        language: Language,
     ) -> AppResult<()> {
-        let words = self.words();
+        let words = text::words(language);
         let instance = self.config.instance_name.as_str();
         let email = Email {
             subject: words.get(
@@ -144,8 +163,9 @@ impl AuthService {
         &self,
         to_email: &str,
         invite: InviteEmail<'_>,
+        language: Language,
     ) -> AppResult<()> {
-        let words = self.words();
+        let words = text::words(language);
         let instance = self.config.instance_name.as_str();
         let workspace = invite.workspace_name;
         let body = match invite.inviter {
@@ -220,7 +240,7 @@ impl AuthService {
         Ok(())
     }
 
-    pub async fn send_test_email(&self, to: &str) -> AppResult<Option<String>> {
+    pub async fn send_test_email(&self, to: &str, language: Language) -> AppResult<Option<String>> {
         if self.config.smtp_host.trim().is_empty() {
             return Ok(Some(
                 "SMTP_HOST is not set, so there is no server to send through".into(),
@@ -233,7 +253,7 @@ impl AuthService {
             )));
         };
 
-        let words = self.words();
+        let words = text::words(language);
         let instance = self.config.instance_name.as_str();
         let rendered = Email {
             subject: words.get("email.test.subject", &[("instance", instance)]),

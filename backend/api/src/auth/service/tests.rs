@@ -422,7 +422,7 @@ async fn forgot_password_does_not_leak_email_existence(pool: PgPool) {
     let db = pool.clone();
     let service = AuthService::new(UserRepo::new(pool), test_config());
 
-    let missing = service.forgot_password("ghost@test.local").await;
+    let missing = service.forgot_password("ghost@test.local", None).await;
     assert!(
         missing.is_ok(),
         "forgot_password for an unknown email must return Ok to avoid enumeration, got {missing:?}"
@@ -450,7 +450,7 @@ async fn forgot_password_does_not_leak_email_existence(pool: PgPool) {
         .await
         .expect("activate user");
 
-    let existing = service.forgot_password("real@test.local").await;
+    let existing = service.forgot_password("real@test.local", None).await;
     match &existing {
         Ok(_) => {}
         Err(AppError::Internal(_)) => {}

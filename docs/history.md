@@ -3109,3 +3109,28 @@ Dev Team?* and left the setting on; the one-click POST answered 200 and turned i
 link with its last characters changed answered 400. The HTML rendered at desktop width and at
 320px without sideways scrolling, and `/app/{ws}?preferences` opened Preferences on
 Notifications.
+
+### [CS-121q] Emails in the reader's language ✅ shipped
+Since CS-121m the digest and push followed *Preferences → Language & region*, and every other
+email was English. Now each account email is written with `notifications::text` in the
+reader's language, chosen by `text::reader_language`: the person's `preferences.language`;
+while that is *Same as my browser*, the first language the app has in the `Accept-Language`
+of the request that caused the email, by quality, which for *Forgot password* and *Email me a
+code* is their own browser; otherwise English. `AuthService::language_for` applies it, each
+`send_*` takes the result, and an `AcceptLanguage` extractor reads the header. An invite has
+nobody to ask yet, so it is in the language of the admin who sent it (`Inviter` carries it
+into `create_invite`); sent again from the sign-in page it follows that request. The admin
+test email follows the admin, the unsubscribe page the person its link names, and a forged
+link the browser. The digest keeps its rule, as it has no request behind it. The layout's
+`<html lang>` names the language, and a string the language lacks is English, one string at
+a time; `ja.json` has no email strings yet, which are the translator's.
+
+Checked by hand on the Docker build, reading `<html lang>` from MailHog. With the setting on
+*Same as my browser*, a reset asked from a Japanese browser came in Japanese, and a code asked
+from an English browser or with no header in English. With the setting on Japanese a reset
+asked from an English browser came in Japanese. An admin set to Japanese sent an invite in
+Japanese from an English browser, and the same invite sent again from the invitee's English
+browser came in English; the admin's test email was Japanese. Back on *Same as my browser*,
+the admin's invite from a Japanese browser was Japanese. The unsubscribe page for Alice, whose
+setting follows the browser, was Japanese for a Japanese browser and English without the
+header, and a forged link answered 400 in Japanese. The settings were put back afterwards.

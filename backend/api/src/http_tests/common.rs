@@ -221,7 +221,21 @@ pub async fn send(
     token: Option<&str>,
     body: Option<Value>,
 ) -> (StatusCode, Value) {
+    send_with_header(app, method, uri, token, body, None).await
+}
+
+pub async fn send_with_header(
+    app: &Router,
+    method: &str,
+    uri: &str,
+    token: Option<&str>,
+    body: Option<Value>,
+    extra: Option<(header::HeaderName, &str)>,
+) -> (StatusCode, Value) {
     let mut builder = Request::builder().method(method).uri(uri);
+    if let Some((name, value)) = extra {
+        builder = builder.header(name, value);
+    }
     if let Some(t) = token {
         builder = builder.header(header::AUTHORIZATION, format!("Bearer {t}"));
     }

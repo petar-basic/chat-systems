@@ -47,6 +47,39 @@ pub fn language(code: Option<&str>) -> Language {
         .unwrap_or_default()
 }
 
+pub fn reader_language(preference: Language, accept_language: Option<&str>) -> Language {
+    match (preference, accept_language) {
+        (Language::Browser, Some(header)) => from_accept_language(header),
+        (preference, _) => preference,
+    }
+}
+
+fn from_accept_language(header: &str) -> Language {
+    let mut ranges: Vec<(f32, &str)> = header
+        .split(',')
+        .filter_map(|range| {
+            let mut parts = range.split(';');
+            let tag = parts.next()?.trim();
+            let quality = match parts.find_map(|p| p.trim().strip_prefix("q=")) {
+                Some(q) => q.trim().parse::<f32>().ok()?,
+                None => 1.0,
+            };
+            (quality > 0.0).then_some((quality, tag))
+        })
+        .collect();
+    ranges.sort_by(|a, b| b.0.total_cmp(&a.0));
+    ranges
+        .into_iter()
+        .find_map(
+            |(_, tag)| match tag.split('-').next()?.to_ascii_lowercase().as_str() {
+                "en" => Some(Language::En),
+                "ja" => Some(Language::Ja),
+                _ => None,
+            },
+        )
+        .unwrap_or(Language::Browser)
+}
+
 #[derive(Clone, Copy)]
 pub struct Words<'a> {
     own: Option<&'a Value>,
@@ -266,6 +299,37 @@ mod tests {
         assert_eq!(language(Some("ja")), Language::Ja);
         assert_eq!(language(Some("klingon")), Language::Browser);
         assert_eq!(language(None), Language::Browser);
+    }
+
+    #[test]
+    fn the_reader_language_is_the_setting_then_the_browser_then_english() {
+        assert_eq!(
+            reader_language(Language::Ja, Some("en-US,en;q=0.9")),
+            Language::Ja
+        );
+        assert_eq!(reader_language(Language::En, Some("ja")), Language::En);
+        assert_eq!(
+            reader_language(Language::Browser, Some("ja-JP,ja;q=0.9,en;q=0.8")),
+            Language::Ja
+        );
+        assert_eq!(
+            reader_language(Language::Browser, Some("de-DE, en;q=0.5, ja;q=0.7")),
+            Language::Ja
+        );
+        assert_eq!(
+            reader_language(Language::Browser, Some("fr-FR, ja;q=0, *;q=0.1")),
+            Language::Browser
+        );
+        assert_eq!(
+            reader_language(Language::Browser, Some("EN-gb")),
+            Language::En
+        );
+        assert_eq!(
+            reader_language(Language::Browser, Some("ja;q=nonsense, en")),
+            Language::En
+        );
+        assert_eq!(reader_language(Language::Browser, None), Language::Browser);
+        assert_eq!(words(reader_language(Language::Browser, None)).lang(), "en");
     }
 
     #[test]

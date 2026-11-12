@@ -270,6 +270,7 @@ mod tests {
                     url: "https://chat.example/invite/x",
                     expires_at: Utc::now() + chrono::Duration::days(7),
                 },
+                crate::profile::models::Language::En,
             )
             .await
             .unwrap();

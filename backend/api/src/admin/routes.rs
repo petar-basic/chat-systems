@@ -14,6 +14,7 @@ use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::auth::models::InstanceRole;
 use crate::dto::{DataList, StatusResponse};
 use crate::middleware::{admin_middleware, AuthUser};
+use crate::net::AcceptLanguage;
 use crate::pagination::PageQuery;
 use crate::state::AppState;
 use crate::workspace::models::{AdminWorkspace, WorkspaceMember, WorkspacePerson, WorkspaceRole};
@@ -89,6 +90,7 @@ async fn health() -> Json<AdminHealth> {
 async fn send_test_email(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
+    accept_language: AcceptLanguage,
 ) -> AppResult<Json<EmailTest>> {
     let user = state
         .auth_service
@@ -96,7 +98,14 @@ async fn send_test_email(
         .find_by_id(auth.user_id)
         .await?
         .ok_or_else(|| AppError::NotFound("User not found".into()))?;
-    let error = state.auth_service.send_test_email(&user.email).await?;
+    let language = state
+        .auth_service
+        .language_for(user.id, accept_language.header())
+        .await?;
+    let error = state
+        .auth_service
+        .send_test_email(&user.email, language)
+        .await?;
     Ok(Json(EmailTest {
         sent_to: user.email,
         error,
