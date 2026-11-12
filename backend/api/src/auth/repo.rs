@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use super::models::{UpdateProfileRequest, User, UserStatus};
+use super::models::{RegistrationInvite, UpdateProfileRequest, User, UserStatus};
 
 #[derive(Clone)]
 pub struct UserRepo {
@@ -362,15 +362,15 @@ impl UserRepo {
         Ok(())
     }
 
-    pub async fn store_reset_jti(
+    pub async fn store_reset_token(
         &self,
-        jti: Uuid,
+        token_hash: &str,
         user_id: Uuid,
         expires_at: DateTime<Utc>,
     ) -> sqlx::Result<()> {
         sqlx::query!(
-            "INSERT INTO password_reset_tokens (jti, user_id, expires_at) VALUES ($1, $2, $3)",
-            jti,
+            "INSERT INTO password_reset_tokens (token_hash, user_id, expires_at) VALUES ($1, $2, $3)",
+            token_hash,
             user_id,
             expires_at
         )
@@ -379,14 +379,45 @@ impl UserRepo {
         Ok(())
     }
 
-    pub async fn consume_reset_jti(&self, jti: Uuid, user_id: Uuid) -> sqlx::Result<bool> {
-        let result = sqlx::query!(
-            "DELETE FROM password_reset_tokens WHERE jti = $1 AND user_id = $2 AND expires_at > NOW()",
-            jti,
+    pub async fn consume_reset_token(&self, token_hash: &str) -> sqlx::Result<Option<Uuid>> {
+        sqlx::query_scalar!(
+            "DELETE FROM password_reset_tokens WHERE token_hash = $1 AND expires_at > NOW() RETURNING user_id",
+            token_hash
+        )
+        .fetch_optional(&self.pool)
+        .await
+    }
+
+    pub async fn store_invite_link(
+        &self,
+        token_hash: &str,
+        invite_id: Uuid,
+        user_id: Uuid,
+    ) -> sqlx::Result<()> {
+        sqlx::query!(
+            "INSERT INTO invite_links (token_hash, invite_id, user_id) VALUES ($1, $2, $3)",
+            token_hash,
+            invite_id,
             user_id
         )
         .execute(&self.pool)
         .await?;
-        Ok(result.rows_affected() > 0)
+        Ok(())
+    }
+
+    pub async fn find_invite_link(
+        &self,
+        token_hash: &str,
+    ) -> sqlx::Result<Option<RegistrationInvite>> {
+        sqlx::query_as!(
+            RegistrationInvite,
+            r#"SELECT l.user_id, l.invite_id, i.email AS "email!"
+                 FROM invite_links l
+                 JOIN workspace_invites i ON i.id = l.invite_id
+                WHERE l.token_hash = $1 AND i.email IS NOT NULL"#,
+            token_hash
+        )
+        .fetch_optional(&self.pool)
+        .await
     }
 }

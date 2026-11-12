@@ -82,7 +82,6 @@ async fn generate_tokens_stamps_token_type() {
         exp: access_exp.timestamp(),
         jti: Some(jti),
         token_type: "access".to_string(),
-        invite_id: None,
     };
     let access_token = config.jwt_keys.encode(&access_claims).unwrap();
 
@@ -94,7 +93,6 @@ async fn generate_tokens_stamps_token_type() {
         exp: refresh_exp.timestamp(),
         jti: Some(jti),
         token_type: "refresh".to_string(),
-        invite_id: None,
     };
     let refresh_token = config.jwt_keys.encode(&refresh_claims).unwrap();
 
@@ -238,7 +236,6 @@ fn an_hs256_token_is_refused() {
         exp: (now + Duration::minutes(5)).timestamp(),
         jti: Some(Uuid::new_v4()),
         token_type: "access".into(),
-        invite_id: None,
     };
     let mut header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::HS256);
     header.kid = Some(service_config.jwt_keys.current_id().to_string());
@@ -307,17 +304,18 @@ async fn reset_password_is_single_use_and_revokes_refresh_tokens(pool: PgPool) {
         .generate_reset_token(user.id)
         .await
         .expect("generate reset token");
-    let reset_claims = decode_claims(&reset_token);
-    let jti = reset_claims.jti.expect("reset token must carry a jti");
-    let stored_jti_count: i64 =
-        sqlx::query_scalar("SELECT COUNT(*) FROM password_reset_tokens WHERE jti = $1")
-            .bind(jti)
-            .fetch_one(&db)
+    assert_eq!(reset_token.len(), 43, "a reset token is 32 random bytes");
+    let token_hash = crate::scim::repo::hash_token(&reset_token);
+    let stored: Vec<String> =
+        sqlx::query_scalar("SELECT token_hash FROM password_reset_tokens WHERE user_id = $1")
+            .bind(user.id)
+            .fetch_all(&db)
             .await
-            .expect("count reset jti");
+            .expect("reset rows");
     assert_eq!(
-        stored_jti_count, 1,
-        "generate_reset_token must store the jti exactly once"
+        stored,
+        vec![token_hash.clone()],
+        "only the token's hash is stored, once"
     );
 
     service
@@ -345,13 +343,13 @@ async fn reset_password_is_single_use_and_revokes_refresh_tokens(pool: PgPool) {
         "old password must no longer verify after reset"
     );
 
-    let jti_after: i64 =
-        sqlx::query_scalar("SELECT COUNT(*) FROM password_reset_tokens WHERE jti = $1")
-            .bind(jti)
+    let left: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM password_reset_tokens WHERE token_hash = $1")
+            .bind(&token_hash)
             .fetch_one(&db)
             .await
-            .expect("count reset jti after");
-    assert_eq!(jti_after, 0, "reset jti must be consumed (single-use)");
+            .expect("count reset rows after");
+    assert_eq!(left, 0, "the reset token must be consumed (single-use)");
 
     // Ending the sessions is `sessions::revoke`'s job, driven from the route.
     // `http_tests::auth::a_password_reset_ends_every_existing_session` covers it.
@@ -387,7 +385,7 @@ async fn reset_password_is_single_use_and_revokes_refresh_tokens(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
-async fn reset_token_is_rejected_by_refresh_and_tagged_reset(pool: PgPool) {
+async fn a_reset_token_is_not_a_session_token(pool: PgPool) {
     let service = AuthService::new(UserRepo::new(pool), test_config());
 
     let hash = AuthService::hash_password("confusion123")
@@ -409,21 +407,11 @@ async fn reset_token_is_rejected_by_refresh_and_tagged_reset(pool: PgPool) {
         .await
         .expect("generate reset token");
 
-    let claims = service
-        .verify_token(&reset_token)
-        .expect("reset token verifies");
-    assert_eq!(
-        claims.token_type, "reset",
-        "a reset token must be stamped token_type == \"reset\" so middleware rejects it as access"
-    );
-    assert_eq!(claims.sub, user.id, "reset token subject must be the user");
-
-    let refused = service.refresh_access_token(&reset_token).await;
     assert!(
-        refused.is_err(),
-        "a reset token must not be exchangeable at refresh_access_token"
+        service.verify_token(&reset_token).is_err(),
+        "a reset token is not a signed token"
     );
-    match refused {
+    match service.refresh_access_token(&reset_token).await {
         Err(AppError::Unauthorized(_)) => {}
         other => panic!("expected Unauthorized for reset-token at refresh, got {other:?}"),
     }
@@ -488,7 +476,7 @@ async fn forgot_password_does_not_leak_email_existence(pool: PgPool) {
             .expect("count tokens for existing");
     assert_eq!(
         tokens_for_existing, 1,
-        "an existing user's forgot_password must store exactly one reset jti"
+        "an existing user's forgot_password must store exactly one reset token"
     );
 }
 
@@ -566,87 +554,6 @@ async fn bootstrap_admin_creates_active_admin_and_is_idempotent(pool: PgPool) {
         admin_after.id, admin.id,
         "idempotent bootstrap must not replace the existing admin user"
     );
-}
-
-#[test_macros::db_test(migrations = "../migrations")]
-async fn registration_token_round_trips_and_rejects_other_token_types(pool: PgPool) {
-    let service = AuthService::new(UserRepo::new(pool), test_config());
-
-    let invited = service
-        .repo()
-        .create("invitee@test.local", None, None, false)
-        .await
-        .expect("create pending invitee");
-    let invite_id = Uuid::new_v4();
-    let expires_at = Utc::now() + Duration::hours(30);
-
-    let token = service
-        .generate_registration_token(invited.id, "invitee@test.local", invite_id, expires_at)
-        .expect("generate registration token");
-
-    let raw = decode_claims(&token);
-    assert_eq!(
-        raw.token_type, "registration",
-        "registration token must be stamped token_type == \"registration\""
-    );
-    assert_eq!(
-        raw.sub, invited.id,
-        "registration token subject must be the invitee"
-    );
-    assert_eq!(
-        raw.invite_id,
-        Some(invite_id),
-        "registration token must name the invite it stands for"
-    );
-    assert_eq!(
-        raw.exp,
-        expires_at.timestamp(),
-        "registration token must expire with its invite"
-    );
-
-    let verified = service
-        .verify_registration_token(&token)
-        .expect("verify_registration_token must accept a genuine registration token");
-    assert_eq!(verified.sub, invited.id);
-    assert_eq!(verified.invite_id, Some(invite_id));
-
-    let hash = AuthService::hash_password("regtokenpw123")
-        .await
-        .expect("hash");
-    let active = service
-        .repo()
-        .activate(invited.id, &hash, "Invitee")
-        .await
-        .expect("activate invitee");
-
-    let access_token = service
-        .generate_tokens(&active)
-        .await
-        .expect("generate access/refresh tokens")
-        .access_token;
-    let access_rejected = service.verify_registration_token(&access_token);
-    assert!(
-        access_rejected.is_err(),
-        "an access token must be rejected by verify_registration_token"
-    );
-    match access_rejected {
-        Err(AppError::Unauthorized(_)) => {}
-        other => panic!("expected Unauthorized for access token, got {other:?}"),
-    }
-
-    let reset_token = service
-        .generate_reset_token(active.id)
-        .await
-        .expect("generate reset token");
-    let reset_rejected = service.verify_registration_token(&reset_token);
-    assert!(
-        reset_rejected.is_err(),
-        "a reset token must be rejected by verify_registration_token"
-    );
-    match reset_rejected {
-        Err(AppError::Unauthorized(_)) => {}
-        other => panic!("expected Unauthorized for reset token, got {other:?}"),
-    }
 }
 
 #[test_macros::db_test(migrations = "../migrations")]

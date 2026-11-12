@@ -456,7 +456,7 @@ links come first, so the layout is written once around the short ones.
 
 | # | Ticket | Area |
 |---|---|---|
-| CS-121o | Short links that say nothing about who they are for | backend · frontend |
+| CS-121o ✅ | Short links that say nothing about who they are for | backend |
 | CS-121p | Emails that look like they come from a company | backend · frontend |
 | CS-121q | Emails in the reader's language | backend |
 
@@ -532,8 +532,8 @@ Tickets that touch the same files, and the order that avoids rework:
 | invite, role and member-removal routes in `workspace/routes.rs`, `accept_invite` | CS-121b |
 | `commands/routes.rs` `invoke` and `commands/builtin.rs` | CS-121a → CS-121c → CS-121h |
 | `hooks/repo.rs` `enable`, `bot_apps` and `stand_down` | CS-121c |
-| `auth/service/tokens.rs` reset and registration tokens, the `/auth/invites` routes | CS-121o |
-| `auth/service/email.rs`, `notifications/email.rs`, `email/` and `templates/` | CS-121o → CS-121p → CS-121q |
+| `auth/service/tokens.rs` reset and registration tokens, the `/auth/invites` routes | CS-121o ✅ |
+| `auth/service/email.rs`, `notifications/email.rs`, `email/` and `templates/` | CS-121o ✅ → CS-121p → CS-121q |
 | Slack import reuse branch and `analytics/repo.rs` | CS-121d |
 | `lib/messageCache.ts`, `useMessages.ts` and `message.new` in `wsQuerySync.ts` | CS-121e → CS-121f |
 | `readOnScreen`, `MessageList` read boundary and unread hydration | CS-121f |

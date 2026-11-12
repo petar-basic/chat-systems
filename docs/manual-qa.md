@@ -92,6 +92,7 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - 🔴 **Edge — single-use:** click the SAME reset link a second time → must fail ("already used or expired"). (Reset tokens are now one-time.)
 - 🔴 **Edge — enumeration:** request reset for an email that does NOT exist → the UI shows the same "email sent" success (no leak that the account doesn't exist); MailHog shows no mail.
 - 🔴 **Edge — token confusion:** copy the reset-link token and try to use it as a normal session (e.g. paste as `Authorization: Bearer <token>` to `/api/users/me`) → **401** (a reset token must not authenticate).
+- 🟡 **Short link:** the reset link is the server's address plus `/reset-password?token=` and 43 characters, and an invite link the address plus `/invite/` and 43 characters; neither shows an address.
 
 ### 1.4 🟢 Change password (logged in)
 - **Reach:** Settings panel → Change password (or `PATCH /api/users/me/password`).

@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT l.user_id, l.invite_id, i.email AS \"email!\"\n                 FROM invite_links l\n                 JOIN workspace_invites i ON i.id = l.invite_id\n                WHERE l.token_hash = $1 AND i.email IS NOT NULL",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "invite_links",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "invite_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "invite_links",
+            "name": "invite_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "email!",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "workspace_invites",
+            "name": "email"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "2c1d53669a78e347faafbc01c46ec345476e4cb87366ba33960c7283c2cdcd9d"
+}

@@ -1,4 +1,4 @@
-use chrono::{DateTime, Duration, Utc};
+use chrono::{Duration, Utc};
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
@@ -7,6 +7,7 @@ use super::AuthService;
 use crate::auth::models::{AuthTokens, RegistrationInvite, User, UserStatus};
 use crate::auth::repo::UserRepo;
 use crate::middleware::Claims;
+use crate::scim::repo::hash_token;
 
 impl AuthService {
     pub async fn refresh_access_token(&self, refresh_token: &str) -> AppResult<AuthTokens> {
@@ -55,7 +56,6 @@ impl AuthService {
             exp: access_exp.timestamp(),
             jti: Some(new_jti),
             token_type: "access".to_string(),
-            invite_id: None,
         };
         let access_token = self
             .config
@@ -71,7 +71,6 @@ impl AuthService {
             exp: refresh_exp.timestamp(),
             jti: Some(new_jti),
             token_type: "refresh".to_string(),
-            invite_id: None,
         };
         let new_refresh_token = self
             .config
@@ -107,7 +106,6 @@ impl AuthService {
             exp: access_exp.timestamp(),
             jti: Some(jti),
             token_type: "access".to_string(),
-            invite_id: None,
         };
 
         let access_token = self
@@ -124,7 +122,6 @@ impl AuthService {
             exp: refresh_exp.timestamp(),
             jti: Some(jti),
             token_type: "refresh".to_string(),
-            invite_id: None,
         };
 
         let refresh_token = self
@@ -159,74 +156,36 @@ impl AuthService {
     }
 
     pub(super) async fn generate_reset_token(&self, user_id: Uuid) -> AppResult<String> {
-        let now = Utc::now();
-        let exp = now + Duration::seconds(3600);
-        let jti = Uuid::new_v4();
-        let claims = Claims {
-            sub: user_id,
-            email: String::new(),
-            is_instance_admin: false,
-            iat: now.timestamp(),
-            exp: exp.timestamp(),
-            jti: Some(jti),
-            token_type: "reset".to_string(),
-            invite_id: None,
-        };
-        let token = self
-            .config
-            .jwt_keys
-            .encode(&claims)
-            .map_err(|e| AppError::Internal(format!("Reset token generation failed: {e}")))?;
-
-        self.repo.store_reset_jti(jti, user_id, exp).await?;
-
+        let token = link_token();
+        let expires_at = Utc::now() + Duration::seconds(RESET_LINK_SECONDS);
+        self.repo
+            .store_reset_token(&hash_token(&token), user_id, expires_at)
+            .await?;
         Ok(token)
     }
 
-    pub fn generate_registration_token(
-        &self,
-        user_id: Uuid,
-        email: &str,
-        invite_id: Uuid,
-        expires_at: DateTime<Utc>,
-    ) -> AppResult<String> {
-        let claims = Claims {
-            sub: user_id,
-            email: email.to_string(),
-            is_instance_admin: false,
-            iat: Utc::now().timestamp(),
-            exp: expires_at.timestamp(),
-            jti: None,
-            token_type: "registration".to_string(),
-            invite_id: Some(invite_id),
-        };
-        self.config
-            .jwt_keys
-            .encode(&claims)
-            .map_err(|e| AppError::Internal(format!("Registration token generation failed: {e}")))
+    pub async fn issue_invite_link(&self, user_id: Uuid, invite_id: Uuid) -> AppResult<String> {
+        let token = link_token();
+        self.repo
+            .store_invite_link(&hash_token(&token), invite_id, user_id)
+            .await?;
+        Ok(token)
     }
 
-    pub fn verify_registration_token(&self, token: &str) -> AppResult<Claims> {
-        let claims = self
-            .verify_token(token)
-            .map_err(|_| AppError::Unauthorized("Invalid or expired invite".into()))?;
-
-        if claims.token_type != "registration" {
-            return Err(AppError::Unauthorized("Invalid or expired invite".into()));
-        }
-
-        Ok(claims)
+    pub async fn registration_invite(&self, token: &str) -> AppResult<RegistrationInvite> {
+        self.repo
+            .find_invite_link(&hash_token(token))
+            .await?
+            .ok_or_else(|| AppError::Unauthorized("Invalid or expired invite".into()))
     }
+}
 
-    pub fn registration_invite(&self, token: &str) -> AppResult<RegistrationInvite> {
-        let claims = self.verify_registration_token(token)?;
-        let invite_id = claims
-            .invite_id
-            .ok_or_else(|| AppError::Unauthorized("Invalid or expired invite".into()))?;
-        Ok(RegistrationInvite {
-            user_id: claims.sub,
-            email: claims.email,
-            invite_id,
-        })
-    }
+const RESET_LINK_SECONDS: i64 = 3600;
+
+fn link_token() -> String {
+    use base64::Engine;
+    use rand::RngExt;
+    let mut bytes = [0u8; 32];
+    rand::rng().fill(&mut bytes[..]);
+    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }

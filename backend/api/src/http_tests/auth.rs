@@ -457,13 +457,12 @@ async fn an_email_invite_link_lives_and_dies_with_its_invite(pool: PgPool) {
             exp: (now + Duration::days(7)).timestamp(),
             jti: None,
             token_type: "registration".to_string(),
-            invite_id: None,
         })
         .expect("encode");
     assert_eq!(
         verify(stale).await,
         StatusCode::UNAUTHORIZED,
-        "a link minted before invites were bound to their row is refused"
+        "a signed link from before invite links were stored is refused"
     );
 }
 
@@ -472,30 +471,11 @@ async fn reset_password_changes_password_and_is_single_use(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (user_id, email) = seed(&state, "reset-happy", false).await;
 
-    let now = Utc::now();
-    let exp = now + Duration::seconds(3600);
-    let jti = Uuid::new_v4();
-    let claims = Claims {
-        sub: user_id,
-        email: String::new(),
-        is_instance_admin: false,
-        iat: now.timestamp(),
-        exp: exp.timestamp(),
-        jti: Some(jti),
-        token_type: "reset".to_string(),
-        invite_id: None,
-    };
     let reset_token = state
-        .config
-        .jwt_keys
-        .encode(&claims)
-        .expect("encode reset token");
-    state
         .auth_service
-        .repo()
-        .store_reset_jti(jti, user_id, exp)
+        .issue_reset_token_for_test(user_id)
         .await
-        .expect("store reset jti");
+        .expect("issue reset token");
 
     let token = login(&app, &email, PASSWORD).await;
     assert!(!token.is_empty());
@@ -932,7 +912,6 @@ async fn a_revocation_store_that_cannot_answer_refuses_the_request(pool: PgPool)
         exp: chrono::Utc::now().timestamp() + 900,
         jti: Some(uuid::Uuid::new_v4()),
         token_type: "access".into(),
-        invite_id: None,
     };
     assert_eq!(
         healthy.revocation_state(&claims).await,
@@ -1051,6 +1030,59 @@ async fn a_short_password_does_not_burn_the_reset_link(pool: PgPool) {
         StatusCode::OK,
         "the same link still works: {body:?}"
     );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn emailed_links_are_short_and_only_their_hash_is_kept(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "short-links", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Short Links WS").await;
+    let (_, email) = seed(&state, "short-reset-link", false).await;
+    let invitee = format!("short-{}@test.local", Uuid::new_v4().simple());
+
+    forgot(&app, &email).await;
+    let (status, _) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/invites"),
+        Some(&owner_token),
+        Some(json!({ "email": invitee })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (_, reset_email) = emails_to(&state, &email).await.pop().expect("reset email");
+    let (_, invite_email) = emails_to(&state, &invitee)
+        .await
+        .pop()
+        .expect("invite email");
+    let reset = link_in(&reset_email, "/reset-password?token=");
+    let invite = link_in(&invite_email, "/invite/");
+    let reset_token = reset.rsplit('=').next().expect("reset token");
+    let invite_token = invite.rsplit('/').next().expect("invite token");
+    for (link, token) in [(&reset, reset_token), (&invite, invite_token)] {
+        assert!(link.len() <= "http://localhost".len() + 70, "{link}");
+        assert_eq!(token.len(), 43, "{link}");
+        assert!(!token.contains('.'), "not a JWT: {link}");
+    }
+
+    let stored: Vec<String> = sqlx::query_scalar(
+        "SELECT token_hash FROM password_reset_tokens UNION ALL SELECT token_hash FROM invite_links",
+    )
+    .fetch_all(&state.pool)
+    .await
+    .expect("stored hashes");
+    assert_eq!(stored.len(), 2, "{stored:?}");
+    assert!(stored.contains(&crate::scim::repo::hash_token(reset_token)));
+    assert!(stored.contains(&crate::scim::repo::hash_token(invite_token)));
+    assert!(!stored.iter().any(|h| h == reset_token || h == invite_token));
+}
+
+fn link_in(body: &str, marker: &str) -> String {
+    body.split_whitespace()
+        .find(|word| word.contains(marker))
+        .expect("link in the email")
+        .to_string()
 }
 
 #[test_macros::db_test(migrations = "../migrations")]

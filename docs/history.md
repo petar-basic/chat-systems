@@ -3056,3 +3056,26 @@ and AWS請求, Bob's 来週の部長会議に出席します and 今月のAWS請
 marks the word. `EXPLAIN` showed the bigm indexes serving a two-character pattern on messages,
 file names and file texts; on 200,000 rows `LIKE '%稟議%'` took 0.37 ms there, against 506 ms
 as a scan of the trigram-indexed table.
+
+## Wave 32b — Email
+
+### [CS-121o] Short links that say nothing about who they are for ✅ shipped
+A password reset link was 426 characters on a local server and an invite link about 500,
+because each carried a signed JWT. The reset's JWT did nothing its `password_reset_tokens` row
+did not do already, and the invite's held the invitee's address, user id and invite id in a
+payload anyone who saw the link could read: in browser history, in a proxy's log, in a chat
+where an admin pasted it. Both links now end in 32 random bytes, base64url, of which only the
+SHA-256 is kept, the way SCIM and bot tokens are: `password_reset_tokens` is keyed by it, and
+`invite_links` maps it to the invite and the person, going with either. Expiry, use limits and
+revocation stay on the invite and are checked where they were, and every link sent for an
+invite works while the invite does. The `reset` and `registration` token types and
+`Claims.invite_id` are gone. The paths did not change, so the client did not either. Links
+sent before the upgrade stop working, which the CHANGELOG says.
+
+Checked by hand on the Docker build. An invite from the admin to a new address arrived with a
+72-character link, `http://localhost:8080/invite/` and 43 characters with no dot and no address,
+the same one `invite_url` returned, and one hashed row in `invite_links`. The link opened
+*Complete registration* for Dev Team, registered the account, and then answered 401. *Forgot
+password* sent an 86-character link whose page asked for the new password; the token was refused
+as a bearer token, reset the password once, said *reset link already used or expired* the second
+time, and the new password signed in. A JWT-shaped token was refused by both routes.

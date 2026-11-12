@@ -9,6 +9,7 @@ use shared_common::validation;
 use super::models::{AuthTokens, User, UserPublic, UserStatus};
 use super::repo::UserRepo;
 use crate::config::AppConfig;
+use crate::scim::repo::hash_token;
 
 mod email;
 #[cfg(test)]
@@ -231,31 +232,18 @@ impl AuthService {
     }
 
     pub async fn reset_password(&self, token: &str, new_password: &str) -> AppResult<Uuid> {
-        let claims = self.verify_token(token)?;
-
-        if claims.token_type != "reset" {
-            return Err(AppError::Unauthorized("Invalid or expired token".into()));
-        }
-
-        let jti = claims
-            .jti
-            .ok_or_else(|| AppError::Unauthorized("Invalid or expired token".into()))?;
-
         validation::validate_password(new_password)?;
 
-        let consumed = self.repo.consume_reset_jti(jti, claims.sub).await?;
-        if !consumed {
-            return Err(AppError::Unauthorized(
-                "reset link already used or expired".into(),
-            ));
-        }
+        let user_id = self
+            .repo
+            .consume_reset_token(&hash_token(token))
+            .await?
+            .ok_or_else(|| AppError::Unauthorized("reset link already used or expired".into()))?;
 
         let password_hash = Self::hash_password(new_password).await?;
-        self.repo
-            .update_password(claims.sub, &password_hash)
-            .await?;
+        self.repo.update_password(user_id, &password_hash).await?;
 
-        Ok(claims.sub)
+        Ok(user_id)
     }
 
     pub async fn change_password(

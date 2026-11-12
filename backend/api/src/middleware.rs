@@ -51,8 +51,6 @@ pub struct Claims {
     pub jti: Option<Uuid>,
     #[serde(default = "default_token_type")]
     pub token_type: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub invite_id: Option<Uuid>,
 }
 
 #[derive(Debug, Clone)]
@@ -341,7 +339,6 @@ mod tests {
             exp: iat + 3600,
             jti,
             token_type: "access".into(),
-            invite_id: None,
         }
     }
 
