@@ -404,7 +404,7 @@ impl NotificationRepo {
         .await?;
         sqlx::query!(
             r#"INSERT INTO notification_keywords (user_id, workspace_id, keyword, normalized, position)
-               SELECT $2, $1, btrim(t.k), lower(public.search_normalize(btrim(t.k))), t.ord::int
+               SELECT $2, $1, btrim(t.k), public.search_fold(btrim(t.k)), t.ord::int
                  FROM unnest($3::text[]) WITH ORDINALITY AS t(k, ord)
                ON CONFLICT DO NOTHING"#,
             workspace_id,
@@ -430,7 +430,7 @@ impl NotificationRepo {
                  JOIN channels c ON c.id = $1 AND c.workspace_id = k.workspace_id
                  JOIN channel_members cm ON cm.channel_id = c.id AND cm.user_id = k.user_id
                 WHERE k.user_id IS DISTINCT FROM $2
-                  AND lower(public.search_normalize($3::text)) ~ public.keyword_pattern(k.normalized)
+                  AND public.search_fold($3::text) ~ public.keyword_pattern(k.normalized)
                 ORDER BY k.user_id, k.position"#,
             channel_id,
             author_id,

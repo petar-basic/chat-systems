@@ -842,6 +842,27 @@ impl MessageRepo {
               ORDER BY m.created_at DESC
               LIMIT 1000
             ),
+            contains AS MATERIALIZED (
+              SELECT m.id, m.created_at
+                FROM messages m
+               WHERE $1 <> ''
+                 AND (SELECT count(*) FROM exact) < $6::bigint + $7::bigint
+                 AND public.search_fold(m.content) LIKE (public.search_like_patterns($1))[1]
+                 AND public.search_fold(m.content) LIKE ALL (public.search_like_patterns($1))
+                 AND (m.search_vector @@ plainto_tsquery(search_text_config(), search_normalize($1))) IS NOT TRUE
+                 AND m.deleted_at IS NULL
+                 AND m.channel_id IN (SELECT id FROM visible)
+                 AND ($5::uuid IS NULL OR m.user_id = $5)
+                 AND ($11::text IS NULL OR CASE $11
+                     WHEN 'file' THEN jsonb_path_exists(m.metadata, '$.attachments[*]')
+                     WHEN 'image' THEN jsonb_path_exists(m.metadata, '$.attachments[*] ? (@.mime_type starts with "image/")')
+                     ELSE m.content ~* 'https?://'
+                   END)
+                 AND ($12::timestamptz IS NULL OR m.created_at >= $12)
+                 AND ($13::timestamptz IS NULL OR m.created_at < $13)
+               ORDER BY m.created_at DESC
+               LIMIT 1000
+            ),
             fuzzy AS MATERIALIZED (
               SELECT recent.id, recent.created_at,
                      word_similarity(search_normalize($1), search_normalize(recent.content)) AS similarity
@@ -849,9 +870,10 @@ impl MessageRepo {
                 SELECT m.id, m.created_at, m.content
                 FROM messages m
                 WHERE $1 <> ''
-                  AND (SELECT count(*) FROM exact) < $6::bigint + $7::bigint
+                  AND (SELECT count(*) FROM exact) + (SELECT count(*) FROM contains) < $6::bigint + $7::bigint
                   AND search_normalize($1) <% search_normalize(m.content)
                   AND (m.search_vector @@ plainto_tsquery(search_text_config(), search_normalize($1))) IS NOT TRUE
+                  AND (public.search_fold(m.content) LIKE ALL (public.search_like_patterns($1))) IS NOT TRUE
                   AND m.deleted_at IS NULL
                   AND m.channel_id IN (SELECT id FROM visible)
                   AND ($5::uuid IS NULL OR m.user_id = $5)
@@ -869,7 +891,9 @@ impl MessageRepo {
             ranked AS (
               SELECT id, created_at, 0 AS tier, rank, 0::real AS similarity FROM exact
               UNION ALL
-              SELECT id, created_at, 1, 0::real, similarity FROM fuzzy
+              SELECT id, created_at, 1, 0::real, 0::real FROM contains
+              UNION ALL
+              SELECT id, created_at, 2, 0::real, similarity FROM fuzzy
             )
             SELECT m.id, m.channel_id, m.user_id, m.client_message_id, m.content, m.metadata AS "metadata!", m.thread_parent_id, m.reply_count AS "reply_count!", m.is_pinned AS "is_pinned!", m.created_at, m.updated_at, m.deleted_at
             FROM ranked r

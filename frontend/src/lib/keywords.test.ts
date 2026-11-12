@@ -21,6 +21,14 @@ describe('keywordRanges', () => {
   it('keeps the original text when a letter is written decomposed', () => {
     expect(matched('éclair is here', 'eclair')).toEqual(['éclair']);
   });
+
+  it('asks for no word boundary next to a script written without spaces', () => {
+    expect(matched('明日の定例会議は10時から', '会議')).toEqual(['会議']);
+    expect(matched('今月のAWS請求書', 'aws請求')).toEqual(['AWS請求']);
+    expect(matched('今月のxAWS請求書', 'aws請求')).toEqual([]);
+    expect(matched('デプロイ deployしました', 'deploy')).toEqual(['deploy']);
+    expect(matched('ﾐｰﾃｨﾝｸﾞです', 'ミーティング')).toEqual(['ﾐｰﾃｨﾝｸﾞ']);
+  });
 });
 
 describe('keywordProblem', () => {

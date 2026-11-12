@@ -1,7 +1,10 @@
 const MARKS = /\p{M}/gu;
 
+export const UNSPACED =
+  /[\u0e00-\u0eff\u1000-\u109f\u1780-\u17ff\u3005-\u3007\u3040-\u30ff\u31f0-\u31ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff66-\uff9f\u{20000}-\u{3134f}]/u;
+
 export function fold(text: string): string {
-  return text.normalize('NFD').replace(MARKS, '').toLowerCase();
+  return text.normalize('NFKD').replace(MARKS, '').toLowerCase();
 }
 
 export function foldWithOffsets(text: string): { folded: string; offsets: number[] } {
@@ -18,20 +21,12 @@ export function foldWithOffsets(text: string): { folded: string; offsets: number
   return { folded, offsets };
 }
 
-export function fragmentRange(text: string, fragment: string): [number, number] | null {
-  const wanted = fold(fragment.trim());
-  if (!wanted) return null;
-  const { folded, offsets } = foldWithOffsets(text);
-  const idx = folded.indexOf(wanted);
-  return idx === -1 ? null : [offsets[idx], offsets[idx + wanted.length]];
-}
-
 export function wordRanges(text: string, query: string): [number, number][] {
   const words = new Set(
     fold(query)
       .split(/\s+/)
       .map((word) => word.replace(/^["'(]+|["'),.!?]+$/g, ''))
-      .filter((word) => word.length > 1),
+      .filter((word) => word.length > 1 || UNSPACED.test(word)),
   );
   if (words.size === 0) return [];
   const { folded, offsets } = foldWithOffsets(text);

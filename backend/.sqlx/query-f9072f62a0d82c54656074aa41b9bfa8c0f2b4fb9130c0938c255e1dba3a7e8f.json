@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO notification_keywords (user_id, workspace_id, keyword, normalized, position)\n               SELECT $2, $1, btrim(t.k), public.search_fold(btrim(t.k)), t.ord::int\n                 FROM unnest($3::text[]) WITH ORDINALITY AS t(k, ord)\n               ON CONFLICT DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f9072f62a0d82c54656074aa41b9bfa8c0f2b4fb9130c0938c255e1dba3a7e8f"
+}

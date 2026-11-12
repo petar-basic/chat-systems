@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Download } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { components } from '@/api/schema';
@@ -5,7 +6,7 @@ import { useUserCache } from '@/stores/users';
 import { displayNameOf } from '@/lib/userHelpers';
 import { formatBytes } from '@/lib/fileSize';
 import { formatDateTime } from '@/lib/datetime';
-import { fragmentRange } from '@/lib/fold';
+import { wordRanges } from '@/lib/fold';
 import { FILE_KINDS, isRenderableImage } from '@/lib/fileKinds';
 
 export type FileSearchHit = components['schemas']['FileSearchHit'];
@@ -19,18 +20,21 @@ interface Props {
 }
 
 function HighlightedName({ name, query }: { name: string; query: string }) {
-  const range = fragmentRange(name, query);
-  if (!range) return <>{name}</>;
-  const [start, end] = range;
-  return (
-    <>
-      {name.slice(0, start)}
-      <mark className="bg-warning/25 text-fg rounded-sm" data-qa="file-hit-match">
+  const ranges = wordRanges(name, query);
+  if (ranges.length === 0) return <>{name}</>;
+  const parts: ReactNode[] = [];
+  let at = 0;
+  for (const [start, end] of ranges) {
+    parts.push(name.slice(at, start));
+    parts.push(
+      <mark key={start} className="bg-warning/25 text-fg rounded-sm" data-qa="file-hit-match">
         {name.slice(start, end)}
-      </mark>
-      {name.slice(end)}
-    </>
-  );
+      </mark>,
+    );
+    at = end;
+  }
+  parts.push(name.slice(at));
+  return <>{parts}</>;
 }
 
 function Snippet({ parts }: { parts: SnippetPart[] }) {

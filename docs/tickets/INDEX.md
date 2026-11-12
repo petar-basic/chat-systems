@@ -443,6 +443,7 @@ role or a channel they should not have comes first.
 | CS-121k ✅ | The desktop app after signing out and after a reload | frontend · desktop |
 | CS-121l ✅ | The third survey's small things | realtime · frontend · backend |
 | CS-121m ✅ | Notifications in the reader's language | backend · frontend |
+| CS-121n ✅ | Search that reads Japanese | backend · frontend · ops · docs |
 
 ### Wave 33 — Mobile apps
 
@@ -524,4 +525,5 @@ Tickets that touch the same files, and the order that avoids rework:
 | `auth/email_code_routes.rs`, instance-admin checks and `update_instance_role` | CS-121i |
 | `export/routes.rs` erase and `export/job.rs` | CS-121j |
 | `lib/notifications.ts` and the desktop report | CS-121k → CS-121m |
+| `MessageRepo::search`, `FileRepo::search`, `keyword_pattern` and the Postgres image | CS-121n |
 | desktop `report_theme` | CS-112 |

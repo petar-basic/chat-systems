@@ -1053,6 +1053,40 @@ one is refused for them; their workspaces and everything in them stay as they we
 *Workspace creator* role in *Instance admin → Users* to the people who start workspaces, or
 switch *Who can create workspaces* back to *Everyone* to keep things as they were.
 
+## Upgrade note: search needs pg_bigm
+
+Message, file and keyword search find a word inside other text through
+[pg_bigm](https://github.com/pgbigm/pg_bigm), which is how Japanese, written without spaces, is
+found at all. The migration that adds it refuses to run on a server without it and says so,
+so the api does not start until it is there. The compose files now run
+`chat-systems-postgres`, which is `postgres:16-alpine` with pg_bigm built in and loaded:
+
+- **Docker Compose:** pull or build the new `postgres` along with the app (see [Upgrade](#upgrade));
+  it opens the same `postgres_data` volume, so there is nothing to dump or restore. With release
+  images, add `POSTGRES_IMAGE=ghcr.io/petar-basic/chat-systems-postgres` to `.env`.
+- **Coolify:** `docker-compose.coolify.yml` already names the image and loads the library.
+- **A Postgres of your own:** see [Postgres and pg_bigm](#postgres-and-pg_bigm).
+
+The indexes are built concurrently after the extension, so writes go on while they build.
+
+## Postgres and pg_bigm
+
+pg_bigm has to be installed on the server and preloaded, and the migration creates the
+extension, which needs a superuser (the compose stack's `chat` is one).
+
+- **`chat-systems-postgres`** (`docker/postgres/Dockerfile`) builds a pinned pg_bigm release,
+  checked against its SHA-256, on `postgres:16-alpine`, and starts with
+  `-c shared_preload_libraries=pg_bigm`. A `command:` of your own replaces that, so keep
+  `-c shared_preload_libraries=pg_bigm` in it, as `docker-compose.coolify.yml` does.
+- **Any other server:** build a [release](https://github.com/pgbigm/pg_bigm/releases) from
+  source with `make USE_PGXS=1` and `make USE_PGXS=1 install` against the server's `pg_config`
+  (the Dockerfile shows the steps); a server built with LLVM also wants `with_llvm=no` on both.
+
+Then set `shared_preload_libraries = 'pg_bigm'` (keeping whatever is already listed) and restart
+Postgres. `SHOW shared_preload_libraries;` should list it, and
+`SELECT * FROM pg_available_extensions WHERE name = 'pg_bigm';` should return a row. A managed
+database works only where its provider offers pg_bigm.
+
 ## Audit log
 
 `GET /api/workspaces/:ws_id/audit-log` (workspace admin) and `GET /api/admin/audit-log`
@@ -1639,9 +1673,10 @@ docker compose ... exec db-backup sh -c '
 # 2a. Release images (recommended): set in .env, X.Y.Z being the release you upgrade to
 #       BACKEND_IMAGE=ghcr.io/petar-basic/chat-systems-backend
 #       FRONTEND_IMAGE=ghcr.io/petar-basic/chat-systems-frontend
+#       POSTGRES_IMAGE=ghcr.io/petar-basic/chat-systems-postgres
 #       VERSION=X.Y.Z
 docker compose -f docker-compose.yml -f docker-compose.prod.yml \
-  --profile frontend --profile s3 pull api worker realtime frontend
+  --profile frontend --profile s3 pull postgres api worker realtime frontend
 docker compose -f docker-compose.yml -f docker-compose.prod.yml \
   --profile frontend --profile s3 up -d
 

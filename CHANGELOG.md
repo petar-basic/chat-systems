@@ -16,6 +16,16 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ## [Unreleased]
 
+### Upgrading
+
+- Postgres now has to have [pg_bigm](https://github.com/pgbigm/pg_bigm). The compose files run
+  the new `chat-systems-postgres` image, `postgres:16-alpine` with pg_bigm built in, on the same
+  data volume: pull or build `postgres` with the app, and with release images add
+  `POSTGRES_IMAGE=ghcr.io/petar-basic/chat-systems-postgres` to `.env`. On a Postgres of your
+  own, install it and add it to `shared_preload_libraries` first; until then the migration stops
+  the `api` with a message that says so. See the
+  [upgrade note](docs/RUNBOOK.md#upgrade-note-search-needs-pg_bigm).
+
 ### Changed
 
 - Anyone in a channel who may post in it can change its topic and description, in *Channel
@@ -105,6 +115,15 @@ from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ### Fixed
 
+- Search finds a word inside Japanese, Chinese or Thai text, which has no spaces: 会議 finds
+  明日の定例会議は10時からです, one character is enough, and half-width ﾐｰﾃｨﾝｸﾞ finds ミーティング.
+  The same goes for a word inside a file's name or its text, which then shows a passage around
+  it, and in every language a message that holds the word inside a longer one now comes after
+  the ones that have the whole word and before the near misses. Every word typed has to appear,
+  and `%` or `_` are matched as themselves. Reported in #372.
+- A keyword in Japanese notifies inside a sentence (会議 for 明日の定例会議は10時から, AWS請求 for
+  今月のAWS請求書) and is highlighted there, and a one-character match is highlighted in search
+  results.
 - Someone reading a channel without typing no longer gets a push on their phone for what they
   are looking at now and then: a heartbeat answer that comes back a moment later than the one
   before keeps them active.

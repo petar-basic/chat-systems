@@ -148,6 +148,52 @@ async fn text_inside_documents_is_found_with_a_snippet(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn a_word_inside_japanese_text_is_found_with_a_passage(pool: PgPool) {
+    let (app, state) = app_with_room(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "fcontent-ja", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "File Content JA").await;
+    let ch = seed_channel(&state, ws_id, owner_id, "sales", false)
+        .await
+        .to_string();
+    for (name, text) in [
+        (
+            "見積書_2025.md",
+            "株式会社サンプル御中。下記のとおり御見積申し上げます。納期は来月末です。",
+        ),
+        ("memo.md", "明日は休みです"),
+    ] {
+        post_bytes(
+            &app,
+            ws_id,
+            &ch,
+            &owner,
+            name,
+            "text/markdown",
+            text.as_bytes(),
+        )
+        .await;
+    }
+    drain(&state).await;
+
+    assert_eq!(
+        found(&app, &owner, ws_id, &q("見積")).await,
+        vec!["見積書_2025.md"],
+        "by its name"
+    );
+    assert_eq!(
+        found(&app, &owner, ws_id, &q("納期")).await,
+        vec!["見積書_2025.md"],
+        "by a word in its text"
+    );
+    assert_eq!(
+        found(&app, &owner, ws_id, &q("休み")).await,
+        vec!["memo.md"]
+    );
+    let hit = hits(&app, &owner, ws_id, "納期").await;
+    assert_eq!(highlighted(&hit[0]), vec!["納期"]);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_name_match_ranks_above_a_content_match(pool: PgPool) {
     let (app, state) = app_with_room(pool).await;
     let (owner_id, _, owner) = seed_and_login(&app, &state, "fcontent-rank", false).await;
