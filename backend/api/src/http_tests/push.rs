@@ -1227,13 +1227,22 @@ async fn the_digest_is_written_in_the_language_the_reader_chose(pool: PgPool) {
     queue_due(&s.state, s.target, s.ws_id, false).await;
 
     assert_eq!(crate::notifications::email::flush_due(&s.state).await, 1);
-    let subject: String =
-        sqlx::query_scalar("SELECT subject FROM outbound_emails ORDER BY created_at DESC LIMIT 1")
-            .fetch_one(&s.state.pool)
-            .await
-            .expect("email");
+    let (subject, html): (String, Option<String>) = sqlx::query_as(
+        "SELECT subject, html_body FROM outbound_emails ORDER BY created_at DESC LIMIT 1",
+    )
+    .fetch_one(&s.state.pool)
+    .await
+    .expect("email");
     let japanese = crate::notifications::text::words(crate::profile::models::Language::Ja);
-    assert_eq!(subject, japanese.get("email.mentioned", &[]));
+    let summary = japanese.get("email.mentioned", &[]);
+    assert_eq!(
+        subject,
+        japanese.get(
+            "email.inWorkspace",
+            &[("summary", &summary), ("workspace", "Levels WS")]
+        )
+    );
+    assert!(html.unwrap_or_default().contains(r#"<html lang="ja">"#));
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
