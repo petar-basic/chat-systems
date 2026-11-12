@@ -753,8 +753,12 @@ and a remove button per chip; every change saves the whole list. `lib/keywords.t
 what the server would (length, a leading `@` or `#`, a duplicate after folding, the limit of
 50) before it is sent. The list is held in `useKeywordStore`, populated by
 `useWorkspaceData`, so `MessageContent` marks a keyword with `<mark class="keyword-match">`
-(the self-mention background, no pill) without a query per message. Matching folds case and
-diacritics and needs a non-letter on both sides, as the server does.
+(the self-mention background, no pill) without a query per message. Matching folds case,
+diacritics and character width (`lib/fold.ts`, NFKD) and needs a non-letter on both sides, as
+the server does; a character of a script written without spaces (`UNSPACED`: Japanese, Chinese,
+Thai and the like) counts as a boundary, and on a side where the keyword ends in one no
+boundary is asked for. Search results mark each word of the query the same way, in the message
+and in a file's name, down to a single character of such a script.
 
 A keyword notification does **not** move the sidebar's mention badge or unread count: those
 counters are written with the message, and matching every member's keywords there would put a

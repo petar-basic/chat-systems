@@ -1221,6 +1221,34 @@ async fn a_keyword_matches_whole_words_whatever_the_case_or_accents(pool: PgPool
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn a_keyword_in_a_script_without_spaces_matches_inside_a_sentence(pool: PgPool) {
+    let s = scene(pool).await;
+    s.keywords(s.target, &["会議", "AWS請求", "ﾐｰﾃｨﾝｸﾞ"]).await;
+
+    for (content, hits) in [
+        ("明日の定例会議は10時から", 1),
+        ("今月のAWS請求書を確認", 1),
+        ("今月のxAWS請求書", 0),
+        ("ミーティングは中止", 1),
+        ("予定なし", 0),
+    ] {
+        assert_eq!(
+            s.post(s.ch_id, content, false, None).await,
+            hits,
+            "{content}"
+        );
+    }
+    let stored: Vec<String> = sqlx::query_scalar(
+        "SELECT normalized FROM notification_keywords WHERE user_id = $1 ORDER BY position",
+    )
+    .bind(s.target)
+    .fetch_all(&s.state.pool)
+    .await
+    .expect("keywords");
+    assert_eq!(stored, ["会議", "aws請求", "ミーティング"]);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_mention_that_also_matches_a_keyword_is_one_mention(pool: PgPool) {
     let s = scene(pool).await;
     s.keywords(s.target, &["deploy"]).await;

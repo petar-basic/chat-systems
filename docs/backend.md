@@ -51,9 +51,10 @@ make a duplicate mention or call notification impossible, and outgoing webhooks 
   rate-limit counters.
 - **PostgreSQL + sqlx.** Every query is a `sqlx::query!` macro checked against the schema
   at compile time (the committed `.sqlx/` cache makes that work without a database, which
-  is how the image builds); fully parameterized, soft deletes, partial indexes, a GIN
-  full-text index plus trigram fallback for search. Migrations run automatically on api
-  startup (`sqlx::migrate!`).
+  is how the image builds); fully parameterized, soft deletes, partial indexes, and for
+  search a GIN full-text index, a pg_bigm index for a word inside other text and a trigram
+  index for near misses. pg_bigm is not in the official image, so the stack runs its own
+  (`docker/postgres`). Migrations run automatically on api startup (`sqlx::migrate!`).
 - **Boring libraries for boring problems.** `object_store` for local disk and S3, `garde`
   for request validation, `askama` for email templates, `utoipa` for the OpenAPI document,
   `ts-rs` for the WebSocket frame types, `ipnet` for proxy trust, `backon` for retries.
@@ -462,10 +463,25 @@ posts, but `expand_mentions` leaves the broadcast out and nobody is notified by 
 | GET | `/workspaces/:ws_id/unreads` | Query: `limit=20 (≤50), offset=0` | `{ data: UnreadGroup[], next_offset }` — every channel and DM the caller has unread messages in, muted last and otherwise newest activity first, each with its newest 20 unread messages (oldest first, the caller's own left out) |
 | POST | `/channels/:ch_id/unread` | `{ message_id }` | `ReadState` — moves the caller's read position to just before that message and recomputes their unread and mention counts for the channel |
 | GET | `/search` | Query: `q?, workspace_id, channel_id?, user_id?, has? (file \| image \| link), after?, before?, scope?, limit=20, offset=0` | `{ data: SearchHit[] }` — each a `Message` plus `channel_name`, the channel's name (also for a public channel the caller is not in), `null` in a conversation; `q` may be empty when a filter is set (newest first); `channel_id` takes a channel or a conversation; `after` is inclusive and `before` exclusive (RFC 3339 instants); `has=file` counts images too |
-| GET | `/search/files` | Query: `q?, workspace_id, channel_id?, user_id?, kind?, after?, before?, limit=20, offset=0` | `{ data: FileSearchHit[] }` — attachment fields plus `kind`, `message_id`, `channel_id`, `channel_name` (as on `/search`), `user_id`, `created_at` and `snippet`. Any fragment of the name matches, ignoring case and accents (a near miss also matches, ranked after), and so does a file whose extracted text holds every word of `q`, ranked after every name match by `ts_rank`; then newest first. A content match carries `snippet: { text, hit }[]`, up to two fragments of the text around the words, with `hit` on the words themselves — parts, never markup, so the client cannot render the file's text as HTML. `q` may be empty when a filter is set. `kind` is one of `pdf, image, video, audio, spreadsheet, presentation, document, archive, text, other`. Only files of live messages in channels the caller can search: the same `searchable_channels()` set as `/search` |
+| GET | `/search/files` | Query: `q?, workspace_id, channel_id?, user_id?, kind?, after?, before?, limit=20, offset=0` | `{ data: FileSearchHit[] }` — attachment fields plus `kind`, `message_id`, `channel_id`, `channel_name` (as on `/search`), `user_id`, `created_at` and `snippet`. A name that contains every word of `q` matches, ignoring case, accents and the width of the characters (a near miss also matches, ranked after), and so does a file whose extracted text holds every word of `q`, as a word or inside other text, ranked after every name match by `ts_rank`; then newest first. A content match carries `snippet: { text, hit }[]`, up to two fragments of the text around the words, or a passage around the first one when it was found only inside other text, with `hit` on the words themselves — parts, never markup, so the client cannot render the file's text as HTML. `q` may be empty when a filter is set. `kind` is one of `pdf, image, video, audio, spreadsheet, presentation, document, archive, text, other`. Only files of live messages in channels the caller can search: the same `searchable_channels()` set as `/search` |
 
 Search is access-scoped: results come only from public channels in the workspace
 plus the private/DM channels the caller belongs to.
+
+**Three tiers.** A message whose words include every word of `q` comes first, ranked by
+`ts_rank` (`search_vector`, the `simple` configuration). Next comes one that holds every word
+of `q` inside its text: `search_fold(content) LIKE` each word, newest first. Last comes a near
+miss through the trigram index (`<%`, `word_similarity`). Each tier runs only while the ones
+above it leave room on the page. The middle tier is what finds Japanese, Chinese or Thai,
+written without spaces: the whole sentence is one token to `to_tsvector`, so 会議 is never a
+word of 明日の定例会議は10時からです. `search_fold()` is `search_normalize()` (unaccent), then
+NFKC, so half-width ﾐｰﾃｨﾝｸﾞ meets ミーティング and full-width ＡＷＳ meets AWS, then
+lower case. `search_like_patterns()` turns `q` into one escaped `%…%` pattern per word, longest
+first: `%`, `_` and `\` are matched literally. The longest word is looked up in the pg_bigm
+index (`gin_bigm_ops`), which holds two-character grams, so a one- or two-character word is an
+index lookup too; on the trigram index it was a scan of the whole table (506 ms at 200,000
+messages, against 0.4 ms). The query runs with `plan_cache_mode = force_custom_plan`, so the
+patterns are constants when it is planned and the index can be chosen.
 
 ---
 
@@ -543,7 +559,10 @@ Search is what the text is for, so correct word breaks won over speed on a backg
 
 The snippet is `ts_headline` with `public.search_headline`, a copy of `simple` that passes
 words through `unaccent` first: the query is matched without accents while the fragment keeps
-the original spelling (`Čačak` is marked for `cacak`). It runs only on the page of results.
+the original spelling (`Čačak` is marked for `cacak`). A file found only by a word inside other
+text, as in Japanese, gets `search_passage()` instead: up to 40 characters before the first word
+of `q` the text holds, the word, and 80 after, found case-insensitively in the original text.
+Both run only on the page of results.
 
 ---
 
@@ -692,12 +711,16 @@ consumer decides each recipient's reason for one `message.created`:
 | Message | channel on `all`, not a thread reply (one also sent to the channel counts) | no | `message` | yes | no |
 
 The first row that applies wins, so a message is one notification per person. Keywords live
-in `notification_keywords`, stored with `normalized = lower(search_normalize(keyword))`, the
-same folding search uses. One query per message finds the channel members whose keyword
-appears in `lower(search_normalize(content))` as a whole word, the quoted lines of a forward
-left out as they are for mentions: `keyword_pattern()` escapes the
-regex characters and requires a non-word character or the text's edge on both sides, so
-`deploy` matches "Deploy!" and "deploý" but not "redeployed", and `c++` matches literally.
+in `notification_keywords`, stored with `normalized = search_fold(keyword)`, the same folding
+search uses. One query per message finds the channel members whose keyword appears in
+`search_fold(content)` as a whole word, the quoted lines of a forward left out as they are for
+mentions: `keyword_pattern()` escapes the regex characters and requires a non-word character,
+the text's edge or a character of a script written without spaces on both sides, so `deploy`
+matches "Deploy!", "deploý" and "deployしました" but not "redeployed", and `c++` matches
+literally. On a side where the keyword itself ends in such a script (Japanese, Chinese, Thai,
+Lao, Khmer, Myanmar) no boundary is asked for, since the text has none: 会議 matches
+明日の定例会議は10時から, and AWS請求 matches 今月のAWS請求書 but not xAWS請求書. The client's
+`keywordRanges` highlights by the same rule.
 A keyword does not bump the unread or mention counters, which are written with the message —
 and only for a message shown in the channel: a reply kept in its thread counts in that thread
 (*Threads*), not in the channel, unless it was also sent to the channel. A push carries

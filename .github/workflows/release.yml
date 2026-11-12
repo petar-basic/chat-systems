@@ -47,6 +47,8 @@ jobs:
         include:
           - name: backend
             context: ./backend
+          - name: postgres
+            context: ./docker/postgres
           - name: frontend
             context: ./frontend
             build-args: |

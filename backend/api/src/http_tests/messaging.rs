@@ -1658,6 +1658,91 @@ async fn a_term_with_no_exact_match_still_finds_its_fuzzy_one(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn a_word_inside_a_sentence_with_no_spaces_is_found(pool: PgPool) {
+    let (app, _state, _owner, token, ws_id, ch_id) = setup_channel(pool).await;
+    for content in [
+        "明日の定例会議は10時からです",
+        "会議室を予約しました",
+        "ﾐｰﾃｨﾝｸﾞは10時",
+        "The Meeting starts at 10",
+        "100% done",
+        "nothing here",
+    ] {
+        create_message(&app, &token, ch_id, content).await;
+    }
+
+    let meetings = vec!["会議室を予約しました", "明日の定例会議は10時からです"];
+    for (query, expected) in [
+        ("会議", meetings.clone()),
+        ("会", meetings),
+        ("定例会議", vec!["明日の定例会議は10時からです"]),
+        ("予約", vec!["会議室を予約しました"]),
+        ("ミーティング", vec!["ﾐｰﾃｨﾝｸﾞは10時"]),
+        ("会議 10時", vec!["明日の定例会議は10時からです"]),
+        ("MEETING", vec!["The Meeting starts at 10"]),
+        ("%", vec!["100% done"]),
+    ] {
+        let found = search_contents(
+            &app,
+            &token,
+            ws_id,
+            &format!("&{}", super::file_search::q(query)),
+        )
+        .await;
+        assert_eq!(found, expected, "{query}");
+    }
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_word_inside_another_ranks_between_the_whole_word_and_a_near_miss(pool: PgPool) {
+    let (app, _state, _owner, token, ws_id, ch_id) = setup_channel(pool).await;
+    create_message(&app, &token, ch_id, "the deployment is done").await;
+    create_message(&app, &token, ch_id, "two redeployments today").await;
+    create_message(&app, &token, ch_id, "something about deploymen and more").await;
+
+    assert_eq!(
+        search_contents(&app, &token, ws_id, "&q=deployment").await,
+        vec![
+            "the deployment is done",
+            "two redeployments today",
+            "something about deploymen and more"
+        ]
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_two_character_word_is_looked_up_in_the_bigram_index(pool: PgPool) {
+    let mut conn = pool.acquire().await.expect("connection");
+    sqlx::query("SET enable_seqscan = off")
+        .execute(&mut *conn)
+        .await
+        .expect("no sequential scans");
+    for (sql, index) in [
+        (
+            "EXPLAIN SELECT 1 FROM messages WHERE public.search_fold(content) LIKE (public.search_like_patterns('稟議'))[1]",
+            "idx_messages_content_bigm",
+        ),
+        (
+            "EXPLAIN SELECT 1 FROM files WHERE public.search_fold(filename) LIKE (public.search_like_patterns('稟議'))[1]",
+            "idx_files_name_bigm",
+        ),
+        (
+            "EXPLAIN SELECT 1 FROM file_texts WHERE public.search_fold(content) LIKE (public.search_like_patterns('稟議'))[1] AND status = 'done'",
+            "idx_file_texts_content_bigm",
+        ),
+    ] {
+        let plan: Vec<String> = sqlx::query_scalar(sql)
+            .fetch_all(&mut *conn)
+            .await
+            .expect("plan");
+        assert!(
+            plan.iter().any(|line| line.contains(index)),
+            "{index}: {plan:#?}"
+        );
+    }
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_dm_is_searchable_by_its_participants_and_nobody_else(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "dm-owner", false).await;

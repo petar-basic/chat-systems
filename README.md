@@ -155,6 +155,7 @@ number of the [latest release](https://github.com/petar-basic/chat-systems/relea
 ```bash
 BACKEND_IMAGE=ghcr.io/petar-basic/chat-systems-backend
 FRONTEND_IMAGE=ghcr.io/petar-basic/chat-systems-frontend
+POSTGRES_IMAGE=ghcr.io/petar-basic/chat-systems-postgres
 VERSION=X.Y.Z
 ```
 

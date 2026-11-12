@@ -29,7 +29,9 @@ services:
   # ── Infrastructure ────────────────────────────────────────────────────────
 
   postgres:
-    image: postgres:16-alpine
+    build:
+      context: ./docker/postgres
+    image: ${POSTGRES_IMAGE:-chat-postgres}:${VERSION:-latest}
     restart: unless-stopped
     shm_size: 256mb
     environment:

@@ -255,24 +255,31 @@ impl FileRepo {
             ),
             wanted AS (
               SELECT public.search_normalize($1) AS term,
-                     '%' || replace(replace(replace(public.search_normalize($1), '\', '\\'), '%', '\%'), '_', '\_') || '%' AS pattern,
+                     public.search_like_patterns($1) AS patterns,
                      plainto_tsquery(public.search_text_config(), public.search_normalize($1)) AS terms
             ),
             candidates AS (
               SELECT f.id FROM files f CROSS JOIN wanted w
                WHERE f.workspace_id = $2
-                 AND ($1 = '' OR f.search_name ILIKE w.pattern OR w.term <% f.search_name)
+                 AND ($1 = '' OR w.term <% f.search_name
+                      OR (public.search_fold(f.filename) LIKE (public.search_like_patterns($1))[1]
+                          AND public.search_fold(f.filename) LIKE ALL (w.patterns)))
               UNION
               SELECT t.file_id FROM file_texts t CROSS JOIN wanted w
                WHERE $1 <> '' AND t.status = 'done' AND t.search_vector @@ w.terms
+              UNION
+              SELECT t.file_id FROM file_texts t CROSS JOIN wanted w
+               WHERE $1 <> '' AND t.status = 'done'
+                 AND public.search_fold(t.content) LIKE (public.search_like_patterns($1))[1]
+                 AND public.search_fold(t.content) LIKE ALL (w.patterns)
             ),
             ranked AS (
               SELECT f.id, f.user_id, f.workspace_id, f.filename, f.storage_key, f.mime_type,
                      f.size_bytes, f.thumbnail_key, f.width, f.height, f.created_at,
                      m.id AS message_id, m.channel_id,
                      public.file_kind_of(f.mime_type, f.filename) AS kind,
-                     ($1 <> '' AND f.search_name ILIKE w.pattern) AS near,
-                     ($1 <> '' AND (f.search_name ILIKE w.pattern OR w.term <% f.search_name)) AS named,
+                     COALESCE($1 <> '' AND public.search_fold(f.filename) LIKE ALL (w.patterns), FALSE) AS near,
+                     COALESCE($1 <> '' AND (public.search_fold(f.filename) LIKE ALL (w.patterns) OR w.term <% f.search_name), FALSE) AS named,
                      word_similarity(w.term, f.search_name) AS similarity,
                      COALESCE(t.search_vector @@ w.terms, FALSE) AS inside,
                      COALESCE(ts_rank(t.search_vector, w.terms), 0) AS relevance,
@@ -303,7 +310,7 @@ impl FileRepo {
                      'public.search_headline', content, terms,
                      'StartSel=' || chr(2) || ', StopSel=' || chr(3)
                        || ', MaxWords=24, MinWords=8, MaxFragments=2, FragmentDelimiter=" … "'
-                   ) END AS headline
+                   ) ELSE public.search_passage(content, $1) END AS headline
               FROM ranked
              ORDER BY near DESC, named DESC, similarity DESC, relevance DESC,
                       created_at DESC, id DESC

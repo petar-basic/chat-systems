@@ -3023,3 +3023,36 @@ Japanese page, and her digest said *You have a direct message*. With two strings
 for the check on the dev server, *Activity* and the banner read メンションされました, and the
 keyword row #general で「deploy」に一致. A digest in Japanese is left to its test, since the
 server has no Japanese strings yet.
+
+### [CS-121n] Search that reads Japanese ✅ shipped
+A contributor translating the search panel found that Japanese search missed a word in the
+middle of a sentence (#372). With no spaces, `to_tsvector` turns a whole sentence into one token
+and the trigram fallback only reaches a word at its start, so 会議 was not found in
+明日の定例会議は10時からです. The same word boundary kept a Japanese keyword from notifying, a
+word inside a Japanese document from being found, and a one-character hit from being marked. A
+substring match finds them all, but the trigram index has nothing to look up for a one- or
+two-character pattern, which is most Japanese words: 506 ms at 200,000 messages. pg_bigm, a GIN
+index on two-character grams, serves the same `LIKE` in 0.4 ms. It is required rather than
+optional, so there is one way search works and no instance where Japanese search is quietly
+slow: the stack runs `chat-systems-postgres`, `postgres:16-alpine` with a pinned, checksummed
+pg_bigm built in and preloaded, in every compose file, in CI and in each release, and it opens
+an existing data volume as it is. The migration stops with a hint on a server without it.
+`search_fold()` (unaccent, NFKC, lower case) is what every substring match and the indexes use,
+so half-width katakana and full-width letters meet their usual forms. Message search gained a
+tier between the whole words and the near misses: every word typed is contained, `%` and `_`
+literally. File names and texts match the same way, a text hit with no word match gets a passage
+from `search_passage()`, and keyword boundaries are not asked for next to a script written
+without spaces, on the server and in the client's highlighting, which now folds with NFKD and
+marks a one-character CJK term.
+
+Checked by hand on the Docker build. The dev database's volume, made by `postgres:16-alpine`,
+opened under the new image as it was, with pg_bigm preloaded and every message there. As Alice,
+会議 found 来週の部長会議に出席します, 会議室を予約しました and 明日の定例会議は10時からです and marked
+the word in each, 稟 alone found 稟議書の承認をお願いします, ミーティング found and marked ﾐｰﾃｨﾝｸﾞは15時に変更,
+会議 10時 found only the one with both, and % found only 見積は100%確定です. With the keywords 会議
+and AWS請求, Bob's 来週の部長会議に出席します and 今月のAWS請求書を確認してください reached Alice's
+*Activity* and were marked in the channel, and 今月のxAWS請求書 was not. A Markdown file named
+見積書_2025.md was found by 見積 in its name, and by 納期 and 来月末 in its text, with a passage that
+marks the word. `EXPLAIN` showed the bigm indexes serving a two-character pattern on messages,
+file names and file texts; on 200,000 rows `LIKE '%稟議%'` took 0.37 ms there, against 506 ms
+as a scan of the trigram-indexed table.

@@ -106,7 +106,7 @@ frontend/
   src/        React SPA (features/, components/, hooks/, stores/, lib/, shared/)
   e2e/        Playwright end-to-end tests
 desktop/      Tauri 2 app for macOS and Windows (see desktop/README.md)
-docker/       Caddyfile, bucket init, Postgres + upload backup scripts, MinIO → RustFS migration
+docker/       Caddyfile, bucket init, the Postgres image with pg_bigm, Postgres + upload backup scripts, MinIO → RustFS migration
 docs/         this folder
 ```
 
@@ -292,7 +292,9 @@ when the stack is not reachable via `docker compose`).
 
 Backend integration tests provision a real Postgres per test via `#[sqlx::test]`, run
 migrations, and drive the full Axum stack — including the authorization matrix
-(member-ok / non-member-forbidden / no-token / not-found) for every endpoint.
+(member-ok / non-member-forbidden / no-token / not-found) for every endpoint. That Postgres
+needs pg_bigm: the compose `postgres` has it, and any other needs it installed and preloaded
+(RUNBOOK, *Postgres and pg_bigm*).
 
 ## CI
 
@@ -300,7 +302,8 @@ migrations, and drive the full Axum stack — including the authorization matrix
 `main` and every PR, all steps **blocking**:
 
 - **Backend:** `cargo fmt --check`, `clippy -D warnings`, `cargo build`, `cargo nextest run`
-  (against live Postgres + Redis service containers), then `cargo audit`.
+  (against a live Postgres built from `docker/postgres`, for pg_bigm, and a Redis service
+  container), then `cargo audit`.
 - **Frontend:** `npm audit --audit-level=high`, `prettier --check`, `eslint`,
   `tsc -b`, `vite build`, `vitest`.
 - **Desktop:** on macOS and Windows, `cargo fmt --check` (macOS), `clippy -D warnings`,
