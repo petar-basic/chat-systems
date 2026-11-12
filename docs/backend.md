@@ -129,8 +129,16 @@ in `main.rs`.
   which covers direct messages, since a DM is a channel.
 - **Validation.** Request DTOs derive `garde::Validate` with the rule declared on the
   field; a handler calls `req.validate()?` and a violation is a 422 with the field named.
-- **Email.** Invites, resets and mention digests are queued in `outbound_emails` inside
-  the request and delivered by the worker with retries and backoff; templates are `askama`.
+- **Email.** Every email is an `email::message::Email` (subject, heading, paragraphs, an
+  optional code, an optional button, notes, the footer's reason and unsubscribe link) with
+  its strings in `locales/en.json` under `email.*`. `Email::render` writes a text part and
+  an HTML part in one `askama` layout (`templates/email/layout.html`): the instance's icon
+  (`INSTANCE_ICON_URL` over HTTPS, else the app's own when `PUBLIC_URL` is HTTPS) and name,
+  the button with its link written out under it, and *This email was sent to … by …*.
+  Emails are queued in `outbound_emails` inside the request and delivered by the worker with
+  retries and backoff. Each one carries `Auto-Submitted: auto-generated` and a `Message-ID`
+  made of its outbox row's id and the domain of `SMTP_FROM_ADDRESS`, the same on every
+  retry.
 - **The API contract is generated.** Handlers carry `#[utoipa::path]`, the document is
   served at `/api/openapi.json`, and the frontend's types and WebSocket frame union are
   generated from the backend; CI fails when either is stale.
@@ -737,7 +745,14 @@ A mention or DM with email on is queued in `pending_mention_emails`, once per pe
 message; five minutes later the digest sweep drops what has been read since, and emails one
 digest per person and workspace for what is still unread, linking to the message when there
 is one (`/app/{ws}/{channel}/{message}`) and to the workspace otherwise. The rows are claimed
-and the email queued in one transaction, so two workers cannot send it twice. The frame's `kind` also carries `reaction`, `call`, `reminder` and
+and the email queued in one transaction, so two workers cannot send it twice. Its subject
+names the workspace, and it says who and where, never what was said. It carries
+`List-Unsubscribe` and `List-Unsubscribe-Post: List-Unsubscribe=One-Click` (RFC 8058),
+pointing at `/api/email/unsubscribe/{token}`, which its footer links to as well. The token
+is the person's and the workspace's ids with an HMAC from `SECRETS_KEYS`. A `POST` there
+turns off that person's mention emails in that workspace without signing in; a `GET`
+shows a page whose button does it, so a link scanner opening the URL changes nothing. The
+page then links to `/app/{ws}?preferences`, which opens *Preferences → Notifications*. The frame's `kind` also carries `reaction`, `call`, `reminder` and
 `system` from the other producers; the client rings and counts on it rather than deciding
 for itself. Channel listings and conversation summaries carry the caller's `notify_level` and
 `effective_notify_level`.

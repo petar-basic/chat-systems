@@ -26,11 +26,15 @@ impl Catalog {
     }
 
     pub fn words(&self, language: Language) -> Words<'_> {
-        let own = match language {
-            Language::Ja => Some(&self.ja),
-            Language::En | Language::Browser => None,
+        let (own, lang) = match language {
+            Language::Ja => (Some(&self.ja), "ja"),
+            Language::En | Language::Browser => (None, "en"),
         };
-        Words { own, en: &self.en }
+        Words {
+            own,
+            en: &self.en,
+            lang,
+        }
     }
 }
 
@@ -47,9 +51,14 @@ pub fn language(code: Option<&str>) -> Language {
 pub struct Words<'a> {
     own: Option<&'a Value>,
     en: &'a Value,
+    lang: &'static str,
 }
 
 impl Words<'_> {
+    pub fn lang(&self) -> &'static str {
+        self.lang
+    }
+
     pub fn get(&self, key: &str, vars: &[(&str, &str)]) -> String {
         fill(self.find(&[key]).unwrap_or(key), vars)
     }

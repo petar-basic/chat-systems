@@ -1,7 +1,7 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import type { CreateChannelDraft } from '@/shared/models/channel';
-import { useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCurrentUser, useLogout } from '@/features/instance';
 import { useWorkspaceStore, type Channel } from '@/stores/workspace';
@@ -53,7 +53,16 @@ export function useWorkspaceController() {
     })),
   );
 
-  const [accountDialog, setAccountDialog] = useState<'profile' | 'preferences' | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [accountDialog, setAccountDialog] = useState<'profile' | 'preferences' | null>(() =>
+    searchParams.has('preferences') ? 'preferences' : null,
+  );
+  useEffect(() => {
+    if (!searchParams.has('preferences')) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete('preferences');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
   const [showAddInstance, setShowAddInstance] = useState(false);
   const [quickSwitcherOpen, setQuickSwitcherOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);

@@ -2,20 +2,22 @@ use std::error::Error as _;
 use std::io::ErrorKind;
 use std::time::Duration;
 
-use askama::Template;
-use lettre::message::header::ContentType;
+use lettre::message::header::{ContentType, HeaderName, HeaderValue};
 use lettre::message::MultiPart;
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::transport::smtp::Error as SmtpError;
 use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
 use tracing::{info, warn};
+use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
 use super::AuthService;
 use crate::config::{AppConfig, SmtpTlsMode};
-use crate::email::outbox::{self, NewEmail};
-use crate::email::templates::InviteEmail;
+use crate::email::message::{Button, Email};
+use crate::email::outbox::{self, Envelope, NewEmail};
+use crate::notifications::text::{self, Words};
+use crate::profile::models::Language;
 
 pub(super) fn build_mailer(config: &AppConfig) -> Option<AsyncSmtpTransport<Tokio1Executor>> {
     let creds = Credentials::new(config.smtp_user.clone(), config.smtp_password.clone());
@@ -34,21 +36,51 @@ pub(super) fn build_mailer(config: &AppConfig) -> Option<AsyncSmtpTransport<Toki
 }
 
 impl AuthService {
+    fn words(&self) -> Words<'static> {
+        text::words(Language::En)
+    }
+
     pub(super) async fn send_reset_email(&self, to_email: &str, reset_url: &str) -> AppResult<()> {
-        let body = format!(
-            "You requested a password reset.\n\nClick the link below to reset your password:\n{reset_url}\n\nThis link expires in 1 hour."
-        );
-        self.queue_email(to_email, "Reset your password", &body, None)
-            .await
+        let words = self.words();
+        let instance = self.config.instance_name.as_str();
+        let email = Email {
+            subject: words.get("email.reset.subject", &[("instance", instance)]),
+            heading: words.get("email.reset.heading", &[]),
+            paragraphs: vec![words.get(
+                "email.reset.body",
+                &[("email", to_email), ("instance", instance)],
+            )],
+            button: Some(Button {
+                label: words.get("email.reset.button", &[]),
+                url: reset_url.to_string(),
+            }),
+            notes: vec![
+                words.get("email.reset.expiry", &[]),
+                words.get("email.reset.notYou", &[]),
+            ],
+            ..Email::default()
+        };
+        self.queue(to_email, email, &words).await
     }
 
     pub(crate) async fn send_sso_reminder(&self, to_email: &str) -> AppResult<()> {
-        let body = format!(
-            "Somebody asked for a way into this account on {}.\n\nThis account signs in with single sign-on, so it has no password to reset and no sign-in code. Open {} and choose Sign in with SSO.\n",
-            self.config.instance_name, self.config.public_url
-        );
-        self.queue_email(to_email, "You sign in with SSO", &body, None)
-            .await
+        let words = self.words();
+        let instance = self.config.instance_name.as_str();
+        let email = Email {
+            subject: words.get("email.sso.subject", &[("instance", instance)]),
+            heading: words.get("email.sso.heading", &[]),
+            paragraphs: vec![
+                words.get("email.sso.body", &[("instance", instance)]),
+                words.get("email.sso.how", &[("instance", instance)]),
+            ],
+            button: Some(Button {
+                label: words.get("email.sso.button", &[("instance", instance)]),
+                url: self.config.public_url.clone(),
+            }),
+            notes: vec![words.get("email.sso.notYou", &[])],
+            ..Email::default()
+        };
+        self.queue(to_email, email, &words).await
     }
 
     pub(crate) async fn send_invite_expired(
@@ -56,17 +88,31 @@ impl AuthService {
         to_email: &str,
         workspace_name: Option<&str>,
     ) -> AppResult<()> {
-        let instance = &self.config.instance_name;
-        let body = match workspace_name {
-            Some(workspace) => format!(
-                "Somebody asked for a way into this account on {instance}.\n\nYour invitation to {workspace} has expired, so there is no way in yet. Ask an admin of {workspace} to invite you again, and open the link in that email.\n"
+        let words = self.words();
+        let instance = self.config.instance_name.as_str();
+        let (subject, what) = match workspace_name {
+            Some(workspace) => (
+                words.get("email.inviteExpired.subject", &[("workspace", workspace)]),
+                words.get("email.inviteExpired.workspace", &[("workspace", workspace)]),
             ),
-            None => format!(
-                "Somebody asked for a way into this account on {instance}.\n\nYour invitation has expired, so there is no way in yet. Ask an admin of the workspace that invited you to invite you again, and open the link in that email.\n"
+            None => (
+                words.get(
+                    "email.inviteExpired.subjectNoWorkspace",
+                    &[("instance", instance)],
+                ),
+                words.get("email.inviteExpired.noWorkspace", &[]),
             ),
         };
-        self.queue_email(to_email, "Your invitation has expired", &body, None)
-            .await
+        let email = Email {
+            subject,
+            heading: words.get("email.inviteExpired.heading", &[]),
+            paragraphs: vec![
+                words.get("email.inviteExpired.body", &[("instance", instance)]),
+                what,
+            ],
+            ..Email::default()
+        };
+        self.queue(to_email, email, &words).await
     }
 
     pub(crate) async fn send_sign_in_code(
@@ -75,71 +121,80 @@ impl AuthService {
         code: &str,
         lifetime_mins: i32,
     ) -> AppResult<()> {
-        let name = &self.config.instance_name;
-        let body = format!(
-            "Your code to sign in to {name} is:\n\n{code}\n\nIt works once and expires in {lifetime_mins} minutes. If you did not ask for it, you can ignore this email.\n"
-        );
-        self.queue_email(
-            to_email,
-            &format!("{code} is your {name} sign-in code"),
-            &body,
-            None,
-        )
-        .await
+        let words = self.words();
+        let instance = self.config.instance_name.as_str();
+        let email = Email {
+            subject: words.get(
+                "email.code.subject",
+                &[("code", code), ("instance", instance)],
+            ),
+            heading: words.get("email.code.heading", &[]),
+            paragraphs: vec![words.get("email.code.body", &[("instance", instance)])],
+            code: Some(code.to_string()),
+            notes: vec![
+                words.count("email.code.expiry", i64::from(lifetime_mins), &[]),
+                words.get("email.code.notYou", &[]),
+            ],
+            ..Email::default()
+        };
+        self.queue(to_email, email, &words).await
     }
 
     pub async fn send_invite_email(
         &self,
         to_email: &str,
-        workspace_name: &str,
-        invite_url: &str,
+        invite: InviteEmail<'_>,
     ) -> AppResult<()> {
-        let text = format!(
-            "You've been invited to join {} on {}.\n\nOpen this link to get started:\n{}\n",
-            workspace_name, self.config.instance_name, invite_url
-        );
-        let html = InviteEmail {
-            instance_name: &self.config.instance_name,
-            workspace_name,
-            invite_url,
-            icon_url: self.config.instance_icon_url.as_deref(),
-        }
-        .render()
-        .map_err(|e| AppError::Internal(format!("Failed to render invite email: {e}")))?;
-
-        self.queue_email(
-            to_email,
-            &format!("Join {} on {}", workspace_name, self.config.instance_name),
-            &text,
-            Some(&html),
-        )
-        .await
+        let words = self.words();
+        let instance = self.config.instance_name.as_str();
+        let workspace = invite.workspace_name;
+        let body = match invite.inviter {
+            Some(inviter) => words.get(
+                "email.invite.body",
+                &[
+                    ("inviter", inviter),
+                    ("workspace", workspace),
+                    ("instance", instance),
+                ],
+            ),
+            None => words.get(
+                "email.invite.bodyNoInviter",
+                &[("workspace", workspace), ("instance", instance)],
+            ),
+        };
+        let days = ((invite.expires_at - chrono::Utc::now()).num_hours() + 23)
+            .div_euclid(24)
+            .max(1);
+        let email = Email {
+            subject: words.get(
+                "email.invite.subject",
+                &[("workspace", workspace), ("instance", instance)],
+            ),
+            heading: words.get("email.invite.heading", &[("workspace", workspace)]),
+            paragraphs: vec![body],
+            button: Some(Button {
+                label: words.get("email.invite.button", &[("workspace", workspace)]),
+                url: invite.url.to_string(),
+            }),
+            notes: vec![
+                words.count("email.invite.expiry", days, &[]),
+                words.get("email.invite.notExpected", &[]),
+            ],
+            ..Email::default()
+        };
+        self.queue(to_email, email, &words).await
     }
 
-    async fn queue_email(
-        &self,
-        to: &str,
-        subject: &str,
-        text: &str,
-        html: Option<&str>,
-    ) -> AppResult<()> {
+    async fn queue(&self, to: &str, email: Email, words: &Words<'_>) -> AppResult<()> {
         if !self.can_send_email() {
             warn!(
                 "Email not sent, SMTP is not configured: {} to {}",
-                subject, to
+                email.subject, to
             );
             return Ok(());
         }
-        outbox::enqueue(
-            self.repo.pool(),
-            NewEmail {
-                to,
-                subject,
-                text,
-                html,
-            },
-        )
-        .await?;
+        let rendered = email.render(to, &self.config, words)?;
+        outbox::enqueue(self.repo.pool(), NewEmail::rendered(to, &rendered)).await?;
         Ok(())
     }
 
@@ -150,24 +205,18 @@ impl AuthService {
         !self.config.smtp_host.trim().is_empty() && self.mailer.is_some()
     }
 
-    pub async fn deliver(
-        &self,
-        to: &str,
-        subject: &str,
-        text: &str,
-        html: Option<&str>,
-    ) -> AppResult<()> {
+    pub async fn deliver(&self, envelope: &Envelope<'_>) -> AppResult<()> {
         let mailer = self
             .mailer
             .as_ref()
             .ok_or_else(|| AppError::Internal("Email service not configured".into()))?;
 
         mailer
-            .send(self.message(to, subject, text, html)?)
+            .send(self.message(envelope)?)
             .await
             .map_err(|e| AppError::Internal(format!("Failed to send email: {e}")))?;
 
-        info!("Email sent to {}: {}", to, subject);
+        info!("Email sent to {}: {}", envelope.to, envelope.subject);
         Ok(())
     }
 
@@ -184,13 +233,23 @@ impl AuthService {
             )));
         };
 
-        let name = &self.config.instance_name;
-        let message = self.message(
+        let words = self.words();
+        let instance = self.config.instance_name.as_str();
+        let rendered = Email {
+            subject: words.get("email.test.subject", &[("instance", instance)]),
+            heading: words.get("email.test.heading", &[]),
+            paragraphs: vec![words.get("email.test.body", &[("instance", instance)])],
+            ..Email::default()
+        }
+        .render(to, &self.config, &words)?;
+        let message = self.message(&Envelope {
+            id: Uuid::new_v4(),
             to,
-            &format!("Test email from {name}"),
-            &format!("This is a test email from {name}. It reached you, so email works.\n"),
-            None,
-        )?;
+            subject: &rendered.subject,
+            text: &rendered.text,
+            html: Some(&rendered.html),
+            list_unsubscribe: None,
+        })?;
 
         let server = format!("{}:{}", self.config.smtp_host, self.config.smtp_port);
         match tokio::time::timeout(TEST_EMAIL_TIMEOUT, mailer.send(message)).await {
@@ -209,39 +268,62 @@ impl AuthService {
         }
     }
 
-    fn message(
-        &self,
-        to: &str,
-        subject: &str,
-        text: &str,
-        html: Option<&str>,
-    ) -> AppResult<Message> {
+    pub(super) fn message(&self, envelope: &Envelope<'_>) -> AppResult<Message> {
         let from = format!(
             "{} <{}>",
             self.config.smtp_from_name, self.config.smtp_from_address
         );
+        let domain = self
+            .config
+            .smtp_from_address
+            .rsplit_once('@')
+            .map_or("localhost", |(_, domain)| domain);
 
-        let builder = Message::builder()
+        let mut builder = Message::builder()
             .from(
                 from.parse()
                     .map_err(|e| AppError::Internal(format!("Invalid from address: {e}")))?,
             )
-            .to(to
+            .to(envelope
+                .to
                 .parse()
                 .map_err(|e| AppError::Internal(format!("Invalid to address: {e}")))?)
-            .subject(subject);
+            .subject(envelope.subject)
+            .message_id(Some(format!("<{}@{}>", envelope.id, domain)))
+            .raw_header(HeaderValue::new(
+                HeaderName::new_from_ascii_str("Auto-Submitted"),
+                "auto-generated".into(),
+            ));
+        if let Some(url) = envelope.list_unsubscribe {
+            builder = builder
+                .raw_header(HeaderValue::new(
+                    HeaderName::new_from_ascii_str("List-Unsubscribe"),
+                    format!("<{url}>"),
+                ))
+                .raw_header(HeaderValue::new(
+                    HeaderName::new_from_ascii_str("List-Unsubscribe-Post"),
+                    "List-Unsubscribe=One-Click".into(),
+                ));
+        }
 
-        match html {
+        match envelope.html {
             Some(html) => builder.multipart(MultiPart::alternative_plain_html(
-                text.to_string(),
+                envelope.text.to_string(),
                 html.to_string(),
             )),
             None => builder
                 .header(ContentType::TEXT_PLAIN)
-                .body(text.to_string()),
+                .body(envelope.text.to_string()),
         }
         .map_err(|e| AppError::Internal(format!("Failed to build email: {e}")))
     }
+}
+
+pub struct InviteEmail<'a> {
+    pub workspace_name: &'a str,
+    pub inviter: Option<&'a str>,
+    pub url: &'a str,
+    pub expires_at: chrono::DateTime<chrono::Utc>,
 }
 
 const TEST_EMAIL_TIMEOUT: Duration = Duration::from_secs(15);

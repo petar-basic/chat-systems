@@ -23,6 +23,22 @@ instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   lived an hour anyway. Somebody whose invite is still open gets a new link from *Forgot
   password* or *Email me a code* on the sign-in page, or from a new invite.
 
+### Changed
+
+- Every email looks the same, in a layout with the instance's icon and name, a button with
+  its link written out under it, and a footer saying who it was sent to. Each also has a
+  plain-text part. Before, only the invite had more than plain text.
+- Every subject names the instance or the workspace: *Reset your … password*, *Sign in to …
+  with SSO*, *Your invitation to … has expired*, *You were mentioned in …*. The reset email
+  no longer assumes you asked, and says your password stays as it is if you did not.
+- An invite says who sent it and when it expires.
+- A mention email can be turned off from the email: its footer links to a page that does it,
+  and mail apps get a one-click unsubscribe (`List-Unsubscribe`, RFC 8058). The page links to
+  *Preferences → Notifications*, which `/app/{workspace}?preferences` now opens.
+- Every email has a `Message-ID` on the sender's domain, the same across retries, and
+  `Auto-Submitted: auto-generated`, so spam filters and out-of-office replies treat it as
+  the automatic mail it is.
+
 ### Security
 
 - The link in a password reset or invite email ends in 43 random characters, and the server

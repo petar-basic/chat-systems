@@ -1,2 +1,3 @@
+pub mod message;
 pub mod outbox;
-pub mod templates;
+pub mod unsubscribe;

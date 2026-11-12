@@ -7,7 +7,7 @@ use shared_common::errors::{AppError, AppResult};
 
 use super::models::*;
 use super::repo::WorkspaceRepo;
-use crate::auth::service::AuthService;
+use crate::auth::service::{AuthService, InviteEmail};
 use crate::config::AppConfig;
 use crate::messaging::publisher::{EventPublisher, Staged};
 
@@ -145,12 +145,28 @@ impl WorkspaceService {
         let (Some(email), true) = (invite.email.as_deref(), auth_service.can_send_email()) else {
             return InviteEmailStatus::NotConfigured;
         };
-        let workspace = match self.repo.find_workspace_by_id(invite.workspace_id).await {
-            Ok(Some(ws)) => ws,
-            _ => return InviteEmailStatus::Failed,
+        let (Ok(Some(workspace)), Some(expires_at)) = (
+            self.repo.find_workspace_by_id(invite.workspace_id).await,
+            invite.expires_at,
+        ) else {
+            return InviteEmailStatus::Failed;
         };
+        let inviter = self
+            .repo
+            .inviter_name(invite.workspace_id, invite.created_by)
+            .await
+            .ok()
+            .flatten();
         match auth_service
-            .send_invite_email(email, &workspace.name, invite_url)
+            .send_invite_email(
+                email,
+                InviteEmail {
+                    workspace_name: &workspace.name,
+                    inviter: inviter.as_deref(),
+                    url: invite_url,
+                    expires_at,
+                },
+            )
             .await
         {
             Ok(()) => InviteEmailStatus::Sent,

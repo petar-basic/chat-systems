@@ -130,7 +130,7 @@ async fn the_answer_is_the_same_for_an_address_with_no_account(pool: PgPool) {
     let sent = wait_for_emails(&state, &sso, 1).await;
     assert!(emails_to(&state, &nobody).await.is_empty());
     assert_eq!(sent.len(), 1);
-    assert_eq!(sent[0].0, "You sign in with SSO");
+    assert_eq!(sent[0].0, "Sign in to Test with SSO");
 
     let (status, _) = verify(&app, &nobody, "123456").await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
@@ -273,7 +273,7 @@ async fn a_pending_account_whose_invite_expired_is_told_so(pool: PgPool) {
     assert_eq!(body["status"], "sent");
 
     let sent = wait_for_emails(&state, &invitee, 2).await;
-    assert_eq!(sent[1].0, "Your invitation has expired");
+    assert_eq!(sent[1].0, "Your invitation to Expired WS has expired");
     assert!(sent[1].1.contains("Expired WS"), "{sent:?}");
     assert!(!sent[1].1.contains("/invite/"), "{sent:?}");
 }

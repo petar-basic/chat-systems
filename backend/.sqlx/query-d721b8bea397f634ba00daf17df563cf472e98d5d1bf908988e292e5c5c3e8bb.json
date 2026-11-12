@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT p.user_id, p.workspace_id, u.email,\n               u.preferences->>'language' AS \"language?\",\n               COUNT(*) FILTER (WHERE NOT p.direct) AS \"mentions!\",\n               COUNT(*) FILTER (WHERE p.direct) AS \"direct_messages!\",\n               COALESCE(ARRAY_AGG(DISTINCT COALESCE(p.channel_name, '')) FILTER (WHERE NOT p.direct), '{}') AS \"channels!\",\n               ARRAY_AGG(DISTINCT COALESCE(p.sender_name, '')) AS \"senders!\",\n               CASE WHEN COUNT(*) = 1 THEN (ARRAY_AGG(p.channel_id))[1] END AS \"channel_id?\",\n               CASE WHEN COUNT(*) = 1 THEN (ARRAY_AGG(p.message_id))[1] END AS \"message_id?\"\n          FROM pending_mention_emails p\n          JOIN users u ON u.id = p.user_id\n         WHERE p.created_at <= $1\n           AND NOT u.is_bot\n           AND public.notifications_paused_until(p.workspace_id, p.user_id, $2) IS NULL\n         GROUP BY p.user_id, p.workspace_id, u.email, u.preferences->>'language'\n        ",
+  "query": "\n        SELECT p.user_id, p.workspace_id, w.name AS workspace_name, u.email,\n               u.preferences->>'language' AS \"language?\",\n               COUNT(*) FILTER (WHERE NOT p.direct) AS \"mentions!\",\n               COUNT(*) FILTER (WHERE p.direct) AS \"direct_messages!\",\n               COALESCE(ARRAY_AGG(DISTINCT COALESCE(p.channel_name, '')) FILTER (WHERE NOT p.direct), '{}') AS \"channels!\",\n               ARRAY_AGG(DISTINCT COALESCE(p.sender_name, '')) AS \"senders!\",\n               CASE WHEN COUNT(*) = 1 THEN (ARRAY_AGG(p.channel_id))[1] END AS \"channel_id?\",\n               CASE WHEN COUNT(*) = 1 THEN (ARRAY_AGG(p.message_id))[1] END AS \"message_id?\"\n          FROM pending_mention_emails p\n          JOIN users u ON u.id = p.user_id\n          JOIN workspaces w ON w.id = p.workspace_id\n         WHERE p.created_at <= $1\n           AND NOT u.is_bot\n           AND public.notifications_paused_until(p.workspace_id, p.user_id, $2) IS NULL\n         GROUP BY p.user_id, p.workspace_id, w.name, u.email, u.preferences->>'language'\n        ",
   "describe": {
     "columns": [
       {
@@ -27,6 +27,17 @@
       },
       {
         "ordinal": 2,
+        "name": "workspace_name",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "workspaces",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
         "name": "email",
         "type_info": "Varchar",
         "origin": {
@@ -37,43 +48,43 @@
         }
       },
       {
-        "ordinal": 3,
+        "ordinal": 4,
         "name": "language?",
         "type_info": "Text",
         "origin": "Expression"
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "mentions!",
         "type_info": "Int8",
         "origin": "Expression"
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "direct_messages!",
         "type_info": "Int8",
         "origin": "Expression"
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "channels!",
         "type_info": "VarcharArray",
         "origin": "Expression"
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "senders!",
         "type_info": "VarcharArray",
         "origin": "Expression"
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "channel_id?",
         "type_info": "Uuid",
         "origin": "Expression"
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "message_id?",
         "type_info": "Uuid",
         "origin": "Expression"
@@ -89,6 +100,7 @@
       false,
       false,
       false,
+      false,
       null,
       null,
       null,
@@ -98,5 +110,5 @@
       null
     ]
   },
-  "hash": "fe7837c86ba86fd3214674ead10df83deac092acf0df4962e949f12075c7104c"
+  "hash": "d721b8bea397f634ba00daf17df563cf472e98d5d1bf908988e292e5c5c3e8bb"
 }
