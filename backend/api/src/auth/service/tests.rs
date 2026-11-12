@@ -730,3 +730,35 @@ async fn generate_tokens_persists_findable_refresh_token(pool: PgPool) {
         "generate_tokens must persist a refresh-token row resolvable to the user id"
     );
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_email_names_its_sender_domain_and_says_it_is_automatic(pool: PgPool) {
+    let mut config = test_config();
+    config.smtp_from_address = "noreply@chat.example".into();
+    let service = AuthService::new(UserRepo::new(pool), config);
+    let id = Uuid::new_v4();
+    let message = service
+        .message(&crate::email::outbox::Envelope {
+            id,
+            to: "ana@test.local",
+            subject: "Hello",
+            text: "Hello",
+            html: Some("<p>Hello</p>"),
+            list_unsubscribe: Some("https://chat.example/api/email/unsubscribe/x"),
+        })
+        .expect("message");
+    let raw = String::from_utf8(message.formatted()).expect("utf-8");
+    assert!(
+        raw.contains(&format!("Message-ID: <{id}@chat.example>")),
+        "{raw}"
+    );
+    assert!(raw.contains("Auto-Submitted: auto-generated"), "{raw}");
+    assert!(
+        raw.contains("List-Unsubscribe: <https://chat.example/api/email/unsubscribe/x>"),
+        "{raw}"
+    );
+    assert!(
+        raw.contains("List-Unsubscribe-Post: List-Unsubscribe=One-Click"),
+        "{raw}"
+    );
+}

@@ -6,6 +6,7 @@ use sqlx::PgPool;
 use tracing::{info, warn};
 use uuid::Uuid;
 
+use super::message::Rendered;
 use crate::state::AppState;
 
 pub const MAX_ATTEMPTS: i32 = 8;
@@ -20,6 +21,7 @@ pub struct OutboundEmail {
     pub subject: String,
     pub text_body: String,
     pub html_body: Option<String>,
+    pub list_unsubscribe: Option<String>,
     pub attempts: i32,
     pub next_attempt_at: Option<DateTime<Utc>>,
     pub sent_at: Option<DateTime<Utc>>,
@@ -32,6 +34,28 @@ pub struct NewEmail<'a> {
     pub subject: &'a str,
     pub text: &'a str,
     pub html: Option<&'a str>,
+    pub list_unsubscribe: Option<&'a str>,
+}
+
+impl<'a> NewEmail<'a> {
+    pub fn rendered(to: &'a str, email: &'a Rendered) -> Self {
+        Self {
+            to,
+            subject: &email.subject,
+            text: &email.text,
+            html: Some(&email.html),
+            list_unsubscribe: email.list_unsubscribe.as_deref(),
+        }
+    }
+}
+
+pub struct Envelope<'a> {
+    pub id: Uuid,
+    pub to: &'a str,
+    pub subject: &'a str,
+    pub text: &'a str,
+    pub html: Option<&'a str>,
+    pub list_unsubscribe: Option<&'a str>,
 }
 
 pub async fn enqueue<'e>(
@@ -39,13 +63,14 @@ pub async fn enqueue<'e>(
     email: NewEmail<'_>,
 ) -> sqlx::Result<Uuid> {
     sqlx::query_scalar!(
-        "INSERT INTO outbound_emails (to_address, subject, text_body, html_body)
-         VALUES ($1, $2, $3, $4)
+        "INSERT INTO outbound_emails (to_address, subject, text_body, html_body, list_unsubscribe)
+         VALUES ($1, $2, $3, $4, $5)
          RETURNING id",
         email.to,
         email.subject,
         email.text,
-        email.html
+        email.html,
+        email.list_unsubscribe
     )
     .fetch_one(executor)
     .await
@@ -62,7 +87,7 @@ pub async fn claim_due(pool: &PgPool, limit: i64) -> sqlx::Result<Vec<OutboundEm
                  ORDER BY next_attempt_at
                  LIMIT $1
                  FOR UPDATE SKIP LOCKED)
-      RETURNING id, to_address, subject, text_body, html_body, attempts, next_attempt_at, sent_at, last_error, created_at",
+      RETURNING id, to_address, subject, text_body, html_body, list_unsubscribe, attempts, next_attempt_at, sent_at, last_error, created_at",
         limit,
         Utc::now() + LEASE
     )
@@ -111,12 +136,14 @@ pub async fn flush_due(state: &AppState) -> usize {
     for email in due {
         let delivered = state
             .auth_service
-            .deliver(
-                &email.to_address,
-                &email.subject,
-                &email.text_body,
-                email.html_body.as_deref(),
-            )
+            .deliver(&Envelope {
+                id: email.id,
+                to: &email.to_address,
+                subject: &email.subject,
+                text: &email.text_body,
+                html: email.html_body.as_deref(),
+                list_unsubscribe: email.list_unsubscribe.as_deref(),
+            })
             .await;
         let outcome = match delivered {
             Ok(()) => {
@@ -160,6 +187,7 @@ mod tests {
                 subject: "hello",
                 text: "body",
                 html: None,
+                list_unsubscribe: None,
             },
         )
         .await
@@ -234,7 +262,15 @@ mod tests {
 
         state
             .auth_service
-            .send_invite_email("new@example.com", "Ops", "https://chat.example/invite/x")
+            .send_invite_email(
+                "new@example.com",
+                crate::auth::service::InviteEmail {
+                    workspace_name: "Ops",
+                    inviter: Some("Ana"),
+                    url: "https://chat.example/invite/x",
+                    expires_at: Utc::now() + chrono::Duration::days(7),
+                },
+            )
             .await
             .unwrap();
 
@@ -247,7 +283,10 @@ mod tests {
         assert_eq!(queued.len(), 1);
         assert_eq!(queued[0].0, "new@example.com");
         assert!(queued[0].1.contains("Ops"));
-        assert!(queued[0].2.as_deref().unwrap_or("").contains("Join Ops"));
+        let html = queued[0].2.as_deref().unwrap_or("");
+        assert!(html.contains("Join Ops"), "{html}");
+        assert!(html.contains("Ana invited you"), "{html}");
+        assert!(html.contains("expires in 7 days"), "{html}");
     }
 
     #[test]

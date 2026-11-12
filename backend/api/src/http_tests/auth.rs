@@ -1086,6 +1086,49 @@ fn link_in(body: &str, marker: &str) -> String {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn account_emails_have_both_parts_and_name_the_instance(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (_, email) = seed(&state, "parts", false).await;
+    let sso = format!("sso-parts-{}@test.local", Uuid::new_v4().simple());
+    state
+        .auth_service
+        .repo()
+        .create_sso_user(&sso)
+        .await
+        .expect("sso user");
+
+    forgot(&app, &email).await;
+    forgot(&app, &sso).await;
+
+    let parts = |address: String| {
+        let state = state.clone();
+        async move {
+            let rows: Vec<(String, String, Option<String>)> = sqlx::query_as(
+                "SELECT subject, text_body, html_body FROM outbound_emails WHERE to_address = $1",
+            )
+            .bind(address)
+            .fetch_all(&state.pool)
+            .await
+            .expect("outbound emails");
+            rows.into_iter().next().expect("one email")
+        }
+    };
+    let (subject, text, html) = parts(email.clone()).await;
+    assert_eq!(subject, "Reset your Test password");
+    assert!(
+        text.contains(&format!("Somebody asked to reset the password for {email}")),
+        "{text}"
+    );
+    let html = html.expect("an HTML part");
+    assert!(html.contains("Choose a new password"), "{html}");
+    assert!(html.contains("your password stays as it is"), "{html}");
+
+    let (subject, _, html) = parts(sso).await;
+    assert_eq!(subject, "Sign in to Test with SSO");
+    assert!(html.is_some());
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn forgetting_a_password_never_set_sends_the_invite_again(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "pending-owner", false).await;
@@ -1129,7 +1172,7 @@ async fn an_sso_account_is_told_to_use_sso_instead_of_a_reset(pool: PgPool) {
 
     let sent = emails_to(&state, &email).await;
     assert_eq!(sent.len(), 1);
-    assert_eq!(sent[0].0, "You sign in with SSO");
+    assert_eq!(sent[0].0, "Sign in to Test with SSO");
     assert_eq!(reset_tokens_of(&state, &email).await, 0);
 }
 

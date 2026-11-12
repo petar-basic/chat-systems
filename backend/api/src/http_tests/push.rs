@@ -719,7 +719,7 @@ async fn a_mention_read_inside_the_window_is_never_emailed(pool: PgPool) {
             .await
             .expect("email");
     assert_eq!(
-        subject, "You were mentioned",
+        subject, "You were mentioned in Mail WS",
         "only the unread one is counted"
     );
     assert_eq!(pending_for(&state, target).await, 0);
@@ -1111,11 +1111,69 @@ async fn the_digest_counts_mentions_and_direct_messages_apart(pool: PgPool) {
     .fetch_one(&s.state.pool)
     .await
     .expect("email");
-    assert_eq!(subject, "You have 2 mentions and 1 direct message");
+    assert_eq!(
+        subject,
+        "You have 2 mentions and 1 direct message in Levels WS"
+    );
     assert!(
         body.starts_with("You have 2 mentions and 1 direct message while you were away."),
         "{body}"
     );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_digest_unsubscribes_in_one_click_and_a_visit_alone_changes_nothing(pool: PgPool) {
+    let s = scene(pool).await;
+    mention_emails_on(&s.state, s.ws_id, s.target).await;
+    queue_due(&s.state, s.target, s.ws_id, false).await;
+    assert_eq!(crate::notifications::email::flush_due(&s.state).await, 1);
+
+    let (html, url): (Option<String>, Option<String>) = sqlx::query_as(
+        "SELECT html_body, list_unsubscribe FROM outbound_emails ORDER BY created_at DESC LIMIT 1",
+    )
+    .fetch_one(&s.state.pool)
+    .await
+    .expect("email");
+    let url = url.expect("a List-Unsubscribe URL");
+    let html = html.expect("an HTML part");
+    assert!(html.contains(&url), "the footer links to it: {html}");
+    assert!(html.contains("Levels WS"), "{html}");
+    let path = url
+        .strip_prefix("http://localhost")
+        .expect("on the public URL")
+        .to_string();
+
+    let (status, _) = send(&s.app, "GET", &path, None, None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        sends_mention_emails(&s).await,
+        "opening the link turns nothing off"
+    );
+
+    let (status, _) = send(&s.app, "POST", &path, None, None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        !sends_mention_emails(&s).await,
+        "the one-click POST turns them off"
+    );
+
+    let (status, _) = send(
+        &s.app,
+        "POST",
+        "/api/email/unsubscribe/not-a-token",
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+async fn sends_mention_emails(s: &Scene) -> bool {
+    s.state
+        .notification_repo
+        .mention_emails(s.ws_id, s.target)
+        .await
+        .expect("the setting")
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
@@ -1169,13 +1227,22 @@ async fn the_digest_is_written_in_the_language_the_reader_chose(pool: PgPool) {
     queue_due(&s.state, s.target, s.ws_id, false).await;
 
     assert_eq!(crate::notifications::email::flush_due(&s.state).await, 1);
-    let subject: String =
-        sqlx::query_scalar("SELECT subject FROM outbound_emails ORDER BY created_at DESC LIMIT 1")
-            .fetch_one(&s.state.pool)
-            .await
-            .expect("email");
+    let (subject, html): (String, Option<String>) = sqlx::query_as(
+        "SELECT subject, html_body FROM outbound_emails ORDER BY created_at DESC LIMIT 1",
+    )
+    .fetch_one(&s.state.pool)
+    .await
+    .expect("email");
     let japanese = crate::notifications::text::words(crate::profile::models::Language::Ja);
-    assert_eq!(subject, japanese.get("email.mentioned", &[]));
+    let summary = japanese.get("email.mentioned", &[]);
+    assert_eq!(
+        subject,
+        japanese.get(
+            "email.inWorkspace",
+            &[("summary", &summary), ("workspace", "Levels WS")]
+        )
+    );
+    assert!(html.unwrap_or_default().contains(r#"<html lang="ja">"#));
 }
 
 #[test_macros::db_test(migrations = "../migrations")]

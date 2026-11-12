@@ -18,6 +18,7 @@ pub const TOTP_SECRETS: &str = "totp-secret-encryption";
 pub const SETUP_TOKEN: &str = "setup-token";
 pub const COMMAND_RESPONSES: &str = "command-responses";
 pub const BOT_SIGNING_SECRETS: &str = "bot-app-signing-secrets";
+pub const EMAIL_UNSUBSCRIBE: &str = "email-unsubscribe";
 
 #[derive(Clone)]
 pub struct Keyring {

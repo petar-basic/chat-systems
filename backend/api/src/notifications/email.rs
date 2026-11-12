@@ -3,7 +3,9 @@ use std::time::Duration;
 use uuid::Uuid;
 
 use super::text::{self, Words};
+use crate::email::message::{Button, Email};
 use crate::email::outbox::{self, NewEmail};
+use crate::email::unsubscribe;
 use crate::state::AppState;
 
 /// Long enough to be a digest rather than a stream, and a second chance for the
@@ -59,6 +61,7 @@ pub async fn enqueue(state: &AppState, pending: PendingMention<'_>) {
 struct DueDigest {
     user_id: Uuid,
     workspace_id: Uuid,
+    workspace_name: String,
     email: String,
     language: Option<String>,
     mentions: i64,
@@ -95,7 +98,7 @@ pub async fn flush_due(state: &AppState) -> usize {
     let due = sqlx::query_as!(
         DueDigest,
         r#"
-        SELECT p.user_id, p.workspace_id, u.email,
+        SELECT p.user_id, p.workspace_id, w.name AS workspace_name, u.email,
                u.preferences->>'language' AS "language?",
                COUNT(*) FILTER (WHERE NOT p.direct) AS "mentions!",
                COUNT(*) FILTER (WHERE p.direct) AS "direct_messages!",
@@ -105,10 +108,11 @@ pub async fn flush_due(state: &AppState) -> usize {
                CASE WHEN COUNT(*) = 1 THEN (ARRAY_AGG(p.message_id))[1] END AS "message_id?"
           FROM pending_mention_emails p
           JOIN users u ON u.id = p.user_id
+          JOIN workspaces w ON w.id = p.workspace_id
          WHERE p.created_at <= $1
            AND NOT u.is_bot
            AND public.notifications_paused_until(p.workspace_id, p.user_id, $2) IS NULL
-         GROUP BY p.user_id, p.workspace_id, u.email, u.preferences->>'language'
+         GROUP BY p.user_id, p.workspace_id, w.name, u.email, u.preferences->>'language'
         "#,
         cutoff,
         now
@@ -160,18 +164,24 @@ async fn send_digest(
     }
 
     let words = text::words(text::language(digest.language.as_deref()));
-    let subject = subject_for(digest, &words);
-    let body = body_for(digest, &state.config.public_url, &words);
-    outbox::enqueue(
-        &mut *tx,
-        NewEmail {
-            to: &digest.email,
-            subject: &subject,
-            text: &body,
-            html: None,
-        },
-    )
-    .await?;
+    let unsubscribe = unsubscribe::url_for(
+        &state.config.public_url,
+        &state.config.secrets_keys,
+        digest.user_id,
+        digest.workspace_id,
+    );
+    let rendered = match digest_email(digest, &state.config.public_url, &words, unsubscribe).render(
+        &digest.email,
+        &state.config,
+        &words,
+    ) {
+        Ok(rendered) => rendered,
+        Err(e) => {
+            tracing::warn!("could not write a mention email: {}", e);
+            return Ok(false);
+        }
+    };
+    outbox::enqueue(&mut *tx, NewEmail::rendered(&digest.email, &rendered)).await?;
     tx.commit().await?;
     Ok(true)
 }
@@ -190,18 +200,19 @@ fn what_happened(digest: &DueDigest, words: &Words) -> String {
 }
 
 fn subject_for(digest: &DueDigest, words: &Words) -> String {
-    match (digest.mentions, digest.direct_messages) {
+    let summary = match (digest.mentions, digest.direct_messages) {
         (1, 0) => words.get("email.mentioned", &[]),
         (n, 0) => words.count("email.mentionedTimes", n, &[]),
         (0, 1) => words.get("email.aDirectMessage", &[]),
         _ => what_happened(digest, words),
-    }
+    };
+    words.get(
+        "email.inWorkspace",
+        &[("summary", &summary), ("workspace", &digest.workspace_name)],
+    )
 }
 
-/// Who, where, and a link. Not what was said: mail sits in an inbox on somebody
-/// else's server indefinitely, and is the least private transport this product
-/// touches.
-fn body_for(digest: &DueDigest, public_url: &str, words: &Words) -> String {
+fn digest_email(digest: &DueDigest, public_url: &str, words: &Words, unsubscribe: String) -> Email {
     let people: Vec<&str> = digest
         .senders
         .iter()
@@ -216,23 +227,38 @@ fn body_for(digest: &DueDigest, public_url: &str, words: &Words) -> String {
         .collect();
 
     let summary = what_happened(digest, words);
-    let mut lines = vec![words.get("email.whileAway", &[("summary", &summary)])];
+    let mut paragraphs = Vec::new();
     if !people.is_empty() {
-        lines.push(words.get("email.from", &[("people", &people.join(", "))]));
+        paragraphs.push(words.get("email.from", &[("people", &people.join(", "))]));
     }
     if !places.is_empty() {
-        lines.push(words.get("email.in", &[("places", &places.join(", "))]));
+        paragraphs.push(words.get("email.in", &[("places", &places.join(", "))]));
     }
-    lines.push(String::new());
-    let workspace = format!("{public_url}/app/{}", digest.workspace_id);
-    lines.push(match (digest.channel_id, digest.message_id) {
-        (Some(channel), Some(message)) => words.get(
-            "email.openIt",
-            &[("link", &format!("{workspace}/{channel}/{message}"))],
-        ),
-        _ => words.get("email.openWorkspace", &[("link", &workspace)]),
-    });
-    lines.join("\n")
+    let workspace = &digest.workspace_name;
+    let home = format!(
+        "{}/app/{}",
+        public_url.trim_end_matches('/'),
+        digest.workspace_id
+    );
+    let button = match (digest.channel_id, digest.message_id) {
+        (Some(channel), Some(message)) => Button {
+            label: words.get("email.digest.open", &[]),
+            url: format!("{home}/{channel}/{message}"),
+        },
+        _ => Button {
+            label: words.get("email.digest.openWorkspace", &[("workspace", workspace)]),
+            url: home,
+        },
+    };
+    Email {
+        subject: subject_for(digest, words),
+        heading: words.get("email.whileAway", &[("summary", &summary)]),
+        paragraphs,
+        button: Some(button),
+        reason: Some(words.get("email.digest.reason", &[("workspace", workspace)])),
+        unsubscribe: Some(unsubscribe),
+        ..Email::default()
+    }
 }
 
 pub async fn start_digest_job(state: std::sync::Arc<AppState>) {
@@ -260,7 +286,8 @@ mod tests {
         "email": {
             "mentioned": "メンションされました",
             "mentions_other": "{{count}} 件のメンション",
-            "youHave": "{{things}}があります"
+            "youHave": "{{things}}があります",
+            "inWorkspace": "{{workspace}}: {{summary}}"
         }
     }"#;
 
@@ -268,6 +295,7 @@ mod tests {
         DueDigest {
             user_id: Uuid::nil(),
             workspace_id: Uuid::nil(),
+            workspace_name: "Ops".into(),
             email: "ana@test.local".into(),
             language: Some("ja".into()),
             mentions,
@@ -283,17 +311,17 @@ mod tests {
     fn the_digest_is_written_in_the_readers_language() {
         let catalog = text::Catalog::parse(include_str!("../../locales/en.json"), JA);
         let ja = catalog.words(Language::Ja);
-        assert_eq!(subject_for(&digest(1, 0), &ja), "メンションされました");
+        assert_eq!(subject_for(&digest(1, 0), &ja), "Ops: メンションされました");
         assert_eq!(
             subject_for(&digest(0, 2), &ja),
-            "2 direct messagesがあります"
+            "Ops: 2 direct messagesがあります"
         );
-        let body = body_for(&digest(3, 0), "https://chat.test", &ja);
-        assert!(
-            body.starts_with("3 件のメンションがあります while you were away."),
-            "{body}"
+        let email = digest_email(&digest(3, 0), "https://chat.test", &ja, "u".into());
+        assert_eq!(
+            email.heading,
+            "3 件のメンションがあります while you were away."
         );
-        assert!(body.contains("From: Bo"), "{body}");
+        assert_eq!(email.paragraphs, vec!["From: Bo", "In: #general"]);
     }
 
     #[test]
@@ -302,14 +330,19 @@ mod tests {
         let ja = catalog.words(Language::Ja);
         assert_eq!(
             subject_for(&digest(2, 0), &ja),
-            "You were mentioned 2 times"
+            "You were mentioned 2 times in Ops"
         );
         assert_eq!(
             subject_for(&digest(2, 1), &ja),
-            "You have 2 mentions and 1 direct message"
+            "You have 2 mentions and 1 direct message in Ops"
         );
-        assert!(body_for(&digest(1, 0), "https://chat.test", &ja).ends_with(
-            "Open the workspace: https://chat.test/app/00000000-0000-0000-0000-000000000000"
-        ));
+        let email = digest_email(&digest(1, 0), "https://chat.test/", &ja, "u".into());
+        let button = email.button.expect("a button");
+        assert_eq!(button.label, "Open Ops");
+        assert_eq!(
+            button.url,
+            "https://chat.test/app/00000000-0000-0000-0000-000000000000"
+        );
+        assert_eq!(email.unsubscribe.as_deref(), Some("u"));
     }
 }

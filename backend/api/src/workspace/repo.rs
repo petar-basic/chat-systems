@@ -54,6 +54,24 @@ impl WorkspaceRepo {
         .await
     }
 
+    pub async fn inviter_name(
+        &self,
+        workspace_id: Uuid,
+        user_id: Uuid,
+    ) -> sqlx::Result<Option<String>> {
+        sqlx::query_scalar!(
+            r#"SELECT COALESCE(NULLIF(btrim(wm.display_name), ''), NULLIF(btrim(u.display_name), '')) AS "name"
+                 FROM users u
+                 LEFT JOIN workspace_members wm ON wm.workspace_id = $1 AND wm.user_id = u.id
+                WHERE u.id = $2"#,
+            workspace_id,
+            user_id
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map(Option::flatten)
+    }
+
     pub async fn find_workspace_by_id(&self, id: Uuid) -> sqlx::Result<Option<Workspace>> {
         sqlx::query_as!(
             Workspace,

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE outbound_emails\n            SET attempts = attempts + 1, next_attempt_at = $2\n          WHERE id IN (\n                SELECT id FROM outbound_emails\n                 WHERE sent_at IS NULL AND next_attempt_at <= NOW()\n                 ORDER BY next_attempt_at\n                 LIMIT $1\n                 FOR UPDATE SKIP LOCKED)\n      RETURNING id, to_address, subject, text_body, html_body, attempts, next_attempt_at, sent_at, last_error, created_at",
+  "query": "UPDATE outbound_emails\n            SET attempts = attempts + 1, next_attempt_at = $2\n          WHERE id IN (\n                SELECT id FROM outbound_emails\n                 WHERE sent_at IS NULL AND next_attempt_at <= NOW()\n                 ORDER BY next_attempt_at\n                 LIMIT $1\n                 FOR UPDATE SKIP LOCKED)\n      RETURNING id, to_address, subject, text_body, html_body, list_unsubscribe, attempts, next_attempt_at, sent_at, last_error, created_at",
   "describe": {
     "columns": [
       {
@@ -60,6 +60,17 @@
       },
       {
         "ordinal": 5,
+        "name": "list_unsubscribe",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "outbound_emails",
+            "name": "list_unsubscribe"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
         "name": "attempts",
         "type_info": "Int4",
         "origin": {
@@ -70,7 +81,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "next_attempt_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -81,7 +92,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "sent_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -92,7 +103,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "last_error",
         "type_info": "Text",
         "origin": {
@@ -103,7 +114,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -126,6 +137,7 @@
       false,
       false,
       true,
+      true,
       false,
       true,
       true,
@@ -133,5 +145,5 @@
       false
     ]
   },
-  "hash": "82b5e40dc6826861ecc3a71658b376cea325e72a25fdd074912ac90ae560d371"
+  "hash": "2b4797c460f46b29af2d5f4429ba9fca488991a6d2f736ac6c4c333e2fcb54a7"
 }

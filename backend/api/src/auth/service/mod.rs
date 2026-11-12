@@ -12,6 +12,7 @@ use crate::config::AppConfig;
 use crate::scim::repo::hash_token;
 
 mod email;
+pub use email::InviteEmail;
 #[cfg(test)]
 mod tests;
 mod tokens;

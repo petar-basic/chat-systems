@@ -3079,3 +3079,33 @@ the same one `invite_url` returned, and one hashed row in `invite_links`. The li
 password* sent an 86-character link whose page asked for the new password; the token was refused
 as a bearer token, reset the password once, said *reset link already used or expired* the second
 time, and the new password signed in. A JWT-shaped token was refused by both routes.
+
+### [CS-121p] Emails that look like they come from a company ✅ shipped
+Every email was a few lines of plain text, except the invite, which had a template of its own.
+They now share one layout: `email::message::Email` holds a subject, a heading, paragraphs, an
+optional code, an optional button, notes, and for the digest a reason and an unsubscribe link,
+and `render` turns it into a text part written line by line and an HTML part from
+`templates/email/layout.html`. The layout is tables and inline styles, 520px at most, with the
+instance's name and, over https, its icon at the top, the link under the button for clients that
+drop it, and a footer naming the address and the instance. Every string comes from the catalog,
+so CS-121q only has to choose the reader's language. Subjects name the instance or the
+workspace: *Reset your Chat Systems password*, *Join Dev Team on Chat Systems*, *You were
+mentioned in Dev Team*. An invite says who sent it and when it runs out. Each message carries a
+`Message-ID` on the sender's domain and `Auto-Submitted: auto-generated`, and the digest
+`List-Unsubscribe` with `List-Unsubscribe-Post: List-Unsubscribe=One-Click`: its link holds the
+user and workspace and a truncated HMAC from a key derived for it, so it needs no table, and a
+POST turns mention emails off for that workspace while a GET only asks, so a scanner that opens
+links changes nothing. The page it leaves on links to `/app/{ws}?preferences`, which opens
+Preferences on Notifications and drops the parameter. `outbound_emails` keeps the header, and
+the old invite template is gone.
+
+Checked by hand on the Docker build. An invite, a reset, a sign-in code, the expired-invite
+notice, the SSO reminder for an SSO-only account and the admin test email each arrived with a
+text and an HTML part, a `Message-ID` ending in `@dev.local` and `Auto-Submitted`; the invite
+read *Admin invited you to the Dev Team workspace* and *expires in 7 days*. A mention of Alice
+in #general, aged past the window, sent *You were mentioned in Dev Team* with a button to the
+message and the two unsubscribe headers. Opening its link showed *Turn off mention emails from
+Dev Team?* and left the setting on; the one-click POST answered 200 and turned it off; the same
+link with its last characters changed answered 400. The HTML rendered at desktop width and at
+320px without sideways scrolling, and `/app/{ws}?preferences` opened Preferences on
+Notifications.

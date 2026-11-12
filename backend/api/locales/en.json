@@ -24,7 +24,73 @@
     "whileAway": "{{summary}} while you were away.",
     "from": "From: {{people}}",
     "in": "In: {{places}}",
-    "openIt": "Open it: {{link}}",
-    "openWorkspace": "Open the workspace: {{link}}"
+    "inWorkspace": "{{summary}} in {{workspace}}",
+    "common": {
+      "sentTo": "This email was sent to {{email}} by {{instance}}.",
+      "fallback": "Button not working? Paste this link into your browser:",
+      "unsubscribe": "Turn off these emails"
+    },
+    "digest": {
+      "open": "Open the message",
+      "openWorkspace": "Open {{workspace}}",
+      "reason": "You get these because mention emails are on for you in {{workspace}}."
+    },
+    "reset": {
+      "subject": "Reset your {{instance}} password",
+      "heading": "Reset your password",
+      "body": "Somebody asked to reset the password for {{email}} on {{instance}}.",
+      "button": "Choose a new password",
+      "expiry": "The link works once and expires in an hour.",
+      "notYou": "If it wasn't you, you can ignore this email: your password stays as it is."
+    },
+    "code": {
+      "subject": "{{code}} is your {{instance}} sign-in code",
+      "heading": "Your sign-in code",
+      "body": "Enter this code to sign in to {{instance}}:",
+      "expiry_one": "It works once and expires in {{count}} minute.",
+      "expiry_other": "It works once and expires in {{count}} minutes.",
+      "notYou": "If you didn't ask for it, you can ignore this email."
+    },
+    "sso": {
+      "subject": "Sign in to {{instance}} with SSO",
+      "heading": "You sign in with SSO",
+      "body": "Somebody asked for a way into this account on {{instance}}.",
+      "how": "This account signs in with single sign-on, so it has no password to reset and no sign-in code. Open {{instance}} and choose Sign in with SSO.",
+      "button": "Open {{instance}}",
+      "notYou": "If it wasn't you, you can ignore this email."
+    },
+    "inviteExpired": {
+      "subject": "Your invitation to {{workspace}} has expired",
+      "subjectNoWorkspace": "Your {{instance}} invitation has expired",
+      "heading": "Your invitation has expired",
+      "body": "Somebody asked for a way into this account on {{instance}}.",
+      "workspace": "Your invitation to {{workspace}} has expired, so there is no way in yet. Ask an admin of {{workspace}} to invite you again, and open the link in that email.",
+      "noWorkspace": "Your invitation has expired, so there is no way in yet. Ask an admin of the workspace that invited you to invite you again, and open the link in that email."
+    },
+    "invite": {
+      "subject": "Join {{workspace}} on {{instance}}",
+      "heading": "Join {{workspace}}",
+      "body": "{{inviter}} invited you to the {{workspace}} workspace on {{instance}}.",
+      "bodyNoInviter": "You've been invited to the {{workspace}} workspace on {{instance}}.",
+      "button": "Join {{workspace}}",
+      "expiry_one": "The invitation expires in {{count}} day.",
+      "expiry_other": "The invitation expires in {{count}} days.",
+      "notExpected": "If you weren't expecting it, you can ignore this email."
+    },
+    "test": {
+      "subject": "Test email from {{instance}}",
+      "heading": "Email works",
+      "body": "This is a test email from {{instance}}. It reached you, so email works."
+    },
+    "unsubscribePage": {
+      "title": "Mention emails",
+      "confirm": "Turn off mention emails from {{workspace}}?",
+      "explain": "You will still see your mentions and direct messages in the app.",
+      "button": "Turn them off",
+      "done": "Mention emails from {{workspace}} are off.",
+      "again": "You can turn them back on in Preferences → Notifications.",
+      "open": "Open {{workspace}}",
+      "invalid": "This link doesn't work any more. You can change your emails in Preferences → Notifications."
+    }
   }
 }
