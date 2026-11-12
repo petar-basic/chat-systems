@@ -1,6 +1,7 @@
 pub(crate) mod common;
 mod edit_history;
 mod email_code;
+mod email_language;
 mod emoji;
 mod export;
 mod groups;

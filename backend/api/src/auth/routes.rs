@@ -16,6 +16,7 @@ use crate::audit::{self, AuditAction, AuditEntry};
 use crate::dto::StatusResponse;
 use crate::middleware::AuthUser;
 use crate::middleware::PeerAddr;
+use crate::net::AcceptLanguage;
 use crate::state::AppState;
 
 pub fn router() -> OpenApiRouter<Arc<AppState>> {
@@ -339,16 +340,19 @@ async fn logout(
 #[utoipa::path(post, path = "/auth/forgot-password", tag = "auth", request_body = ForgotPasswordRequest, responses((status = 200, body = StatusResponse)), security(()))]
 async fn forgot_password(
     State(state): State<Arc<AppState>>,
+    accept_language: AcceptLanguage,
     Json(req): Json<ForgotPasswordRequest>,
 ) -> AppResult<Json<StatusResponse>> {
     let key = format!("rate_limit:forgot:{}", req.email.to_lowercase());
     check_rate_limit(&state, &key, 5, 900).await?;
-    if let PasswordRecovery::AwaitingInvite(user) =
-        state.auth_service.forgot_password(&req.email).await?
+    if let PasswordRecovery::AwaitingInvite(user, language) = state
+        .auth_service
+        .forgot_password(&req.email, accept_language.header())
+        .await?
     {
         if let Err(e) = state
             .workspace_service
-            .resend_invite(&user.email, &state.auth_service)
+            .resend_invite(&user.email, language, &state.auth_service)
             .await
         {
             tracing::warn!("failed to re-send an invite: {}", e);

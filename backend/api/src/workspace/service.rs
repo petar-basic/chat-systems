@@ -10,6 +10,7 @@ use super::repo::WorkspaceRepo;
 use crate::auth::service::{AuthService, InviteEmail};
 use crate::config::AppConfig;
 use crate::messaging::publisher::{EventPublisher, Staged};
+use crate::profile::models::Language;
 
 pub struct WorkspaceService {
     pub repo: WorkspaceRepo,
@@ -64,7 +65,7 @@ impl WorkspaceService {
     pub async fn create_invite(
         &self,
         workspace_id: Uuid,
-        created_by: Uuid,
+        inviter: Inviter,
         email: Option<&str>,
         role: Option<WorkspaceRole>,
         lifetime: InviteLifetime,
@@ -87,7 +88,7 @@ impl WorkspaceService {
             .repo
             .create_invite(crate::workspace::repo::NewInvite {
                 workspace_id,
-                created_by,
+                created_by: inviter.user_id,
                 email,
                 role: &role,
                 token: &token,
@@ -105,7 +106,9 @@ impl WorkspaceService {
         }
 
         let invite_url = self.invite_url(&invite, auth_service).await?;
-        let email_status = self.email_invite(&invite, &invite_url, auth_service).await;
+        let email_status = self
+            .email_invite(&invite, &invite_url, auth_service, inviter.language)
+            .await;
         Ok(CreatedInvite {
             invite,
             invite_url: Some(invite_url),
@@ -141,6 +144,7 @@ impl WorkspaceService {
         invite: &WorkspaceInvite,
         invite_url: &str,
         auth_service: &AuthService,
+        language: Language,
     ) -> InviteEmailStatus {
         let (Some(email), true) = (invite.email.as_deref(), auth_service.can_send_email()) else {
             return InviteEmailStatus::NotConfigured;
@@ -166,6 +170,7 @@ impl WorkspaceService {
                     url: invite_url,
                     expires_at,
                 },
+                language,
             )
             .await
         {
@@ -177,15 +182,21 @@ impl WorkspaceService {
         }
     }
 
-    pub async fn resend_invite(&self, email: &str, auth_service: &AuthService) -> AppResult<()> {
+    pub async fn resend_invite(
+        &self,
+        email: &str,
+        language: Language,
+        auth_service: &AuthService,
+    ) -> AppResult<()> {
         let Some(invite) = self.repo.find_live_email_invite(email).await? else {
             let workspace = self.repo.workspace_that_invited(email).await?;
             return auth_service
-                .send_invite_expired(email, workspace.as_deref())
+                .send_invite_expired(email, workspace.as_deref(), language)
                 .await;
         };
         let invite_url = self.invite_url(&invite, auth_service).await?;
-        self.email_invite(&invite, &invite_url, auth_service).await;
+        self.email_invite(&invite, &invite_url, auth_service, language)
+            .await;
         Ok(())
     }
 

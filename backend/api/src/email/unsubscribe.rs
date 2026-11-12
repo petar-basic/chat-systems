@@ -14,6 +14,7 @@ use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
+use crate::net::AcceptLanguage;
 use crate::notifications::text::{self, Words};
 use crate::profile::models::Language;
 use crate::sealed::{self, Keyring};
@@ -86,25 +87,27 @@ enum Outcome {
 #[utoipa::path(get, path = "/email/unsubscribe/{token}", tag = "notifications", responses((status = 200, description = "A page that asks whether to stop mention emails", content_type = "text/html", body = String), (status = 400, description = "The link is not one this server made", content_type = "text/html", body = String)), security(()))]
 async fn email_unsubscribe_page(
     State(state): State<Arc<AppState>>,
+    accept_language: AcceptLanguage,
     Path(token): Path<String>,
 ) -> AppResult<(StatusCode, Html<String>)> {
-    respond(&state, &token, Outcome::Confirm).await
+    respond(&state, &token, Outcome::Confirm, accept_language.header()).await
 }
 
 #[utoipa::path(post, path = "/email/unsubscribe/{token}", tag = "notifications", responses((status = 200, description = "Mention emails are off", content_type = "text/html", body = String), (status = 400, description = "The link is not one this server made", content_type = "text/html", body = String)), security(()))]
 async fn email_unsubscribe(
     State(state): State<Arc<AppState>>,
+    accept_language: AcceptLanguage,
     Path(token): Path<String>,
 ) -> AppResult<(StatusCode, Html<String>)> {
-    respond(&state, &token, Outcome::Done).await
+    respond(&state, &token, Outcome::Done, accept_language.header()).await
 }
 
 async fn respond(
     state: &AppState,
     token: &str,
     outcome: Outcome,
+    accept_language: Option<&str>,
 ) -> AppResult<(StatusCode, Html<String>)> {
-    let words = text::words(Language::En);
     let found = match parse(&state.config.secrets_keys, token) {
         Some((user_id, workspace_id)) => state
             .workspace_service
@@ -115,6 +118,7 @@ async fn respond(
         None => None,
     };
     let Some((user_id, workspace)) = found else {
+        let words = text::words(text::reader_language(Language::Browser, accept_language));
         let page = Page {
             lang: words.lang(),
             title: words.get("email.unsubscribePage.title", &[]),
@@ -125,6 +129,12 @@ async fn respond(
         };
         return Ok((StatusCode::BAD_REQUEST, Html(render(&page)?)));
     };
+    let words = text::words(
+        state
+            .auth_service
+            .language_for(user_id, accept_language)
+            .await?,
+    );
     let name = workspace.name.as_str();
     let open = Some((
         words.get("email.unsubscribePage.open", &[("workspace", name)]),

@@ -1,7 +1,33 @@
+use std::convert::Infallible;
 use std::net::{IpAddr, SocketAddr};
 
+use axum::extract::FromRequestParts;
+use axum::http::header::ACCEPT_LANGUAGE;
+use axum::http::request::Parts;
 use axum::http::HeaderMap;
 use ipnet::IpNet;
+
+pub struct AcceptLanguage(pub Option<String>);
+
+impl AcceptLanguage {
+    pub fn header(&self) -> Option<&str> {
+        self.0.as_deref()
+    }
+}
+
+impl<S: Send + Sync> FromRequestParts<S> for AcceptLanguage {
+    type Rejection = Infallible;
+
+    async fn from_request_parts(parts: &mut Parts, _: &S) -> Result<Self, Self::Rejection> {
+        Ok(Self(
+            parts
+                .headers
+                .get(ACCEPT_LANGUAGE)
+                .and_then(|v| v.to_str().ok())
+                .map(str::to_string),
+        ))
+    }
+}
 
 fn parse_net(spec: &str) -> Option<IpNet> {
     let spec = spec.trim();

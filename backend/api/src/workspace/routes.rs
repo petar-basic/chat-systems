@@ -20,6 +20,7 @@ use crate::bots::{models::Scope, Caller};
 use crate::dto::{DataList, StatusResponse};
 use crate::messaging::publisher::EventPublisher;
 use crate::middleware::AuthUser;
+use crate::net::AcceptLanguage;
 use crate::state::AppState;
 
 pub fn router() -> OpenApiRouter<Arc<AppState>> {
@@ -454,6 +455,7 @@ async fn create_invite(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     ip: ClientIp,
+    accept_language: AcceptLanguage,
     Path(ws_id): Path<Uuid>,
     Json(req): Json<CreateInviteRequest>,
 ) -> AppResult<Json<CreatedInvite>> {
@@ -470,11 +472,18 @@ async fn create_invite(
         ));
     }
     let lifetime = InviteLifetime::resolve(&req)?;
+    let inviter = Inviter {
+        user_id: auth.user_id,
+        language: state
+            .auth_service
+            .language_for(auth.user_id, accept_language.header())
+            .await?,
+    };
     let created = state
         .workspace_service
         .create_invite(
             ws_id,
-            auth.user_id,
+            inviter,
             req.email.as_deref(),
             req.role,
             lifetime,

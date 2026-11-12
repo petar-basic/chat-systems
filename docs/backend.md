@@ -138,7 +138,12 @@ in `main.rs`.
   Emails are queued in `outbound_emails` inside the request and delivered by the worker with
   retries and backoff. Each one carries `Auto-Submitted: auto-generated` and a `Message-ID`
   made of its outbox row's id and the domain of `SMTP_FROM_ADDRESS`, the same on every
-  retry.
+  retry. An email is in the reader's language (`text::reader_language`): their
+  `preferences.language`, else, while that is `browser`, the first language the app has in
+  the `Accept-Language` of the request that caused it (*Forgot password*, *Email me a code*),
+  else English; the layout's `<html lang>` says which. An invite is in the language of the
+  admin who sent it by the same rule, and sent again from the sign-in page it follows that
+  request. The unsubscribe page follows the person the link names.
 - **The API contract is generated.** Handlers carry `#[utoipa::path]`, the document is
   served at `/api/openapi.json`, and the frontend's types and WebSocket frame union are
   generated from the backend; CI fails when either is stale.

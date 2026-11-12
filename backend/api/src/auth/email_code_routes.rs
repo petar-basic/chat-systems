@@ -14,6 +14,8 @@ use super::routes::{check_rate_limit, limit_tries, second_factor, set_auth_cooki
 use super::service::AuthService;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::dto::StatusResponse;
+use crate::net::AcceptLanguage;
+use crate::profile::models::Language;
 use crate::state::AppState;
 
 pub const CODE_LIFETIME_MINS: i32 = 10;
@@ -53,6 +55,7 @@ pub(crate) async fn offered(state: &AppState) -> AppResult<bool> {
 async fn request_email_code(
     State(state): State<Arc<AppState>>,
     ip: ClientIp,
+    accept_language: AcceptLanguage,
     Json(req): Json<EmailCodeRequest>,
 ) -> AppResult<Json<StatusResponse>> {
     refuse_when_off(&state).await?;
@@ -75,7 +78,7 @@ async fn request_email_code(
     }
 
     tokio::spawn(async move {
-        if let Err(e) = answer_request(&state, &req.email, &ip).await {
+        if let Err(e) = answer_request(&state, &req.email, &ip, accept_language.header()).await {
             tracing::warn!("failed to answer a sign-in code request: {}", e);
         }
     });
@@ -83,21 +86,33 @@ async fn request_email_code(
     Ok(Json(StatusResponse::new("sent")))
 }
 
-async fn answer_request(state: &AppState, email: &str, ip: &ClientIp) -> AppResult<()> {
+async fn answer_request(
+    state: &AppState,
+    email: &str,
+    ip: &ClientIp,
+    accept_language: Option<&str>,
+) -> AppResult<()> {
     let Some(user) = state.auth_service.repo().find_by_email(email).await? else {
         return Ok(());
     };
+    let language = state
+        .auth_service
+        .language_for(user.id, accept_language)
+        .await?;
 
     match user.status {
         UserStatus::Pending => {
             state
                 .workspace_service
-                .resend_invite(&user.email, &state.auth_service)
+                .resend_invite(&user.email, language, &state.auth_service)
                 .await?
         }
         UserStatus::Suspended => {}
         UserStatus::Active if user.password_hash.is_none() => {
-            state.auth_service.send_sso_reminder(&user.email).await?
+            state
+                .auth_service
+                .send_sso_reminder(&user.email, language)
+                .await?
         }
         UserStatus::Active => {
             if !state
@@ -105,7 +120,7 @@ async fn answer_request(state: &AppState, email: &str, ip: &ClientIp) -> AppResu
                 .locked_out(user.id, DAILY_CEILING)
                 .await?
             {
-                send_code(state, &user, ip).await?
+                send_code(state, &user, ip, language).await?
             }
         }
     }
@@ -205,7 +220,12 @@ pub(crate) async fn spend_code(
     Ok(())
 }
 
-async fn send_code(state: &AppState, user: &User, ip: &ClientIp) -> AppResult<()> {
+async fn send_code(
+    state: &AppState,
+    user: &User,
+    ip: &ClientIp,
+    language: Language,
+) -> AppResult<()> {
     let code = format!("{:06}", rand::rng().random_range(0..1_000_000u32));
     let hash = AuthService::hash_password(&code).await?;
     state
@@ -214,7 +234,7 @@ async fn send_code(state: &AppState, user: &User, ip: &ClientIp) -> AppResult<()
         .await?;
     if let Err(e) = state
         .auth_service
-        .send_sign_in_code(&user.email, &code, CODE_LIFETIME_MINS)
+        .send_sign_in_code(&user.email, &code, CODE_LIFETIME_MINS, language)
         .await
     {
         tracing::warn!("failed to send a sign-in code: {}", e);
