@@ -1,14 +1,14 @@
-# CS-122 — `/api/v1`, and a client and a server that know each other's version
+# CS-141 — `/api/v1`, and a client and a server that know each other's version
 
-**Wave:** 33 — mobile apps (2026-11-04), released as 5.0.0
+**Wave:** 37 — mobile apps (2026-11-04, renumbered from 33 on 2026-11-13), released as 5.0.0
 **Area:** backend · frontend · ops · docs
 **Blocked by:** —
-**Blocks:** CS-124 · CS-125
+**Blocks:** CS-143 · CS-144
 
 ## Problem
 
 Today the web client and the server are always the same version, because the server
-serves the client. A phone app carries its own copy of the client (CS-125), so it will talk
+serves the client. A phone app carries its own copy of the client (CS-144), so it will talk
 to servers older and newer than itself, and nothing tells either side that the other has
 moved on. The [roadmap](../ROADMAP.md) deferred versioning the API path until a breaking
 change was planned; this is it. It is also why this release is 5.0.0.

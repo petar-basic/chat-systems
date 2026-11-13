@@ -1,9 +1,9 @@
-# CS-124 — Signing in from a client the server does not serve
+# CS-143 — Signing in from a client the server does not serve
 
-**Wave:** 33 — mobile apps (2026-11-04), released as 5.0.0
+**Wave:** 37 — mobile apps (2026-11-04, renumbered from 33 on 2026-11-13), released as 5.0.0
 **Area:** backend · frontend · mobile
-**Blocked by:** CS-122
-**Blocks:** CS-125
+**Blocked by:** CS-141
+**Blocks:** CS-144
 
 ## Problem
 

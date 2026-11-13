@@ -1,8 +1,8 @@
-# CS-126 — A push relay for phones
+# CS-145 — A push relay for phones
 
-**Wave:** 33 — mobile apps (2026-11-04), released as 5.0.0
+**Wave:** 37 — mobile apps (2026-11-04, renumbered from 33 on 2026-11-13), released as 5.0.0
 **Area:** backend · mobile · ops
-**Blocked by:** CS-125, and the decision on who runs the relay
+**Blocked by:** CS-144, and the decision on who runs the relay
 **Blocks:** —
 
 ## Problem

@@ -1,9 +1,9 @@
-# CS-125 — Phone apps for iOS and Android
+# CS-144 — Phone apps for iOS and Android
 
-**Wave:** 33 — mobile apps (2026-11-04), released as 5.0.0
+**Wave:** 37 — mobile apps (2026-11-04, renumbered from 33 on 2026-11-13), released as 5.0.0
 **Area:** mobile · frontend · ops
-**Blocked by:** CS-122 · CS-123 · CS-124
-**Blocks:** CS-126
+**Blocked by:** CS-141 · CS-142 · CS-143
+**Blocks:** CS-145
 
 ## Problem
 
@@ -17,8 +17,8 @@ browser allows it, and on iOS a home-screen app that Safari decides how long to 
 - *Add a server* and a list of servers as on desktop, each server's workspaces in the
   drawer instead of a rail.
 - Deep links (`chat-systems://`) open a server, a channel or a message, and finish sign-in
-  (CS-124).
-- Notifications come through CS-126 once it ships; until then the app notifies while it is
+  (CS-143).
+- Notifications come through CS-145 once it ships; until then the app notifies while it is
   open, as the PWA does.
 - The release workflow builds an `.ipa` for TestFlight and an `.aab` for Play's internal
   track, signed with the project's accounts. Store listing is a separate step the

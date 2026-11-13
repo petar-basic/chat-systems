@@ -74,9 +74,10 @@ The banner and the badge are exactly what CS-108 bridges, so nothing changes in 
 
 ## Mobile, later
 
-Ticketed on 2026-11-04 as Wave 33 (CS-122 – CS-126), for 5.0.0. Decided that day to build
+Ticketed on 2026-11-04 as Wave 33 (then CS-122 – CS-126), for 5.0.0, and renumbered on
+2026-11-13 as Wave 37 (CS-141 – CS-145), after the Slack gaps of 4.8.0. Decided on 2026-11-04 to build
 the phone apps on Tauri 2 too, as iOS and Android targets of the desktop project, if the
-spike (CS-123) finds that a huddle holds in the phone's webview and that a Tauri plugin can
+spike (CS-142) finds that a huddle holds in the phone's webview and that a Tauri plugin can
 receive a push; Capacitor around the same React client is the way around it if not. What
 mobile needs that desktop does not:
 
@@ -97,5 +98,5 @@ mobile needs that desktop does not:
 - **Code signing.** Who holds the Apple Developer account (99 $ a year, also needed for
   iOS) and the Windows certificate (Azure Trusted Signing, around 10 $ a month), and when.
   Nothing in Wave 29 waits on it.
-- **The push relay** (CS-126). Whether the project runs one. Without it, mobile stays the PWA on
+- **The push relay** (CS-145). Whether the project runs one. Without it, mobile stays the PWA on
   iOS and an Android build that receives push through the instance itself.

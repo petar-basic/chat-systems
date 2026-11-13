@@ -1,9 +1,9 @@
-# CS-123 — Does a Tauri phone app hold a huddle and receive a push?
+# CS-142 — Does a Tauri phone app hold a huddle and receive a push?
 
-**Wave:** 33 — mobile apps (2026-11-04), released as 5.0.0
+**Wave:** 37 — mobile apps (2026-11-04, renumbered from 33 on 2026-11-13), released as 5.0.0
 **Area:** mobile
 **Blocked by:** —
-**Blocks:** CS-125 · CS-126
+**Blocks:** CS-144 · CS-145
 
 ## Problem
 
