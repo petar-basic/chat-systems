@@ -50,6 +50,17 @@ instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   asked for it, and the member hears the answer in Activity. A request nobody answers expires
   after 30 days. Set to members, anyone but a guest invites directly, up to their own role.
   The audit log records `invite_request.created`, `approved`, `declined` and `expired`.
+- Profile fields of the workspace's own, such as a department, a manager or an office. An
+  admin adds them in *Workspace settings → Profile fields* and drags them into order: text,
+  a link, a date, a list of options, or a person. Each person fills theirs in under *Edit
+  profile*; a field marked *admins only*, such as an employee number, only an admin fills in,
+  from the person's profile. The values show on the new profile panel (*View full profile*
+  on the hover card), and two fields the admin picks show on the hover card itself. A new
+  *People directory* lists everyone, searches names, titles and text fields, and filters by
+  an options field or a person, as in *Manager = Ana*; the filters stay in the address, so a
+  filtered list can be shared. Bots with `users:read` get the fields and each member's
+  values. A person export includes the values, and erasing a person or their leaving deletes
+  them. The audit log records `profile_field.created`, `updated` and `deleted`.
 
 ### Changed
 

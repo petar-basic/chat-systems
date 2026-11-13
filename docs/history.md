@@ -3313,3 +3313,61 @@ The check found one fault, fixed here. Editing the addresses, a mistyped paste j
 everything after the first `@` as the domain and wanted only a dot in it. It now refuses a
 second `@` and a space inside an address, which is what two addresses without a separator look
 like, everywhere an address is checked.
+
+### [CS-126] Profile fields of the workspace's own ✅ shipped
+A profile had a title and a bio and nothing a company could rely on, so "who is in Finance"
+or "who reports to Ana" had no answer but asking around. An admin now defines up to 50 fields
+for the workspace in *Workspace settings → Profile fields*, each with a label, an optional
+hint and a kind: text, link, date, options or person. A field can be *admins only*, which
+everyone reads but only an admin fills in, as for an employee number, and up to two can show
+on the hover card. The kind is fixed once the field exists, because a value written for one
+kind means nothing to another.
+
+Fields are rows of `profile_fields`, ordered by `position`; an options field keeps its options
+as `{ id, label }` in JSONB, so renaming an option keeps every value that picked it and
+removing one drops those values, which the audit row counts as `values_dropped`. Values are
+rows of `profile_field_values`, one per member and field, as `TEXT` rather than the ticket's
+`jsonb`, since every kind's value is one string: the text, the link, `YYYY-MM-DD`, the option's
+id or the person's id. Both foreign keys carry the workspace, `(workspace_id, field_id)` to the
+field and `(workspace_id, user_id)` to `workspace_members`, so a value cannot point into
+another workspace, and deleting a field or a membership deletes its values with no code of its
+own. Creating, editing and reordering take `pg_advisory_xact_lock` on the workspace, so the
+50-field and two-on-card limits hold when two admins save at once. Each value is checked
+against its kind, and a refusal names the field: "Website: a link starting with http:// or
+https://". A person value must be someone in the workspace who is not a bot, checked for all
+person values of a request in one query.
+
+The member list carries each member's values as `profile_fields`, keyed by field id, from one
+`jsonb_object_agg` per row, and takes `?q=` and `?filter=field:value,…`. The filter runs on the
+server over the list the caller may already see, so a guest's directory stays within a guest's
+view, and only an options or a person field can be filtered on. The new *People directory*
+page keeps its search and filters in the query string, so a filtered view survives a reload
+and can be sent to someone. A member fills in their own fields at the bottom of *Edit profile*;
+an admin fills anyone's, admins-only ones included, from *Edit fields* on the person's profile
+panel. That panel is new too: *View full profile* on the hover card opens it on the right, and
+a person value in it opens that person's panel. A bot with `users:read` gets the values in the
+member list and the definitions from `GET /workspaces/{ws}/profile-fields`. A person export
+writes `profile_fields.jsonl`, and erasing someone deletes their values and counts them.
+
+Checked by hand on the Docker build. As the admin, Department (options), Manager (person),
+Office (text), Employee number (admins only), Start date, Website and Pet were added; a third
+field on the hover card answered 409, a second Office 409, an options field with no options or
+with "A" and "a " 422, and Bob 403. Bob filled in his own fields; the admins-only one answered
+him 403 naming it, Charlie's fields 403, and 30 February, an option of no field, Maya from
+Northwind as manager, `javascript:` as a link and 201 characters each answered 422 with the
+field's name. People filtered by Department = Finance listed Bob and Charlie, by Manager =
+Alice the same two, and adding Manager = Admin found nobody and offered to clear; a search for
+"novi" with Finance kept only Charlie, after a reload too. The hover card showed Department and
+Manager and not Office; the panel showed all of Bob's, the date as 1 Mar 2024, and Alice's name
+opened hers. A bot with `users:read` read the fields and Bob's office, one with `chat:write`
+got 403. In settings an arrow key and a drop each moved a field and kept the order; renaming
+Finance kept Bob's and Charlie's value, removing Support dropped Alice's, and deleting Pet said
+it held one value. Leaving the workspace, tried inside a rolled-back transaction, took
+Charlie's three values with it.
+
+The check found three faults, fixed here. A person export listed an options value as the
+option's id, which says nothing to the person reading it; each such row now carries
+`option_label` too. *Edit profile* put a refused field's message at the bottom of its
+scrolling body, under the fold now that the fields make the form longer; it sits in the
+footer beside *Save changes*. And a field dragged in the settings list set no drag data, which
+Firefox needs before it starts a drag; it sets the field's id.

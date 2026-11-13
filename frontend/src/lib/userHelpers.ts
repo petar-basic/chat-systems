@@ -75,6 +75,7 @@ export function knownPeople(members: WorkspaceMember[], former: FormerMember[]):
       notifications_paused_until: m.notifications_paused_until,
       timezone: m.timezone,
       is_bot: m.is_bot,
+      profile_fields: m.profile_fields,
     })),
   ];
 }

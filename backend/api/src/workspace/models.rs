@@ -78,6 +78,8 @@ pub struct WorkspaceMember {
     pub is_bot: bool,
 }
 
+pub type FieldValues = sqlx::types::Json<std::collections::HashMap<Uuid, String>>;
+
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct MemberWithUser {
     pub workspace_id: Uuid,
@@ -97,6 +99,8 @@ pub struct MemberWithUser {
     pub is_bot: bool,
     pub guest_kind: Option<GuestKind>,
     pub guest_until: Option<DateTime<Utc>>,
+    #[schema(value_type = std::collections::HashMap<String, String>)]
+    pub profile_fields: FieldValues,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

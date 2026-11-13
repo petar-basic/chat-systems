@@ -13,6 +13,9 @@ export const QUERY_KEYS = {
   workspaceProfile: (id: string) => ['workspaces', id, 'profile'] as const,
   workspaceInvites: (id: string) => ['workspaces', id, 'invites'] as const,
   inviteRequests: (id: string) => ['workspaces', id, 'invite-requests'] as const,
+  profileFields: (id: string) => ['workspaces', id, 'profile-fields'] as const,
+  directory: (id: string, q: string, filter: string) =>
+    ['workspaces', id, 'members', 'directory', q, filter] as const,
   workspaceChannels: (id: string) => ['workspaces', id, 'channels'] as const,
   deletedWorkspaces: () => ['workspaces', 'deleted'] as const,
   deletedWorkspacesList: (instanceUrls: string) => ['workspaces', 'deleted', instanceUrls] as const,

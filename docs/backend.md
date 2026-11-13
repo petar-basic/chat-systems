@@ -250,6 +250,8 @@ feature — see `dm` below.)
 | Invite people | `Admin`; any `Member` when `settings.inviters` is `members`, for a role no higher than their own. Never a Guest |
 | Ask an admin to invite people | `Member` while `settings.inviters` is `admins` (the default); never a Guest |
 | Manage invites, answer invite requests, change workspace settings | `Admin` |
+| Define profile fields, fill in anyone's, including an *admins only* one | `Admin` |
+| Fill in your own profile fields, except an *admins only* one | Anyone in the workspace, a Guest included |
 | Change a member's role | `Admin`, and the actor must strictly outrank the target and may not grant a role above their own; the Owner cannot be demoted |
 | Remove a member | `Admin` and strictly outranking the target, or the member removing themselves; the Owner cannot be removed |
 | Soft/hard delete or restore a workspace | `Owner` (or instance admin) |
@@ -271,7 +273,7 @@ feature — see `dm` below.)
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
-| GET | `/workspaces/:ws_id/members` | — | `{ data: MemberWithUser[] }` — name, photo, bio, title and pronouns as shown in that workspace (its own, else the account's), its status, `notifications_paused_until` (`null` unless their notifications are paused now), the account's `timezone` (`null` until set), and for a guest `guest_kind` (`single` or `multi`) and `guest_until` (both `null` in what a guest is shown) |
+| GET | `/workspaces/:ws_id/members` | — | `{ data: MemberWithUser[] }` — name, photo, bio, title and pronouns as shown in that workspace (its own, else the account's), its status, `notifications_paused_until` (`null` unless their notifications are paused now), the account's `timezone` (`null` until set), for a guest `guest_kind` (`single` or `multi`) and `guest_until` (both `null` in what a guest is shown), and `profile_fields`, the person's profile field values keyed by field id. `?q=` keeps the people whose name, title, address or a `text` field's value contains it (any case); `?filter=field_id:value,…` keeps those whose value of each `options` or `person` field is the one given (an option id or a user id), every pair at once. 422 for a pair that is not two uuids, an unknown field, or a field of another kind |
 | GET | `/workspaces/:ws_id/former-members` | — | `{ data: FormerMember[] }` — `{ user_id, display_name, avatar_url }` of everyone who left and has not come back, with the name and photo they had in the workspace (else the account's), so old messages keep their author. A guest gets only the ones who wrote in a conversation the guest is in. Leaving keeps that snapshot in `workspace_departures`; joining again puts it back on the new membership (where it set nothing of its own) and drops the row; an erase clears it, so the name becomes *Deleted user* |
 | PATCH | `/workspaces/:ws_id/members/:user_id/role` | `{ role }` | `WorkspaceMember` — admins, for someone below them and to a role no higher than their own; an owner may step down to `admin` on their own row while another active owner remains, else 403 "Make someone else an owner first"; nobody demotes another owner. Becoming a guest makes them multi-channel; leaving the guest role drops the kind and the end date |
 | PATCH | `/workspaces/:ws_id/members/:user_id/guest` | `{ guest_kind, guest_until }` | `GuestSeat` `{ user_id, guest_kind, guest_until }` — admins; 404 for someone who is not a guest, 422 for an end date already past, 409 for `single` while they are in more than one open channel. `guest_until: null` clears the date; moving it lets the three-day notice come again. Audited as `guest.updated` |
@@ -330,6 +332,27 @@ them at the requester's request. Answers go to the requester only while they are
 member. The `invite_request_expiry` loop in `chat-worker` runs every ten minutes and expires
 pending requests 30 days old (`FOR UPDATE SKIP LOCKED`, 200 a run), auditing
 `invite_request.expired` with no actor and telling the requester (`invite_request_expired`).
+
+**Profile fields:**
+
+| Method | Route | Input | Output |
+|--------|-------|-------|--------|
+| GET | `/workspaces/:ws_id/profile-fields` | — | `{ data: ProfileField[] }` in the admin's order — anyone in the workspace, or a bot with `users:read`. Each has `label`, `hint`, `kind` (`text`, `link`, `date`, `options` or `person`), `options` (`{ id, label }[]`, empty unless `options`), `admins_only`, `on_card`, `position` and `value_count` |
+| POST | `/workspaces/:ws_id/profile-fields` | `{ label, kind, hint?, options?, admins_only?, on_card? }` | `ProfileField` — admins. A label of 1–50 characters, unique in the workspace whatever the case (409); a hint of at most 150; an `options` field needs 1–100 distinct options of 1–80 characters, and no other kind takes any (422). 409 past 50 fields, or for a third field on the hover card. Audited as `profile_field.created` |
+| PATCH | `/workspaces/:ws_id/profile-fields/:field_id` | `{ label?, hint?, options?, admins_only?, on_card? }` | `ProfileField` — admins; the kind never changes. `options` is the whole new list: an entry with an `id` keeps that option (renamed if its label changed), one without is new, and the values that picked a dropped option are deleted. Audited as `profile_field.updated` with `values_dropped` |
+| DELETE | `/workspaces/:ws_id/profile-fields/:field_id` | — | `{ status: "deleted" }` — admins; the field's values go with it. Audited as `profile_field.deleted` with the number of values |
+| PUT | `/workspaces/:ws_id/profile-fields/order` | `{ field_ids }` | `{ data: ProfileField[] }` — admins; every field of the workspace exactly once, else 422 |
+| PUT | `/workspaces/:ws_id/members/:user_id/profile-fields` | `{ values: { field_id: string \| null } }` | `ProfileValues` `{ user_id, values }` — your own, or anyone's as an admin (403 otherwise); 403 naming the field for a member writing an *admins only* one. Only the fields named change; `null` or a blank clears one. Each value is checked against its field, and a refusal (422) starts with the field's label: `text` is one line of at most 200 characters, `link` an `http(s)` address, `date` a real `YYYY-MM-DD`, `options` the id of one of its options, `person` the id of someone in the workspace who is not a bot |
+
+A field lives in `profile_fields`, with its options as a JSON array of `{ id, label }`, so
+renaming an option keeps the profiles that picked it. A value is a row of
+`profile_field_values` keyed by workspace, person and field, and its foreign keys to the field
+and to the person's `workspace_members` row delete it with either: a person who leaves keeps
+no values, and a deleted field takes its values with it. Creating a field, changing which
+fields show on the hover card and reordering take a transaction-scoped advisory lock on the
+workspace, so the limits of 50 fields and two on the card hold under races. The directory
+filters run on the member list the caller may see, so a guest filters only the people they
+share a channel with.
 
 **Channels:**
 
@@ -1437,7 +1460,7 @@ false; it is true by default.
 | GET | `/admin/workspaces/:ws_id/members` | — | `{ data: WorkspacePerson[] }` — everyone in it but apps, with their account `status` |
 | POST | `/admin/workspaces/:ws_id/owners` | `{ user_id }` | `WorkspaceMember` — makes a member an owner, for a workspace whose owner is gone; 404 outside the workspace, 400 for an app or an account that isn't active; `owner_id` moves to them when it names nobody who is still an active owner; audited `workspace.role_changed` with `instance_admin: true` |
 | DELETE | `/admin/workspaces/:ws_id` | — | `{ status: "deleted" }` |
-| DELETE | `/admin/users/:user_id/data` | `{ hard_delete?: bool }` | `{ status: "erased", hard_delete, removed, account }` — either way the account is tombstoned (no password, timezone or preferences), signed out and unlinked from SSO, and its passkeys, authenticator, recovery codes, keywords, push subscriptions, sidebar sections, sign-in codes and reset links are deleted, with every photo under `avatars/<user id>/`; `account` counts `passkeys`, `authenticators`, `recovery_codes`, `keywords`, `push_subscriptions`, `sidebar_sections` and `photos`. `hard_delete` also removes what they wrote: their messages (a thread root someone else answered stays as an empty tombstone, its poll removed), every earlier version of them, the notifications that quote them, their reactions, poll votes, list comments, scheduled messages and *Later* items, and their files with the stored objects; `removed` counts `messages`, `edits`, `reactions`, `votes`, `comments`, `scheduled`, `polls` and `files` |
+| DELETE | `/admin/users/:user_id/data` | `{ hard_delete?: bool }` | `{ status: "erased", hard_delete, removed, account }` — either way the account is tombstoned (no password, timezone or preferences), signed out and unlinked from SSO, and its passkeys, authenticator, recovery codes, keywords, push subscriptions, sidebar sections, profile field values, sign-in codes and reset links are deleted, with every photo under `avatars/<user id>/`; `account` counts `passkeys`, `authenticators`, `recovery_codes`, `keywords`, `push_subscriptions`, `sidebar_sections`, `profile_fields` and `photos`. `hard_delete` also removes what they wrote: their messages (a thread root someone else answered stays as an empty tombstone, its poll removed), every earlier version of them, the notifications that quote them, their reactions, poll votes, list comments, scheduled messages and *Later* items, and their files with the stored objects; `removed` counts `messages`, `edits`, `reactions`, `votes`, `comments`, `scheduled`, `polls` and `files` |
 | GET | `/admin/scim/tokens` | — | `{ data: ScimToken[] }` |
 | POST | `/admin/scim/tokens` | `{ description? }` | `{ id, description, token }`, the token only here |
 | POST | `/admin/scim/tokens/:id/rotate` | — | `{ id, description, token }`; the old one is revoked |
@@ -1472,6 +1495,9 @@ export (or an instance admin) and only while the single-use link is unspent and 
 anywhere in a row, and the people in a list's person columns) as `{ id, name, email }`: the
 workspace profile name for a member, and for someone who has left the name they had in the
 workspace when they left (else the account name).
+A person export writes their profile field values to `profile_fields.jsonl`, one row per
+value with its `workspace_id`, `field_id`, the field's `label` and `kind`, and the `value`; an
+options value also carries the option's `option_label`, since the value is the option's id.
 `files.jsonl` follows the same choices as `messages.jsonl`: without `include_dms` it leaves out
 files posted in DMs, and `since`/`until` bound files by their upload time. Edits, reactions, polls and votes follow their message's date. Each workspace's
 purge is audited as one `retention.purge` row with that workspace's counts; the run's total

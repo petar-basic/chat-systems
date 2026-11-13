@@ -96,6 +96,11 @@ export function useWorkspaceController() {
     setMobileNavOpen(false);
     navigate(ROUTES.threads(unreadsWorkspaceId));
   }, [navigate, unreadsWorkspaceId]);
+  const handleOpenPeople = useCallback(() => {
+    if (!unreadsWorkspaceId) return;
+    setMobileNavOpen(false);
+    navigate(ROUTES.people(unreadsWorkspaceId));
+  }, [navigate, unreadsWorkspaceId]);
 
   const composer = useComposer({
     currentWorkspace,
@@ -264,6 +269,8 @@ export function useWorkspaceController() {
     handleOpenUnreads,
     isThreadsRoute: routing.isThreadsRoute,
     handleOpenThreads,
+    isPeopleRoute: routing.isPeopleRoute,
+    handleOpenPeople,
     listId: routing.listId,
     panel,
     handleTargetMessageFound: routing.handleTargetMessageFound,

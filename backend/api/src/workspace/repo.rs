@@ -447,7 +447,11 @@ impl WorkspaceRepo {
                    u.timezone,
                    u.is_bot,
                    NULL::guest_kind AS "guest_kind?: GuestKind",
-                   NULL::timestamptz AS "guest_until?"
+                   NULL::timestamptz AS "guest_until?",
+                   COALESCE((SELECT jsonb_object_agg(v.field_id, v.value)
+                               FROM profile_field_values v
+                              WHERE v.workspace_id = wm.workspace_id AND v.user_id = wm.user_id),
+                            '{}'::jsonb) AS "profile_fields!: FieldValues"
             FROM workspace_members wm
             JOIN users u ON u.id = wm.user_id
             WHERE wm.workspace_id = $1
@@ -492,7 +496,11 @@ impl WorkspaceRepo {
                    u.timezone,
                    u.is_bot,
                    wm.guest_kind AS "guest_kind: GuestKind",
-                   wm.guest_until
+                   wm.guest_until,
+                   COALESCE((SELECT jsonb_object_agg(v.field_id, v.value)
+                               FROM profile_field_values v
+                              WHERE v.workspace_id = wm.workspace_id AND v.user_id = wm.user_id),
+                            '{}'::jsonb) AS "profile_fields!: FieldValues"
             FROM workspace_members wm
             JOIN users u ON u.id = wm.user_id
             WHERE wm.workspace_id = $1

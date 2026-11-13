@@ -35,6 +35,7 @@ pub mod pagination;
 pub mod polls;
 pub mod presence;
 pub mod profile;
+pub mod profile_fields;
 pub mod push;
 pub mod rate_limit;
 pub mod retention;
@@ -126,6 +127,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
     let later_repo = later::repo::LaterRepo::new(pool.clone());
     let guest_repo = guests::repo::GuestRepo::new(pool.clone());
     let invite_request_repo = invite_requests::repo::InviteRequestRepo::new(pool.clone());
+    let profile_field_repo = profile_fields::repo::ProfileFieldRepo::new(pool.clone());
     let poll_repo = polls::repo::PollRepo::new(pool.clone());
     let list_repo = lists::repo::ListRepo::new(pool.clone());
     let thread_repo = threads::repo::ThreadRepo::new(pool.clone());
@@ -177,6 +179,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
         later_repo,
         guest_repo,
         invite_request_repo,
+        profile_field_repo,
         poll_repo,
         list_repo,
         thread_repo,

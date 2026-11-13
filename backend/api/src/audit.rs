@@ -40,6 +40,9 @@ pub enum AuditAction {
     InviteRequestApproved,
     InviteRequestDeclined,
     InviteRequestExpired,
+    ProfileFieldCreated,
+    ProfileFieldUpdated,
+    ProfileFieldDeleted,
     InviteCreated,
     InviteRevoked,
     InviteAccepted,
@@ -132,6 +135,9 @@ impl AuditAction {
             Self::InviteRequestApproved => "invite_request.approved",
             Self::InviteRequestDeclined => "invite_request.declined",
             Self::InviteRequestExpired => "invite_request.expired",
+            Self::ProfileFieldCreated => "profile_field.created",
+            Self::ProfileFieldUpdated => "profile_field.updated",
+            Self::ProfileFieldDeleted => "profile_field.deleted",
             Self::InviteCreated => "invite.created",
             Self::InviteRevoked => "invite.revoked",
             Self::InviteAccepted => "invite.accepted",
@@ -223,6 +229,9 @@ impl AuditAction {
             | Self::InviteRequestApproved
             | Self::InviteRequestDeclined
             | Self::InviteRequestExpired => "invite_request",
+            Self::ProfileFieldCreated | Self::ProfileFieldUpdated | Self::ProfileFieldDeleted => {
+                "profile_field"
+            }
             Self::HookCreated
             | Self::HookDeleted
             | Self::HookRevealed

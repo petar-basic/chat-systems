@@ -8792,6 +8792,28 @@
         "operationId": "workspace_list_members",
         "parameters": [
           {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
             "name": "ws_id",
             "in": "path",
             "required": true,
@@ -8905,6 +8927,55 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/GuestSeat"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/members/{user_id}/profile-fields": {
+      "put": {
+        "tags": [
+          "workspaces"
+        ],
+        "operationId": "set_profile_values",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetProfileValues"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileValues"
                 }
               }
             }
@@ -9477,6 +9548,211 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/WorkspaceProfile"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/profile-fields": {
+      "get": {
+        "tags": [
+          "workspaces",
+          "bot"
+        ],
+        "operationId": "list_profile_fields",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_ProfileField"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "bot": [
+              "users:read"
+            ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "workspaces"
+        ],
+        "operationId": "create_profile_field",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewProfileField"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileField"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/profile-fields/order": {
+      "put": {
+        "tags": [
+          "workspaces"
+        ],
+        "operationId": "order_profile_fields",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderProfileFields"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_ProfileField"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/profile-fields/{field_id}": {
+      "delete": {
+        "tags": [
+          "workspaces"
+        ],
+        "operationId": "delete_profile_field",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "field_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "workspaces"
+        ],
+        "operationId": "update_profile_field",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "field_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileField"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileField"
                 }
               }
             }
@@ -10495,6 +10771,7 @@
           "keywords",
           "push_subscriptions",
           "sidebar_sections",
+          "profile_fields",
           "photos"
         ],
         "properties": {
@@ -10514,6 +10791,11 @@
             "minimum": 0
           },
           "photos": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "profile_fields": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
@@ -14765,7 +15047,8 @@
                 "role",
                 "joined_at",
                 "email",
-                "is_bot"
+                "is_bot",
+                "profile_fields"
               ],
               "properties": {
                 "avatar_url": {
@@ -14819,6 +15102,15 @@
                     "null"
                   ],
                   "format": "date-time"
+                },
+                "profile_fields": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "propertyNames": {
+                    "type": "string"
+                  }
                 },
                 "pronouns": {
                   "type": [
@@ -15102,6 +15394,73 @@
                     "type": "string",
                     "format": "uuid"
                   }
+                }
+              }
+            }
+          }
+        }
+      },
+      "DataList_ProfileField": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "workspace_id",
+                "label",
+                "kind",
+                "options",
+                "admins_only",
+                "on_card",
+                "position",
+                "value_count"
+              ],
+              "properties": {
+                "admins_only": {
+                  "type": "boolean"
+                },
+                "hint": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "kind": {
+                  "$ref": "#/components/schemas/ProfileFieldKind"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "on_card": {
+                  "type": "boolean"
+                },
+                "options": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProfileFieldOption"
+                  }
+                },
+                "position": {
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "value_count": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "workspace_id": {
+                  "type": "string",
+                  "format": "uuid"
                 }
               }
             }
@@ -18041,7 +18400,8 @@
           "role",
           "joined_at",
           "email",
-          "is_bot"
+          "is_bot",
+          "profile_fields"
         ],
         "properties": {
           "avatar_url": {
@@ -18095,6 +18455,15 @@
               "null"
             ],
             "format": "date-time"
+          },
+          "profile_fields": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
           },
           "pronouns": {
             "type": [
@@ -18534,6 +18903,39 @@
           }
         }
       },
+      "NewProfileField": {
+        "type": "object",
+        "required": [
+          "label",
+          "kind"
+        ],
+        "properties": {
+          "admins_only": {
+            "type": "boolean"
+          },
+          "hint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ProfileFieldKind"
+          },
+          "label": {
+            "type": "string"
+          },
+          "on_card": {
+            "type": "boolean"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProfileFieldOptionInput"
+            }
+          }
+        }
+      },
       "Notification": {
         "type": "object",
         "required": [
@@ -18897,6 +19299,21 @@
           }
         }
       },
+      "OrderProfileFields": {
+        "type": "object",
+        "required": [
+          "field_ids"
+        ],
+        "properties": {
+          "field_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
       "PasskeyAssertion": {
         "type": "object",
         "required": [
@@ -19214,6 +19631,128 @@
           "shown",
           "collapsed"
         ]
+      },
+      "ProfileField": {
+        "type": "object",
+        "required": [
+          "id",
+          "workspace_id",
+          "label",
+          "kind",
+          "options",
+          "admins_only",
+          "on_card",
+          "position",
+          "value_count"
+        ],
+        "properties": {
+          "admins_only": {
+            "type": "boolean"
+          },
+          "hint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ProfileFieldKind"
+          },
+          "label": {
+            "type": "string"
+          },
+          "on_card": {
+            "type": "boolean"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProfileFieldOption"
+            }
+          },
+          "position": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "value_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "ProfileFieldKind": {
+        "type": "string",
+        "enum": [
+          "text",
+          "link",
+          "date",
+          "options",
+          "person"
+        ]
+      },
+      "ProfileFieldOption": {
+        "type": "object",
+        "required": [
+          "id",
+          "label"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      },
+      "ProfileFieldOptionInput": {
+        "type": "object",
+        "required": [
+          "label"
+        ],
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      },
+      "ProfileValues": {
+        "type": "object",
+        "required": [
+          "user_id",
+          "values"
+        ],
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "values": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          }
+        }
       },
       "Provider": {
         "type": "string",
@@ -19984,6 +20523,26 @@
                 "type": "null"
               }
             ]
+          }
+        }
+      },
+      "SetProfileValues": {
+        "type": "object",
+        "required": [
+          "values"
+        ],
+        "properties": {
+          "values": {
+            "type": "object",
+            "additionalProperties": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "propertyNames": {
+              "type": "string"
+            }
           }
         }
       },
@@ -21530,6 +22089,44 @@
           }
         },
         "additionalProperties": false
+      },
+      "UpdateProfileField": {
+        "type": "object",
+        "properties": {
+          "admins_only": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "hint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "on_card": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "options": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ProfileFieldOptionInput"
+            }
+          }
+        }
       },
       "UpdateProfileRequest": {
         "type": "object",

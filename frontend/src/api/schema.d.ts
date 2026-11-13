@@ -3122,6 +3122,22 @@ export interface paths {
         patch: operations["update_guest"];
         trace?: never;
     };
+    "/workspaces/{ws_id}/members/{user_id}/profile-fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["set_profile_values"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{ws_id}/members/{user_id}/role": {
         parameters: {
             query?: never;
@@ -3285,6 +3301,54 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["update_workspace_profile"];
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/profile-fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_profile_fields"];
+        put?: never;
+        post: operations["create_profile_field"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/profile-fields/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["order_profile_fields"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/profile-fields/{field_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete_profile_field"];
+        options?: never;
+        head?: never;
+        patch: operations["update_profile_field"];
         trace?: never;
     };
     "/workspaces/{ws_id}/profile/avatar": {
@@ -3633,6 +3697,8 @@ export interface components {
             passkeys: number;
             /** Format: int64 */
             photos: number;
+            /** Format: int64 */
+            profile_fields: number;
             /** Format: int64 */
             push_subscriptions: number;
             /** Format: int64 */
@@ -4783,6 +4849,9 @@ export interface components {
                 joined_at: string;
                 /** Format: date-time */
                 notifications_paused_until?: string | null;
+                profile_fields: {
+                    [key: string]: string;
+                };
                 pronouns?: string | null;
                 role: components["schemas"]["WorkspaceRole"];
                 status_emoji?: string | null;
@@ -4859,6 +4928,24 @@ export interface components {
                 /** Format: uuid */
                 option_id: string;
                 user_ids: string[];
+            }[];
+        };
+        DataList_ProfileField: {
+            data: {
+                admins_only: boolean;
+                hint?: string | null;
+                /** Format: uuid */
+                id: string;
+                kind: components["schemas"]["ProfileFieldKind"];
+                label: string;
+                on_card: boolean;
+                options: components["schemas"]["ProfileFieldOption"][];
+                /** Format: int32 */
+                position: number;
+                /** Format: int64 */
+                value_count: number;
+                /** Format: uuid */
+                workspace_id: string;
             }[];
         };
         DataList_PushSubscriptionView: {
@@ -5702,6 +5789,9 @@ export interface components {
             joined_at: string;
             /** Format: date-time */
             notifications_paused_until?: string | null;
+            profile_fields: {
+                [key: string]: string;
+            };
             pronouns?: string | null;
             role: components["schemas"]["WorkspaceRole"];
             status_emoji?: string | null;
@@ -5811,6 +5901,14 @@ export interface components {
             name: string;
             options?: components["schemas"]["ColumnOptionsInput"];
         };
+        NewProfileField: {
+            admins_only?: boolean;
+            hint?: string | null;
+            kind: components["schemas"]["ProfileFieldKind"];
+            label: string;
+            on_card?: boolean;
+            options?: components["schemas"]["ProfileFieldOptionInput"][];
+        };
         Notification: {
             body?: string | null;
             /** Format: date-time */
@@ -5900,6 +5998,9 @@ export interface components {
             /** Format: uuid */
             option_id: string;
             user_ids: string[];
+        };
+        OrderProfileFields: {
+            field_ids: string[];
         };
         PasskeyAssertion: {
             /** Format: uuid */
@@ -6003,6 +6104,41 @@ export interface components {
         };
         /** @enum {string} */
         Previews: "shown" | "collapsed";
+        ProfileField: {
+            admins_only: boolean;
+            hint?: string | null;
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["ProfileFieldKind"];
+            label: string;
+            on_card: boolean;
+            options: components["schemas"]["ProfileFieldOption"][];
+            /** Format: int32 */
+            position: number;
+            /** Format: int64 */
+            value_count: number;
+            /** Format: uuid */
+            workspace_id: string;
+        };
+        /** @enum {string} */
+        ProfileFieldKind: "text" | "link" | "date" | "options" | "person";
+        ProfileFieldOption: {
+            /** Format: uuid */
+            id: string;
+            label: string;
+        };
+        ProfileFieldOptionInput: {
+            /** Format: uuid */
+            id?: string | null;
+            label: string;
+        };
+        ProfileValues: {
+            /** Format: uuid */
+            user_id: string;
+            values: {
+                [key: string]: string;
+            };
+        };
         /** @enum {string} */
         Provider: "jira" | "github" | "google_drive" | "figma" | "confluence";
         PushKey: {
@@ -6224,6 +6360,11 @@ export interface components {
         };
         SetNotifyLevelRequest: {
             level?: components["schemas"]["NotifyLevel"] | null;
+        };
+        SetProfileValues: {
+            values: {
+                [key: string]: string | null;
+            };
         };
         SetScheduleRequest: {
             days: number[];
@@ -6593,6 +6734,13 @@ export interface components {
             previews?: components["schemas"]["Previews"] | null;
             text_size?: components["schemas"]["TextSize"] | null;
             typeface?: components["schemas"]["Typeface"] | null;
+        };
+        UpdateProfileField: {
+            admins_only?: boolean | null;
+            hint?: string | null;
+            label?: string | null;
+            on_card?: boolean | null;
+            options?: components["schemas"]["ProfileFieldOptionInput"][] | null;
         };
         UpdateProfileRequest: {
             avatar_url?: string | null;
@@ -12432,7 +12580,10 @@ export interface operations {
     };
     workspace_list_members: {
         parameters: {
-            query?: never;
+            query?: {
+                q?: string | null;
+                filter?: string | null;
+            };
             header?: never;
             path: {
                 ws_id: string;
@@ -12495,6 +12646,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GuestSeat"];
+                };
+            };
+        };
+    };
+    set_profile_values: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetProfileValues"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileValues"];
                 };
             };
         };
@@ -12863,6 +13040,125 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkspaceProfile"];
+                };
+            };
+        };
+    };
+    list_profile_fields: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_ProfileField"];
+                };
+            };
+        };
+    };
+    create_profile_field: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewProfileField"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileField"];
+                };
+            };
+        };
+    };
+    order_profile_fields: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderProfileFields"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_ProfileField"];
+                };
+            };
+        };
+    };
+    delete_profile_field: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+                field_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    update_profile_field: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+                field_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProfileField"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileField"];
                 };
             };
         };

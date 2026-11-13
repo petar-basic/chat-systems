@@ -51,6 +51,7 @@ mod notifications;
 mod ownership;
 mod polls;
 mod profile;
+mod profile_fields;
 mod scheduled;
 mod sidebar;
 mod thread_keep_up;

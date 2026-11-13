@@ -27,6 +27,7 @@ interface Place {
   listId: string | null;
   unreads: boolean;
   threads: boolean;
+  people: boolean;
 }
 
 function placeOf(workspaceId: string, place: Place): string | null {
@@ -35,6 +36,7 @@ function placeOf(workspaceId: string, place: Place): string | null {
   if (place.listId) return ROUTES.list(workspaceId, place.listId);
   if (place.unreads) return ROUTES.unreads(workspaceId);
   if (place.threads) return ROUTES.threads(workspaceId);
+  if (place.people) return ROUTES.people(workspaceId);
   return null;
 }
 
@@ -63,6 +65,7 @@ export function useWorkspaceRouting({
   const { pathname, search } = useLocation();
   const isUnreadsRoute = useMatch(ROUTE_PATTERNS.unreads) !== null;
   const isThreadsRoute = useMatch(ROUTE_PATTERNS.threads) !== null;
+  const isPeopleRoute = useMatch(ROUTE_PATTERNS.people) !== null;
   const listId = useMatch(ROUTE_PATTERNS.list)?.params.listId ?? null;
   const {
     currentWorkspace,
@@ -135,6 +138,7 @@ export function useWorkspaceRouting({
         listId,
         unreads: isUnreadsRoute,
         threads: isThreadsRoute,
+        people: isPeopleRoute,
       })
     : null;
 
@@ -186,7 +190,7 @@ export function useWorkspaceRouting({
   const { data: preview, isError: previewMissing } = useChannelPreview(unlistedChannelId);
 
   useEffect(() => {
-    if (isUnreadsRoute || isThreadsRoute) {
+    if (isUnreadsRoute || isThreadsRoute || isPeopleRoute) {
       if (currentChannel?.id || currentConversationId) selectConversation(null);
       return;
     }
@@ -220,6 +224,7 @@ export function useWorkspaceRouting({
   }, [
     isUnreadsRoute,
     isThreadsRoute,
+    isPeopleRoute,
     listId,
     currentConversationId,
     selectConversation,
@@ -301,6 +306,7 @@ export function useWorkspaceRouting({
     previewing,
     isUnreadsRoute,
     isThreadsRoute,
+    isPeopleRoute,
     listId,
   };
 }
