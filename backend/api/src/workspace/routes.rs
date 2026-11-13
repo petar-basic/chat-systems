@@ -14,6 +14,7 @@ use super::icon;
 use super::membership;
 use super::models::*;
 use super::ownership;
+use super::privacy;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
 use crate::bots::{models::Scope, Caller};
@@ -46,6 +47,7 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(browse_channels))
         .routes(routes!(get_channel, update_channel, archive_channel))
         .routes(routes!(unarchive_channel))
+        .routes(routes!(channel_privacy, set_channel_privacy))
         .routes(routes!(set_channel_notifications))
         .routes(routes!(list_channel_members, add_channel_member))
         .routes(routes!(join_channel))
@@ -791,6 +793,29 @@ async fn update_channel(
         },
     )
     .await?;
+    Ok(Json(updated))
+}
+
+#[utoipa::path(get, path = "/channels/{ch_id}/privacy", tag = "channels", responses((status = 200, body = ChannelPrivacy)))]
+async fn channel_privacy(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(ch_id): Path<Uuid>,
+) -> AppResult<Json<ChannelPrivacy>> {
+    let channel = privacy::require_changeable(&state, ch_id, auth.user_id).await?;
+    Ok(Json(privacy::preview(&state, &channel).await?))
+}
+
+#[utoipa::path(put, path = "/channels/{ch_id}/privacy", tag = "channels", request_body = SetChannelPrivacyRequest, responses((status = 200, body = Channel)))]
+async fn set_channel_privacy(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    ip: ClientIp,
+    Path(ch_id): Path<Uuid>,
+    Json(req): Json<SetChannelPrivacyRequest>,
+) -> AppResult<Json<Channel>> {
+    let channel = privacy::require_changeable(&state, ch_id, auth.user_id).await?;
+    let updated = privacy::set(&state, &channel, auth.user_id, &ip, req.private).await?;
     Ok(Json(updated))
 }
 

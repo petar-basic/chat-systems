@@ -444,6 +444,15 @@ pub(crate) async fn handle_event_for(
             cm.broadcast_to_channel(audience, channel_id, &framed(&frame))
                 .await;
         }
+        "channel.privacy_changed" => {
+            let (Some(workspace_id), Some(frame)) =
+                (field("workspace_id"), typed(event_type, payload))
+            else {
+                return;
+            };
+            cm.broadcast_to_workspace(audience, workspace_id, &framed(&frame))
+                .await;
+        }
         "channel.member_removed" => {
             let (Some(uid), Some(ch_id)) = (field("user_id"), field("channel_id")) else {
                 return;

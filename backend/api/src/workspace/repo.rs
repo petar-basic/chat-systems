@@ -1088,6 +1088,47 @@ impl WorkspaceRepo {
         .await
     }
 
+    pub async fn set_channel_type(
+        &self,
+        conn: &mut PgConnection,
+        id: Uuid,
+        from: ChannelType,
+        to: ChannelType,
+    ) -> sqlx::Result<Option<Channel>> {
+        sqlx::query_as!(
+            Channel,
+            r#"
+            UPDATE channels
+               SET channel_type = $3, updated_at = NOW()
+             WHERE id = $1 AND channel_type = $2
+            RETURNING id, workspace_id, name, channel_type AS "channel_type: ChannelType", topic, description,
+                   created_by, is_default AS "is_default!", is_archived AS "is_archived!",
+                   settings AS "settings!", created_at, updated_at
+            "#,
+            id,
+            from as ChannelType,
+            to as ChannelType
+        )
+        .fetch_optional(&mut *conn)
+        .await
+    }
+
+    pub async fn channel_contents(&self, id: Uuid) -> sqlx::Result<(i64, i64)> {
+        let counts = sqlx::query!(
+            r#"
+            SELECT (SELECT COUNT(*) FROM messages
+                     WHERE channel_id = $1 AND deleted_at IS NULL) AS "messages!",
+                   (SELECT COUNT(*) FROM files f
+                      JOIN messages m ON m.id = f.message_id
+                     WHERE m.channel_id = $1 AND m.deleted_at IS NULL) AS "files!"
+            "#,
+            id
+        )
+        .fetch_one(&self.pool)
+        .await?;
+        Ok((counts.messages, counts.files))
+    }
+
     pub async fn set_archived(
         &self,
         conn: &mut PgConnection,

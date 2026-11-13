@@ -160,6 +160,34 @@ export const useUpdateChannel = (channelId: string) => {
   });
 };
 
+export const useChannelPrivacy = (channelId: string, enabled: boolean) => {
+  const apiClient = useCurrentApi();
+  return useQuery({
+    queryKey: QUERY_KEYS.channelPrivacy(channelId),
+    queryFn: () =>
+      apiClient.typed((c) => c.GET('/channels/{ch_id}/privacy', { params: { path: { ch_id: channelId } } })),
+    enabled,
+  });
+};
+
+export const useSetChannelPrivacy = (channelId: string) => {
+  const queryClient = useQueryClient();
+  const apiClient = useCurrentApi();
+  return useMutation({
+    mutationFn: async (makePrivate: boolean) =>
+      apiClient.typed((c) =>
+        c.PUT('/channels/{ch_id}/privacy', {
+          params: { path: { ch_id: channelId } },
+          body: { private: makePrivate },
+        }),
+      ),
+    onSuccess: (updated) => {
+      applyChannel(queryClient, updated);
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.channelPrivacy(channelId) });
+    },
+  });
+};
+
 export const useArchiveChannel = (workspaceId: string) => {
   const queryClient = useQueryClient();
   const apiClient = useCurrentApi();

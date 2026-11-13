@@ -17,6 +17,17 @@ instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ## [Unreleased]
 
+### Added
+
+- A workspace admin can make a public channel private, or a private one public, in *Channel
+  details → Settings*. Going private, everyone outside the channel loses it at once: its
+  messages, files, pins, search results and links, and bots and incoming webhooks of people
+  who are not in it stop posting there. Going public asks a second time and says how many
+  messages and files the whole workspace can then read; guests still see only their channels.
+  A DM, a group DM, an archived channel and a channel everyone joins by default keep their
+  type. The channel shows who changed it, and the audit log records it as
+  `channel.privacy_changed`.
+
 ## [4.7.2] — 2026-11-13
 
 ### Upgrading from 4.7.1

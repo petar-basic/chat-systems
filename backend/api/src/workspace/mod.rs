@@ -3,6 +3,7 @@ pub mod icon;
 pub mod membership;
 pub mod models;
 pub mod ownership;
+pub mod privacy;
 pub mod repo;
 pub mod routes;
 pub mod service;

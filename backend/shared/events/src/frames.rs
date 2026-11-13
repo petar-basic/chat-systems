@@ -280,6 +280,12 @@ pub enum ServerFrame {
         channel_id: Uuid,
         workspace_id: Option<Uuid>,
     },
+    #[serde(rename = "channel.privacy_changed")]
+    ChannelPrivacyChanged {
+        channel_id: Uuid,
+        workspace_id: Uuid,
+        private: bool,
+    },
     #[serde(rename = "workspace.access_revoked")]
     WorkspaceAccessRevoked { workspace_id: Uuid },
     #[serde(rename = "workspace.joined")]

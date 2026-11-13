@@ -3,8 +3,14 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/shared/components/Button/Button';
 import { Checkbox } from '@/shared/components/Form/Checkbox';
 import type { Channel } from '@/stores/workspace';
-import { useChannelRetention, useSetChannelRetention } from '@/features/workspace';
+import {
+  isWorkspaceAdmin,
+  useChannelRetention,
+  useCurrentWorkspaceRole,
+  useSetChannelRetention,
+} from '@/features/workspace';
 import { useUpdateChannel } from '../hooks/useChannels';
+import { ChannelPrivacyField } from './ChannelPrivacyField';
 import { ChannelRetentionField } from './ChannelRetentionField';
 import { choiceOf, periodOf, type PeriodChoice } from './channelPeriod';
 
@@ -21,6 +27,7 @@ export function SettingsSection({ channel, onClose }: Props) {
   const [retentionChoice, setRetentionChoice] = useState<PeriodChoice | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const { role } = useCurrentWorkspaceRole();
   const updateChannel = useUpdateChannel(channel.id);
   const retention = useChannelRetention(channel.id);
   const setRetention = useSetChannelRetention(channel.id);
@@ -49,6 +56,7 @@ export function SettingsSection({ channel, onClose }: Props) {
 
   return (
     <form onSubmit={handleSave} noValidate className="space-y-4">
+      {privacyChangeable(channel) && isWorkspaceAdmin(role) && <ChannelPrivacyField channel={channel} />}
       <Checkbox
         label={t('details.settings.announcement')}
         description={t('details.settings.announcementHint')}
@@ -84,4 +92,9 @@ export function SettingsSection({ channel, onClose }: Props) {
       </div>
     </form>
   );
+}
+
+function privacyChangeable(channel: Channel) {
+  const kind = channel.channel_type;
+  return (kind === 'public' || kind === 'private') && !channel.is_default && !channel.is_archived;
 }

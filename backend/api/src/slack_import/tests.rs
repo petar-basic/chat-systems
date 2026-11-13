@@ -651,6 +651,40 @@ async fn a_second_run_neither_archives_a_merged_channel_nor_opens_a_private_one(
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn a_second_run_keeps_the_type_an_admin_chose_here(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "import-type", false).await;
+    let ws = seed_workspace(&state, owner_id, "Imported").await;
+    let fixture = Fixture::write();
+    import(&state, ws, &fixture.root, false).await;
+    let general = channel_named(&state, ws, "general-chat").await;
+
+    let (status, body) = send(
+        &app,
+        "PUT",
+        &format!("/api/channels/{general}/privacy"),
+        Some(&owner),
+        Some(json!({ "private": true })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    import(&state, ws, &fixture.root, false).await;
+
+    let kinds: Vec<(String, String)> = sqlx::query_as(
+        "SELECT name, channel_type::text FROM channels WHERE workspace_id = $1 AND name LIKE 'general-chat%'",
+    )
+    .bind(ws)
+    .fetch_all(&state.pool)
+    .await
+    .expect("channels");
+    assert_eq!(
+        kinds,
+        vec![("general-chat".into(), "private".into())],
+        "the run lands in the same channel and leaves it private"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn the_zip_slack_hands_you_imports_the_same_as_a_directory(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, _) = seed_and_login(&app, &state, "import-zip", false).await;

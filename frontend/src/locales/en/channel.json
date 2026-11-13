@@ -104,6 +104,23 @@
         "on": "On · built by {{name}}",
         "off": "Off · built by {{name}}"
       }
+    },
+    "privacy": {
+      "label": "Privacy",
+      "public": "Public: everyone in the workspace can find this channel and read its history.",
+      "private": "Private: only the people in it can see it.",
+      "makePrivate": "Make private",
+      "makePublic": "Make public",
+      "privateTitle": "Make #{{name}} private?",
+      "privateDescription": "From now on only the people in it can see it. Everyone else loses the channel, its messages and files, its search results and links to it, right away.",
+      "publicTitle": "Make #{{name}} public?",
+      "publicDescription": "Everyone in the workspace can then find it and read all of its history: {{messages}} and {{files}}. Guests still see only the channels they are in.",
+      "messages_one": "{{count}} message",
+      "messages_other": "{{count}} messages",
+      "files_one": "{{count}} file",
+      "files_other": "{{count}} files",
+      "counting": "Counting what it holds…",
+      "understand": "I understand that everyone can read what was written here in private"
     }
   },
   "archived": {

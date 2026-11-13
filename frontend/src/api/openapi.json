@@ -2596,6 +2596,74 @@
         }
       }
     },
+    "/channels/{ch_id}/privacy": {
+      "get": {
+        "tags": [
+          "channels"
+        ],
+        "operationId": "channel_privacy",
+        "parameters": [
+          {
+            "name": "ch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelPrivacy"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "channels"
+        ],
+        "operationId": "set_channel_privacy",
+        "parameters": [
+          {
+            "name": "ch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetChannelPrivacyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Channel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/channels/{ch_id}/read": {
       "post": {
         "tags": [
@@ -11524,6 +11592,27 @@
           }
         }
       },
+      "ChannelPrivacy": {
+        "type": "object",
+        "required": [
+          "private",
+          "messages",
+          "files"
+        ],
+        "properties": {
+          "files": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "messages": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "private": {
+            "type": "boolean"
+          }
+        }
+      },
       "ChannelRetention": {
         "type": "object",
         "required": [
@@ -19165,6 +19254,17 @@
         ],
         "properties": {
           "muted": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SetChannelPrivacyRequest": {
+        "type": "object",
+        "required": [
+          "private"
+        ],
+        "properties": {
+          "private": {
             "type": "boolean"
           }
         }

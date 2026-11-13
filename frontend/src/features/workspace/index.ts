@@ -6,6 +6,7 @@ export { useRightPanel } from './hooks/useRightPanel';
 export { useCurrentWorkspaceRole } from './hooks/useCurrentWorkspaceRole';
 export { mayCreateWorkspaces, useWorkspaceCreation } from './hooks/useWorkspaceCreation';
 export { WorkspaceSettingsModal } from './settings/WorkspaceSettingsModal';
+export { isWorkspaceAdmin } from './settings/sections';
 export { LeaveWorkspaceDialog } from './LeaveWorkspaceDialog';
 export { useSettingsDialog } from './settings/useSettingsDialog';
 export { WorkspaceChecklist } from './onboarding/WorkspaceChecklist';

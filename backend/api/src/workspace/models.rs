@@ -459,6 +459,18 @@ pub struct UpdateChannelRequest {
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
+pub struct SetChannelPrivacyRequest {
+    pub private: bool,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ChannelPrivacy {
+    pub private: bool,
+    pub messages: i64,
+    pub files: i64,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct AddChannelMemberRequest {
     pub user_id: Uuid,
 }
