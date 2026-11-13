@@ -2983,6 +2983,46 @@
         ]
       }
     },
+    "/conversations/{conversation_id}/convert": {
+      "post": {
+        "tags": [
+          "conversations"
+        ],
+        "operationId": "convert_conversation",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConvertConversationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Channel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/email/unsubscribe/{token}": {
       "get": {
         "tags": [
@@ -12191,6 +12231,17 @@
           "converted": {
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "ConvertConversationRequest": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
           }
         }
       },

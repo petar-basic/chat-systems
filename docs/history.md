@@ -3173,3 +3173,36 @@ the privacy control, and so did the admin on #general. The admin's dialog to mak
 public counted 4 messages and 0 files, kept its button off until the box was ticked, and the
 channel header showed the lock while the channel was private. Each change posted its line in
 the channel and wrote `channel.privacy_changed` with the old type and the new.
+
+### [CS-123] A group DM that becomes a private channel ✅ shipped
+A group DM had no name and no way in for a fourth person, so a conversation that grew into a
+project had to start again in a channel and leave its history behind. Now anyone in a group of
+three or more who may make private channels turns it into one from the `#` button in its
+header, through `POST /conversations/{id}/convert`. `require_convertible` asks for a
+participant, refuses a DM, a channel and a smaller group, and applies
+`private_channel_creators`.
+
+The conversion happens in place. `convert_in` changes the type and the name of the same row
+where it is still a group DM, so the messages, threads, files, pins and read positions stay
+where they were and nothing is copied. The converter becomes the channel admin and the others
+members; members who never chose a level get `all`, which is what a group DM meant for them.
+`conversation_departures` is emptied, because someone who left the group and comes back to the
+workspace would otherwise be put back into what is now a private channel. A name taken in the
+workspace hits the unique index inside the transaction and comes back as 409 with nothing
+changed. The system message `converted_to_channel`, `channel.updated` and the new
+`conversation.converted`, sent to each participant with the channel, are staged with the row.
+
+On the client `applyConversion` moves the entry from the conversations cache to the channels
+cache, on the response and on the frame, and the routing hook moves an open conversation tab to
+the channel route, so the others follow without a reload.
+
+Checked by hand on the Docker build. Bob's 1:1 DM with Alice had no button; his group with
+Alice and Charlie had it. The dialog refused "General" as taken before asking the server, then
+converted the group: the tab moved to the channel route with the lock, the three members, the
+earlier message and the system line, and the channel appeared under *Channels*. For Alice and
+Charlie it left the conversations list and appeared among the channels as private; the admin,
+outside it, got 403 on its messages until Bob added the admin, who then read the history. A second
+conversion answered 400, and the audit log recorded the name and three participants. With Bob
+holding a second group open, Alice converted it through the API and his tab moved to the new
+channel without a reload. A new group of the same three people became a new conversation, not
+the channel.

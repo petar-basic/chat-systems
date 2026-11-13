@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use super::models::*;
 use crate::notifications::models::NotifyLevel;
-use crate::workspace::models::ChannelType;
+use crate::workspace::models::{Channel, ChannelType};
 
 pub struct ConversationRepo {
     pool: PgPool,
@@ -261,6 +261,52 @@ impl ConversationRepo {
         .fetch_optional(&self.pool)
         .await?;
         Ok(row)
+    }
+
+    pub async fn convert_in(
+        &self,
+        conn: &mut PgConnection,
+        conversation_id: Uuid,
+        name: &str,
+        converter: Uuid,
+    ) -> sqlx::Result<Option<Channel>> {
+        let Some(channel) = sqlx::query_as!(
+            Channel,
+            r#"
+            UPDATE channels
+               SET channel_type = 'private', name = $2, updated_at = NOW()
+             WHERE id = $1 AND channel_type = 'group_dm'
+            RETURNING id, workspace_id, name, channel_type AS "channel_type: ChannelType", topic, description,
+                      created_by, is_default AS "is_default!", is_archived AS "is_archived!",
+                      settings AS "settings!", created_at, updated_at
+            "#,
+            conversation_id,
+            name
+        )
+        .fetch_optional(&mut *conn)
+        .await?
+        else {
+            return Ok(None);
+        };
+        sqlx::query!(
+            r"
+            UPDATE channel_members
+               SET role = CASE WHEN user_id = $2 THEN 'admin'::channel_role ELSE 'member'::channel_role END,
+                   notify_level = COALESCE(notify_level, 'all')
+             WHERE channel_id = $1
+            ",
+            conversation_id,
+            converter
+        )
+        .execute(&mut *conn)
+        .await?;
+        sqlx::query!(
+            "DELETE FROM conversation_departures WHERE channel_id = $1",
+            conversation_id
+        )
+        .execute(&mut *conn)
+        .await?;
+        Ok(Some(channel))
     }
 
     pub async fn participant_ids(&self, conversation_id: Uuid) -> sqlx::Result<Vec<Uuid>> {

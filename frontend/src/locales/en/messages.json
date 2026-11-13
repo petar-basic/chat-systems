@@ -233,6 +233,13 @@
     "offHours": {
       "late": "It is {{time}} for {{name}}, late in their day.",
       "early": "It is {{time}} for {{name}}, early in their day."
+    },
+    "convert": {
+      "open": "Convert to a private channel",
+      "title": "Convert to a private channel",
+      "description": "Everyone here becomes a member of a private channel that keeps the whole conversation, and you become its admin. A channel cannot be turned back into a group DM.",
+      "submit": "Convert",
+      "failed": "Could not convert this conversation"
     }
   },
   "hoverCard": {

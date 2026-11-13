@@ -246,6 +246,11 @@ export function useWorkspaceRouting({
   const [checkedConversation, setCheckedConversation] = useState<string | null>(null);
   useEffect(() => {
     if (!unlistedConversationId || !workspaceId) return;
+    if (channels.some((c) => c.id === unlistedConversationId)) {
+      forgetPlace(workspaceId, ROUTES.conversation(workspaceId, unlistedConversationId));
+      navigate(ROUTES.channel(workspaceId, unlistedConversationId), { replace: true });
+      return;
+    }
     if (checkedConversation === unlistedConversationId) {
       forgetPlace(workspaceId, ROUTES.conversation(workspaceId, unlistedConversationId));
       navigate(ROUTES.workspace(workspaceId), { replace: true });
@@ -254,7 +259,7 @@ export function useWorkspaceRouting({
     if (refetchedFor.current === unlistedConversationId) return;
     refetchedFor.current = unlistedConversationId;
     void refetchConversations().then(() => setCheckedConversation(unlistedConversationId));
-  }, [unlistedConversationId, checkedConversation, workspaceId, refetchConversations, navigate]);
+  }, [unlistedConversationId, checkedConversation, workspaceId, channels, refetchConversations, navigate]);
 
   useEffect(() => {
     if (!routeConversationId) return;

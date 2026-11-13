@@ -2,25 +2,30 @@ use std::sync::Arc;
 
 use axum::extract::{Path, State};
 use axum::Json;
+use garde::Validate;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
+use super::convert;
 use super::models::*;
+use crate::audit::ClientIp;
 use crate::authz;
 use crate::bots::{models::Scope, Caller};
 use crate::dto::DataList;
 use crate::messaging::publisher::{EventPublisher, Staged};
 use crate::middleware::AuthUser;
 use crate::state::AppState;
-use crate::workspace::models::{WorkspaceMember, WorkspaceRole};
+use crate::workspace::models::{Channel, WorkspaceMember, WorkspaceRole};
 
 pub const MAX_GROUP_PARTICIPANTS: usize = 9;
 
 pub fn router() -> OpenApiRouter<Arc<AppState>> {
-    OpenApiRouter::new().routes(routes!(list_conversations, create_conversation))
+    OpenApiRouter::new()
+        .routes(routes!(list_conversations, create_conversation))
+        .routes(routes!(convert_conversation))
 }
 
 async fn stage_conversation_event(
@@ -104,6 +109,21 @@ async fn create_conversation(
             &everyone,
         )
         .await?,
+    ))
+}
+
+#[utoipa::path(post, path = "/conversations/{conversation_id}/convert", tag = "conversations", request_body = ConvertConversationRequest, responses((status = 200, body = Channel)))]
+async fn convert_conversation(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    ip: ClientIp,
+    Path(conversation_id): Path<Uuid>,
+    Json(req): Json<ConvertConversationRequest>,
+) -> AppResult<Json<Channel>> {
+    req.validate()?;
+    let convertible = convert::require_convertible(&state, conversation_id, auth.user_id).await?;
+    Ok(Json(
+        convert::convert(&state, &convertible, auth.user_id, &ip, &req.name).await?,
     ))
 }
 

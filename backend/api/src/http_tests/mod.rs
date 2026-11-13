@@ -33,6 +33,7 @@ mod channel_integrations;
 mod channel_privacy;
 mod channels;
 mod commands;
+mod conversation_convert;
 mod conversations;
 mod creator_stops;
 mod file_content_search;

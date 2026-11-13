@@ -592,6 +592,45 @@ async fn a_new_conversation_is_announced_to_every_participant_and_nobody_else(po
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn a_converted_conversation_reaches_each_participant_with_its_channel(pool: PgPool) {
+    let cm = manager(pool).await;
+    let workspace = Uuid::new_v4();
+    let conversation = Uuid::new_v4();
+    let ana = Uuid::new_v4();
+    let (_ana_conn, mut ana_rx) = fake_conn(&cm, ana);
+    let cy = Uuid::new_v4();
+    let (_cy_conn, mut cy_rx) = fake_conn(&cm, cy);
+    let (outsider, mut outsider_rx) = fake_conn(&cm, Uuid::new_v4());
+    cm.subscribe_workspace(&outsider, workspace);
+
+    let channel = json!({
+        "id": conversation.to_string(),
+        "workspace_id": workspace.to_string(),
+        "name": "launch",
+        "channel_type": "private",
+    });
+    let payload = json!({
+        "conversation_id": conversation.to_string(),
+        "workspace_id": workspace.to_string(),
+        "participant_ids": [ana.to_string(), cy.to_string()],
+        "channel": channel,
+    });
+    crate::event_consumer::handle_event("conversation.converted", &payload, &cm).await;
+
+    let frame = next_json(&mut cy_rx).expect("a participant is told");
+    assert_eq!(frame["type"], "conversation.converted");
+    assert_eq!(frame["channel"], channel);
+    assert_eq!(
+        next_type(&mut ana_rx).as_deref(),
+        Some("conversation.converted")
+    );
+    assert!(
+        next_json(&mut outsider_rx).is_none(),
+        "the rest of the workspace never knew the group"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_conversation_event_without_participants_is_a_noop(pool: PgPool) {
     let cm = manager(pool).await;
     let user = Uuid::new_v4();

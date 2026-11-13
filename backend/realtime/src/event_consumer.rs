@@ -320,7 +320,7 @@ pub(crate) async fn handle_event_for(
             cm.broadcast_to_channel(audience, channel_id, &framed(&frame))
                 .await;
         }
-        "conversation.created" => {
+        "conversation.created" | "conversation.converted" => {
             let Some(frame) = typed(event_type, payload) else {
                 return;
             };

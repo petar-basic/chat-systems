@@ -359,9 +359,12 @@ position they left with and a recounted unread, and stages `channel.member_joine
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/conversations` | — | `{ data: ConversationSummary[] }` — newest message first, with `participant_ids`, `last_message_at`, the caller's `unread_count` (the counter `/unreads` reads, so neither their own messages nor thread replies count), and `departed`: who left the workspace, with the `display_name` and `avatar_url` of their account |
 | POST | `/workspaces/:ws_id/conversations` | `{ participant_ids }` | `Conversation` — one other person returns the existing `direct` thread if there is one; more return the `group` that has exactly these people and nobody who left it, or create one. This is how *Add people* in a DM or group DM works: a new group with everyone in it, the old conversation unchanged |
+| POST | `/conversations/:conversation_id/convert` | `{ name }` | `Channel` — a group DM of three or more people becomes a private channel in place (`conversations::convert`): same id, so its messages, threads, files, reactions, pins and read positions stay. Anyone in it who may make private channels (`private_channel_creators`); someone outside it gets 403, a `dm` or anything not a group DM 400, a name another channel has 409 before anything changes. The converter becomes the channel's admin and everyone else a member; a person with no notification level of their own gets `all`, which is what the group DM gave them. Departures recorded for the group are dropped, so somebody who had left the workspace is not put back in a private channel when they return. One transaction posts `converted this conversation into a private channel` (`converted_to_channel`) and stages `channel.updated` and `conversation.converted`; audited as `conversation.converted` with `{ name, participants }`. It cannot be turned back |
 
 Creating one publishes `conversation.created`, which the gateway delivers to every participant
-so the new thread shows up for the other side; messages in it are ordinary `message.*` and
+so the new thread shows up for the other side, and converting one `conversation.converted`
+with the `Channel`, so it moves from *Direct messages* to *Channels* and an open tab follows
+it to the channel's route; messages in it are ordinary `message.*` and
 `reaction.*` events on that channel id, delivered to the sockets that joined it.
 
 ---
@@ -1576,7 +1579,7 @@ A join is authorised against the huddle's own `huddle_sessions` row, never again
 | `events:message` | `message.created`, `message.updated`, `message.deleted`, `message.pinned` |
 | `events:reaction` | `reaction.added`, `reaction.removed` |
 | `events:notification` | `notification.push` |
-| `events:conversation` | `conversation.created` — fanned out to the participants; a conversation's messages are ordinary `message.*` / `reaction.*` events on its channel id |
+| `events:conversation` | `conversation.created` and `conversation.converted` — fanned out to the participants; a conversation's messages are ordinary `message.*` / `reaction.*` events on its channel id |
 | `events:presence` | `presence.changed` (fanned out only to workspaces shared with the subject, the subject included), `presence.recompute` (worked out by the node holding the person's socket) |
 | `events:typing` | `typing.indicator` |
 | `events:workspace` | `workspace.deleted`, `workspace.restored`, `workspace.emoji_changed` — a custom emoji was added or removed; members refetch the set; `workspace.member_joined` becomes `workspace.joined` for the new member on every socket, `workspace.member_removed` becomes `workspace.access_revoked` for the one who left, and both send `workspace.members_changed` to the members subscribed to the workspace |

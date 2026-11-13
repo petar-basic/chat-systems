@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import i18n from '@/lib/i18n';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import { useCommandAnswerStore } from '@/stores/commandAnswer';
-import type { WorkspaceMember } from '@/stores/workspace';
+import type { Channel, WorkspaceMember } from '@/stores/workspace';
 import type { Conversation } from '@/features/messaging/hooks/useConversations';
 import ConversationView from './ConversationView';
 
@@ -10,6 +10,7 @@ const view = vi.hoisted(() => ({
   composer: {} as Record<string, unknown>,
   send: vi.fn(),
   runCommand: vi.fn(),
+  convert: vi.fn(),
 }));
 
 vi.mock('@/lib/slashCommands', async (importOriginal) => ({
@@ -24,6 +25,9 @@ vi.mock('./MessageInput', () => ({
   },
 }));
 vi.mock('./OffHoursNote', () => ({ OffHoursNote: () => null }));
+vi.mock('./hooks/useConversations', () => ({
+  useConvertConversation: () => ({ mutateAsync: view.convert, isPending: false }),
+}));
 vi.mock('@/features/messaging/TypingIndicator', () => ({ default: () => null }));
 vi.mock('@/features/messaging/hooks/useMessages', () => ({ useSendMessage: () => ({ mutate: view.send }) }));
 vi.mock('./useComposerAttachments', () => ({
@@ -68,7 +72,12 @@ const member = (user_id: string, display_name: string) =>
     pronouns: null,
   }) as unknown as WorkspaceMember;
 
-const renderView = (c: Conversation, members: WorkspaceMember[] = [], onAddPeople = vi.fn()) =>
+const renderView = (
+  c: Conversation,
+  members: WorkspaceMember[] = [],
+  onAddPeople = vi.fn(),
+  { canConvert = false, onConverted = vi.fn(), channels = [] as Channel[] } = {},
+) =>
   render(
     <ConversationView
       workspaceId="ws-1"
@@ -76,12 +85,14 @@ const renderView = (c: Conversation, members: WorkspaceMember[] = [], onAddPeopl
       conversation={c}
       currentUserId="me"
       members={members}
-      channels={[]}
+      channels={channels}
       onClose={vi.fn()}
       onOpenThread={vi.fn()}
       onSave={vi.fn()}
       onForward={vi.fn()}
       onAddPeople={onAddPeople}
+      canConvert={canConvert}
+      onConverted={onConverted}
     />,
   );
 
@@ -134,6 +145,66 @@ describe('ConversationView', () => {
 
     expect(screen.queryByTestId('conversation-departed')).not.toBeInTheDocument();
     expect(screen.getByLabelText('composer')).toBeInTheDocument();
+  });
+});
+
+describe('a group DM that becomes a channel', () => {
+  const group = conversation({ kind: 'group', participant_ids: ['me', 'ana', 'cy'], departed: [] });
+
+  beforeEach(() => {
+    view.convert.mockReset();
+  });
+
+  it('is offered for a group of three to someone who may make private channels', () => {
+    const { unmount } = renderView(group);
+    expect(screen.queryByTestId('conversation-convert')).not.toBeInTheDocument();
+    unmount();
+
+    const pair = renderView(
+      conversation({ kind: 'group', participant_ids: ['me', 'ana'], departed: [] }),
+      [],
+      vi.fn(),
+      {
+        canConvert: true,
+      },
+    );
+    expect(screen.queryByTestId('conversation-convert')).not.toBeInTheDocument();
+    pair.unmount();
+
+    const direct = renderView(conversation({ participant_ids: ['me', 'ana'], departed: [] }), [], vi.fn(), {
+      canConvert: true,
+    });
+    expect(screen.queryByTestId('conversation-convert')).not.toBeInTheDocument();
+    direct.unmount();
+
+    renderView(group, [], vi.fn(), { canConvert: true });
+    expect(screen.getByRole('button', { name: 'Convert to a private channel' })).toBeInTheDocument();
+  });
+
+  it('takes a channel name and opens the channel it became', async () => {
+    const onConverted = vi.fn();
+    const channel = { id: 'conv-1', name: 'launch-plan' } as Channel;
+    view.convert.mockResolvedValue(channel);
+    renderView(group, [], vi.fn(), { canConvert: true, onConverted });
+
+    fireEvent.click(screen.getByTestId('conversation-convert'));
+    fireEvent.change(screen.getByTestId('conversation-convert-name'), { target: { value: 'Launch Plan' } });
+    fireEvent.click(screen.getByTestId('conversation-convert-submit'));
+
+    await waitFor(() => expect(onConverted).toHaveBeenCalledWith(channel));
+    expect(view.convert).toHaveBeenCalledWith({ conversationId: 'conv-1', name: 'launch-plan' });
+  });
+
+  it('refuses a name a channel already has before asking the server', () => {
+    const channels = [{ id: 'ch-1', name: 'launch' } as Channel];
+    renderView(group, [], vi.fn(), { canConvert: true, channels });
+
+    fireEvent.click(screen.getByTestId('conversation-convert'));
+    fireEvent.change(screen.getByTestId('conversation-convert-name'), { target: { value: 'Launch' } });
+    fireEvent.click(screen.getByTestId('conversation-convert-submit'));
+
+    expect(screen.getByText('A channel with that name already exists.')).toBeInTheDocument();
+    expect(view.convert).not.toHaveBeenCalled();
   });
 });
 
