@@ -782,7 +782,7 @@ async fn a_channel_opens_only_for_those_who_can_read_it(pool: PgPool) {
     let (owner_id, _, owner) = seed_and_login(&app, &state, "peek-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Peeking").await;
     let vendor = seed_channel(&state, ws, owner_id, "vendor", false).await;
-    let general = seed_channel(&state, ws, owner_id, "general", false).await;
+    let lobby = seed_channel(&state, ws, owner_id, "lobby", false).await;
     let secret = seed_channel(&state, ws, owner_id, "secret", true).await;
     let (member_id, _, member) = seed_and_login(&app, &state, "peek-member", false).await;
     add_ws_member(&state, ws, member_id, "member").await;
@@ -812,12 +812,12 @@ async fn a_channel_opens_only_for_those_who_can_read_it(pool: PgPool) {
         "the guest's own channel"
     );
     assert_eq!(
-        open(&guest, general).await,
+        open(&guest, lobby).await,
         StatusCode::FORBIDDEN,
         "a public channel the guest is not in stays shut"
     );
     assert_eq!(
-        open(&member, general).await,
+        open(&member, lobby).await,
         StatusCode::OK,
         "a member previews a public channel before joining"
     );

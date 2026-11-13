@@ -31,6 +31,7 @@ async fn an_invite_never_carries_a_role_above_the_person_who_made_it(pool: PgPoo
     let (admin, _, admin_token) = seed_and_login(&app, &state, "inv-role-admin", false).await;
     let ws = seed_workspace(&state, owner, "Invite Roles").await;
     add_ws_member(&state, ws, admin, "admin").await;
+    let lounge = seed_channel(&state, ws, owner, "lounge", false).await;
     let path = format!("/api/workspaces/{ws}/invites");
 
     for (token, role, expected) in [
@@ -46,7 +47,15 @@ async fn an_invite_never_carries_a_role_above_the_person_who_made_it(pool: PgPoo
             "POST",
             &path,
             Some(token),
-            Some(json!({ "role": role, "max_uses": 1 })),
+            Some(if role == "guest" {
+                json!({
+                    "email": unique_email("inv-role-guest"),
+                    "role": role,
+                    "channel_ids": [lounge],
+                })
+            } else {
+                json!({ "role": role, "max_uses": 1 })
+            }),
         )
         .await;
         let who = if token == &admin_token {
