@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import i18n from '@/lib/i18n';
+import { formatDay } from '@/lib/datetime';
 import { notificationText, type NotificationData } from './notificationText';
 
 const t = i18n.getFixedT(null, ['notifications', 'messages'] as const);
@@ -67,6 +68,13 @@ describe('notificationText', () => {
     });
     expect(text('system', { notice: 'not_delivered', failure: 'internal_error' }, null).body).toBe(
       'The server could not deliver it.',
+    );
+    const until = '2026-11-16T12:00:00Z';
+    expect(text('system', { notice: 'guest_ending', guest_name: 'Vera', guest_until: until }, 'raw')).toEqual(
+      {
+        title: "Vera's guest access is ending",
+        body: `Their access ends on ${formatDay(until)}. Move or clear the date in Workspace settings → Members.`,
+      },
     );
   });
 

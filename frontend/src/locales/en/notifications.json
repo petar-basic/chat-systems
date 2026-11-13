@@ -136,6 +136,8 @@
     },
     "appRequested": "{{sender}} asked for an app",
     "notDelivered": "Scheduled message was not delivered",
-    "notice": "Notification"
+    "notice": "Notification",
+    "guestEnding": "{{name}}'s guest access is ending",
+    "guestEndingBody": "Their access ends on {{date}}. Move or clear the date in Workspace settings → Members."
   }
 }

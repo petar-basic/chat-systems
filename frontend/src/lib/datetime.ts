@@ -34,6 +34,10 @@ export function formatDateTime(value: string | Date): string {
   return formatClock(value, DATE_TIME);
 }
 
+export function formatDay(value: string | Date): string {
+  return new Date(value).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
 export function formatTime(value: string | Date): string {
   return formatClock(value, TIME);
 }

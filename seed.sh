@@ -98,8 +98,9 @@ create_user() {
 
   # Add to workspace
   docker compose exec -T postgres psql -U chat -d chatsystems -q -c "
-    INSERT INTO workspace_members (workspace_id, user_id, role)
-    VALUES ('$WS_ID', '$user_id', '$ws_role')
+    INSERT INTO workspace_members (workspace_id, user_id, role, guest_kind)
+    VALUES ('$WS_ID', '$user_id', '$ws_role',
+            CASE WHEN '$ws_role' = 'guest' THEN 'multi'::guest_kind END)
     ON CONFLICT (workspace_id, user_id) DO NOTHING;
   " > /dev/null 2>&1
 

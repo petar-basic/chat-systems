@@ -49,4 +49,5 @@ export const toast = {
   info: (message: string, opts?: IToastInput) =>
     useToastStore.getState().add(message, { ...opts, kind: ToastKind.info }),
   dismiss: (id: string) => useToastStore.getState().dismiss(id),
+  clear: () => useToastStore.getState().clear(),
 } as const;

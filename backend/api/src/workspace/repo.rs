@@ -15,6 +15,7 @@ pub struct NewInvite<'a> {
     pub token: &'a str,
     pub max_uses: i32,
     pub expires_at: DateTime<Utc>,
+    pub guest: Option<GuestTerms>,
 }
 
 pub struct WorkspaceRepo {
@@ -262,9 +263,11 @@ impl WorkspaceRepo {
         sqlx::query_as!(
             WorkspaceMember,
             r#"
-            INSERT INTO workspace_members (workspace_id, user_id, role)
-            VALUES ($1, $2, $3)
-            ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = $3
+            INSERT INTO workspace_members (workspace_id, user_id, role, guest_kind)
+            VALUES ($1, $2, $3, CASE WHEN $3 = 'guest'::workspace_role THEN 'multi'::guest_kind END)
+            ON CONFLICT (workspace_id, user_id) DO UPDATE
+               SET role = $3, guest_kind = EXCLUDED.guest_kind, guest_until = NULL,
+                   guest_invited_by = NULL, guest_warned_at = NULL
             RETURNING workspace_id, user_id, role AS "role: WorkspaceRole", joined_at,
                       (SELECT u.is_bot FROM users u WHERE u.id = $2) AS "is_bot!"
             "#,
@@ -281,19 +284,28 @@ impl WorkspaceRepo {
         workspace_id: Uuid,
         user_id: Uuid,
         role: &WorkspaceRole,
+        guest: Option<GuestTerms>,
     ) -> sqlx::Result<Option<WorkspaceMember>> {
         sqlx::query_as!(
             WorkspaceMember,
             r#"
-            INSERT INTO workspace_members (workspace_id, user_id, role)
-            VALUES ($1, $2, $3)
+            INSERT INTO workspace_members
+                (workspace_id, user_id, role, guest_kind, guest_until, guest_invited_by)
+            SELECT $1, $2, $3,
+                   CASE WHEN guest THEN COALESCE($4, 'multi'::guest_kind) END,
+                   CASE WHEN guest THEN $5::timestamptz END,
+                   CASE WHEN guest THEN $6::uuid END
+              FROM (SELECT $3 = 'guest'::workspace_role AS guest) g
             ON CONFLICT (workspace_id, user_id) DO NOTHING
             RETURNING workspace_id, user_id, role AS "role: WorkspaceRole", joined_at,
                       (SELECT u.is_bot FROM users u WHERE u.id = $2) AS "is_bot!"
             "#,
             workspace_id,
             user_id,
-            role.clone() as WorkspaceRole
+            role.clone() as WorkspaceRole,
+            guest.map(|g| g.kind) as Option<GuestKind>,
+            guest.and_then(|g| g.until),
+            guest.and_then(|g| g.invited_by)
         )
         .fetch_optional(&mut **tx)
         .await
@@ -304,19 +316,22 @@ impl WorkspaceRepo {
         workspace_id: Uuid,
         user_id: Uuid,
         role: &WorkspaceRole,
+        guest_kind: Option<GuestKind>,
     ) -> sqlx::Result<WorkspaceMember> {
         sqlx::query_as!(
             WorkspaceMember,
             r#"
-            INSERT INTO workspace_members (workspace_id, user_id, role)
-            VALUES ($1, $2, $3)
+            INSERT INTO workspace_members (workspace_id, user_id, role, guest_kind)
+            VALUES ($1, $2, $3,
+                    CASE WHEN $3 = 'guest'::workspace_role THEN COALESCE($4, 'multi'::guest_kind) END)
             ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = workspace_members.role
             RETURNING workspace_id, user_id, role AS "role: WorkspaceRole", joined_at,
                       (SELECT u.is_bot FROM users u WHERE u.id = $2) AS "is_bot!"
             "#,
             workspace_id,
             user_id,
-            role.clone() as WorkspaceRole
+            role.clone() as WorkspaceRole,
+            guest_kind as Option<GuestKind>
         )
         .fetch_one(&self.pool)
         .await
@@ -419,7 +434,9 @@ impl WorkspaceRepo {
                         THEN wm.status_text END AS "status_text?",
                    public.notifications_paused_until(wm.workspace_id, u.id, NOW()) AS notifications_paused_until,
                    u.timezone,
-                   u.is_bot
+                   u.is_bot,
+                   NULL::guest_kind AS "guest_kind?: GuestKind",
+                   NULL::timestamptz AS "guest_until?"
             FROM workspace_members wm
             JOIN users u ON u.id = wm.user_id
             WHERE wm.workspace_id = $1
@@ -462,7 +479,9 @@ impl WorkspaceRepo {
                         THEN wm.status_text END AS "status_text?",
                    public.notifications_paused_until(wm.workspace_id, u.id, NOW()) AS notifications_paused_until,
                    u.timezone,
-                   u.is_bot
+                   u.is_bot,
+                   wm.guest_kind AS "guest_kind: GuestKind",
+                   wm.guest_until
             FROM workspace_members wm
             JOIN users u ON u.id = wm.user_id
             WHERE wm.workspace_id = $1
@@ -520,7 +539,14 @@ impl WorkspaceRepo {
     ) -> sqlx::Result<WorkspaceMember> {
         sqlx::query_as!(
             WorkspaceMember,
-            r#"UPDATE workspace_members SET role = $3 WHERE workspace_id = $1 AND user_id = $2
+            r#"UPDATE workspace_members
+                  SET role = $3,
+                      guest_kind = CASE WHEN $3 = 'guest'::workspace_role
+                                        THEN COALESCE(guest_kind, 'multi'::guest_kind) END,
+                      guest_until = CASE WHEN $3 = 'guest'::workspace_role THEN guest_until END,
+                      guest_invited_by = CASE WHEN $3 = 'guest'::workspace_role THEN guest_invited_by END,
+                      guest_warned_at = CASE WHEN $3 = 'guest'::workspace_role THEN guest_warned_at END
+                WHERE workspace_id = $1 AND user_id = $2
                RETURNING workspace_id, user_id, role AS "role: WorkspaceRole", joined_at,
                          (SELECT u.is_bot FROM users u WHERE u.id = $2) AS "is_bot!""#,
             workspace_id,
@@ -801,15 +827,22 @@ impl WorkspaceRepo {
         Ok(channel_ids)
     }
 
-    pub async fn create_invite(&self, invite: NewInvite<'_>) -> sqlx::Result<WorkspaceInvite> {
+    pub async fn create_invite_in(
+        conn: &mut PgConnection,
+        invite: NewInvite<'_>,
+    ) -> sqlx::Result<WorkspaceInvite> {
         sqlx::query_as!(
             WorkspaceInvite,
             r#"
             INSERT INTO workspace_invites
-                (workspace_id, created_by, email, role, token, max_uses, expires_at)
-            VALUES ($1, $2, lower($3), $4, $5, $6, $7)
+                (workspace_id, created_by, email, role, token, max_uses, expires_at,
+                 guest_kind, guest_until)
+            VALUES ($1, $2, lower($3), $4, $5, $6, $7, $8, $9)
             RETURNING id, workspace_id, created_by, email, role AS "role: WorkspaceRole", token, max_uses,
-                   use_count AS "use_count!", expires_at, created_at
+                   use_count AS "use_count!", expires_at, created_at,
+                   guest_kind AS "guest_kind: GuestKind", guest_until,
+                   ARRAY(SELECT c.channel_id FROM workspace_invite_channels c
+                          WHERE c.invite_id = workspace_invites.id) AS "channel_ids!"
             "#,
             invite.workspace_id,
             invite.created_by,
@@ -817,17 +850,38 @@ impl WorkspaceRepo {
             invite.role.clone() as WorkspaceRole,
             invite.token,
             invite.max_uses,
-            invite.expires_at
+            invite.expires_at,
+            invite.guest.map(|g| g.kind) as Option<GuestKind>,
+            invite.guest.and_then(|g| g.until)
         )
-        .fetch_one(&self.pool)
+        .fetch_one(&mut *conn)
         .await
+    }
+
+    pub async fn add_invite_channels_in(
+        conn: &mut PgConnection,
+        invite_id: Uuid,
+        channel_ids: &[Uuid],
+    ) -> sqlx::Result<()> {
+        sqlx::query!(
+            "INSERT INTO workspace_invite_channels (invite_id, channel_id)
+             SELECT $1, unnest($2::uuid[]) ON CONFLICT DO NOTHING",
+            invite_id,
+            channel_ids
+        )
+        .execute(conn)
+        .await?;
+        Ok(())
     }
 
     pub async fn find_invite_by_token(&self, token: &str) -> sqlx::Result<Option<WorkspaceInvite>> {
         sqlx::query_as!(
             WorkspaceInvite,
             r#"SELECT id, workspace_id, created_by, email, role AS "role: WorkspaceRole", token, max_uses,
-                   use_count AS "use_count!", expires_at, created_at
+                   use_count AS "use_count!", expires_at, created_at,
+                   guest_kind AS "guest_kind: GuestKind", guest_until,
+                   ARRAY(SELECT c.channel_id FROM workspace_invite_channels c
+                          WHERE c.invite_id = workspace_invites.id) AS "channel_ids!"
                  FROM workspace_invites WHERE token = $1"#,
             token
         )
@@ -839,7 +893,10 @@ impl WorkspaceRepo {
         sqlx::query_as!(
             WorkspaceInvite,
             r#"SELECT id, workspace_id, created_by, email, role AS "role: WorkspaceRole", token, max_uses,
-                   use_count AS "use_count!", expires_at, created_at
+                   use_count AS "use_count!", expires_at, created_at,
+                   guest_kind AS "guest_kind: GuestKind", guest_until,
+                   ARRAY(SELECT c.channel_id FROM workspace_invite_channels c
+                          WHERE c.invite_id = workspace_invites.id) AS "channel_ids!"
                  FROM workspace_invites WHERE id = $1"#,
             id
         )
@@ -859,7 +916,10 @@ impl WorkspaceRepo {
             WHERE id = $1
               AND (max_uses IS NULL OR use_count < max_uses)
             RETURNING id, workspace_id, created_by, email, role AS "role: WorkspaceRole", token, max_uses,
-                   use_count AS "use_count!", expires_at, created_at
+                   use_count AS "use_count!", expires_at, created_at,
+                   guest_kind AS "guest_kind: GuestKind", guest_until,
+                   ARRAY(SELECT c.channel_id FROM workspace_invite_channels c
+                          WHERE c.invite_id = workspace_invites.id) AS "channel_ids!"
             "#,
             id
         )
@@ -871,7 +931,10 @@ impl WorkspaceRepo {
         sqlx::query_as!(
             WorkspaceInvite,
             r#"SELECT id, workspace_id, created_by, email, role AS "role: WorkspaceRole", token, max_uses,
-                   use_count AS "use_count!", expires_at, created_at
+                   use_count AS "use_count!", expires_at, created_at,
+                   guest_kind AS "guest_kind: GuestKind", guest_until,
+                   ARRAY(SELECT c.channel_id FROM workspace_invite_channels c
+                          WHERE c.invite_id = workspace_invites.id) AS "channel_ids!"
                  FROM workspace_invites WHERE workspace_id = $1 ORDER BY created_at DESC"#,
             workspace_id
         )
@@ -886,7 +949,10 @@ impl WorkspaceRepo {
         sqlx::query_as!(
             WorkspaceInvite,
             r#"SELECT id, workspace_id, created_by, email, role AS "role: WorkspaceRole", token, max_uses,
-                   use_count AS "use_count!", expires_at, created_at
+                   use_count AS "use_count!", expires_at, created_at,
+                   guest_kind AS "guest_kind: GuestKind", guest_until,
+                   ARRAY(SELECT c.channel_id FROM workspace_invite_channels c
+                          WHERE c.invite_id = workspace_invites.id) AS "channel_ids!"
                  FROM workspace_invites
                 WHERE email = lower($1)
                   AND expires_at >= NOW()
@@ -1026,6 +1092,23 @@ impl WorkspaceRepo {
                    settings AS "settings!", created_at, updated_at
                  FROM channels WHERE workspace_id = $1 AND is_archived = false AND is_default = true ORDER BY name"#,
             workspace_id
+        )
+        .fetch_all(&mut **tx)
+        .await
+    }
+
+    pub async fn open_channels_among_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        workspace_id: Uuid,
+        channel_ids: &[Uuid],
+    ) -> sqlx::Result<Vec<Uuid>> {
+        sqlx::query_scalar!(
+            "SELECT id FROM channels
+              WHERE workspace_id = $1 AND id = ANY($2) AND NOT is_archived
+                AND channel_type IN ('public', 'private')
+              ORDER BY name",
+            workspace_id,
+            channel_ids
         )
         .fetch_all(&mut **tx)
         .await

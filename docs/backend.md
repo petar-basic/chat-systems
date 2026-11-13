@@ -242,6 +242,7 @@ feature — see `dm` below.)
 | Action | Required |
 |--------|----------|
 | Read channels/messages, post, react, thread | Member of the workspace; **Guest** additionally must be a member of that channel (Guests never get implicit access to public channels) |
+| Be added to a channel as a guest | A multi-channel guest anywhere; a single-channel guest only while in no other open channel — a second is a 409 that names them and says to make them multi-channel first. Converting a group DM counts as adding everyone in it |
 | Create a channel | `Member` |
 | Browse public channels and self-join one | `Member` — Guests are refused; an open private channel is never listed, an archived one only to its members, and archived ones are listed to read but cannot be joined |
 | Rename/archive/unarchive a channel, change a channel member's role, remove someone from a channel | **Channel admin** (`channel_members.role = 'admin'`) or workspace `Admin`; a Guest never moderates, even holding the channel-admin row |
@@ -268,9 +269,10 @@ feature — see `dm` below.)
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
-| GET | `/workspaces/:ws_id/members` | — | `{ data: MemberWithUser[] }` — name, photo, bio, title and pronouns as shown in that workspace (its own, else the account's), its status, `notifications_paused_until` (`null` unless their notifications are paused now), and the account's `timezone` (`null` until set) |
+| GET | `/workspaces/:ws_id/members` | — | `{ data: MemberWithUser[] }` — name, photo, bio, title and pronouns as shown in that workspace (its own, else the account's), its status, `notifications_paused_until` (`null` unless their notifications are paused now), the account's `timezone` (`null` until set), and for a guest `guest_kind` (`single` or `multi`) and `guest_until` (both `null` in what a guest is shown) |
 | GET | `/workspaces/:ws_id/former-members` | — | `{ data: FormerMember[] }` — `{ user_id, display_name, avatar_url }` of everyone who left and has not come back, with the name and photo they had in the workspace (else the account's), so old messages keep their author. A guest gets only the ones who wrote in a conversation the guest is in. Leaving keeps that snapshot in `workspace_departures`; joining again puts it back on the new membership (where it set nothing of its own) and drops the row; an erase clears it, so the name becomes *Deleted user* |
-| PATCH | `/workspaces/:ws_id/members/:user_id/role` | `{ role }` | `WorkspaceMember` — admins, for someone below them and to a role no higher than their own; an owner may step down to `admin` on their own row while another active owner remains, else 403 "Make someone else an owner first"; nobody demotes another owner |
+| PATCH | `/workspaces/:ws_id/members/:user_id/role` | `{ role }` | `WorkspaceMember` — admins, for someone below them and to a role no higher than their own; an owner may step down to `admin` on their own row while another active owner remains, else 403 "Make someone else an owner first"; nobody demotes another owner. Becoming a guest makes them multi-channel; leaving the guest role drops the kind and the end date |
+| PATCH | `/workspaces/:ws_id/members/:user_id/guest` | `{ guest_kind, guest_until }` | `GuestSeat` `{ user_id, guest_kind, guest_until }` — admins; 404 for someone who is not a guest, 422 for an end date already past, 409 for `single` while they are in more than one open channel. `guest_until: null` clears the date; moving it lets the three-day notice come again. Audited as `guest.updated` |
 | DELETE | `/workspaces/:ws_id/members/:user_id` | — | `{ status: "removed" }` — yourself, or someone below you as an admin; an owner leaves only while another active owner remains, with the same 403; the person's name and photo in the workspace are kept in `workspace_departures` |
 
 When the owner `workspaces.owner_id` names steps down or leaves, it moves to the remaining
@@ -283,7 +285,7 @@ owners stepping down at once can't both go. The Slack import makes its channels 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/invites` | — | `{ data: WorkspaceInvite[] }` |
-| POST | `/workspaces/:ws_id/invites` | `{ email?, role? }` | `CreatedInvite` — admins, for a role no higher than their own (an admin's `owner` invite is a 403); the invite plus `invite_url` (an email invite's registration link) and `email_status`: `sent`, `not_configured` (`SMTP_HOST` is empty) or `failed` (it could not be queued); `null` for a link invite |
+| POST | `/workspaces/:ws_id/invites` | `{ email?, role?, guest_kind?, channel_ids?, guest_until? }` | `CreatedInvite` — admins, for a role no higher than their own (an admin's `owner` invite is a 403); the invite plus `invite_url` (an email invite's registration link) and `email_status`: `sent`, `not_configured` (`SMTP_HOST` is empty) or `failed` (it could not be queued); `null` for a link invite. A guest invite goes to one address and names its channels (422 without an email, without channels, for a `single` guest with more than one, or an end date already past); each must be an open channel of this workspace the inviter can read (403 for an archived one or a private one they are not in). `guest_kind` defaults to `multi`. Other roles take none of the three |
 | GET | `/workspaces/:ws_id/invites/:invite_id/link` | — | `{ url }` — a fresh registration link for a pending email invite; 400 once it is used up or expired |
 | DELETE | `/workspaces/:ws_id/invites/:invite_id` | — | `{ status: "revoked" }` |
 | POST | `/invites/:token/accept` | — | `WorkspaceMember` — somebody already in the workspace gets their membership back as it is, role included, and uses nothing up |
@@ -293,6 +295,24 @@ and the person invited; it says nothing about either. Every use of it loads the 
 revoking the invite, its expiry and its use limit hold for the emailed link as they do for a
 shared one, and the role is the row's. Each link sent for an invite works while the invite
 does, and goes with it.
+
+A guest invite keeps its channels in `workspace_invite_channels` and its kind and end date on
+the row. Accepting it makes the person a guest with that kind, that date and the inviter as
+`guest_invited_by`, and joins them to those channels that are still open, in the same
+transaction, instead of the default channels. An invite whose end date has passed is spent.
+`workspace_members` holds `guest_kind` exactly when the role is `guest` (a check constraint),
+so every way in — invite, role change, SCIM, the Slack import, `join_workspace` — gives a
+guest a kind, `multi` unless told otherwise.
+
+The `guest_expiry` loop in `chat-worker` runs every 30 seconds. It takes each guest whose
+`guest_until` has passed (`FOR UPDATE SKIP LOCKED`, so two workers never take the same one)
+and removes them through `membership::detach_in`, the path an admin's removal takes:
+channels, `workspace.member_removed` with `reason: "guest_expired"`, scheduled messages,
+hooks, workflows, apps and link invites; sessions are the account's, so other workspaces are
+untouched. It audits `guest.expired` with no actor. It also claims the guests whose date is
+within three days and not yet announced (`guest_warned_at`), and gives each workspace admin
+and owner, and the inviter if still a member, an Activity item (`system`, notice
+`guest_ending`, with `guest_user_id`, `guest_name` and `guest_until`).
 
 **Channels:**
 
@@ -1582,7 +1602,7 @@ A join is authorised against the huddle's own `huddle_sessions` row, never again
 | `events:conversation` | `conversation.created` and `conversation.converted` — fanned out to the participants; a conversation's messages are ordinary `message.*` / `reaction.*` events on its channel id |
 | `events:presence` | `presence.changed` (fanned out only to workspaces shared with the subject, the subject included), `presence.recompute` (worked out by the node holding the person's socket) |
 | `events:typing` | `typing.indicator` |
-| `events:workspace` | `workspace.deleted`, `workspace.restored`, `workspace.emoji_changed` — a custom emoji was added or removed; members refetch the set; `workspace.member_joined` becomes `workspace.joined` for the new member on every socket, `workspace.member_removed` becomes `workspace.access_revoked` for the one who left, and both send `workspace.members_changed` to the members subscribed to the workspace |
+| `events:workspace` | `workspace.deleted`, `workspace.restored`, `workspace.emoji_changed` — a custom emoji was added or removed; members refetch the set; `workspace.member_joined` becomes `workspace.joined` for the new member on every socket, `workspace.member_removed` becomes `workspace.access_revoked` for the one who left, with `reason` `removed` or `guest_expired` (the client then says their guest access ended), and both send `workspace.members_changed` to the members subscribed to the workspace |
 | `events:user` | `user.suspended` — consumed by the gateway to close the user's sockets (not pushed to clients) |
 | `events:huddle` | `huddle.started`, `huddle.ended`, `huddle.ring`, `huddle.member_joined`, `huddle.member_left` — lifecycle; also consumed by the API for history + call notifications |
 | `events:list` | `list.upserted`, `list.deleted`, `list.columns_changed`, `list.item_upserted`, `list.item_deleted` — to the list's channel, or to the owner of a personal list |

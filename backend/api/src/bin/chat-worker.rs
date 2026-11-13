@@ -7,7 +7,7 @@ use tracing::info;
 use chat_api::config::AppConfig;
 use chat_api::state::AppState;
 use chat_api::{
-    analytics, app_events, build_state, connect_pool, email, export, health, hooks, huddle,
+    analytics, app_events, build_state, connect_pool, email, export, guests, health, hooks, huddle,
     init_tracing, later, messaging, metrics, notifications, retention, scheduled, shutdown_signal,
     slack_import, supervise, workflows,
 };
@@ -146,6 +146,19 @@ fn spawn_consumers(state: &Arc<AppState>, redis_url: &str) {
                 let reminder_state = reminder_state.clone();
                 async move {
                     later::reminders::start_checker(reminder_state).await;
+                }
+            })
+            .await;
+        });
+    }
+
+    {
+        let guest_state = state.clone();
+        tokio::spawn(async move {
+            supervise("guest_expiry", || {
+                let guest_state = guest_state.clone();
+                async move {
+                    guests::expiry::start(guest_state).await;
                 }
             })
             .await;

@@ -9,6 +9,7 @@ use super::models::*;
 use super::repo::WorkspaceRepo;
 use crate::auth::service::{AuthService, InviteEmail};
 use crate::config::AppConfig;
+use crate::guests::service::InviteTerms;
 use crate::messaging::publisher::{EventPublisher, Staged};
 use crate::profile::models::Language;
 
@@ -67,11 +68,11 @@ impl WorkspaceService {
         workspace_id: Uuid,
         inviter: Inviter,
         email: Option<&str>,
-        role: Option<WorkspaceRole>,
         lifetime: InviteLifetime,
+        terms: InviteTerms,
         auth_service: &AuthService,
     ) -> AppResult<CreatedInvite> {
-        let role = role.unwrap_or(WorkspaceRole::Member);
+        let role = terms.role;
 
         let token: String = rand::rng()
             .sample_iter(&Alphanumeric)
@@ -84,9 +85,10 @@ impl WorkspaceService {
         }
 
         let expires_at = chrono::Utc::now() + chrono::Duration::hours(lifetime.expires_in_hours);
-        let invite = self
-            .repo
-            .create_invite(crate::workspace::repo::NewInvite {
+        let mut tx = self.repo.begin().await?;
+        let mut invite = WorkspaceRepo::create_invite_in(
+            &mut tx,
+            crate::workspace::repo::NewInvite {
                 workspace_id,
                 created_by: inviter.user_id,
                 email,
@@ -94,8 +96,13 @@ impl WorkspaceService {
                 token: &token,
                 max_uses: lifetime.max_uses,
                 expires_at,
-            })
-            .await?;
+                guest: terms.guest,
+            },
+        )
+        .await?;
+        WorkspaceRepo::add_invite_channels_in(&mut tx, invite.id, &terms.channel_ids).await?;
+        tx.commit().await?;
+        invite.channel_ids = terms.channel_ids;
 
         if invite.email.is_none() {
             return Ok(CreatedInvite {
@@ -208,8 +215,8 @@ impl WorkspaceService {
     ) -> AppResult<Vec<Staged>> {
         let mut tx = self.repo.begin().await?;
 
-        WorkspaceRepo::add_member_if_absent_tx(&mut tx, workspace_id, user_id, role).await?;
-        let staged = settle_in(&mut tx, workspace_id, user_id).await?;
+        WorkspaceRepo::add_member_if_absent_tx(&mut tx, workspace_id, user_id, role, None).await?;
+        let staged = settle_in(&mut tx, workspace_id, user_id, None).await?;
 
         tx.commit().await?;
 
@@ -256,9 +263,15 @@ impl WorkspaceService {
         WorkspaceRepo::claim_invite_use_tx(&mut tx, invite.id)
             .await?
             .ok_or_else(invalid_invite)?;
-        WorkspaceRepo::add_member_if_absent_tx(&mut tx, invite.workspace_id, user_id, &invite.role)
-            .await?;
-        let staged = settle_in(&mut tx, invite.workspace_id, user_id).await?;
+        WorkspaceRepo::add_member_if_absent_tx(
+            &mut tx,
+            invite.workspace_id,
+            user_id,
+            &invite.role,
+            invite.guest_terms(),
+        )
+        .await?;
+        let staged = settle_in(&mut tx, invite.workspace_id, user_id, Some(&invite)).await?;
         tx.commit().await?;
 
         info!(
@@ -286,7 +299,7 @@ impl WorkspaceService {
         // A row that escaped the expiry default is treated as expired, not as
         // eternal: fail closed on the one field that bounds this invite.
         match invite.expires_at {
-            Some(expires) if expires >= chrono::Utc::now() => {}
+            Some(expires) if expires >= chrono::Utc::now() && !guest_access_over(&invite) => {}
             _ => return Err(AppError::BadRequest("Invite has expired".into())),
         }
 
@@ -312,6 +325,7 @@ impl WorkspaceService {
             invite.workspace_id,
             user_id,
             &invite.role,
+            invite.guest_terms(),
         )
         .await?
         else {
@@ -324,7 +338,7 @@ impl WorkspaceService {
             return Ok((member, Vec::new()));
         };
 
-        let staged = settle_in(&mut tx, invite.workspace_id, user_id).await?;
+        let staged = settle_in(&mut tx, invite.workspace_id, user_id, Some(&invite)).await?;
 
         tx.commit().await?;
 
@@ -342,6 +356,7 @@ fn invalid_invite() -> AppError {
 
 fn ensure_live(invite: &WorkspaceInvite, email: &str) -> AppResult<()> {
     let live = invite.expires_at.is_some_and(|e| e >= chrono::Utc::now())
+        && !guest_access_over(invite)
         && invite.max_uses.is_none_or(|max| invite.use_count < max)
         && invite
             .email
@@ -354,14 +369,31 @@ fn ensure_live(invite: &WorkspaceInvite, email: &str) -> AppResult<()> {
     }
 }
 
+fn guest_access_over(invite: &WorkspaceInvite) -> bool {
+    invite
+        .guest_until
+        .is_some_and(|until| until <= chrono::Utc::now())
+}
+
 async fn settle_in(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     workspace_id: Uuid,
     user_id: Uuid,
+    invite: Option<&WorkspaceInvite>,
 ) -> AppResult<Vec<Staged>> {
     let mut staged =
         vec![EventPublisher::stage_workspace_member_joined(tx, workspace_id, user_id).await?];
-    staged.extend(join_default_channels(tx, workspace_id, user_id).await?);
+    let channels = match invite.filter(|i| i.guest_kind.is_some()) {
+        Some(invite) => {
+            WorkspaceRepo::open_channels_among_tx(tx, workspace_id, &invite.channel_ids).await?
+        }
+        None => WorkspaceRepo::list_default_channels_tx(tx, workspace_id)
+            .await?
+            .into_iter()
+            .map(|ch| ch.id)
+            .collect(),
+    };
+    staged.extend(join_channels(tx, workspace_id, user_id, &channels).await?);
     WorkspaceRepo::restore_profile_in(tx, workspace_id, user_id).await?;
     for channel_id in WorkspaceRepo::restore_conversations_in(tx, workspace_id, user_id).await? {
         staged.push(
@@ -372,19 +404,20 @@ async fn settle_in(
     Ok(staged)
 }
 
-async fn join_default_channels(
+async fn join_channels(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     workspace_id: Uuid,
     user_id: Uuid,
+    channel_ids: &[Uuid],
 ) -> AppResult<Vec<Staged>> {
     let mut staged = Vec::new();
-    for ch in WorkspaceRepo::list_default_channels_tx(tx, workspace_id).await? {
-        if WorkspaceRepo::add_channel_member_tx(tx, ch.id, user_id, &ChannelRole::Member)
+    for channel_id in channel_ids {
+        if WorkspaceRepo::add_channel_member_tx(tx, *channel_id, user_id, &ChannelRole::Member)
             .await?
             .is_some()
         {
             staged.push(
-                EventPublisher::stage_channel_member_joined(tx, ch.id, workspace_id, user_id)
+                EventPublisher::stage_channel_member_joined(tx, *channel_id, workspace_id, user_id)
                     .await?,
             );
         }

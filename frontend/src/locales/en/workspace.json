@@ -27,5 +27,24 @@
     "title": "You're not in a workspace yet",
     "createHint": "Create one with + in the sidebar, or ask someone to invite you.",
     "inviteHint": "Once someone invites you to one, it shows up here."
+  },
+  "guest": {
+    "accessEnded": "Your guest access to {{workspace}} has ended.",
+    "accessEndedUnnamed": "Your guest access to a workspace has ended.",
+    "kind": "Kind of guest",
+    "single": "Single-channel guest",
+    "multi": "Multi-channel guest",
+    "kindUntil": "{{kind}} · until {{date}}",
+    "channelOne": "The channel they join",
+    "channelsSome": "The channels they join",
+    "until": "Access ends",
+    "untilHint": "On that day they leave the workspace. Admins hear of it three days before.",
+    "clearUntil": "No end date",
+    "edit": "Guest access",
+    "editTitle": "Guest access for {{name}}",
+    "save": "Save",
+    "saveFailed": "Could not change the guest access",
+    "endingSoon": "Only guests whose access ends in the next 30 days",
+    "noneEnding": "No guest's access ends in the next 30 days."
   }
 }

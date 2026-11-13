@@ -750,6 +750,42 @@ async fn workspace_member_removed_tells_the_members_who_stay(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn a_guest_whose_access_ended_is_told_why(pool: PgPool) {
+    let cm = manager(pool).await;
+    let guest = Uuid::new_v4();
+    let removed = Uuid::new_v4();
+    let workspace_id = Uuid::new_v4();
+
+    let (guest_conn, mut guest_rx) = fake_conn(&cm, guest);
+    let (removed_conn, mut removed_rx) = fake_conn(&cm, removed);
+    cm.subscribe_workspace(&guest_conn, workspace_id);
+    cm.subscribe_workspace(&removed_conn, workspace_id);
+
+    let ended = json!({
+        "workspace_id": workspace_id,
+        "user_id": guest,
+        "reason": "guest_expired",
+    });
+    crate::event_consumer::handle_event("workspace.member_removed", &ended, &cm).await;
+    let told = drain_json(&mut guest_rx);
+    let revoked = told
+        .iter()
+        .find(|f| f["type"] == "workspace.access_revoked")
+        .expect("the guest hears that the workspace is gone");
+    assert_eq!(revoked["reason"], "guest_expired");
+
+    let _ = drain_json(&mut removed_rx);
+    let plain = json!({ "workspace_id": workspace_id, "user_id": removed });
+    crate::event_consumer::handle_event("workspace.member_removed", &plain, &cm).await;
+    let told = drain_json(&mut removed_rx);
+    let revoked = told
+        .iter()
+        .find(|f| f["type"] == "workspace.access_revoked")
+        .expect("someone an admin removed hears it too");
+    assert_eq!(revoked["reason"], "removed", "a removal says nothing more");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn workspace_member_joined_reaches_the_new_member_outside_the_workspace(pool: PgPool) {
     let cm = manager(pool).await;
     let joined = Uuid::new_v4();

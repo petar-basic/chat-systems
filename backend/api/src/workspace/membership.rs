@@ -1,3 +1,4 @@
+use shared_events::frames::Departure;
 use sqlx::PgConnection;
 use uuid::Uuid;
 
@@ -60,6 +61,8 @@ pub async fn add_to_channel(
 ) -> AppResult<ChannelMember> {
     authz::require_not_conversation(channel)?;
     let mut tx = state.pool.begin().await?;
+    crate::guests::service::require_room_in(&mut tx, channel.workspace_id, &[user_id], channel.id)
+        .await?;
     let Some(member) =
         WorkspaceRepo::add_channel_member_tx(&mut tx, channel.id, user_id, &ChannelRole::Member)
             .await?
@@ -90,9 +93,14 @@ pub async fn add_to_channel(
 /// who still receives everything.
 ///
 /// Returns the channels they were dropped from, for callers that audit them.
-pub async fn detach(state: &AppState, ws_id: Uuid, user_id: Uuid) -> AppResult<Vec<Uuid>> {
+pub async fn detach(
+    state: &AppState,
+    ws_id: Uuid,
+    user_id: Uuid,
+    reason: Departure,
+) -> AppResult<Vec<Uuid>> {
     let mut tx = state.pool.begin().await?;
-    let detached = detach_in(state, &mut tx, ws_id, user_id).await?;
+    let detached = detach_in(state, &mut tx, ws_id, user_id, reason).await?;
     tx.commit().await?;
     Ok(detached.settle(state, ws_id, user_id).await)
 }
@@ -107,6 +115,7 @@ pub async fn detach_in(
     conn: &mut PgConnection,
     ws_id: Uuid,
     user_id: Uuid,
+    reason: Departure,
 ) -> AppResult<Detached> {
     let channels = state
         .workspace_service
@@ -125,7 +134,7 @@ pub async fn detach_in(
     staged.push(
         state
             .publisher
-            .stage_workspace_member_removed(conn, ws_id, user_id)
+            .stage_workspace_member_removed(conn, ws_id, user_id, reason)
             .await?,
     );
     Ok(Detached { channels, staged })

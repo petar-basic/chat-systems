@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO workspace_invites\n                (workspace_id, created_by, email, role, token, max_uses, expires_at)\n            VALUES ($1, $2, lower($3), $4, $5, $6, $7)\n            RETURNING id, workspace_id, created_by, email, role AS \"role: WorkspaceRole\", token, max_uses,\n                   use_count AS \"use_count!\", expires_at, created_at\n            ",
+  "query": "SELECT id, workspace_id, created_by, email, role AS \"role: WorkspaceRole\", token, max_uses,\n                   use_count AS \"use_count!\", expires_at, created_at,\n                   guest_kind AS \"guest_kind: GuestKind\", guest_until,\n                   ARRAY(SELECT c.channel_id FROM workspace_invite_channels c\n                          WHERE c.invite_id = workspace_invites.id) AS \"channel_ids!\"\n                 FROM workspace_invites WHERE token = $1",
   "describe": {
     "columns": [
       {
@@ -124,29 +124,49 @@
             "name": "created_at"
           }
         }
-      }
-    ],
-    "parameters": {
-      "Left": [
-        "Uuid",
-        "Uuid",
-        "Text",
-        {
+      },
+      {
+        "ordinal": 10,
+        "name": "guest_kind: GuestKind",
+        "type_info": {
           "Custom": {
-            "name": "workspace_role",
+            "name": "guest_kind",
             "kind": {
               "Enum": [
-                "guest",
-                "member",
-                "admin",
-                "owner"
+                "single",
+                "multi"
               ]
             }
           }
         },
-        "Varchar",
-        "Int4",
-        "Timestamptz"
+        "origin": {
+          "Table": {
+            "table": "workspace_invites",
+            "name": "guest_kind"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "guest_until",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "workspace_invites",
+            "name": "guest_until"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "channel_ids!",
+        "type_info": "UuidArray",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
       ]
     },
     "nullable": [
@@ -159,8 +179,11 @@
       true,
       true,
       true,
-      false
+      false,
+      true,
+      true,
+      null
     ]
   },
-  "hash": "c4f7150213fd4500a27e94bcf994d38236648e087c08e9b76806ad65d36b0ccc"
+  "hash": "c79878a40a50fc7e29f735a82dfb2fd79a24756988ac21d64e5025b5c4609c41"
 }

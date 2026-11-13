@@ -152,6 +152,20 @@ export const workspaceChannelsQuery = (workspaceId: string, instanceUrl?: string
     staleTime: 1000 * 60 * 2,
   });
 
+export const useUpdateGuest = (workspaceId: string, instanceUrl?: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, ...body }: { userId: string } & components['schemas']['UpdateGuestRequest']) =>
+      getApiForInstance(instanceUrl).typed((c) =>
+        c.PATCH('/workspaces/{ws_id}/members/{user_id}/guest', {
+          params: { path: { ws_id: workspaceId, user_id: userId } },
+          body,
+        }),
+      ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceMembers(workspaceId) }),
+  });
+};
+
 export const useWorkspaceChannels = (workspaceId: string | null, instanceUrl?: string) =>
   useQuery({
     ...workspaceChannelsQuery(workspaceId ?? '', instanceUrl),

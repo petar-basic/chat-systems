@@ -10,6 +10,7 @@ import {
 import { instanceManager } from '@/lib/instances';
 import { useWsStatusStore } from '@/stores/wsStatus';
 import { QUERY_KEYS } from '@/shared/constants';
+import { toast } from '@/shared/components/Toast';
 
 export type User = InstanceUser;
 
@@ -146,6 +147,7 @@ export const useLogout = (instanceUrl?: string) => {
     },
     onSuccess: () => {
       queryClient.clear();
+      toast.clear();
     },
   });
 };

@@ -13,6 +13,7 @@ export { default as PinnedMessagesPanel } from './PinnedMessagesPanel';
 export { fromChannelContext } from './hooks/channelContext';
 export { useChannelModeration } from './hooks/useChannelModeration';
 export {
+  useBrowsableChannels,
   useChannelPreview,
   useJoinChannel,
   useSetChannelMuted,

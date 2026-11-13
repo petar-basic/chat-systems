@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE workspace_members SET role = $3 WHERE workspace_id = $1 AND user_id = $2\n               RETURNING workspace_id, user_id, role AS \"role: WorkspaceRole\", joined_at,\n                         (SELECT u.is_bot FROM users u WHERE u.id = $2) AS \"is_bot!\"",
+  "query": "\n            INSERT INTO workspace_members (workspace_id, user_id, role, guest_kind)\n            VALUES ($1, $2, $3,\n                    CASE WHEN $3 = 'guest'::workspace_role THEN COALESCE($4, 'multi'::guest_kind) END)\n            ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = workspace_members.role\n            RETURNING workspace_id, user_id, role AS \"role: WorkspaceRole\", joined_at,\n                      (SELECT u.is_bot FROM users u WHERE u.id = $2) AS \"is_bot!\"\n            ",
   "describe": {
     "columns": [
       {
@@ -82,6 +82,17 @@
               ]
             }
           }
+        },
+        {
+          "Custom": {
+            "name": "guest_kind",
+            "kind": {
+              "Enum": [
+                "single",
+                "multi"
+              ]
+            }
+          }
         }
       ]
     },
@@ -93,5 +104,5 @@
       null
     ]
   },
-  "hash": "6048a191932fee608a85dd31fbe46edddb704723d9f65e5d63e9246a26e46c05"
+  "hash": "67a00efaf52261fe2f11375ac55d40475bad1f48303de9620dffd96180ee4a85"
 }

@@ -3058,6 +3058,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{ws_id}/members/{user_id}/guest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["update_guest"];
+        trace?: never;
+    };
     "/workspaces/{ws_id}/members/{user_id}/role": {
         parameters: {
             query?: never;
@@ -4135,9 +4151,13 @@ export interface components {
             name: string;
         };
         CreateInviteRequest: {
+            channel_ids?: string[];
             email?: string | null;
             /** Format: int64 */
             expires_in_hours?: number | null;
+            guest_kind?: components["schemas"]["GuestKind"] | null;
+            /** Format: date-time */
+            guest_until?: string | null;
             /** Format: int32 */
             max_uses?: number | null;
             role?: components["schemas"]["WorkspaceRole"] | null;
@@ -4697,6 +4717,9 @@ export interface components {
                 bio?: string | null;
                 display_name?: string | null;
                 email: string;
+                guest_kind?: components["schemas"]["GuestKind"] | null;
+                /** Format: date-time */
+                guest_until?: string | null;
                 is_bot: boolean;
                 /** Format: date-time */
                 joined_at: string;
@@ -4946,6 +4969,7 @@ export interface components {
         };
         DataList_WorkspaceInvite: {
             data: {
+                channel_ids: string[];
                 /** Format: date-time */
                 created_at: string;
                 /** Format: uuid */
@@ -4953,6 +4977,9 @@ export interface components {
                 email?: string | null;
                 /** Format: date-time */
                 expires_at?: string | null;
+                guest_kind?: components["schemas"]["GuestKind"] | null;
+                /** Format: date-time */
+                guest_until?: string | null;
                 /** Format: uuid */
                 id: string;
                 /** Format: int32 */
@@ -5217,6 +5244,15 @@ export interface components {
         };
         GroupMembers: {
             data: string[];
+        };
+        /** @enum {string} */
+        GuestKind: "single" | "multi";
+        GuestSeat: {
+            guest_kind: components["schemas"]["GuestKind"];
+            /** Format: date-time */
+            guest_until?: string | null;
+            /** Format: uuid */
+            user_id: string;
         };
         Health: {
             reason?: string | null;
@@ -5566,6 +5602,9 @@ export interface components {
             bio?: string | null;
             display_name?: string | null;
             email: string;
+            guest_kind?: components["schemas"]["GuestKind"] | null;
+            /** Format: date-time */
+            guest_until?: string | null;
             is_bot: boolean;
             /** Format: date-time */
             joined_at: string;
@@ -5703,6 +5742,11 @@ export interface components {
             failure?: string | null;
             /** Format: uuid */
             from_user_id?: string | null;
+            guest_name?: string | null;
+            /** Format: date-time */
+            guest_until?: string | null;
+            /** Format: uuid */
+            guest_user_id?: string | null;
             /** Format: uuid */
             huddle_id?: string | null;
             in_channel?: boolean;
@@ -6218,7 +6262,7 @@ export interface components {
             p256dh: string;
         };
         /** @enum {string} */
-        SystemNotice: "workflow_stopped" | "app_requested" | "not_delivered";
+        SystemNotice: "workflow_stopped" | "app_requested" | "not_delivered" | "guest_ending";
         /** @enum {string} */
         TextSize: "90" | "100" | "112" | "125";
         Theme: {
@@ -6396,6 +6440,11 @@ export interface components {
         UpdateGroupRequest: {
             description?: string | null;
             name: string;
+        };
+        UpdateGuestRequest: {
+            guest_kind: components["schemas"]["GuestKind"];
+            /** Format: date-time */
+            guest_until?: string | null;
         };
         UpdateHookRequest: {
             is_active: boolean;
@@ -6644,6 +6693,7 @@ export interface components {
             weekly: components["schemas"]["WeeklyActivity"][];
         };
         WorkspaceInvite: {
+            channel_ids: string[];
             /** Format: date-time */
             created_at: string;
             /** Format: uuid */
@@ -6651,6 +6701,9 @@ export interface components {
             email?: string | null;
             /** Format: date-time */
             expires_at?: string | null;
+            guest_kind?: components["schemas"]["GuestKind"] | null;
+            /** Format: date-time */
+            guest_until?: string | null;
             /** Format: uuid */
             id: string;
             /** Format: int32 */
@@ -12186,6 +12239,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    update_guest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateGuestRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GuestSeat"];
                 };
             };
         };

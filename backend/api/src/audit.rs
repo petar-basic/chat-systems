@@ -34,6 +34,8 @@ pub enum AuditAction {
     WorkspaceRestored,
     WorkspaceMemberRemoved,
     WorkspaceRoleChanged,
+    GuestUpdated,
+    GuestExpired,
     InviteCreated,
     InviteRevoked,
     InviteAccepted,
@@ -120,6 +122,8 @@ impl AuditAction {
             Self::WorkspaceRestored => "workspace.restored",
             Self::WorkspaceMemberRemoved => "workspace.member_removed",
             Self::WorkspaceRoleChanged => "workspace.role_changed",
+            Self::GuestUpdated => "guest.updated",
+            Self::GuestExpired => "guest.expired",
             Self::InviteCreated => "invite.created",
             Self::InviteRevoked => "invite.revoked",
             Self::InviteAccepted => "invite.accepted",
@@ -203,7 +207,9 @@ impl AuditAction {
             | Self::WorkspaceDeleted
             | Self::WorkspaceRestored
             | Self::WorkspaceMemberRemoved
-            | Self::WorkspaceRoleChanged => "workspace",
+            | Self::WorkspaceRoleChanged
+            | Self::GuestUpdated
+            | Self::GuestExpired => "workspace",
             Self::InviteCreated | Self::InviteRevoked | Self::InviteAccepted => "invite",
             Self::HookCreated
             | Self::HookDeleted

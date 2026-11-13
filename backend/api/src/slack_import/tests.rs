@@ -1459,8 +1459,11 @@ async fn guests_leavers_archives_and_reactions_look_as_they_did_in_slack(pool: P
     assert_eq!(report.users_suspended, 1, "the account that left");
     assert_eq!(report.channels_archived, 1);
 
-    let roles: Vec<(String, String, String)> = sqlx::query_as(
-        "SELECT u.email, wm.role::text, u.status::text FROM workspace_members wm
+    type Seat = (String, String, String, Option<String>, bool);
+    let roles: Vec<Seat> = sqlx::query_as(
+        "SELECT u.email, wm.role::text, u.status::text, wm.guest_kind::text,
+                wm.guest_until IS NOT NULL
+           FROM workspace_members wm
            JOIN users u ON u.id = wm.user_id
           WHERE wm.workspace_id = $1 AND u.email <> 'ana@dev.local' AND wm.user_id <> $2
           ORDER BY u.email",
@@ -1473,10 +1476,29 @@ async fn guests_leavers_archives_and_reactions_look_as_they_did_in_slack(pool: P
     assert_eq!(
         roles,
         vec![
-            ("gina@dev.local".into(), "guest".into(), "pending".into()),
-            ("leo@dev.local".into(), "member".into(), "suspended".into()),
-            ("olga@dev.local".into(), "guest".into(), "pending".into()),
-        ]
+            (
+                "gina@dev.local".into(),
+                "guest".into(),
+                "pending".into(),
+                Some("multi".into()),
+                false
+            ),
+            (
+                "leo@dev.local".into(),
+                "member".into(),
+                "suspended".into(),
+                None,
+                false
+            ),
+            (
+                "olga@dev.local".into(),
+                "guest".into(),
+                "pending".into(),
+                Some("single".into()),
+                false
+            ),
+        ],
+        "a restricted user is a multi-channel guest, an ultra-restricted one a single-channel guest, with no end date"
     );
 
     let archived: Vec<(String, bool)> = sqlx::query_as(
@@ -1820,7 +1842,12 @@ async fn someone_removed_from_the_workspace_joins_none_of_its_channels_on_the_ne
     state
         .workspace_service
         .repo
-        .add_member(ws, ivan, &crate::workspace::models::WorkspaceRole::Member)
+        .add_member(
+            ws,
+            ivan,
+            &crate::workspace::models::WorkspaceRole::Member,
+            None,
+        )
         .await
         .expect("Ivan comes back");
     let mut conn = state.pool.acquire().await.expect("connection");

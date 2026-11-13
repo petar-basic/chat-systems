@@ -53,6 +53,21 @@ impl WorkspaceRole {
     }
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, sqlx::Type, PartialEq, Eq, ToSchema)]
+#[sqlx(type_name = "guest_kind", rename_all = "lowercase")]
+#[serde(rename_all = "lowercase")]
+pub enum GuestKind {
+    Single,
+    Multi,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GuestTerms {
+    pub kind: GuestKind,
+    pub until: Option<DateTime<Utc>>,
+    pub invited_by: Option<Uuid>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct WorkspaceMember {
     pub workspace_id: Uuid,
@@ -80,6 +95,8 @@ pub struct MemberWithUser {
     pub notifications_paused_until: Option<DateTime<Utc>>,
     pub timezone: Option<String>,
     pub is_bot: bool,
+    pub guest_kind: Option<GuestKind>,
+    pub guest_until: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -127,6 +144,19 @@ pub struct WorkspaceInvite {
     pub use_count: i32,
     pub expires_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
+    pub guest_kind: Option<GuestKind>,
+    pub guest_until: Option<DateTime<Utc>>,
+    pub channel_ids: Vec<Uuid>,
+}
+
+impl WorkspaceInvite {
+    pub fn guest_terms(&self) -> Option<GuestTerms> {
+        self.guest_kind.map(|kind| GuestTerms {
+            kind,
+            until: self.guest_until,
+            invited_by: Some(self.created_by),
+        })
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ToSchema)]
@@ -372,6 +402,10 @@ pub struct CreateInviteRequest {
     pub role: Option<WorkspaceRole>,
     pub expires_in_hours: Option<i64>,
     pub max_uses: Option<i32>,
+    pub guest_kind: Option<GuestKind>,
+    pub guest_until: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub channel_ids: Vec<Uuid>,
 }
 
 /// Every invite is bounded. A link invite has to say how many people it is for;
@@ -424,6 +458,19 @@ impl InviteLifetime {
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdateMemberRoleRequest {
     pub role: WorkspaceRole,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct UpdateGuestRequest {
+    pub guest_kind: GuestKind,
+    pub guest_until: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct GuestSeat {
+    pub user_id: Uuid,
+    pub guest_kind: GuestKind,
+    pub guest_until: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]

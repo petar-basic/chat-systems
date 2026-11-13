@@ -33,6 +33,7 @@ import { syncMembershipFrames } from './membershipSync';
 import { followInstanceRole } from './instanceRoleSync';
 import { applyCommandResponse } from './commandAnswers';
 import { forgetWorkspace } from './forgetWorkspace';
+import { sayGuestAccessEnded } from './guestAccess';
 import { customEmojiKey } from '@/features/workspace/hooks/useCustomEmoji';
 
 type ChannelMessages = InfiniteData<{ data: Message[] }>;
@@ -129,6 +130,7 @@ export const useWebSocketQuerySync = () => {
       ),
       globalEventBus.on('channel.privacy_changed', (event) => applyChannelPrivacy(queryClient, event)),
       globalEventBus.on('workspace.access_revoked', (event) => {
+        if (event.reason === 'guest_expired') sayGuestAccessEnded(queryClient, event.workspace_id);
         forgetWorkspace(queryClient, event.workspace_id);
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaces() });
       }),

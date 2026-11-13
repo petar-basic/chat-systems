@@ -6,7 +6,7 @@ use uuid::Uuid;
 use super::super::models::*;
 use super::super::source::{read_json, ExportSource};
 use super::Import;
-use crate::workspace::models::WorkspaceRole;
+use crate::workspace::models::{GuestKind, WorkspaceRole};
 use crate::workspace::repo::WorkspaceRepo;
 
 impl Import<'_> {
@@ -77,14 +77,20 @@ impl Import<'_> {
                 self.report.users_matched += 1;
             }
 
-            let role = if user.is_guest() {
+            let (role, guest_kind) = if user.is_guest() {
                 self.report.guests += 1;
-                WorkspaceRole::Guest
+                let kind = if user.is_ultra_restricted {
+                    GuestKind::Single
+                } else {
+                    GuestKind::Multi
+                };
+                (WorkspaceRole::Guest, Some(kind))
             } else {
-                WorkspaceRole::Member
+                (WorkspaceRole::Member, None)
             };
             if !self.dry_run {
-                self.ensure_workspace_member(user_id, &role).await?;
+                self.ensure_workspace_member(user_id, &role, guest_kind)
+                    .await?;
                 self.state
                     .slack_import_repo
                     .map_user(self.workspace_id, &user.id, user_id)
@@ -98,7 +104,12 @@ impl Import<'_> {
         Ok(())
     }
 
-    async fn ensure_workspace_member(&self, user_id: Uuid, role: &WorkspaceRole) -> AppResult<()> {
+    async fn ensure_workspace_member(
+        &self,
+        user_id: Uuid,
+        role: &WorkspaceRole,
+        guest_kind: Option<GuestKind>,
+    ) -> AppResult<()> {
         if self
             .state
             .workspace_service
@@ -113,7 +124,7 @@ impl Import<'_> {
         self.state
             .workspace_service
             .repo
-            .add_member(self.workspace_id, user_id, role)
+            .add_member(self.workspace_id, user_id, role, guest_kind)
             .await?;
         let mut conn = self.state.pool.acquire().await?;
         WorkspaceRepo::restore_conversations_in(&mut conn, self.workspace_id, user_id).await?;
