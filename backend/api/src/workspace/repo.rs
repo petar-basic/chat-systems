@@ -16,6 +16,7 @@ pub struct NewInvite<'a> {
     pub max_uses: i32,
     pub expires_at: DateTime<Utc>,
     pub guest: Option<GuestTerms>,
+    pub requested_by: Option<Uuid>,
 }
 
 pub struct WorkspaceRepo {
@@ -53,6 +54,16 @@ impl WorkspaceRepo {
         )
         .fetch_one(&mut **tx)
         .await
+    }
+
+    pub async fn invite_requester(&self, invite_id: Uuid) -> sqlx::Result<Option<Uuid>> {
+        sqlx::query_scalar!(
+            "SELECT requested_by FROM workspace_invites WHERE id = $1",
+            invite_id
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map(Option::flatten)
     }
 
     pub async fn inviter_name(
@@ -836,8 +847,8 @@ impl WorkspaceRepo {
             r#"
             INSERT INTO workspace_invites
                 (workspace_id, created_by, email, role, token, max_uses, expires_at,
-                 guest_kind, guest_until)
-            VALUES ($1, $2, lower($3), $4, $5, $6, $7, $8, $9)
+                 guest_kind, guest_until, requested_by)
+            VALUES ($1, $2, lower($3), $4, $5, $6, $7, $8, $9, $10)
             RETURNING id, workspace_id, created_by, email, role AS "role: WorkspaceRole", token, max_uses,
                    use_count AS "use_count!", expires_at, created_at,
                    guest_kind AS "guest_kind: GuestKind", guest_until,
@@ -852,7 +863,8 @@ impl WorkspaceRepo {
             invite.max_uses,
             invite.expires_at,
             invite.guest.map(|g| g.kind) as Option<GuestKind>,
-            invite.guest.and_then(|g| g.until)
+            invite.guest.and_then(|g| g.until),
+            invite.requested_by
         )
         .fetch_one(&mut *conn)
         .await

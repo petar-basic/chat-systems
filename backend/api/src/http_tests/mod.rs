@@ -42,6 +42,7 @@ mod files;
 mod guests;
 mod hooks;
 mod huddle;
+mod invite_requests;
 mod later;
 mod lists;
 mod message_location;

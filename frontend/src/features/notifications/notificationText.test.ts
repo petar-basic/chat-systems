@@ -78,6 +78,37 @@ describe('notificationText', () => {
     );
   });
 
+  it('tells admins of an invite request and the requester of its answer', () => {
+    const emails = ['a@x.test', 'b@x.test'];
+    expect(
+      text('system', { notice: 'invite_requested', sender_name: 'Rita' }, 'a@x.test, b@x.test: new hires'),
+    ).toEqual({ title: 'Rita asked to invite people', body: 'a@x.test, b@x.test: new hires' });
+    expect(
+      text('system', { notice: 'invite_request_approved', sender_name: 'Ada', invite_emails: emails }),
+    ).toEqual({
+      title: 'Ada approved your invite request',
+      body: 'For a@x.test, b@x.test',
+    });
+    expect(
+      text('system', {
+        notice: 'invite_request_declined',
+        sender_name: 'Ada',
+        invite_emails: emails,
+        note: 'Not yet',
+      }),
+    ).toEqual({
+      title: 'Ada declined your invite request',
+      body: 'For a@x.test, b@x.test. Their note: Not yet',
+    });
+    expect(text('system', { notice: 'invite_request_declined', invite_emails: emails }).body).toBe(
+      'For a@x.test, b@x.test',
+    );
+    expect(text('system', { notice: 'invite_request_expired' }, 'a@x.test')).toEqual({
+      title: 'Your invite request expired',
+      body: 'No admin answered it within 30 days. For a@x.test',
+    });
+  });
+
   it('follows the reader’s language, and falls back to English for a string not yet translated', async () => {
     i18n.addResource('ja', 'notifications', 'activity.reply', 'スレッドに新しい返信');
     await i18n.changeLanguage('ja');

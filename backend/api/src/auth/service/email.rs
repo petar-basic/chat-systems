@@ -168,8 +168,17 @@ impl AuthService {
         let words = text::words(language);
         let instance = self.config.instance_name.as_str();
         let workspace = invite.workspace_name;
-        let body = match invite.inviter {
-            Some(inviter) => words.get(
+        let body = match (invite.inviter, invite.requester) {
+            (Some(inviter), Some(requester)) => words.get(
+                "email.invite.bodyRequested",
+                &[
+                    ("inviter", inviter),
+                    ("requester", requester),
+                    ("workspace", workspace),
+                    ("instance", instance),
+                ],
+            ),
+            (Some(inviter), None) => words.get(
                 "email.invite.body",
                 &[
                     ("inviter", inviter),
@@ -177,7 +186,7 @@ impl AuthService {
                     ("instance", instance),
                 ],
             ),
-            None => words.get(
+            (None, _) => words.get(
                 "email.invite.bodyNoInviter",
                 &[("workspace", workspace), ("instance", instance)],
             ),
@@ -200,6 +209,49 @@ impl AuthService {
                 words.count("email.invite.expiry", days, &[]),
                 words.get("email.invite.notExpected", &[]),
             ],
+            ..Email::default()
+        };
+        self.queue(to_email, email, &words).await
+    }
+
+    pub async fn send_invite_request_email(
+        &self,
+        to_email: &str,
+        request: InviteRequestEmail<'_>,
+        language: Language,
+    ) -> AppResult<()> {
+        let words = text::words(language);
+        let workspace = request.workspace_name;
+        let requester = request.requester;
+        let emails = request.emails.join(", ");
+        let body = if request.as_guests {
+            "email.inviteRequest.bodyGuest"
+        } else {
+            "email.inviteRequest.bodyMember"
+        };
+        let mut paragraphs = vec![words.get(
+            body,
+            &[
+                ("requester", requester),
+                ("workspace", workspace),
+                ("emails", &emails),
+            ],
+        )];
+        if let Some(reason) = request.reason {
+            paragraphs.push(words.get("email.inviteRequest.reason", &[("reason", reason)]));
+        }
+        let email = Email {
+            subject: words.get(
+                "email.inviteRequest.subject",
+                &[("requester", requester), ("workspace", workspace)],
+            ),
+            heading: words.get("email.inviteRequest.heading", &[]),
+            paragraphs,
+            button: Some(Button {
+                label: words.get("email.inviteRequest.button", &[]),
+                url: request.url.to_string(),
+            }),
+            notes: vec![words.get("email.inviteRequest.expiry", &[])],
             ..Email::default()
         };
         self.queue(to_email, email, &words).await
@@ -342,8 +394,18 @@ impl AuthService {
 pub struct InviteEmail<'a> {
     pub workspace_name: &'a str,
     pub inviter: Option<&'a str>,
+    pub requester: Option<&'a str>,
     pub url: &'a str,
     pub expires_at: chrono::DateTime<chrono::Utc>,
+}
+
+pub struct InviteRequestEmail<'a> {
+    pub workspace_name: &'a str,
+    pub requester: &'a str,
+    pub emails: &'a [String],
+    pub as_guests: bool,
+    pub reason: Option<&'a str>,
+    pub url: &'a str,
 }
 
 const TEST_EMAIL_TIMEOUT: Duration = Duration::from_secs(15);

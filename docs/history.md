@@ -3261,3 +3261,55 @@ name, topic and description of a private one; it now goes through `require_chann
 and the routing hook, which sends a refused preview back to the workspace, does the rest. Diana,
 a guest in #general alone, opened the link to #random: the request answered 403 and the tab
 moved to #general, while Charlie, a member outside #random, still got its preview.
+
+### [CS-125] Asking an admin to invite someone ✅ shipped
+Only admins could invite, so a member who wanted a colleague in asked an admin in a DM and the
+admin typed the address again. The workspace now has a fifth `WhoMay` rule, `inviters`, which,
+unlike the other four, is `admins` when unset: `WhoMay::of_or` takes the default per rule, and
+the client's `ruleOf` does the same. With `members`, `POST /invites` lets any member through for
+a role no higher than their own; with `admins` it answers a member 403 and says to ask instead.
+A guest never invites and never asks.
+
+A request is a row of `invite_requests`, its guest channels in `invite_request_channels`, with
+CHECK constraints for its shape: one to twenty addresses, `member` or `guest`, a kind exactly
+for a guest, an end date only for one, and a decision time exactly when it is no longer
+pending. Its guest terms go through `invite_terms`, the CS-124 check, with the requester as the
+inviter when it is made and the approving admin when it is approved, so a member cannot ask for
+a channel they cannot read and an admin cannot approve one that has since been archived. Making
+a request and approving one take `pg_advisory_xact_lock` on the workspace, so the checks for an
+address already in the workspace or in another waiting request hold when two arrive together;
+approving claims the row with `WHERE status = 'pending'` before it makes the invites, so two
+admins cannot both send them.
+
+Each admin and owner gets an Activity item and an email in their own language that opens
+*Workspace settings → Members*. Approving makes one email invite per address as the admin, with
+the requester kept in `workspace_invites.requested_by`, so the email, and any resend, reads
+"… invited you to … at Rita's request". The requester hears each answer in Activity, a decline
+with the admin's note, and only while still a member. The `invite_request_expiry` loop in
+chat-worker expires requests nobody answered in 30 days, every ten minutes, with `SKIP LOCKED`.
+The Activity frame for a request carries `invite_request_id`, and the client refreshes the
+request lists when one arrives.
+
+The new response type was first called `InviteRequest`, the name of the huddle invite body;
+utoipa keeps one schema per name, so the generated types lost the huddle's `user_ids` and the
+frontend build failed in `useHuddle`. It is `WorkspaceInviteRequest` now.
+
+Checked by hand on the Docker build. Diana, a guest, had no *Invite people* in the workspace
+menu or in *Members*, and the request route answered her 403, as it did Maya from another
+workspace. With the rule left at admins, Bob's *Invite people* opened the request form; he
+asked for two addresses, one typed with capitals, with a reason, and the form listed the
+request as waiting, both lowercased. Asking again for one of them answered 409, an address
+listed twice 422, Alice 409, and the admin role 403. Admin and Alice each got "Bob Smith asked
+to invite people" in Activity and the email. The admin edited the request and approved it; the
+invite email read "Admin invited you to the Dev Team workspace on Chat Systems, at Bob Smith's
+request", and Bob's Activity said the admin approved it. A guest request for #random, declined
+with a note, reached Bob with the note. Charlie's request, moved 31 days back, expired when the
+loop next ran, with `invite_request.expired` and no actor, and Charlie was told. With the rule
+set to members, Bob's *Invite people* invited directly, offering Member and Guest only; asking
+then answered 400, and an admin invite from him 403.
+
+The check found one fault, fixed here. Editing the addresses, a mistyped paste joined two into
+`ana@example.comana@example.com`, and the approval sent an invite to it: `validate_email` took
+everything after the first `@` as the domain and wanted only a dot in it. It now refuses a
+second `@` and a space inside an address, which is what two addresses without a separator look
+like, everywhere an address is checked.

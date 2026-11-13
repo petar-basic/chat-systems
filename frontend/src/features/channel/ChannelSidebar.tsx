@@ -109,7 +109,7 @@ export default function ChannelSidebar({
   const { instances, activeInstanceUrl } = useInstanceStore();
   const currentInstance = instances.find((i) => i.url === activeInstanceUrl);
   const isInstanceAdmin = currentInstance?.user.instance_role === 'admin';
-  const isWorkspaceAdmin = currentUserRole === 'admin' || currentUserRole === 'owner';
+  const canInvite = !!currentUserRole && currentUserRole !== 'guest';
   const otherMembers = workspaceMembers.filter((m) => m.user_id !== currentUserId);
   const creatableKinds = creatableChannelKinds(currentUserRole, currentWorkspace?.settings);
 
@@ -170,7 +170,7 @@ export default function ChannelSidebar({
       >
         <WorkspaceMenu
           workspaceName={currentWorkspace?.name}
-          isWorkspaceAdmin={isWorkspaceAdmin}
+          canInvite={canInvite}
           isInstanceAdmin={isInstanceAdmin}
           canUseWorkflows={!!currentUserRole && currentUserRole !== 'guest'}
           canLeave={!!currentUserRole}
@@ -350,7 +350,7 @@ export default function ChannelSidebar({
               {collapsed.people ? null : otherMembers.length === 0 ? (
                 <div className="px-3 py-1.5 text-xs text-muted" data-qa="sidebar-people-empty">
                   {t('justYou')}
-                  {isWorkspaceAdmin && (
+                  {canInvite && (
                     <>
                       {' '}
                       <button

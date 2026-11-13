@@ -247,7 +247,9 @@ feature — see `dm` below.)
 | Browse public channels and self-join one | `Member` — Guests are refused; an open private channel is never listed, an archived one only to its members, and archived ones are listed to read but cannot be joined |
 | Rename/archive/unarchive a channel, change a channel member's role, remove someone from a channel | **Channel admin** (`channel_members.role = 'admin'`) or workspace `Admin`; a Guest never moderates, even holding the channel-admin row |
 | Add someone to a channel | `Member` of the workspace, and — for a private channel — a member of that channel; the person being added must already be in the workspace |
-| Manage invites and workspace settings | `Admin` |
+| Invite people | `Admin`; any `Member` when `settings.inviters` is `members`, for a role no higher than their own. Never a Guest |
+| Ask an admin to invite people | `Member` while `settings.inviters` is `admins` (the default); never a Guest |
+| Manage invites, answer invite requests, change workspace settings | `Admin` |
 | Change a member's role | `Admin`, and the actor must strictly outrank the target and may not grant a role above their own; the Owner cannot be demoted |
 | Remove a member | `Admin` and strictly outranking the target, or the member removing themselves; the Owner cannot be removed |
 | Soft/hard delete or restore a workspace | `Owner` (or instance admin) |
@@ -259,7 +261,7 @@ feature — see `dm` below.)
 | GET | `/workspaces` | — | `{ data: Workspace[] }` |
 | POST | `/workspaces` | `{ name, description? }` | `Workspace` — a 403 for a `member` while the instance restricts workspace creation |
 | GET | `/workspaces/:ws_id` | — | `Workspace` |
-| PATCH | `/workspaces/:ws_id` | `{ name?, description?, icon_url?, link_previews?, workflow_builders?, broadcast_mentions?, public_channel_creators?, private_channel_creators? }` | `Workspace` — admins; each is merged into `settings`. `link_previews` defaults to on; the four rules are `members` (the default) or `admins`. `icon_url: ""` removes the icon; a replaced or removed stored icon is deleted |
+| PATCH | `/workspaces/:ws_id` | `{ name?, description?, icon_url?, link_previews?, workflow_builders?, broadcast_mentions?, public_channel_creators?, private_channel_creators?, inviters? }` | `Workspace` — admins; each is merged into `settings`. `link_previews` defaults to on; the five rules are `members` or `admins`, `members` unless set, except `inviters`, which is `admins` unless set. `icon_url: ""` removes the icon; a replaced or removed stored icon is deleted |
 | POST | `/workspaces/:ws_id/icon` | multipart `file`, as `/users/me/avatar` | `Workspace` with the new `icon_url` — admins; processed like a photo and stored as `icons/{ws_id}/{uuid}.{ext}`, outside `files` and retention, readable by the workspace's members; the previous icon is deleted, and so is the icon on a hard delete |
 | DELETE | `/workspaces/:ws_id` | Query: `hard=bool` | `{ status: "soft_deleted" \| "hard_deleted" }` |
 | POST | `/workspaces/:ws_id/restore` | — | `Workspace` |
@@ -285,9 +287,13 @@ owners stepping down at once can't both go. The Slack import makes its channels 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/invites` | — | `{ data: WorkspaceInvite[] }` |
-| POST | `/workspaces/:ws_id/invites` | `{ email?, role?, guest_kind?, channel_ids?, guest_until? }` | `CreatedInvite` — admins, for a role no higher than their own (an admin's `owner` invite is a 403); the invite plus `invite_url` (an email invite's registration link) and `email_status`: `sent`, `not_configured` (`SMTP_HOST` is empty) or `failed` (it could not be queued); `null` for a link invite. A guest invite goes to one address and names its channels (422 without an email, without channels, for a `single` guest with more than one, or an end date already past); each must be an open channel of this workspace the inviter can read (403 for an archived one or a private one they are not in). `guest_kind` defaults to `multi`. Other roles take none of the three |
+| POST | `/workspaces/:ws_id/invites` | `{ email?, role?, guest_kind?, channel_ids?, guest_until? }` | `CreatedInvite` — admins, or any member when `settings.inviters` is `members` (403 otherwise, saying to ask with a request, and always for a guest), for a role no higher than their own (an admin's `owner` invite is a 403); the invite plus `invite_url` (an email invite's registration link) and `email_status`: `sent`, `not_configured` (`SMTP_HOST` is empty) or `failed` (it could not be queued); `null` for a link invite. A guest invite goes to one address and names its channels (422 without an email, without channels, for a `single` guest with more than one, or an end date already past); each must be an open channel of this workspace the inviter can read (403 for an archived one or a private one they are not in). `guest_kind` defaults to `multi`. Other roles take none of the three |
 | GET | `/workspaces/:ws_id/invites/:invite_id/link` | — | `{ url }` — a fresh registration link for a pending email invite; 400 once it is used up or expired |
 | DELETE | `/workspaces/:ws_id/invites/:invite_id` | — | `{ status: "revoked" }` |
+| GET | `/workspaces/:ws_id/invite-requests` | — | `{ data: WorkspaceInviteRequest[] }` — the requests still waiting, oldest first: all of them for an admin, a member's own for anyone else; 403 for a guest or an outsider. Each carries `emails`, `role`, `guest_kind`, `guest_until`, `channel_ids` and `channel_names`, `reason`, `requester_name` and `expires_at` (30 days after it was made) |
+| POST | `/workspaces/:ws_id/invite-requests` | `{ emails, role, guest_kind?, guest_until?, channel_ids?, reason? }` | `WorkspaceInviteRequest` — a member who may not invite directly (400 for one who may, 403 for a guest or an outsider). 1–20 addresses, trimmed and lowercased; `role` is `member` or `guest` (403 for anything else), and guest terms are checked as an invite's are, with the requester as the inviter. 422 for an address listed twice, 409 for one already in the workspace or in another waiting request. Every admin and owner gets an Activity item (`system`, notice `invite_requested`, with `invite_request_id`, `invite_emails`, `requested_by` and `sender_name`) and an email in their own language that opens *Workspace settings → Members*. Audited as `invite_request.created` |
+| POST | `/workspaces/:ws_id/invite-requests/:request_id/approve` | `{ terms? }` | `{ request, invites: CreatedInvite[] }` — admins; `terms` (`emails`, `role` and the guest fields) replaces what was asked, checked as the request was but with the admin as the inviter. One email invite per address, made by the admin as `POST /invites` would, in the language `Accept-Language` or the admin's setting gives. 409 once the request is answered, or for an address that has joined since. The requester gets `invite_request_approved`. Audited as `invite_request.approved` (with `edited`), and each invite as `invite.created` with `invite_request_id` |
+| POST | `/workspaces/:ws_id/invite-requests/:request_id/decline` | `{ note? }` | `WorkspaceInviteRequest` — admins; 409 once answered. The requester gets `invite_request_declined` with the `note`. Audited as `invite_request.declined` |
 | POST | `/invites/:token/accept` | — | `WorkspaceMember` — somebody already in the workspace gets their membership back as it is, role included, and uses nothing up |
 
 An email invite's link is a random token whose hash `invite_links` maps to the invite row
@@ -313,6 +319,17 @@ untouched. It audits `guest.expired` with no actor. It also claims the guests wh
 within three days and not yet announced (`guest_warned_at`), and gives each workspace admin
 and owner, and the inviter if still a member, an Activity item (`system`, notice
 `guest_ending`, with `guest_user_id`, `guest_name` and `guest_until`).
+
+An invite request is a row of `invite_requests` (its guest channels in `invite_request_channels`)
+that stays `pending` until an admin answers it or it expires. Making one and approving one each
+take a transaction-scoped advisory lock on the workspace, so two requests for one address, or
+an approval and a new member, cannot both pass the checks. Approving claims the row before it
+makes the invites, so two admins never send them twice. Each invite keeps the requester in
+`workspace_invites.requested_by`, and its email, a resend included, says the admin invited
+them at the requester's request. Answers go to the requester only while they are still a
+member. The `invite_request_expiry` loop in `chat-worker` runs every ten minutes and expires
+pending requests 30 days old (`FOR UPDATE SKIP LOCKED`, 200 a run), auditing
+`invite_request.expired` with no actor and telling the requester (`invite_request_expired`).
 
 **Channels:**
 

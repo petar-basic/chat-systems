@@ -22,6 +22,7 @@ pub mod health;
 pub mod hooks;
 pub mod huddle;
 pub mod integrations;
+pub mod invite_requests;
 pub mod later;
 pub mod lists;
 pub mod messaging;
@@ -124,6 +125,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
     let conversation_repo = ConversationRepo::new(pool.clone());
     let later_repo = later::repo::LaterRepo::new(pool.clone());
     let guest_repo = guests::repo::GuestRepo::new(pool.clone());
+    let invite_request_repo = invite_requests::repo::InviteRequestRepo::new(pool.clone());
     let poll_repo = polls::repo::PollRepo::new(pool.clone());
     let list_repo = lists::repo::ListRepo::new(pool.clone());
     let thread_repo = threads::repo::ThreadRepo::new(pool.clone());
@@ -174,6 +176,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
         conversation_repo,
         later_repo,
         guest_repo,
+        invite_request_repo,
         poll_repo,
         list_repo,
         thread_repo,

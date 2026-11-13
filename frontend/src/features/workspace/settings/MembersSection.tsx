@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { Button } from '@/shared/components/Button/Button';
@@ -8,35 +8,26 @@ import type { WorkspaceMember, WorkspaceRole } from '@/stores/workspace';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useCurrentWorkspaceRole } from '@/features/workspace/hooks/useCurrentWorkspaceRole';
 import { getUserDisplay } from '@/lib/userHelpers';
-import {
-  UserPlus,
-  UserMinus,
-  Crown,
-  Shield,
-  User,
-  Mail,
-  PackageOpen,
-  Eraser,
-  CalendarClock,
-} from 'lucide-react';
+import { UserPlus, UserMinus, Crown, Shield, User, PackageOpen, Eraser, CalendarClock } from 'lucide-react';
 import PresenceDot from '@/shared/components/PresenceDot';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { useWorkspaceMembers } from '@/features/workspace/hooks/useWorkspaces';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/shared/constants';
-import { TextInput } from '@/shared/components/Form/TextInput';
 import { Select } from '@/shared/components/Form/Select';
 import { useErasePerson, useStartPersonExport } from '@/features/workspace/hooks/useExports';
 import { ErasePersonDialog } from './ErasePersonDialog';
 import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
-import { CopyField } from '@/shared/components/CopyField/CopyField';
-import { inviteMessage } from './inviteMessage';
 import { PendingInvites } from './PendingInvites';
 import { Checkbox } from '@/shared/components/Form/Checkbox';
 import { formatDay } from '@/lib/datetime';
-import { GuestInviteFields } from './GuestInviteFields';
 import { GuestSeatDialog } from './GuestSeatDialog';
-import { endOfDay, endingSoon, type GuestInvite } from './guestTerms';
+import { endingSoon } from './guestTerms';
+import { allows, ruleOf } from '@/lib/workspaceRules';
+import { DirectInviteForm } from './DirectInviteForm';
+import { InviteRequestForm } from './InviteRequestForm';
+import { InviteRequests } from './InviteRequests';
+import { MyInviteRequests } from './MyInviteRequests';
 
 interface Props {
   workspaceId: string;
@@ -46,7 +37,7 @@ interface Props {
 
 const ROLE_LEVEL: Record<string, number> = { guest: 10, member: 20, channel_admin: 30, admin: 40, owner: 50 };
 const ASSIGNABLE_ROLES = ['guest', 'member', 'admin', 'owner'] as const;
-const NO_GUEST: GuestInvite = { kind: 'multi', channelIds: [], until: '' };
+const INVITABLE_ROLES: WorkspaceRole[] = ['member', 'admin', 'guest'];
 
 function GuestTerms({ member }: { member: WorkspaceMember }) {
   const { t } = useTranslation('workspace');
@@ -311,6 +302,7 @@ export function MembersSection({ workspaceId, openInvite, isInstanceAdmin }: Pro
   const instanceUrl = useWorkspaceStore((s) => s.currentWorkspace?.instanceUrl);
   const { role: actorRole } = useCurrentWorkspaceRole();
   const currentUserId = useWorkspaceStore((s) => s.currentUserId);
+  const workspaceSettings = useWorkspaceStore((s) => s.currentWorkspace?.settings);
   const { data: members = [], isLoading: loading } = useWorkspaceMembers(workspaceId, instanceUrl);
   const [manageError, setManageError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -355,142 +347,42 @@ export function MembersSection({ workspaceId, openInvite, isInstanceAdmin }: Pro
     (m) => m.role === 'owner' && !m.is_bot && m.user_id !== currentUserId,
   ).length;
   const [showInvite, setShowInvite] = useState(openInvite);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<WorkspaceRole>('member');
-  const [guestInvite, setGuestInvite] = useState<GuestInvite>(NO_GUEST);
   const [onlyEnding, setOnlyEnding] = useState(false);
-  const inviteIsGuest = inviteRole === 'guest';
   const shown = onlyEnding ? members.filter((m) => endingSoon(m.guest_until)) : members;
-  const [inviting, setInviting] = useState(false);
-  const [inviteResult, setInviteResult] = useState<{ message: string; url?: string | null } | null>(null);
-  const [inviteError, setInviteError] = useState<string | null>(null);
-
-  const handleInvite = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!inviteEmail.trim()) return;
-
-    setInviting(true);
-    setInviteError(null);
-    setInviteResult(null);
-    try {
-      const email = inviteEmail.trim();
-      const created = await apiClient.typed((c) =>
-        c.POST('/workspaces/{ws_id}/invites', {
-          params: { path: { ws_id: workspaceId } },
-          body: inviteIsGuest
-            ? {
-                email,
-                role: inviteRole,
-                guest_kind: guestInvite.kind,
-                channel_ids: guestInvite.channelIds,
-                guest_until: guestInvite.until ? endOfDay(guestInvite.until) : null,
-              }
-            : { email, role: inviteRole },
-        }),
-      );
-      setInviteResult({
-        message: inviteMessage(created.email_status, email),
-        url: created.invite_url,
-      });
-      setInviteEmail('');
-      setGuestInvite(NO_GUEST);
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceMembers(workspaceId) });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceInvites(workspaceId) });
-    } catch (err: unknown) {
-      const msg = toUserMessage(err, 'Failed to invite user');
-      setInviteError(msg);
-    } finally {
-      setInviting(false);
-    }
-  };
+  const isMember = !!actorRole && actorRole !== 'guest';
+  const invitesDirectly = allows(ruleOf(workspaceSettings, 'inviters'), actorRole);
+  const actorLevel = actorRole ? (ROLE_LEVEL[actorRole] ?? 0) : 0;
+  const invitable = INVITABLE_ROLES.filter((r) => ROLE_LEVEL[r] <= actorLevel);
 
   return (
     <div className="-mx-4 flex flex-col">
-      {isAdmin && (
+      {isMember && (
         <div className="px-4 py-3 border-b border-line/50 shrink-0">
           {!showInvite ? (
-            <Button variant="primary" fullWidth onClick={() => setShowInvite(true)}>
+            <Button variant="primary" fullWidth onClick={() => setShowInvite(true)} data-qa="members-invite">
               <UserPlus className="w-4 h-4" />
               Invite people
             </Button>
+          ) : invitesDirectly ? (
+            <DirectInviteForm
+              workspaceId={workspaceId}
+              instanceUrl={instanceUrl}
+              roles={invitable}
+              onClose={() => setShowInvite(false)}
+            />
           ) : (
-            <form onSubmit={handleInvite} className="space-y-2">
-              <TextInput
-                label="Email address to invite"
-                labelHidden
-                type="email"
-                leading={<Mail className="w-4 h-4" />}
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="user@example.com"
-                autoFocus
-                required
-              />
-              <Select
-                label="Invite role"
-                labelHidden
-                value={inviteRole}
-                onChange={(e) => {
-                  const role = ASSIGNABLE_ROLES.find((r) => r === e.target.value);
-                  if (role) setInviteRole(role);
-                }}
-              >
-                <option value="member">Member</option>
-                <option value="admin">Admin</option>
-                <option value="guest">Guest</option>
-              </Select>
-              {inviteIsGuest && (
-                <GuestInviteFields
-                  workspaceId={workspaceId}
-                  instanceUrl={instanceUrl}
-                  value={guestInvite}
-                  onChange={setGuestInvite}
-                />
-              )}
-              {inviteError && <div className="text-xs text-danger px-1">{inviteError}</div>}
-              {inviteResult && (
-                <div className="px-1" data-qa="invite-result">
-                  <div className="text-xs text-fg-soft">{inviteResult.message}</div>
-                  {inviteResult.url && (
-                    <CopyField
-                      label="Invite link"
-                      value={inviteResult.url}
-                      valueQa="invite-link-value"
-                      copyQa="invite-link-copy"
-                    />
-                  )}
-                </div>
-              )}
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowInvite(false);
-                    setInviteError(null);
-                    setInviteResult(null);
-                  }}
-                  className="flex-1 px-3 py-2 text-sm text-muted hover:text-fg transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <Button
-                  variant="primary"
-                  className="flex-1"
-                  type="submit"
-                  disabled={
-                    inviting || !inviteEmail.trim() || (inviteIsGuest && guestInvite.channelIds.length === 0)
-                  }
-                  data-qa="invite-submit"
-                >
-                  {inviting ? 'Inviting…' : 'Invite'}
-                </Button>
-              </div>
-            </form>
+            <InviteRequestForm
+              workspaceId={workspaceId}
+              instanceUrl={instanceUrl}
+              onClose={() => setShowInvite(false)}
+            />
           )}
         </div>
       )}
 
       <div className="flex-1 overflow-y-auto py-2">
+        {isAdmin && <InviteRequests workspaceId={workspaceId} instanceUrl={instanceUrl} />}
+        {isMember && !isAdmin && <MyInviteRequests workspaceId={workspaceId} instanceUrl={instanceUrl} />}
         {isAdmin && <PendingInvites workspaceId={workspaceId} instanceUrl={instanceUrl} />}
         {loading ? (
           <div className="flex justify-center py-8">

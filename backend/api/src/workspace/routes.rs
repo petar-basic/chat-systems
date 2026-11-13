@@ -463,7 +463,8 @@ async fn create_invite(
     Json(req): Json<CreateInviteRequest>,
 ) -> AppResult<Json<CreatedInvite>> {
     let actor =
-        authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
+        authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Member).await?;
+    crate::invite_requests::service::require_inviter(&state, ws_id, &actor).await?;
     req.validate()?;
     if req
         .role
@@ -475,13 +476,15 @@ async fn create_invite(
         ));
     }
     let lifetime = InviteLifetime::resolve(&req)?;
-    let terms = crate::guests::service::invite_terms(&state, ws_id, auth.user_id, &req).await?;
+    let terms =
+        crate::guests::service::invite_terms(&state, ws_id, auth.user_id, (&req).into()).await?;
     let inviter = Inviter {
         user_id: auth.user_id,
         language: state
             .auth_service
             .language_for(auth.user_id, accept_language.header())
             .await?,
+        on_behalf_of: None,
     };
     let created = state
         .workspace_service

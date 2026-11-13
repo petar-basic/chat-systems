@@ -2946,6 +2946,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{ws_id}/invite-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_invite_requests"];
+        put?: never;
+        post: operations["ask_for_invites"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/invite-requests/{request_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["approve_invite_request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/invite-requests/{request_id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["decline_invite_request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{ws_id}/invites": {
         parameters: {
             query?: never;
@@ -3680,11 +3728,21 @@ export interface components {
             /** Format: uuid */
             user_id: string;
         };
+        ApproveInviteRequest: {
+            terms?: components["schemas"]["RequestTerms"] | null;
+        };
+        ApprovedInviteRequest: {
+            invites: components["schemas"]["CreatedInvite"][];
+            request: components["schemas"]["WorkspaceInviteRequest"];
+        };
         ArchiveChannelsRequest: {
             channel_ids: string[];
         };
         ArchivedChannels: {
             archived: string[];
+        };
+        AskForInvites: components["schemas"]["RequestTerms"] & {
+            reason?: string | null;
         };
         Attachment: {
             filename: string;
@@ -4992,6 +5050,35 @@ export interface components {
                 workspace_id: string;
             }[];
         };
+        DataList_WorkspaceInviteRequest: {
+            data: {
+                channel_ids: string[];
+                channel_names: string[];
+                /** Format: date-time */
+                created_at: string;
+                /** Format: date-time */
+                decided_at?: string | null;
+                /** Format: uuid */
+                decided_by?: string | null;
+                emails: string[];
+                /** Format: date-time */
+                expires_at: string;
+                guest_kind?: components["schemas"]["GuestKind"] | null;
+                /** Format: date-time */
+                guest_until?: string | null;
+                /** Format: uuid */
+                id: string;
+                note?: string | null;
+                reason?: string | null;
+                /** Format: uuid */
+                requested_by: string;
+                requester_name: string;
+                role: components["schemas"]["WorkspaceRole"];
+                status: components["schemas"]["InviteRequestStatus"];
+                /** Format: uuid */
+                workspace_id: string;
+            }[];
+        };
         DataList_WorkspacePerson: {
             data: {
                 display_name?: string | null;
@@ -5008,6 +5095,9 @@ export interface components {
                 /** Format: uuid */
                 workspace_id: string;
             }[];
+        };
+        DeclineInviteRequest: {
+            note?: string | null;
         };
         Definition: {
             steps: components["schemas"]["Step"][];
@@ -5416,6 +5506,8 @@ export interface components {
         InviteRequest: {
             user_ids: string[];
         };
+        /** @enum {string} */
+        InviteRequestStatus: "pending" | "approved" | "declined" | "expired";
         InvokeRequest: {
             command: string;
             text?: string;
@@ -5750,6 +5842,9 @@ export interface components {
             /** Format: uuid */
             huddle_id?: string | null;
             in_channel?: boolean;
+            invite_emails?: string[] | null;
+            /** Format: uuid */
+            invite_request_id?: string | null;
             /** Format: uuid */
             item_id?: string | null;
             item_title?: string | null;
@@ -5761,6 +5856,7 @@ export interface components {
             list_title?: string | null;
             /** Format: uuid */
             message_id?: string | null;
+            note?: string | null;
             notice?: components["schemas"]["SystemNotice"] | null;
             /** Format: uuid */
             requested_by?: string | null;
@@ -5974,6 +6070,14 @@ export interface components {
         };
         ReorderSectionsRequest: {
             section_ids: string[];
+        };
+        RequestTerms: {
+            channel_ids?: string[];
+            emails: string[];
+            guest_kind?: components["schemas"]["GuestKind"] | null;
+            /** Format: date-time */
+            guest_until?: string | null;
+            role: components["schemas"]["WorkspaceRole"];
         };
         RescheduleRequest: {
             /** Format: date-time */
@@ -6262,7 +6366,7 @@ export interface components {
             p256dh: string;
         };
         /** @enum {string} */
-        SystemNotice: "workflow_stopped" | "app_requested" | "not_delivered" | "guest_ending";
+        SystemNotice: "workflow_stopped" | "app_requested" | "not_delivered" | "guest_ending" | "invite_requested" | "invite_request_approved" | "invite_request_declined" | "invite_request_expired";
         /** @enum {string} */
         TextSize: "90" | "100" | "112" | "125";
         Theme: {
@@ -6529,6 +6633,7 @@ export interface components {
             broadcast_mentions?: components["schemas"]["WhoMay"] | null;
             description?: string | null;
             icon_url?: string | null;
+            inviters?: components["schemas"]["WhoMay"] | null;
             link_previews?: boolean | null;
             name?: string | null;
             private_channel_creators?: components["schemas"]["WhoMay"] | null;
@@ -6712,6 +6817,33 @@ export interface components {
             token: string;
             /** Format: int32 */
             use_count: number;
+            /** Format: uuid */
+            workspace_id: string;
+        };
+        WorkspaceInviteRequest: {
+            channel_ids: string[];
+            channel_names: string[];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            decided_at?: string | null;
+            /** Format: uuid */
+            decided_by?: string | null;
+            emails: string[];
+            /** Format: date-time */
+            expires_at: string;
+            guest_kind?: components["schemas"]["GuestKind"] | null;
+            /** Format: date-time */
+            guest_until?: string | null;
+            /** Format: uuid */
+            id: string;
+            note?: string | null;
+            reason?: string | null;
+            /** Format: uuid */
+            requested_by: string;
+            requester_name: string;
+            role: components["schemas"]["WorkspaceRole"];
+            status: components["schemas"]["InviteRequestStatus"];
             /** Format: uuid */
             workspace_id: string;
         };
@@ -12010,6 +12142,104 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Workspace"];
+                };
+            };
+        };
+    };
+    list_invite_requests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_WorkspaceInviteRequest"];
+                };
+            };
+        };
+    };
+    ask_for_invites: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AskForInvites"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceInviteRequest"];
+                };
+            };
+        };
+    };
+    approve_invite_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApproveInviteRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovedInviteRequest"];
+                };
+            };
+        };
+    };
+    decline_invite_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeclineInviteRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceInviteRequest"];
                 };
             };
         };

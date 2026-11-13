@@ -1,0 +1,65 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE invite_requests\n                SET status = 'expired', decided_at = NOW()\n              WHERE id IN (\n                    SELECT id FROM invite_requests\n                     WHERE status = 'pending'\n                       AND created_at <= NOW() - make_interval(days => $1)\n                     ORDER BY created_at\n                     LIMIT $2\n                     FOR UPDATE SKIP LOCKED)\n             RETURNING id, workspace_id, requested_by, emails",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "invite_requests",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "invite_requests",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "requested_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "invite_requests",
+            "name": "requested_by"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "emails",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "invite_requests",
+            "name": "emails"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "06238889eb3376a1483f8d445508b3cc8544289fe8f0167b1b99f74eb717b547"
+}

@@ -13,7 +13,7 @@ use crate::profile::models::Language;
 use crate::scim::repo::hash_token;
 
 mod email;
-pub use email::InviteEmail;
+pub use email::{InviteEmail, InviteRequestEmail};
 #[cfg(test)]
 mod tests;
 mod tokens;

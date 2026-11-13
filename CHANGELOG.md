@@ -42,6 +42,14 @@ instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   guest's kind and date, lets an admin change both, and lists the guests whose access ends in
   the next 30 days. The Slack import keeps a restricted user as a multi-channel guest and an
   ultra-restricted one as a single-channel guest.
+- A workspace decides who invites people, in *Workspace settings → General*. Admins only is
+  the default: a member's *Invite people* then sends the admins a request, with the
+  addresses, member or guest (and a guest's channels and end date) and a reason. Admins hear
+  of it in Activity and by email, and approve it, change it and approve, or decline it with a
+  note, under *Workspace settings → Members*. The invite goes out from the admin and says who
+  asked for it, and the member hears the answer in Activity. A request nobody answers expires
+  after 30 days. Set to members, anyone but a guest invites directly, up to their own role.
+  The audit log records `invite_request.created`, `approved`, `declined` and `expired`.
 
 ### Changed
 
@@ -54,6 +62,9 @@ instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - Opening a link to a channel a guest is not in showed the channel with an error and a *Join
   channel* button the guest could not use; the tab now goes back to the workspace. The same
   request no longer tells someone outside a private channel its name, topic or description.
+- An email address with a second `@` or a space in it, which is what two addresses typed
+  without a comma between them look like, was accepted, and an invite went to it. It is now
+  refused wherever an address is entered.
 
 ## [4.7.2] — 2026-11-13
 

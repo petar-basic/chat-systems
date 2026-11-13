@@ -8303,6 +8303,172 @@
         }
       }
     },
+    "/workspaces/{ws_id}/invite-requests": {
+      "get": {
+        "tags": [
+          "workspaces"
+        ],
+        "operationId": "list_invite_requests",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_WorkspaceInviteRequest"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "workspaces"
+        ],
+        "operationId": "ask_for_invites",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AskForInvites"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceInviteRequest"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/invite-requests/{request_id}/approve": {
+      "post": {
+        "tags": [
+          "workspaces"
+        ],
+        "operationId": "approve_invite_request",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveInviteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovedInviteRequest"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/invite-requests/{request_id}/decline": {
+      "post": {
+        "tags": [
+          "workspaces"
+        ],
+        "operationId": "decline_invite_request",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeclineInviteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceInviteRequest"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workspaces/{ws_id}/invites": {
       "get": {
         "tags": [
@@ -10703,6 +10869,39 @@
           }
         }
       },
+      "ApproveInviteRequest": {
+        "type": "object",
+        "properties": {
+          "terms": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/RequestTerms"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "ApprovedInviteRequest": {
+        "type": "object",
+        "required": [
+          "request",
+          "invites"
+        ],
+        "properties": {
+          "invites": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreatedInvite"
+            }
+          },
+          "request": {
+            "$ref": "#/components/schemas/WorkspaceInviteRequest"
+          }
+        }
+      },
       "ArchiveChannelsRequest": {
         "type": "object",
         "required": [
@@ -10732,6 +10931,24 @@
             }
           }
         }
+      },
+      "AskForInvites": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/RequestTerms"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        ]
       },
       "Attachment": {
         "type": "object",
@@ -15567,6 +15784,126 @@
           }
         }
       },
+      "DataList_WorkspaceInviteRequest": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "workspace_id",
+                "requested_by",
+                "requester_name",
+                "emails",
+                "role",
+                "channel_ids",
+                "channel_names",
+                "status",
+                "created_at",
+                "expires_at"
+              ],
+              "properties": {
+                "channel_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "channel_names": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "decided_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "decided_by": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
+                },
+                "emails": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "expires_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "guest_kind": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/GuestKind"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "guest_until": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "note": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "requested_by": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "requester_name": {
+                  "type": "string"
+                },
+                "role": {
+                  "$ref": "#/components/schemas/WorkspaceRole"
+                },
+                "status": {
+                  "$ref": "#/components/schemas/InviteRequestStatus"
+                },
+                "workspace_id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          }
+        }
+      },
       "DataList_WorkspacePerson": {
         "type": "object",
         "required": [
@@ -15638,6 +15975,17 @@
                 }
               }
             }
+          }
+        }
+      },
+      "DeclineInviteRequest": {
+        "type": "object",
+        "properties": {
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -17090,6 +17438,15 @@
           }
         }
       },
+      "InviteRequestStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "approved",
+          "declined",
+          "expired"
+        ]
+      },
       "InvokeRequest": {
         "type": "object",
         "required": [
@@ -18290,6 +18647,22 @@
           "in_channel": {
             "type": "boolean"
           },
+          "invite_emails": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "invite_request_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
           "item_id": {
             "type": [
               "string",
@@ -18335,6 +18708,12 @@
               "null"
             ],
             "format": "uuid"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "notice": {
             "oneOf": [
@@ -19069,6 +19448,48 @@
               "type": "string",
               "format": "uuid"
             }
+          }
+        }
+      },
+      "RequestTerms": {
+        "type": "object",
+        "required": [
+          "emails",
+          "role"
+        ],
+        "properties": {
+          "channel_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "emails": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "guest_kind": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/GuestKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "guest_until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "role": {
+            "$ref": "#/components/schemas/WorkspaceRole"
           }
         }
       },
@@ -20108,7 +20529,11 @@
           "workflow_stopped",
           "app_requested",
           "not_delivered",
-          "guest_ending"
+          "guest_ending",
+          "invite_requested",
+          "invite_request_approved",
+          "invite_request_declined",
+          "invite_request_expired"
         ]
       },
       "TextSize": {
@@ -21291,6 +21716,16 @@
               "null"
             ]
           },
+          "inviters": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/WhoMay"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "link_previews": {
             "type": [
               "boolean",
@@ -21976,6 +22411,115 @@
           "use_count": {
             "type": "integer",
             "format": "int32"
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "WorkspaceInviteRequest": {
+        "type": "object",
+        "required": [
+          "id",
+          "workspace_id",
+          "requested_by",
+          "requester_name",
+          "emails",
+          "role",
+          "channel_ids",
+          "channel_names",
+          "status",
+          "created_at",
+          "expires_at"
+        ],
+        "properties": {
+          "channel_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "channel_names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "decided_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "decided_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "emails": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "guest_kind": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/GuestKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "guest_until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requested_by": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "requester_name": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/WorkspaceRole"
+          },
+          "status": {
+            "$ref": "#/components/schemas/InviteRequestStatus"
           },
           "workspace_id": {
             "type": "string",
