@@ -11,7 +11,7 @@ import {
   removeMessageById,
   deleteMessageById,
 } from './messageCache';
-import type { Channel, Message, WorkspaceMember } from '@/stores/workspace';
+import type { Message, WorkspaceMember } from '@/stores/workspace';
 import type { Conversation } from '@/features/messaging/hooks/useConversations';
 import { instanceManager } from './instances';
 import { wsClient } from './ws';
@@ -22,6 +22,7 @@ import { useUnsentStore } from '@/stores/unsent';
 import { QUERY_KEYS } from '@/shared/constants';
 import { applyReadState, recountAfterReplay } from './readState';
 import { applyChannel } from './channelArchive';
+import { applyChannelPrivacy, forgetChannel } from './channelAccess';
 import { belongsElsewhere } from './channelWorkspace';
 import { readOnReturn, readOnScreen } from './readOnScreen';
 import { patchMessageEverywhere, shownInChannel } from './messagePatch';
@@ -122,19 +123,10 @@ export const useWebSocketQuerySync = () => {
           queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notifications(event.workspace_id) });
       }),
       globalEventBus.on('channel.updated', (event) => applyChannel(queryClient, event.channel)),
-      globalEventBus.on('channel.access_revoked', (event) => {
-        queryClient.removeQueries({ queryKey: QUERY_KEYS.messages(event.channel_id) });
-        queryClient.removeQueries({ queryKey: QUERY_KEYS.channelMembers(event.channel_id) });
-        if (event.workspace_id) {
-          queryClient.setQueryData<Channel[]>(QUERY_KEYS.workspaceChannels(event.workspace_id), (channels) =>
-            channels?.filter((ch) => ch.id !== event.channel_id),
-          );
-          queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceChannels(event.workspace_id) });
-        }
-        if (useWorkspaceStore.getState().currentChannel?.id === event.channel_id) {
-          useWorkspaceStore.setState({ currentChannel: null });
-        }
-      }),
+      globalEventBus.on('channel.access_revoked', (event) =>
+        forgetChannel(queryClient, event.channel_id, event.workspace_id),
+      ),
+      globalEventBus.on('channel.privacy_changed', (event) => applyChannelPrivacy(queryClient, event)),
       globalEventBus.on('workspace.access_revoked', (event) => {
         forgetWorkspace(queryClient, event.workspace_id);
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaces() });

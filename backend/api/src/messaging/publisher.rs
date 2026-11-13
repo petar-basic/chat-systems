@@ -4,7 +4,7 @@ use tracing::{info, warn};
 use uuid::Uuid;
 
 use super::models::{Message, Reaction, ReadState};
-use crate::workspace::models::Channel;
+use crate::workspace::models::{Channel, ChannelType};
 
 use shared_common::errors::{AppError, AppResult};
 use shared_events::Event;
@@ -440,6 +440,23 @@ impl EventPublisher {
                 "channel_id": channel.id,
                 "workspace_id": channel.workspace_id,
                 "channel": channel,
+            }),
+        )
+        .await
+    }
+
+    pub async fn stage_channel_privacy_changed(
+        conn: &mut PgConnection,
+        channel: &Channel,
+    ) -> AppResult<Staged> {
+        Self::stage(
+            conn,
+            "channel.privacy_changed",
+            channel.workspace_id,
+            serde_json::json!({
+                "channel_id": channel.id,
+                "workspace_id": channel.workspace_id,
+                "private": channel.channel_type == ChannelType::Private,
             }),
         )
         .await

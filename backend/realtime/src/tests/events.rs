@@ -331,6 +331,43 @@ async fn an_emoji_change_reaches_only_its_workspace(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn a_privacy_change_reaches_the_whole_workspace_with_the_channel_id_only(pool: PgPool) {
+    let cm = manager(pool).await;
+    let workspace = Uuid::new_v4();
+    let channel = Uuid::new_v4();
+    let (member, mut member_rx) = fake_conn(&cm, Uuid::new_v4());
+    cm.subscribe_workspace(&member, workspace);
+    cm.join_channel(&member, channel);
+    let (non_member, mut non_member_rx) = fake_conn(&cm, Uuid::new_v4());
+    cm.subscribe_workspace(&non_member, workspace);
+    let (outsider, mut outsider_rx) = fake_conn(&cm, Uuid::new_v4());
+    cm.subscribe_workspace(&outsider, Uuid::new_v4());
+
+    let payload = json!({
+        "channel_id": channel.to_string(),
+        "workspace_id": workspace.to_string(),
+        "private": true,
+    });
+    crate::event_consumer::handle_event("channel.privacy_changed", &payload, &cm).await;
+
+    let frame = next_json(&mut non_member_rx).expect("a non-member hears it, to drop the channel");
+    assert_eq!(
+        frame,
+        json!({
+            "type": "channel.privacy_changed",
+            "channel_id": channel.to_string(),
+            "workspace_id": workspace.to_string(),
+            "private": true,
+        })
+    );
+    assert_eq!(
+        next_json(&mut member_rx).expect("a member hears it too")["type"],
+        "channel.privacy_changed"
+    );
+    assert!(next_json(&mut outsider_rx).is_none());
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn notification_push_delivers_to_target_user(pool: PgPool) {
     let cm = manager(pool).await;
     let target = Uuid::new_v4();

@@ -1079,6 +1079,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/channels/{ch_id}/privacy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["channel_privacy"];
+        put: operations["set_channel_privacy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/channels/{ch_id}/read": {
         parameters: {
             query?: never;
@@ -3894,6 +3910,13 @@ export interface components {
             /** Format: uuid */
             section_id: string;
         };
+        ChannelPrivacy: {
+            /** Format: int64 */
+            files: number;
+            /** Format: int64 */
+            messages: number;
+            private: boolean;
+        };
         ChannelRetention: {
             channel?: components["schemas"]["ChannelOverride"] | null;
             overrides_allowed: boolean;
@@ -6014,6 +6037,9 @@ export interface components {
         };
         SetChannelNotificationsRequest: {
             muted: boolean;
+        };
+        SetChannelPrivacyRequest: {
+            private: boolean;
         };
         SetChannelRetention: {
             /** Format: int32 */
@@ -8366,6 +8392,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    channel_privacy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelPrivacy"];
+                };
+            };
+        };
+    };
+    set_channel_privacy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetChannelPrivacyRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Channel"];
                 };
             };
         };

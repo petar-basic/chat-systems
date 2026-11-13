@@ -30,6 +30,7 @@ mod broadcast_mentions;
 mod channel_context;
 mod channel_edits;
 mod channel_integrations;
+mod channel_privacy;
 mod channels;
 mod commands;
 mod conversations;

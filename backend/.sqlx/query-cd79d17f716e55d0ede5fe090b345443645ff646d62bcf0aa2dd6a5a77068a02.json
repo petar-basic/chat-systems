@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT (SELECT COUNT(*) FROM messages\n                     WHERE channel_id = $1 AND deleted_at IS NULL) AS \"messages!\",\n                   (SELECT COUNT(*) FROM files f\n                      JOIN messages m ON m.id = f.message_id\n                     WHERE m.channel_id = $1 AND m.deleted_at IS NULL) AS \"files!\"\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "messages!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "files!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "cd79d17f716e55d0ede5fe090b345443645ff646d62bcf0aa2dd6a5a77068a02"
+}

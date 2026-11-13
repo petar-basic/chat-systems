@@ -9,6 +9,7 @@ import type { ChannelRetention } from '@/features/workspace/hooks/useRetention';
 import type { ChannelIntegrations } from '../hooks/useChannelIntegrations';
 import type { ChannelAnalytics } from '../hooks/useChannelAnalytics';
 import type { AppRef } from '@/features/workspace';
+import type { WorkspaceRole } from '@/stores/workspace';
 
 const updateChannel = vi.fn();
 const setRetention = vi.fn();
@@ -16,6 +17,9 @@ const createHook = vi.fn();
 const revealHook = vi.fn();
 const rotateHook = vi.fn();
 const deleteHook = vi.fn();
+const setPrivacy = vi.fn();
+let role: WorkspaceRole | null = 'member';
+let contents: { private: boolean; messages: number; files: number } | undefined;
 let retention: ChannelRetention;
 let integrations: ChannelIntegrations;
 let analytics: ChannelAnalytics;
@@ -24,6 +28,11 @@ let memberName = 'Ana';
 vi.mock('../hooks/useChannels', () => ({
   useUpdateChannel: () => ({ mutateAsync: updateChannel, isPending: false }),
   useArchiveChannel: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useChannelPrivacy: () => ({ data: contents }),
+  useSetChannelPrivacy: () => ({ mutateAsync: setPrivacy, isPending: false }),
+}));
+vi.mock('@/features/workspace/hooks/useCurrentWorkspaceRole', () => ({
+  useCurrentWorkspaceRole: () => ({ role, isResolved: true }),
 }));
 vi.mock('@/features/workspace/hooks/useRetention', () => ({
   useChannelRetention: () => ({ data: retention }),
@@ -93,6 +102,9 @@ const save = () => fireEvent.click(screen.getByTestId('channel-settings-save'));
 
 beforeEach(() => {
   memberName = 'Ana';
+  role = 'member';
+  contents = { private: true, messages: 12, files: 1 };
+  setPrivacy.mockReset().mockResolvedValue({});
   updateChannel.mockReset().mockResolvedValue({});
   setRetention.mockReset().mockResolvedValue({});
   createHook.mockReset().mockResolvedValue({ id: 'h-new' });
@@ -257,6 +269,63 @@ describe('ChannelDetailsModal settings', () => {
     fireEvent.change(screen.getByTestId('channel-retention-days'), { target: { value: '0' } });
     expect(screen.getByText('At least one day')).toBeInTheDocument();
     expect(screen.getByTestId('channel-settings-save')).toBeDisabled();
+  });
+});
+
+describe('ChannelDetailsModal privacy', () => {
+  const typed = (channel_type: string, extra: Partial<Channel> = {}) =>
+    ({ ...channel, channel_type, ...extra }) as unknown as Channel;
+
+  it('gives the change to a workspace admin only, and never on a default or archived channel', () => {
+    renderModal({ of: typed('public'), initialTab: 'settings' });
+    expect(screen.queryByTestId('channel-settings-privacy')).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['a default channel', typed('public', { is_default: true })],
+    ['an archived channel', typed('private', { is_archived: true })],
+  ])('shows no change on %s', (_, of) => {
+    role = 'admin';
+    renderModal({ of, initialTab: 'settings' });
+    expect(screen.queryByTestId('channel-settings-privacy')).not.toBeInTheDocument();
+  });
+
+  it('makes a public channel private after one confirmation', async () => {
+    role = 'owner';
+    renderModal({ of: typed('public'), initialTab: 'settings' });
+    expect(screen.getByTestId('channel-settings-privacy')).toHaveTextContent('Public');
+
+    fireEvent.click(screen.getByTestId('channel-settings-privacy-change'));
+    fireEvent.click(screen.getByTestId('channel-privacy-private-dialog-confirm'));
+
+    await waitFor(() => expect(setPrivacy).toHaveBeenCalledWith(true));
+    expect(updateChannel).not.toHaveBeenCalled();
+  });
+
+  it('says what a private channel holds and waits for the box before making it public', async () => {
+    role = 'admin';
+    renderModal({ of: typed('private'), initialTab: 'settings' });
+    fireEvent.click(screen.getByTestId('channel-settings-privacy-change'));
+
+    const dialog = screen.getByTestId('channel-privacy-public-dialog');
+    expect(dialog).toHaveTextContent('12 messages and 1 file');
+    const confirm = screen.getByTestId('channel-privacy-public-dialog-confirm');
+    expect(confirm).toBeDisabled();
+
+    fireEvent.click(screen.getByTestId('channel-privacy-public-understand'));
+    fireEvent.click(confirm);
+    await waitFor(() => expect(setPrivacy).toHaveBeenCalledWith(false));
+  });
+
+  it('keeps the button off while it is still counting', () => {
+    role = 'admin';
+    contents = undefined;
+    renderModal({ of: typed('private'), initialTab: 'settings' });
+    fireEvent.click(screen.getByTestId('channel-settings-privacy-change'));
+
+    expect(screen.getByTestId('channel-privacy-public-dialog')).toHaveTextContent('Counting');
+    fireEvent.click(screen.getByTestId('channel-privacy-public-understand'));
+    expect(screen.getByTestId('channel-privacy-public-dialog-confirm')).toBeDisabled();
   });
 });
 

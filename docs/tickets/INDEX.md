@@ -472,7 +472,7 @@ read a channel and who is in a workspace, so it comes first, as access always do
 
 | # | Ticket | Area |
 |---|---|---|
-| CS-122 | A channel that becomes private, or public | backend · frontend · realtime |
+| CS-122 ✅ | A channel that becomes private, or public | backend · frontend · realtime |
 | CS-123 | A group DM that becomes a private channel | backend · frontend |
 | CS-124 | Guests for one channel or several, until a date | backend · frontend |
 | CS-125 | Asking an admin to invite someone | backend · frontend |
@@ -603,7 +603,7 @@ Tickets that touch the same files, and the order that avoids rework:
 | `lib/notifications.ts` and the desktop report | CS-121k → CS-121m |
 | `MessageRepo::search`, `FileRepo::search`, `keyword_pattern` and the Postgres image | CS-121n |
 | desktop `report_theme` | CS-112 |
-| channel type changes, `authz` channel access and the realtime channel scope | CS-122 → CS-123 → CS-124 → CS-131 |
+| channel type changes, `authz` channel access and the realtime channel scope | CS-122 ✅ → CS-123 → CS-124 → CS-131 |
 | invites, `accept_invite` and *Workspace settings → Members* | CS-124 → CS-125 |
 | `workspace_members` profile and the *People* directory | CS-126 |
 | `MessageInput.tsx` and the composer's buttons | CS-127 → CS-129 → CS-133 |

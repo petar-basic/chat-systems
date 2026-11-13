@@ -3134,3 +3134,42 @@ browser came in English; the admin's test email was Japanese. Back on *Same as m
 the admin's invite from a Japanese browser was Japanese. The unsubscribe page for Alice, whose
 setting follows the browser, was Japanese for a Japanese browser and English without the
 header, and a forged link answered 400 in Japanese. The settings were put back afterwards.
+
+## Wave 33 — Channels and the people in them
+
+### [CS-122] A channel that becomes private, or public ✅ shipped
+A channel's type was fixed when it was made. Now a workspace admin changes it in *Channel
+details → Settings*, through `GET` and `PUT /channels/{id}/privacy`. `require_changeable`
+asks for a workspace admin who can read the channel, so an admin outside a private one cannot
+open it, and refuses a DM, a group DM, an archived channel and a default channel, which
+everyone joins when they arrive. `privacy::set` changes the type with the old one in the
+`WHERE`, so a second request for the same type finds nothing to change and posts nothing; the
+change, its system message (`channel_privacy_changed`), `channel.updated` and
+`channel.privacy_changed` go in one transaction, and the audit log records the old type and
+the new.
+
+Who reads a channel was already decided from `channel_type` on every call, by
+`require_channel_access`, `searchable_channels()` and the file routes, and so were bots with
+`chat:write.public` and hooks, through `still_acting`. The ticket adds the tests that hold it:
+every read path for a non-member before and after, the authorization matrix, the bot and the
+hook, and a Slack re-run, which reuses the mapped channel and leaves its type alone.
+
+What was missing was the open tab. The gateway subscribes a socket only to the channels its
+user is in, so a non-member reading a public channel hears none of its frames.
+`channel.privacy_changed` carries the id alone and goes to the whole workspace;
+`applyChannelPrivacy` refreshes *Browse channels*, and when the channel went private and is
+not in the user's list, drops its cached preview and runs `forgetChannel`, the removal path
+since CS-007, now shared with `channel.access_revoked`. The routing hook then fetches the
+preview again, gets 403 and moves the tab to the workspace. Making a channel public asks
+first: the dialog counts the messages and files that are not deleted and waits for a
+checkbox that says everyone will read them.
+
+Checked by hand on the Docker build. Bob, who is not in the channel, had a public channel open
+with a message in it; when the admin made it private his tab moved to #general without a
+reload, its messages and privacy routes answered 403 for him, and *Browse channels*, left
+open, did not list it. Made public again, it appeared in his open *Browse channels* at once.
+Bob, who moderates a channel of his own but is not a workspace admin, saw *Settings* without
+the privacy control, and so did the admin on #general. The admin's dialog to make a channel
+public counted 4 messages and 0 files, kept its button off until the box was ticked, and the
+channel header showed the lock while the channel was private. Each change posted its line in
+the channel and wrote `channel.privacy_changed` with the old type and the new.

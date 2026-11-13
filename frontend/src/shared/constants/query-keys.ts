@@ -27,6 +27,7 @@ export const QUERY_KEYS = {
   channelFileSearch: (id: string, name: string) => ['channels', id, 'files', 'search', name] as const,
   channelsUnread: (workspaceId: string) => ['channels', 'unread', workspaceId] as const,
   channelsBrowse: (workspaceId: string) => ['channels', 'browse', workspaceId] as const,
+  channelPrivacy: (id: string) => ['channels', id, 'privacy'] as const,
 
   messagesAll: () => ['messages'] as const,
   messages: (channelId: string) => ['messages', channelId] as const,
