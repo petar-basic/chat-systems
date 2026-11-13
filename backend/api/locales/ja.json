@@ -1,1 +1,80 @@
-{}
+{
+  "email": {
+    "mentioned": "メンションされました",
+    "mentionedTimes": "{{count}}回メンションされました",
+    "aDirectMessage": "ダイレクトメッセージが届いています",
+    "mentions_other": "{{count}}件のメンション",
+    "directMessages_other": "{{count}}件のダイレクトメッセージ",
+    "youHave": "{{things}}が届いています",
+    "youHaveBoth": "{{mentions}}と{{directMessages}}が届いています",
+    "whileAway": "不在の間に、{{summary}}。",
+    "from": "送信者: {{people}}",
+    "in": "チャンネル: {{places}}",
+    "inWorkspace": "{{workspace}}: {{summary}}",
+    "common": {
+      "sentTo": "このメールは {{instance}} から {{email}} 宛てに送信されました。",
+      "fallback": "ボタンが使えない場合は、次のリンクをブラウザに貼り付けてください:",
+      "unsubscribe": "このメールの配信を停止"
+    },
+    "digest": {
+      "open": "メッセージを開く",
+      "openWorkspace": "{{workspace}} を開く",
+      "reason": "{{workspace}} で「見逃したメッセージをメールで受け取る」がオンになっているため、このメールをお送りしています。"
+    },
+    "reset": {
+      "subject": "{{instance}} のパスワードの再設定",
+      "heading": "パスワードの再設定",
+      "body": "{{instance}} で、{{email}} のパスワードの再設定が申請されました。",
+      "button": "新しいパスワードを設定",
+      "expiry": "リンクは1回だけ使えます。有効期限は1時間です。",
+      "notYou": "心当たりがない場合は、このメールを無視してください。パスワードは変更されません。"
+    },
+    "code": {
+      "subject": "{{code}} は {{instance}} のサインインコードです",
+      "heading": "サインインコード",
+      "body": "{{instance}} にサインインするには、このコードを入力してください:",
+      "expiry_other": "コードは1回だけ使えます。有効期限は{{count}}分です。",
+      "notYou": "心当たりがない場合は、このメールを無視してください。"
+    },
+    "sso": {
+      "subject": "{{instance}} には SSO でサインインしてください",
+      "heading": "SSO でサインインするアカウントです",
+      "body": "{{instance}} で、このアカウントにサインインする方法の問い合わせがありました。",
+      "how": "このアカウントはシングルサインオン (SSO) でサインインするため、再設定するパスワードもサインインコードもありません。{{instance}} を開き、「SSO でサインイン」を選んでください。",
+      "button": "{{instance}} を開く",
+      "notYou": "心当たりがない場合は、このメールを無視してください。"
+    },
+    "inviteExpired": {
+      "subject": "{{workspace}} への招待の有効期限が切れました",
+      "subjectNoWorkspace": "{{instance}} への招待の有効期限が切れました",
+      "heading": "招待の有効期限が切れています",
+      "body": "{{instance}} で、このアカウントにサインインする方法の問い合わせがありました。",
+      "workspace": "{{workspace}} への招待は有効期限が切れているため、まだサインインできません。{{workspace}} の管理者にもう一度招待してもらい、そのメールのリンクを開いてください。",
+      "noWorkspace": "招待の有効期限が切れているため、まだサインインできません。招待元のワークスペースの管理者にもう一度招待してもらい、そのメールのリンクを開いてください。"
+    },
+    "invite": {
+      "subject": "{{instance}} の {{workspace}} への招待",
+      "heading": "{{workspace}} への招待",
+      "body": "{{inviter}} さんが、{{instance}} のワークスペース「{{workspace}}」にあなたを招待しました。",
+      "bodyNoInviter": "{{instance}} のワークスペース「{{workspace}}」に招待されました。",
+      "button": "{{workspace}} に参加",
+      "expiry_other": "招待の有効期限は{{count}}日です。",
+      "notExpected": "心当たりがない場合は、このメールを無視してください。"
+    },
+    "test": {
+      "subject": "{{instance}} からのテストメール",
+      "heading": "メールは正常に届いています",
+      "body": "これは {{instance}} からのテストメールです。このメールが届いていれば、メールの設定は正しく動いています。"
+    },
+    "unsubscribePage": {
+      "title": "見逃したメッセージのメール",
+      "confirm": "{{workspace}} の見逃したメッセージのメールを停止しますか?",
+      "explain": "メンションやダイレクトメッセージは、これまでどおりアプリで確認できます。",
+      "button": "停止する",
+      "done": "{{workspace}} の見逃したメッセージのメールを停止しました。",
+      "again": "設定 → 通知 で、もう一度オンにできます。",
+      "open": "{{workspace}} を開く",
+      "invalid": "このリンクは使えなくなっています。メールの設定は 設定 → 通知 で変更できます。"
+    }
+  }
+}

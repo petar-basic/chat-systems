@@ -189,3 +189,62 @@ async fn an_invite_is_in_the_language_of_the_admin_who_sent_it(pool: PgPool) {
         "the invite again follows that request"
     );
 }
+
+fn escaped(text: &str) -> String {
+    text.replace('&', "&#38;")
+        .replace('<', "&#60;")
+        .replace('>', "&#62;")
+        .replace('"', "&#34;")
+        .replace('\'', "&#39;")
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_japanese_invite_writes_the_names_it_was_given_as_plain_text(pool: PgPool) {
+    let inviter = r#"<img src=x onerror="alert(1)"> {{name}}"#;
+    let workspace = r#"<img src=x onerror="alert(1)"> {{instance}}"#;
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner_token) = seed_and_login(&app, &state, "ja-names", false).await;
+    sqlx::query("UPDATE users SET display_name = $2 WHERE id = $1")
+        .bind(owner_id)
+        .bind(inviter)
+        .execute(&state.pool)
+        .await
+        .expect("set the name");
+    let ws_id = seed_workspace(&state, owner_id, workspace).await;
+    prefer(&state, owner_id, "ja").await;
+    let invitee = unique_email("ja-names-invitee");
+    post(
+        &app,
+        &format!("/api/workspaces/{ws_id}/invites"),
+        Some(&owner_token),
+        json!({ "email": invitee }),
+        None,
+    )
+    .await;
+    sent(&state, &invitee, 1).await;
+
+    let (subject, text, html): (String, String, String) = sqlx::query_as(
+        "SELECT subject, text_body, html_body FROM outbound_emails WHERE to_address = $1",
+    )
+    .bind(&invitee)
+    .fetch_one(&state.pool)
+    .await
+    .expect("the invite");
+
+    let body =
+        format!("{inviter} さんが、Test のワークスペース「{workspace}」にあなたを招待しました。");
+    assert_eq!(subject, format!("Test の {workspace} への招待"));
+    assert!(text.lines().any(|line| line == body), "{text}");
+    assert!(
+        text.lines()
+            .any(|line| line == format!("{workspace} への招待")),
+        "{text}"
+    );
+    assert!(!html.contains("<img src=x"), "{html}");
+    assert!(!html.contains("onerror=\""), "{html}");
+    assert!(html.contains(&format!(">{}</p>", escaped(&body))), "{html}");
+    assert!(
+        html.contains(&format!(">{} への招待</h1>", escaped(workspace))),
+        "{html}"
+    );
+}
