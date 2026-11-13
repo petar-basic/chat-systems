@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { Button } from '@/shared/components/Button/Button';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
@@ -7,7 +8,17 @@ import type { WorkspaceMember, WorkspaceRole } from '@/stores/workspace';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useCurrentWorkspaceRole } from '@/features/workspace/hooks/useCurrentWorkspaceRole';
 import { getUserDisplay } from '@/lib/userHelpers';
-import { UserPlus, UserMinus, Crown, Shield, User, Mail, PackageOpen, Eraser } from 'lucide-react';
+import {
+  UserPlus,
+  UserMinus,
+  Crown,
+  Shield,
+  User,
+  Mail,
+  PackageOpen,
+  Eraser,
+  CalendarClock,
+} from 'lucide-react';
 import PresenceDot from '@/shared/components/PresenceDot';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { useWorkspaceMembers } from '@/features/workspace/hooks/useWorkspaces';
@@ -21,6 +32,11 @@ import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
 import { CopyField } from '@/shared/components/CopyField/CopyField';
 import { inviteMessage } from './inviteMessage';
 import { PendingInvites } from './PendingInvites';
+import { Checkbox } from '@/shared/components/Form/Checkbox';
+import { formatDay } from '@/lib/datetime';
+import { GuestInviteFields } from './GuestInviteFields';
+import { GuestSeatDialog } from './GuestSeatDialog';
+import { endOfDay, endingSoon, type GuestInvite } from './guestTerms';
 
 interface Props {
   workspaceId: string;
@@ -30,8 +46,22 @@ interface Props {
 
 const ROLE_LEVEL: Record<string, number> = { guest: 10, member: 20, channel_admin: 30, admin: 40, owner: 50 };
 const ASSIGNABLE_ROLES = ['guest', 'member', 'admin', 'owner'] as const;
+const NO_GUEST: GuestInvite = { kind: 'multi', channelIds: [], until: '' };
+
+function GuestTerms({ member }: { member: WorkspaceMember }) {
+  const { t } = useTranslation('workspace');
+  if (member.role !== 'guest' || !member.guest_kind) return null;
+  const kind = member.guest_kind === 'single' ? t('guest.single') : t('guest.multi');
+  return (
+    <div className="text-xs text-muted truncate" data-qa="member-guest-terms">
+      {member.guest_until ? t('guest.kindUntil', { kind, date: formatDay(member.guest_until) }) : kind}
+    </div>
+  );
+}
 
 function MemberRow({
+  workspaceId,
+  instanceUrl,
   member,
   actorRole,
   isSelf,
@@ -43,6 +73,8 @@ function MemberRow({
   onErase,
   busy,
 }: {
+  workspaceId: string;
+  instanceUrl?: string;
   member: WorkspaceMember;
   actorRole: string | null;
   isSelf: boolean;
@@ -58,6 +90,8 @@ function MemberRow({
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [confirmErase, setConfirmErase] = useState(false);
   const [confirmStepDown, setConfirmStepDown] = useState(false);
+  const [editGuest, setEditGuest] = useState(false);
+  const { t } = useTranslation('workspace');
 
   const actorLevel = actorRole ? (ROLE_LEVEL[actorRole] ?? 0) : 0;
   const targetLevel = ROLE_LEVEL[member.role] ?? 0;
@@ -119,6 +153,7 @@ function MemberRow({
         ) : (
           email && <div className="text-xs text-muted truncate">{email}</div>
         )}
+        <GuestTerms member={member} />
         {confirmRemove && (
           <div className="mt-1 flex items-center gap-2 text-xs">
             <span className="text-danger">Remove from workspace?</span>
@@ -197,8 +232,29 @@ function MemberRow({
           onClose={() => setConfirmErase(false)}
         />
       )}
+      {editGuest && (
+        <GuestSeatDialog
+          workspaceId={workspaceId}
+          instanceUrl={instanceUrl}
+          member={member}
+          name={displayName}
+          onClose={() => setEditGuest(false)}
+        />
+      )}
       {canManage ? (
         <div className="flex items-center gap-1.5 shrink-0">
+          {member.role === 'guest' && (
+            <button
+              onClick={() => setEditGuest(true)}
+              disabled={busy}
+              aria-label={t('guest.editTitle', { name: displayName })}
+              data-tooltip={t('guest.edit')}
+              data-qa="member-guest-edit"
+              className="p-1 text-muted hover:text-fg transition cursor-pointer disabled:opacity-50"
+            >
+              <CalendarClock className="w-3.5 h-3.5" />
+            </button>
+          )}
           <Select
             label={`Role for ${displayName}`}
             labelHidden
@@ -250,6 +306,7 @@ function MemberRow({
 }
 
 export function MembersSection({ workspaceId, openInvite, isInstanceAdmin }: Props) {
+  const { t } = useTranslation('workspace');
   const queryClient = useQueryClient();
   const instanceUrl = useWorkspaceStore((s) => s.currentWorkspace?.instanceUrl);
   const { role: actorRole } = useCurrentWorkspaceRole();
@@ -300,6 +357,10 @@ export function MembersSection({ workspaceId, openInvite, isInstanceAdmin }: Pro
   const [showInvite, setShowInvite] = useState(openInvite);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<WorkspaceRole>('member');
+  const [guestInvite, setGuestInvite] = useState<GuestInvite>(NO_GUEST);
+  const [onlyEnding, setOnlyEnding] = useState(false);
+  const inviteIsGuest = inviteRole === 'guest';
+  const shown = onlyEnding ? members.filter((m) => endingSoon(m.guest_until)) : members;
   const [inviting, setInviting] = useState(false);
   const [inviteResult, setInviteResult] = useState<{ message: string; url?: string | null } | null>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
@@ -316,7 +377,15 @@ export function MembersSection({ workspaceId, openInvite, isInstanceAdmin }: Pro
       const created = await apiClient.typed((c) =>
         c.POST('/workspaces/{ws_id}/invites', {
           params: { path: { ws_id: workspaceId } },
-          body: { email, role: inviteRole },
+          body: inviteIsGuest
+            ? {
+                email,
+                role: inviteRole,
+                guest_kind: guestInvite.kind,
+                channel_ids: guestInvite.channelIds,
+                guest_until: guestInvite.until ? endOfDay(guestInvite.until) : null,
+              }
+            : { email, role: inviteRole },
         }),
       );
       setInviteResult({
@@ -324,6 +393,7 @@ export function MembersSection({ workspaceId, openInvite, isInstanceAdmin }: Pro
         url: created.invite_url,
       });
       setInviteEmail('');
+      setGuestInvite(NO_GUEST);
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceMembers(workspaceId) });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceInvites(workspaceId) });
     } catch (err: unknown) {
@@ -369,6 +439,14 @@ export function MembersSection({ workspaceId, openInvite, isInstanceAdmin }: Pro
                 <option value="admin">Admin</option>
                 <option value="guest">Guest</option>
               </Select>
+              {inviteIsGuest && (
+                <GuestInviteFields
+                  workspaceId={workspaceId}
+                  instanceUrl={instanceUrl}
+                  value={guestInvite}
+                  onChange={setGuestInvite}
+                />
+              )}
               {inviteError && <div className="text-xs text-danger px-1">{inviteError}</div>}
               {inviteResult && (
                 <div className="px-1" data-qa="invite-result">
@@ -399,7 +477,10 @@ export function MembersSection({ workspaceId, openInvite, isInstanceAdmin }: Pro
                   variant="primary"
                   className="flex-1"
                   type="submit"
-                  disabled={inviting || !inviteEmail.trim()}
+                  disabled={
+                    inviting || !inviteEmail.trim() || (inviteIsGuest && guestInvite.channelIds.length === 0)
+                  }
+                  data-qa="invite-submit"
                 >
                   {inviting ? 'Inviting…' : 'Invite'}
                 </Button>
@@ -424,6 +505,21 @@ export function MembersSection({ workspaceId, openInvite, isInstanceAdmin }: Pro
                 {members.length} member{members.length !== 1 ? 's' : ''}
               </span>
             </div>
+            {isAdmin && members.some((m) => m.guest_until) && (
+              <div className="px-4 pb-2">
+                <Checkbox
+                  label={t('guest.endingSoon')}
+                  checked={onlyEnding}
+                  onChange={setOnlyEnding}
+                  dataQa="members-filter-ending"
+                />
+              </div>
+            )}
+            {onlyEnding && shown.length === 0 && (
+              <div className="px-4 pb-2 text-xs text-muted" data-qa="members-none-ending">
+                {t('guest.noneEnding')}
+              </div>
+            )}
             {actorRole === 'owner' && (
               <div className="px-4 pb-2 text-xs text-muted" data-qa="owner-note">
                 {otherOwners > 0
@@ -437,9 +533,11 @@ export function MembersSection({ workspaceId, openInvite, isInstanceAdmin }: Pro
                 {notice}
               </div>
             )}
-            {members.map((m) => (
+            {shown.map((m) => (
               <MemberRow
                 key={m.user_id}
+                workspaceId={workspaceId}
+                instanceUrl={instanceUrl}
                 member={m}
                 actorRole={actorRole}
                 isSelf={m.user_id === currentUserId}

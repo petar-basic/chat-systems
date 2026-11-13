@@ -39,6 +39,7 @@ mod creator_stops;
 mod file_content_search;
 mod file_search;
 mod files;
+mod guests;
 mod hooks;
 mod huddle;
 mod later;

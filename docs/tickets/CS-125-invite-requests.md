@@ -20,6 +20,9 @@ When invites are admin-only, members ask through the app and an admin approves o
 - **A request** is an invite that waits for an admin:
   - It holds the addresses, the role (member or guest), the guest's channels and end date
     from CS-124, and an optional reason.
+  - CS-124 keeps a guest invite's kind and end date on `workspace_invites` and its channels in
+    `workspace_invite_channels`; `guests::service::invite_terms` checks them, so approving a
+    request goes through the same check as an admin's own invite.
   - The requester sees it under *Pending* until an admin decides.
   - The same address twice, or one that is already a member, is refused.
 - **Admins:**

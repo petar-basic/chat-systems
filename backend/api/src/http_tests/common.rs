@@ -137,10 +137,15 @@ pub async fn email_invite(
     role: WorkspaceRole,
 ) -> (Uuid, String) {
     let expires_at = chrono::Utc::now() + chrono::Duration::days(7);
-    let invite = state
-        .workspace_service
-        .repo
-        .create_invite(crate::workspace::repo::NewInvite {
+    let guest = (role == WorkspaceRole::Guest).then_some(crate::workspace::models::GuestTerms {
+        kind: crate::workspace::models::GuestKind::Multi,
+        until: None,
+        invited_by: Some(invited_by),
+    });
+    let mut conn = state.pool.acquire().await.expect("connection");
+    let invite = crate::workspace::repo::WorkspaceRepo::create_invite_in(
+        &mut conn,
+        crate::workspace::repo::NewInvite {
             workspace_id: ws_id,
             created_by: invited_by,
             email: Some(email),
@@ -148,9 +153,11 @@ pub async fn email_invite(
             token: &Uuid::new_v4().simple().to_string(),
             max_uses: 1,
             expires_at,
-        })
-        .await
-        .expect("create invite");
+            guest,
+        },
+    )
+    .await
+    .expect("create invite");
     let token = state
         .auth_service
         .issue_invite_link(invitee, invite.id)
@@ -161,8 +168,10 @@ pub async fn email_invite(
 
 pub async fn add_ws_member(state: &AppState, ws_id: Uuid, user_id: Uuid, role: &str) {
     sqlx::query(
-        "INSERT INTO workspace_members (workspace_id, user_id, role) \
-         VALUES ($1, $2, $3::workspace_role) ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = EXCLUDED.role",
+        "INSERT INTO workspace_members (workspace_id, user_id, role, guest_kind) \
+         VALUES ($1, $2, $3::workspace_role, CASE WHEN $3 = 'guest' THEN 'multi'::guest_kind END) \
+         ON CONFLICT (workspace_id, user_id) \
+         DO UPDATE SET role = EXCLUDED.role, guest_kind = EXCLUDED.guest_kind, guest_until = NULL",
     )
     .bind(ws_id)
     .bind(user_id)

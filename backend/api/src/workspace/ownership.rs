@@ -39,7 +39,14 @@ pub async fn leave(state: &AppState, workspace_id: Uuid, owner: Uuid) -> AppResu
     }
     repo.hand_over_owner_id(&mut tx, workspace_id, owner)
         .await?;
-    let detached = membership::detach_in(state, &mut tx, workspace_id, owner).await?;
+    let detached = membership::detach_in(
+        state,
+        &mut tx,
+        workspace_id,
+        owner,
+        shared_events::frames::Departure::Removed,
+    )
+    .await?;
     tx.commit().await?;
     Ok(detached.settle(state, workspace_id, owner).await)
 }

@@ -33,6 +33,27 @@ instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   to *Channels* for everyone in it, where new people can then be added. It cannot be turned
   back. The workspace's rule for who may make private channels applies, and the audit log
   records it as `conversation.converted`.
+- Guests come in two kinds, single-channel and multi-channel, and can have an end date. The
+  invite names the guest's channels, and accepting it puts them there and nowhere else. A
+  single-channel guest cannot be added to a second channel, nor kept in a group DM that
+  becomes a channel, until an admin makes them multi-channel. On the end date the guest leaves
+  the workspace within a minute and an open tab says why; the admins, and whoever invited
+  them, hear of it in Activity three days before. *Workspace settings → Members* shows each
+  guest's kind and date, lets an admin change both, and lists the guests whose access ends in
+  the next 30 days. The Slack import keeps a restricted user as a multi-channel guest and an
+  ultra-restricted one as a single-channel guest.
+
+### Changed
+
+- A guest is invited by email, never by a shared link, and the invite says which channels
+  they join; a guest who accepts no longer joins the default channels. Guests already in a
+  workspace become multi-channel guests with no end date.
+
+### Fixed
+
+- Opening a link to a channel a guest is not in showed the channel with an error and a *Join
+  channel* button the guest could not use; the tab now goes back to the workspace. The same
+  request no longer tells someone outside a private channel its name, topic or description.
 
 ## [4.7.2] — 2026-11-13
 

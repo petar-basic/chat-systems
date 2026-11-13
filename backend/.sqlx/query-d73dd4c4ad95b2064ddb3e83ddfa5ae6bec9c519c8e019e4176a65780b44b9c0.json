@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COALESCE(wm.display_name, u.display_name, u.email) AS \"name!\"\n                 FROM workspace_members wm\n                 JOIN users u ON u.id = wm.user_id\n                WHERE wm.workspace_id = $1\n                  AND wm.user_id = ANY($2)\n                  AND wm.guest_kind = 'single'\n                  AND EXISTS (\n                      SELECT 1\n                        FROM channel_members cm\n                        JOIN channels c ON c.id = cm.channel_id\n                       WHERE cm.user_id = wm.user_id\n                         AND c.workspace_id = $1\n                         AND c.id <> $3\n                         AND c.channel_type IN ('public', 'private')\n                         AND NOT c.is_archived\n                  )\n                ORDER BY 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name!",
+        "type_info": "Varchar",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "UuidArray",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "d73dd4c4ad95b2064ddb3e83ddfa5ae6bec9c519c8e019e4176a65780b44b9c0"
+}

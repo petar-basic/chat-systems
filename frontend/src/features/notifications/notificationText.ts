@@ -1,6 +1,7 @@
 import type { TFunction } from 'i18next';
 import type { components } from '@/api/schema';
 import { failureKey } from '@/lib/scheduledFailure';
+import { formatDay } from '@/lib/datetime';
 
 export type NotificationData = components['schemas']['NotificationData'];
 
@@ -25,6 +26,11 @@ function systemText(t: Translate, data: NotificationData, said: string, sender: 
       };
     case 'app_requested':
       return { title: t('activity.appRequested', { sender }), body: said };
+    case 'guest_ending':
+      return {
+        title: t('activity.guestEnding', { name: data.guest_name ?? '' }),
+        body: data.guest_until ? t('activity.guestEndingBody', { date: formatDay(data.guest_until) }) : said,
+      };
     case 'not_delivered':
       return {
         title: t('activity.notDelivered'),

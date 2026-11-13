@@ -3206,3 +3206,58 @@ conversion answered 400, and the audit log recorded the name and three participa
 holding a second group open, Alice converted it through the API and his tab moved to the new
 channel without a reload. A new group of the same three people became a new conversation, not
 the channel.
+
+### [CS-124] Guests for one channel or several, until a date ✅ shipped
+A guest was one kind of member, kept until someone remembered to remove them, and a guest invite
+landed in the default channels like anyone else's. Now `workspace_members` carries `guest_kind`
+(`single` or `multi`), `guest_until` and `guest_invited_by`, and two CHECK constraints hold the
+shape: a guest always has a kind and only a guest has one, and only a guest has an end date. The
+migration makes every existing guest multi-channel with no date. Every insert path sets the kind,
+and changing a role sets or clears the guest fields with it.
+
+A guest invite now says where the guest goes. `invite_terms` asks for an email, since a link
+anyone can forward is no way to let one outsider in, at least one channel, exactly one for a
+single-channel guest, channels of this workspace that are open and that the inviter can read, and
+a date in the future. The channels are kept in `workspace_invite_channels`, and accepting joins
+them in the same transaction instead of the default channels; an invite whose end date has
+passed counts as expired.
+
+A single-channel guest stays in one channel. `require_room_in` locks the members' rows and
+refuses with 409, naming them, when a single-channel guest is already in another open channel,
+both when someone is added to a channel and when a group DM becomes a channel, which adds everyone
+in it at once. An admin changes the kind or moves or clears the date through `PATCH
+/workspaces/{id}/members/{user}/guest`, and making a guest single while they are in two channels
+is refused the same way.
+
+The `guest_expiry` loop in chat-worker runs every 30 seconds. It takes one expired guest at a
+time with `SKIP LOCKED` and removes them through `detach_in`, the admin's removal path, so their
+channels and open tabs go the same way, and their other workspaces are untouched; `workspace.member_removed`
+now carries a reason, and the `workspace.access_revoked` frame tells the tab `guest_expired`, which
+shows a toast that stays until it is dismissed. Three days before, the loop claims the guest with
+an `UPDATE … RETURNING` on `guest_warned_at` and leaves an Activity item for the admins and the
+inviter, once; moving the date clears the claim. The members list shows the kind and the date, and
+a filter keeps the guests whose access ends in the next 30 days. The Slack import maps
+`is_restricted` to multi-channel and `is_ultra_restricted` to single-channel, with no date. SCIM
+is unchanged.
+
+Checked by hand on the Docker build. In *Workspace settings → Members* the admin chose Guest and
+Single-channel: the Invite button stayed off with no channel, ticking a second channel unticked
+the first, and the invite went to one channel. The guest registered through the link and found
+only that channel, no #general; adding them to a second channel answered 409 with their name. The
+row read "Single-channel guest", and the edit dialog set an end date two days ahead; within 30
+seconds the admin's Activity showed "QA Guest's guest access is ending", Alice, the other admin,
+got the same, and the filter left that one guest. With the guest signed in and the date moved into
+the past, the tab showed "Your guest access to Dev Team has ended." 17 seconds later and left the
+workspace; the outbox held `workspace.member_removed` with `guest_expired`, the guest was in no
+channel, and the audit log had `guest.updated` from the admin and `guest.expired` with no actor.
+The check found two faults, fixed here: the dialog's *No end date* button covered the date
+picker's calendar icon, and moved below the field; and the toast, which stays until dismissed,
+was still there for the next person to sign in on that tab, so signing out now clears toasts.
+
+The same check showed the guest, signed in on a tab whose last route was #general, a channel
+header with an error and a *Join channel* button. `GET /channels/{id}` asked only for workspace
+membership, so a guest got the preview of any public channel, and anyone in the workspace the
+name, topic and description of a private one; it now goes through `require_channel_access`,
+and the routing hook, which sends a refused preview back to the workspace, does the rest. Diana,
+a guest in #general alone, opened the link to #random: the request answered 403 and the tab
+moved to #general, while Charlie, a member outside #random, still got its preview.

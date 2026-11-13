@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, workspace_id, created_by, email, role AS \"role: WorkspaceRole\", token, max_uses,\n                   use_count AS \"use_count!\", expires_at, created_at\n                 FROM workspace_invites WHERE workspace_id = $1 ORDER BY created_at DESC",
+  "query": "SELECT id, workspace_id, created_by, email, role AS \"role: WorkspaceRole\", token, max_uses,\n                   use_count AS \"use_count!\", expires_at, created_at,\n                   guest_kind AS \"guest_kind: GuestKind\", guest_until,\n                   ARRAY(SELECT c.channel_id FROM workspace_invite_channels c\n                          WHERE c.invite_id = workspace_invites.id) AS \"channel_ids!\"\n                 FROM workspace_invites WHERE workspace_id = $1 ORDER BY created_at DESC",
   "describe": {
     "columns": [
       {
@@ -124,6 +124,44 @@
             "name": "created_at"
           }
         }
+      },
+      {
+        "ordinal": 10,
+        "name": "guest_kind: GuestKind",
+        "type_info": {
+          "Custom": {
+            "name": "guest_kind",
+            "kind": {
+              "Enum": [
+                "single",
+                "multi"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "workspace_invites",
+            "name": "guest_kind"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "guest_until",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "workspace_invites",
+            "name": "guest_until"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "channel_ids!",
+        "type_info": "UuidArray",
+        "origin": "Expression"
       }
     ],
     "parameters": {
@@ -141,8 +179,11 @@
       true,
       true,
       true,
-      false
+      false,
+      true,
+      true,
+      null
     ]
   },
-  "hash": "99b4db70cde98676d8837c663925be223abe86060b5a0da9721972970a885a96"
+  "hash": "9b679b7d2560f336194d1d65d2740a2d57309d6ec3e9714f93d167cd347df239"
 }

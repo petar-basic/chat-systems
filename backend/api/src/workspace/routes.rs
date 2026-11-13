@@ -8,6 +8,7 @@ use utoipa_axum::routes;
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
+use shared_events::frames::Departure;
 
 use super::details::{self, duplicate_channel_name, Details};
 use super::icon;
@@ -425,7 +426,7 @@ async fn remove_member(
     if target.role == WorkspaceRole::Owner {
         ownership::leave(&state, ws_id, user_id).await?;
     } else {
-        membership::detach(&state, ws_id, user_id).await?;
+        membership::detach(&state, ws_id, user_id, Departure::Removed).await?;
     }
 
     audit::record(
@@ -474,6 +475,7 @@ async fn create_invite(
         ));
     }
     let lifetime = InviteLifetime::resolve(&req)?;
+    let terms = crate::guests::service::invite_terms(&state, ws_id, auth.user_id, &req).await?;
     let inviter = Inviter {
         user_id: auth.user_id,
         language: state
@@ -487,8 +489,8 @@ async fn create_invite(
             ws_id,
             inviter,
             req.email.as_deref(),
-            req.role,
             lifetime,
+            terms,
             &state.auth_service,
         )
         .await?;
@@ -504,6 +506,9 @@ async fn create_invite(
                 "role": created.invite.role,
                 "expires_at": created.invite.expires_at,
                 "email_status": created.email_status,
+                "guest_kind": created.invite.guest_kind,
+                "guest_until": created.invite.guest_until,
+                "channel_ids": created.invite.channel_ids,
             })),
     )
     .await;
@@ -755,9 +760,8 @@ async fn get_channel(
     auth: AuthUser,
     Path(ch_id): Path<Uuid>,
 ) -> AppResult<Json<Channel>> {
-    let channel = authz::find_channel(&state, ch_id).await?;
-    authz::require_workspace_member(&state, channel.workspace_id, auth.user_id).await?;
-    Ok(Json(channel))
+    let access = authz::require_channel_access(&state, ch_id, auth.user_id).await?;
+    Ok(Json(access.channel))
 }
 
 #[utoipa::path(patch, path = "/channels/{ch_id}", tag = "channels", request_body = UpdateChannelRequest, responses((status = 200, body = Channel)))]

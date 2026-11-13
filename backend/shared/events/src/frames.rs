@@ -37,6 +37,23 @@ pub enum HuddleTransport {
     Sfu,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+pub enum Departure {
+    #[default]
+    Removed,
+    GuestExpired,
+}
+
+impl Departure {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Departure::Removed => "removed",
+            Departure::GuestExpired => "guest_expired",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 pub struct PresenceEntry {
     pub user_id: Uuid,
@@ -295,7 +312,12 @@ pub enum ServerFrame {
         private: bool,
     },
     #[serde(rename = "workspace.access_revoked")]
-    WorkspaceAccessRevoked { workspace_id: Uuid },
+    WorkspaceAccessRevoked {
+        workspace_id: Uuid,
+        #[serde(default)]
+        #[ts(inline)]
+        reason: Departure,
+    },
     #[serde(rename = "workspace.joined")]
     WorkspaceJoined { workspace_id: Uuid },
     #[serde(rename = "workspace.members_changed")]

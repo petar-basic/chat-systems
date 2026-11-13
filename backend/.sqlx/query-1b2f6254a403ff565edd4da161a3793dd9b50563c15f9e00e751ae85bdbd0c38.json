@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT wm.workspace_id, wm.user_id, wm.role AS \"role: WorkspaceRole\", wm.joined_at,\n                   '' AS \"email!\",\n                   COALESCE(wm.display_name, u.display_name) AS display_name,\n                   COALESCE(wm.avatar_url, u.avatar_url) AS avatar_url,\n                   COALESCE(wm.bio, u.bio) AS bio,\n                   COALESCE(wm.title, u.title) AS title,\n                   COALESCE(wm.pronouns, u.pronouns) AS pronouns,\n                   CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()\n                        THEN wm.status_emoji END AS \"status_emoji?\",\n                   CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()\n                        THEN wm.status_text END AS \"status_text?\",\n                   public.notifications_paused_until(wm.workspace_id, u.id, NOW()) AS notifications_paused_until,\n                   u.timezone,\n                   u.is_bot\n            FROM workspace_members wm\n            JOIN users u ON u.id = wm.user_id\n            WHERE wm.workspace_id = $1\n              AND (\n                wm.user_id = $2\n                OR EXISTS (\n                  SELECT 1\n                    FROM channel_members mine\n                    JOIN channel_members theirs ON theirs.channel_id = mine.channel_id\n                   WHERE mine.user_id = $2\n                     AND theirs.user_id = wm.user_id\n                )\n              )\n            ORDER BY wm.joined_at\n            ",
+  "query": "\n            SELECT wm.workspace_id, wm.user_id, wm.role AS \"role: WorkspaceRole\", wm.joined_at,\n                   CASE WHEN u.is_bot THEN '' ELSE u.email END AS \"email!\",\n                   COALESCE(wm.display_name, u.display_name) AS display_name,\n                   COALESCE(wm.avatar_url, u.avatar_url) AS avatar_url,\n                   COALESCE(wm.bio, u.bio) AS bio,\n                   COALESCE(wm.title, u.title) AS title,\n                   COALESCE(wm.pronouns, u.pronouns) AS pronouns,\n                   CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()\n                        THEN wm.status_emoji END AS \"status_emoji?\",\n                   CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()\n                        THEN wm.status_text END AS \"status_text?\",\n                   public.notifications_paused_until(wm.workspace_id, u.id, NOW()) AS notifications_paused_until,\n                   u.timezone,\n                   u.is_bot,\n                   wm.guest_kind AS \"guest_kind: GuestKind\",\n                   wm.guest_until\n            FROM workspace_members wm\n            JOIN users u ON u.id = wm.user_id\n            WHERE wm.workspace_id = $1\n            ORDER BY wm.joined_at\n            ",
   "describe": {
     "columns": [
       {
@@ -62,7 +62,7 @@
       {
         "ordinal": 4,
         "name": "email!",
-        "type_info": "Text",
+        "type_info": "Varchar",
         "origin": "Expression"
       },
       {
@@ -134,11 +134,42 @@
             "name": "is_bot"
           }
         }
+      },
+      {
+        "ordinal": 15,
+        "name": "guest_kind: GuestKind",
+        "type_info": {
+          "Custom": {
+            "name": "guest_kind",
+            "kind": {
+              "Enum": [
+                "single",
+                "multi"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "workspace_members",
+            "name": "guest_kind"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "guest_until",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "workspace_members",
+            "name": "guest_until"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid",
         "Uuid"
       ]
     },
@@ -157,8 +188,10 @@
       null,
       null,
       true,
-      false
+      false,
+      true,
+      true
     ]
   },
-  "hash": "0293060c6a333015372da26b4fd4ff5bcd23aba834c2778b405e77d537b6643b"
+  "hash": "1b2f6254a403ff565edd4da161a3793dd9b50563c15f9e00e751ae85bdbd0c38"
 }

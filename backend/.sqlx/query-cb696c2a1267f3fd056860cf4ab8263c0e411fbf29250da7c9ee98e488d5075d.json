@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id FROM channels\n              WHERE workspace_id = $1 AND id = ANY($2) AND NOT is_archived\n                AND channel_type IN ('public', 'private')\n              ORDER BY name",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "channels",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "cb696c2a1267f3fd056860cf4ab8263c0e411fbf29250da7c9ee98e488d5075d"
+}

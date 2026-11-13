@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO workspace_members (workspace_id, user_id, role)\n            VALUES ($1, $2, $3)\n            ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = $3\n            RETURNING workspace_id, user_id, role AS \"role: WorkspaceRole\", joined_at,\n                      (SELECT u.is_bot FROM users u WHERE u.id = $2) AS \"is_bot!\"\n            ",
+  "query": "UPDATE workspace_members\n                  SET role = $3,\n                      guest_kind = CASE WHEN $3 = 'guest'::workspace_role\n                                        THEN COALESCE(guest_kind, 'multi'::guest_kind) END,\n                      guest_until = CASE WHEN $3 = 'guest'::workspace_role THEN guest_until END,\n                      guest_invited_by = CASE WHEN $3 = 'guest'::workspace_role THEN guest_invited_by END,\n                      guest_warned_at = CASE WHEN $3 = 'guest'::workspace_role THEN guest_warned_at END\n                WHERE workspace_id = $1 AND user_id = $2\n               RETURNING workspace_id, user_id, role AS \"role: WorkspaceRole\", joined_at,\n                         (SELECT u.is_bot FROM users u WHERE u.id = $2) AS \"is_bot!\"",
   "describe": {
     "columns": [
       {
@@ -93,5 +93,5 @@
       null
     ]
   },
-  "hash": "b4c519c7bd6db32097cfadb13880b4d4cc2d786ce1ba386b7e71c91b779df1e8"
+  "hash": "ed5a42b607183a23cc5b31cc0e56e0a1033cb113f7bab278f8fd6b3efed5281c"
 }

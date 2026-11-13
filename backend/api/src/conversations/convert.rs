@@ -58,6 +58,13 @@ pub async fn convert(
     let workspace_id = conversation.workspace_id;
 
     let mut tx = state.pool.begin().await?;
+    crate::guests::service::require_room_in(
+        &mut tx,
+        workspace_id,
+        &convertible.participants,
+        conversation.id,
+    )
+    .await?;
     let channel = state
         .conversation_repo
         .convert_in(&mut tx, conversation.id, name, actor)

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO workspace_members (workspace_id, user_id, role)\n            VALUES ($1, $2, $3)\n            ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = workspace_members.role\n            RETURNING workspace_id, user_id, role AS \"role: WorkspaceRole\", joined_at,\n                      (SELECT u.is_bot FROM users u WHERE u.id = $2) AS \"is_bot!\"\n            ",
+  "query": "\n            INSERT INTO workspace_members\n                (workspace_id, user_id, role, guest_kind, guest_until, guest_invited_by)\n            SELECT $1, $2, $3,\n                   CASE WHEN guest THEN COALESCE($4, 'multi'::guest_kind) END,\n                   CASE WHEN guest THEN $5::timestamptz END,\n                   CASE WHEN guest THEN $6::uuid END\n              FROM (SELECT $3 = 'guest'::workspace_role AS guest) g\n            ON CONFLICT (workspace_id, user_id) DO NOTHING\n            RETURNING workspace_id, user_id, role AS \"role: WorkspaceRole\", joined_at,\n                      (SELECT u.is_bot FROM users u WHERE u.id = $2) AS \"is_bot!\"\n            ",
   "describe": {
     "columns": [
       {
@@ -82,7 +82,20 @@
               ]
             }
           }
-        }
+        },
+        {
+          "Custom": {
+            "name": "guest_kind",
+            "kind": {
+              "Enum": [
+                "single",
+                "multi"
+              ]
+            }
+          }
+        },
+        "Timestamptz",
+        "Uuid"
       ]
     },
     "nullable": [
@@ -93,5 +106,5 @@
       null
     ]
   },
-  "hash": "ce4f83b9435d930f616c67e2375d1f8eedf51cdab6efedaa5355f4b603882799"
+  "hash": "ebfe0282324fa5c4c5aee4cbd1f181ae1108ba5176a8e8e142a9d43918d8eeb1"
 }

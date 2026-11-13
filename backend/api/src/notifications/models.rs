@@ -33,6 +33,7 @@ pub enum SystemNotice {
     WorkflowStopped,
     AppRequested,
     NotDelivered,
+    GuestEnding,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, ToSchema)]
@@ -83,6 +84,12 @@ pub struct NotificationData {
     pub failure: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub later_id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub guest_user_id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub guest_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub guest_until: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

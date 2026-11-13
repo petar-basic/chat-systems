@@ -33,6 +33,7 @@ pub struct AppState {
     pub notification_repo: NotificationRepo,
     pub conversation_repo: ConversationRepo,
     pub later_repo: LaterRepo,
+    pub guest_repo: crate::guests::repo::GuestRepo,
     pub poll_repo: crate::polls::repo::PollRepo,
     pub list_repo: crate::lists::repo::ListRepo,
     pub thread_repo: crate::threads::repo::ThreadRepo,

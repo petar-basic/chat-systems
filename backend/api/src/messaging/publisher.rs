@@ -385,12 +385,17 @@ impl EventPublisher {
         conn: &mut PgConnection,
         workspace_id: Uuid,
         user_id: Uuid,
+        reason: shared_events::frames::Departure,
     ) -> AppResult<Staged> {
         Self::stage(
             conn,
             "workspace.member_removed",
             workspace_id,
-            serde_json::json!({ "workspace_id": workspace_id, "user_id": user_id }),
+            serde_json::json!({
+                "workspace_id": workspace_id,
+                "user_id": user_id,
+                "reason": reason,
+            }),
         )
         .await
     }

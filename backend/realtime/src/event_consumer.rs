@@ -470,8 +470,13 @@ pub(crate) async fn handle_event_for(
             };
             cm.leave_workspace_for_user(uid, ws_id);
             cm.presence_leave_workspace(uid, ws_id).await;
+            let reason = payload
+                .get("reason")
+                .and_then(|r| serde_json::from_value(r.clone()).ok())
+                .unwrap_or_default();
             let notice = ServerFrame::WorkspaceAccessRevoked {
                 workspace_id: ws_id,
+                reason,
             };
             cm.send_to_user(audience, uid, &framed(&notice)).await;
             let changed = ServerFrame::WorkspaceMembersChanged {

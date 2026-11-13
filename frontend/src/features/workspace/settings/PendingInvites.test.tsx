@@ -17,6 +17,7 @@ const invite = (extra: Partial<WorkspaceInvite>): WorkspaceInvite => ({
   use_count: 0,
   expires_at: later,
   created_at: later,
+  channel_ids: [],
   ...extra,
 });
 let invites: WorkspaceInvite[] = [];

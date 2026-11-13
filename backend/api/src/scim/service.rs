@@ -38,7 +38,13 @@ pub async fn deactivate(
         .await?;
 
     for workspace in &workspaces {
-        let dropped = crate::workspace::membership::detach(state, workspace.id, user_id).await?;
+        let dropped = crate::workspace::membership::detach(
+            state,
+            workspace.id,
+            user_id,
+            shared_events::frames::Departure::Removed,
+        )
+        .await?;
         audit::record(
             state,
             AuditEntry::machine(AuditAction::WorkspaceMemberRemoved)

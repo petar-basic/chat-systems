@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO workspace_members (workspace_id, user_id, role)\n            VALUES ($1, $2, $3)\n            ON CONFLICT (workspace_id, user_id) DO NOTHING\n            RETURNING workspace_id, user_id, role AS \"role: WorkspaceRole\", joined_at,\n                      (SELECT u.is_bot FROM users u WHERE u.id = $2) AS \"is_bot!\"\n            ",
+  "query": "\n            INSERT INTO workspace_members (workspace_id, user_id, role, guest_kind)\n            VALUES ($1, $2, $3, CASE WHEN $3 = 'guest'::workspace_role THEN 'multi'::guest_kind END)\n            ON CONFLICT (workspace_id, user_id) DO UPDATE\n               SET role = $3, guest_kind = EXCLUDED.guest_kind, guest_until = NULL,\n                   guest_invited_by = NULL, guest_warned_at = NULL\n            RETURNING workspace_id, user_id, role AS \"role: WorkspaceRole\", joined_at,\n                      (SELECT u.is_bot FROM users u WHERE u.id = $2) AS \"is_bot!\"\n            ",
   "describe": {
     "columns": [
       {
@@ -93,5 +93,5 @@
       null
     ]
   },
-  "hash": "b5b7d78ea9334c4b2ee7e3f8ca7008e73b1109524a2fc9adca4568211e5987e1"
+  "hash": "72b1461219a54b557ec40634e26cd6ea78d731da82e327e326484dff3b82d496"
 }

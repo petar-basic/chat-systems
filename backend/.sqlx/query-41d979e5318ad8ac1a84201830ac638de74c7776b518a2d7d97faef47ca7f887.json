@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, workspace_id, created_by, email, role AS \"role: WorkspaceRole\", token, max_uses,\n                   use_count AS \"use_count!\", expires_at, created_at\n                 FROM workspace_invites\n                WHERE email = lower($1)\n                  AND expires_at >= NOW()\n                  AND (max_uses IS NULL OR use_count < max_uses)\n                ORDER BY created_at DESC\n                LIMIT 1",
+  "query": "\n            UPDATE workspace_invites\n            SET use_count = use_count + 1\n            WHERE id = $1\n              AND (max_uses IS NULL OR use_count < max_uses)\n            RETURNING id, workspace_id, created_by, email, role AS \"role: WorkspaceRole\", token, max_uses,\n                   use_count AS \"use_count!\", expires_at, created_at,\n                   guest_kind AS \"guest_kind: GuestKind\", guest_until,\n                   ARRAY(SELECT c.channel_id FROM workspace_invite_channels c\n                          WHERE c.invite_id = workspace_invites.id) AS \"channel_ids!\"\n            ",
   "describe": {
     "columns": [
       {
@@ -124,11 +124,49 @@
             "name": "created_at"
           }
         }
+      },
+      {
+        "ordinal": 10,
+        "name": "guest_kind: GuestKind",
+        "type_info": {
+          "Custom": {
+            "name": "guest_kind",
+            "kind": {
+              "Enum": [
+                "single",
+                "multi"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "workspace_invites",
+            "name": "guest_kind"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "guest_until",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "workspace_invites",
+            "name": "guest_until"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "channel_ids!",
+        "type_info": "UuidArray",
+        "origin": "Expression"
       }
     ],
     "parameters": {
       "Left": [
-        "Text"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -141,8 +179,11 @@
       true,
       true,
       true,
-      false
+      false,
+      true,
+      true,
+      null
     ]
   },
-  "hash": "a3917d29bdea09cfa63ea35f12c35084d7375b7856cb8e4921a77f2f785da52a"
+  "hash": "41d979e5318ad8ac1a84201830ac638de74c7776b518a2d7d97faef47ca7f887"
 }

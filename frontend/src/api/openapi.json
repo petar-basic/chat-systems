@@ -8697,6 +8697,55 @@
         }
       }
     },
+    "/workspaces/{ws_id}/members/{user_id}/guest": {
+      "patch": {
+        "tags": [
+          "workspaces"
+        ],
+        "operationId": "update_guest",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateGuestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuestSeat"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workspaces/{ws_id}/members/{user_id}/role": {
       "patch": {
         "tags": [
@@ -12431,6 +12480,13 @@
       "CreateInviteRequest": {
         "type": "object",
         "properties": {
+          "channel_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           "email": {
             "type": [
               "string",
@@ -12443,6 +12499,23 @@
               "null"
             ],
             "format": "int64"
+          },
+          "guest_kind": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/GuestKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "guest_until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           },
           "max_uses": {
             "type": [
@@ -14499,6 +14572,23 @@
                 "email": {
                   "type": "string"
                 },
+                "guest_kind": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/GuestKind"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "guest_until": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
                 "is_bot": {
                   "type": "boolean"
                 },
@@ -15398,9 +15488,17 @@
                 "role",
                 "token",
                 "use_count",
-                "created_at"
+                "created_at",
+                "channel_ids"
               ],
               "properties": {
+                "channel_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
                 "created_at": {
                   "type": "string",
                   "format": "date-time"
@@ -15416,6 +15514,23 @@
                   ]
                 },
                 "expires_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "guest_kind": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/GuestKind"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "guest_until": {
                   "type": [
                     "string",
                     "null"
@@ -16359,6 +16474,36 @@
               "type": "string",
               "format": "uuid"
             }
+          }
+        }
+      },
+      "GuestKind": {
+        "type": "string",
+        "enum": [
+          "single",
+          "multi"
+        ]
+      },
+      "GuestSeat": {
+        "type": "object",
+        "required": [
+          "user_id",
+          "guest_kind"
+        ],
+        "properties": {
+          "guest_kind": {
+            "$ref": "#/components/schemas/GuestKind"
+          },
+          "guest_until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
@@ -17563,6 +17708,23 @@
           "email": {
             "type": "string"
           },
+          "guest_kind": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/GuestKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "guest_until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
           "is_bot": {
             "type": "boolean"
           },
@@ -18092,6 +18254,26 @@
             ]
           },
           "from_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "guest_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "guest_until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "guest_user_id": {
             "type": [
               "string",
               "null"
@@ -19925,7 +20107,8 @@
         "enum": [
           "workflow_stopped",
           "app_requested",
-          "not_delivered"
+          "not_delivered",
+          "guest_ending"
         ]
       },
       "TextSize": {
@@ -20672,6 +20855,24 @@
           },
           "name": {
             "type": "string"
+          }
+        }
+      },
+      "UpdateGuestRequest": {
+        "type": "object",
+        "required": [
+          "guest_kind"
+        ],
+        "properties": {
+          "guest_kind": {
+            "$ref": "#/components/schemas/GuestKind"
+          },
+          "guest_until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -21706,9 +21907,17 @@
           "role",
           "token",
           "use_count",
-          "created_at"
+          "created_at",
+          "channel_ids"
         ],
         "properties": {
+          "channel_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           "created_at": {
             "type": "string",
             "format": "date-time"
@@ -21724,6 +21933,23 @@
             ]
           },
           "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "guest_kind": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/GuestKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "guest_until": {
             "type": [
               "string",
               "null"
