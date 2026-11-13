@@ -25,8 +25,9 @@ feedback on 3.7.0 and CS-037, shipped in 4.0.0.
 After it, releases are bug fixes only for a while. Wave 29, a desktop app, shipped in 4.1.0. Wave 30,
 themes per workspace and the preferences a team from Slack looks for, shipped in 4.2.0. Wave 31, passkeys
 and emailed sign-in codes, shipped in 4.3.0. Wave 32, analytics for admins, shipped in 4.4.0. Wave 32a,
-which fixes what the 2026-11-10 survey of 4.6.0 found, shipped in 4.7.0. Wave 32b, the emails, comes
-next, then Wave 33 (mobile apps, 5.0.0).
+which fixes what the 2026-11-10 survey of 4.6.0 found, shipped in 4.7.0. Wave 32b, the emails, shipped
+in 4.7.1 and 4.7.2. Waves 33–36, what Slack has that was chosen on 2026-11-13, come next as 4.8.0,
+then Wave 37 (mobile apps, 5.0.0).
 
 Waves are groupings, not gates: you can start the next ticket in a wave before the
 previous one merges, but you should not start a wave before the wave above it is done,
@@ -426,7 +427,7 @@ One smaller finding was dropped: the *Incoming huddle* row under a pause is the 
 notification follows, decided in Wave 27. A doubled unread count after a replay (RT-1), dropped
 in Wave 27 because it corrects itself, is back in: coming back to a workspace replays
 everything since you left, so it happens on every switch. The numbers carry a letter so the
-wave lands before Wave 33 without renumbering it. What lets somebody into a conversation, a
+wave lands before the mobile wave, then Wave 33, without renumbering it. What lets somebody into a conversation, a
 role or a channel they should not have comes first.
 
 | # | Ticket | Area |
@@ -451,8 +452,9 @@ role or a channel they should not have comes first.
 Planned on 2026-11-12 from the emails 4.7.0 sends, read in MailHog. A reset link is 426
 characters and an invite link carries the invitee's address; six of the seven emails are plain
 text, three subjects name no instance, the digest has no way to turn it off, and no email has a
-`Message-ID`. The numbers carry a letter, as in Wave 32a, so the wave lands before Wave 33. The
-links come first, so the layout is written once around the short ones.
+`Message-ID`. The numbers carry a letter, as in Wave 32a, so the wave lands before the mobile wave, then Wave 33. The
+links come first, so the layout is written once around the short ones. Shipped in 4.7.1 (CS-121o,
+CS-121p) and 4.7.2 (CS-121q).
 
 | # | Ticket | Area |
 |---|---|---|
@@ -460,19 +462,76 @@ links come first, so the layout is written once around the short ones.
 | CS-121p ✅ | Emails that look like they come from a company | backend · frontend |
 | CS-121q ✅ | Emails in the reader's language | backend |
 
-### Wave 33 — Mobile apps
+### Wave 33 — Channels and the people in them
 
-Planned on 2026-11-04, to go out as 5.0.0, the major version because CS-122 moves every
-route under `/api/v1`. Phone apps on Tauri 2, like the desktop app, if the spike (CS-123)
+On 2026-11-13 the app was read against Slack, leaving out the phone apps and signing the
+desktop app, and thirty-one gaps were listed. Seventeen were chosen for the next release,
+4.8.0, and are Waves 33–36. Two of them are split in two: blocks and interactivity (CS-134,
+CS-135), and workflows and the steps apps add (CS-138, CS-139). This wave changes who can
+read a channel and who is in a workspace, so it comes first, as access always does here.
+
+| # | Ticket | Area |
+|---|---|---|
+| CS-122 | A channel that becomes private, or public | backend · frontend · realtime |
+| CS-123 | A group DM that becomes a private channel | backend · frontend |
+| CS-124 | Guests for one channel or several, until a date | backend · frontend |
+| CS-125 | Asking an admin to invite someone | backend · frontend |
+| CS-126 | Profile fields of the workspace's own | backend · frontend |
+
+### Wave 34 — Writing and finding
+
+Chosen on 2026-11-13. What a person writes, looks for and sends every day. CS-130 also brings
+the built-in bot users that the calendars of CS-140 post as.
+
+| # | Ticket | Area |
+|---|---|---|
+| CS-127 | Drafts that follow you, and *Drafts & sent* | backend · frontend · realtime |
+| CS-128 | Recent searches | backend · frontend |
+| CS-129 | GIFs | backend · frontend · ops |
+| CS-130 | Custom responses from the workspace's bot | backend · frontend |
+
+### Wave 35 — Huddles and clips
+
+Chosen on 2026-11-13. A huddle that leaves something behind, a shared screen people can point
+at, and recordings for when nobody can meet. Clips came off the ROADMAP's *left for much
+later* list that day.
+
+| # | Ticket | Area |
+|---|---|---|
+| CS-131 | A huddle's own thread | backend · frontend · realtime |
+| CS-132 | Drawing on a shared screen | frontend · realtime · desktop |
+| CS-133 | Clips: recorded audio, video and screen | frontend · backend · desktop |
+
+### Wave 36 — Apps that do more
+
+Chosen on 2026-11-13. Apps get Slack's blocks, interactivity, a Home tab, shortcuts and link
+previews of their own, and workflows learn to branch, wait and use steps from apps. Blocks come
+first: CS-135 – CS-137 and the calendars' messages are written on them.
+
+| # | Ticket | Area |
+|---|---|---|
+| CS-134 | Messages built from blocks | backend · frontend · docs |
+| CS-135 | Buttons, menus and modals that reach the app | backend · frontend · realtime · docs |
+| CS-136 | An app's Home tab and its shortcuts | backend · frontend · docs |
+| CS-137 | Apps that preview their own links | backend · frontend · docs |
+| CS-138 | Workflows that branch, wait and do more | backend · frontend |
+| CS-139 | Workflow steps from apps | backend · frontend · docs |
+| CS-140 | Google and Outlook calendars | backend · frontend · ops · docs |
+
+### Wave 37 — Mobile apps
+
+Planned on 2026-11-04, to go out as 5.0.0, the major version because CS-141 moves every
+route under `/api/v1`. It was Wave 33 with CS-122 – CS-126 until 2026-11-13, when the Slack
+gaps were put ahead of it and it was renumbered. Phone apps on Tauri 2, like the desktop app, if the spike (CS-142)
 says a huddle and a push work there; the push relay waits on who runs it.
 
 | # | Ticket | Area |
 |---|---|---|
-| CS-122 | `/api/v1`, and a client and a server that know each other's version | backend · frontend · ops · docs |
-| CS-123 | Does a Tauri phone app hold a huddle and receive a push? | mobile |
-| CS-124 | Signing in from a client the server does not serve | backend · frontend · mobile |
-| CS-125 | Phone apps for iOS and Android | mobile · frontend · ops |
-| CS-126 | A push relay for phones | backend · mobile · ops |
+| CS-141 | `/api/v1`, and a client and a server that know each other's version | backend · frontend · ops · docs |
+| CS-142 | Does a Tauri phone app hold a huddle and receive a push? | mobile |
+| CS-143 | Signing in from a client the server does not serve | backend · frontend · mobile |
+| CS-144 | Phone apps for iOS and Android | mobile · frontend · ops |
+| CS-145 | A push relay for phones | backend · mobile · ops |
 
 ## Conflict map
 
@@ -520,12 +579,12 @@ Tickets that touch the same files, and the order that avoids rework:
 | sidebar tokens and *Preferences → Appearance* | CS-111 → CS-112 |
 | `workspace_members` profile columns | CS-111 → CS-116 |
 | `users.preferences` and the *Preferences* tabs | CS-113 → CS-114 → CS-115 → CS-117 |
-| sign-in page, `auth/routes.rs` login and the second step | CS-118 → CS-119 → CS-124 |
+| sign-in page, `auth/routes.rs` login and the second step | CS-118 → CS-119 → CS-143 |
 | *Preferences → Security* | CS-118 |
 | worker rollups and *Workspace settings → Analytics* | CS-120 → CS-121 |
-| route prefixes, nginx, Caddy and the E2E helpers | CS-122 |
-| `/auth/oidc/exchange` and the deep link | CS-109 ✅ → CS-118 → CS-124 → CS-125 |
-| the Tauri project's mobile targets | CS-123 → CS-125 → CS-126 |
+| route prefixes, nginx, Caddy and the E2E helpers | CS-141 |
+| `/auth/oidc/exchange` and the deep link | CS-109 ✅ → CS-118 → CS-143 → CS-144 |
+| the Tauri project's mobile targets | CS-142 → CS-144 → CS-145 |
 | `MessageInput.tsx` key handling | CS-114 |
 | `membership::detach`, `remove_member_in` and the conversation list | CS-117a ✅ → CS-121c |
 | `membership::add_to_channel` and the channel member routes in `workspace/routes.rs` | CS-121a |
@@ -544,3 +603,19 @@ Tickets that touch the same files, and the order that avoids rework:
 | `lib/notifications.ts` and the desktop report | CS-121k → CS-121m |
 | `MessageRepo::search`, `FileRepo::search`, `keyword_pattern` and the Postgres image | CS-121n |
 | desktop `report_theme` | CS-112 |
+| channel type changes, `authz` channel access and the realtime channel scope | CS-122 → CS-123 → CS-124 → CS-131 |
+| invites, `accept_invite` and *Workspace settings → Members* | CS-124 → CS-125 |
+| `workspace_members` profile and the *People* directory | CS-126 |
+| `MessageInput.tsx` and the composer's buttons | CS-127 → CS-129 → CS-133 |
+| *You* menu and `ScheduledMessagesPanel` | CS-127 |
+| `SearchPanel` and `SearchFilterBar` | CS-128 |
+| `commands/builtin.rs` | CS-129 |
+| built-in bot users and the message stream consumers in `chat-worker` | CS-130 → CS-140 |
+| huddle window, `HuddleControlBar` and huddle realtime frames | CS-131 → CS-132 |
+| `files/` upload metadata and `MessageAttachments.tsx` | CS-133 |
+| message `metadata`, the static renderer and `hooks/models.rs` payloads | CS-134 → CS-135 → CS-137 |
+| `app_events`, `bots/models.rs` and the app's page in *Apps* | CS-134 → CS-135 → CS-136 → CS-137 → CS-139 |
+| `ShortcutMenu.tsx` and message *More actions* | CS-136 |
+| `messaging/unfurl/consumer.rs` | CS-137 |
+| `workflows/models.rs`, `runner.rs` and the builder | CS-138 → CS-139 |
+| `integrations/` providers and *Preferences* | CS-140 |

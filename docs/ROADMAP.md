@@ -31,21 +31,58 @@ codes, erase and export that cover everything, the desktop app after signing out
 notifications in the reader's language, and search that finds a word inside Japanese text, on
 pg_bigm.
 
-**Wave 32b — email**, next (CS-121o – CS-121q), planned on 2026-11-12 from what the emails of
-4.7.0 look like. Links under 70 characters instead of over 400, carrying no address, one
-layout for every email with a text part, subjects that say where they are from, a digest with
-one-click unsubscribe, the headers spam filters look for, and every email in the reader's
-language.
+**Wave 32b — email** shipped in 4.7.1 (CS-121o, CS-121p) and 4.7.2 (CS-121q), planned on
+2026-11-12 from what the emails of 4.7.0 look like. Links under 70 characters instead of over
+400, carrying no address, one layout for every email with a text part, subjects that say where
+they are from, a digest with one-click unsubscribe, the headers spam filters look for, and
+every email in the reader's language.
 
-Planned after it on 2026-11-04:
+**Waves 33–36 — what Slack has**, next, as 4.8.0 (CS-122 – CS-140). On 2026-11-13 the app was
+read against Slack, leaving out the phone apps and signing the desktop app, and seventeen of
+the thirty-one gaps found were chosen:
+- **Wave 33, channels and the people in them:**
+  - channels that change between public and private;
+  - group DMs that become channels;
+  - single-channel and multi-channel guests with an end date;
+  - invite requests;
+  - profile fields of the workspace's own.
+- **Wave 34, writing and finding:**
+  - drafts on the server with *Drafts & sent*;
+  - recent searches;
+  - GIFs;
+  - custom responses from the workspace's bot.
+- **Wave 35, huddles and clips:**
+  - a thread for each huddle;
+  - drawing on a shared screen;
+  - recorded clips.
+- **Wave 36, apps that do more:**
+  - Slack's blocks and interactivity, with modals;
+  - an app's Home tab and its shortcuts;
+  - link previews drawn by apps;
+  - workflows that branch, wait and use steps from apps;
+  - Google and Outlook calendars.
 
-- **Wave 33 — mobile apps**, 5.0.0 (CS-122 – CS-126): every route under `/api/v1`, a spike
+Not chosen that day:
+- live captions and transcripts;
+- a channel's own email address;
+- the enterprise controls: an organisation above workspaces, session and IP rules, legal hold
+  and eDiscovery, DLP, and customer-managed keys;
+- languages beyond English and Japanese.
+
+What this page already leaves out stayed out: Slack Connect, AI, canvases, server-side huddle
+recording, scale by headcount, OCR, and SCIM `/Groups`.
+
+Planned after them on 2026-11-04:
+
+- **Wave 37 — mobile apps**, 5.0.0 (CS-141 – CS-145): every route under `/api/v1`, a spike
   for Tauri 2 on iOS and Android, signing in from a bundled client, the apps, and a push
-  relay. The major version is for `/api/v1`, which changes every pasted webhook URL.
+  relay. The major version is for `/api/v1`, which changes every pasted webhook URL. It was
+  Wave 33 until 2026-11-13.
 
-Left for much later, decided the same day: channels shared with another server (Slack
-Connect), recorded audio and video clips, and AI summaries and answers. Each is large on
-its own, and none is asked for by a team using the app today.
+Left for much later, decided on 2026-11-04: channels shared with another server (Slack
+Connect), and AI summaries and answers. Each is large on its own, and none is asked for by a
+team using the app today. Recorded clips were on this list too, until they were chosen for
+4.8.0 on 2026-11-13 (CS-133).
 
 **Wave 29 — a desktop app** shipped in 4.1.0: CS-106 to CS-110, planned on 2026-11-02 in [native-apps-plan.md](./native-apps-plan.md). One app we
 publish opens any server, built on Tauri 2 around each server's own web app, and updates
@@ -59,7 +96,7 @@ trying it would, and shipped in 3.4.0. Wave 25, raised on 2026-10-27 after 3.4.2
 3.5.0. Wave 26, the findings of the 2026-10-27 product survey, shipped in 3.6.0, and Wave 27, from
 the 2026-10-28 survey of 3.6.0, in 3.7.0. Wave 28 shipped in 4.0.0, and after it releases carry bug fixes only for a while: no new
 feature work until the fixes have settled. Two decisions were considered on 2026-09-02 and deferred
-with their reasoning below: versioning the API path, now planned as CS-122, and asymmetric JWT
+with their reasoning below: versioning the API path, now planned as CS-141, and asymmetric JWT
 signing.
 
 ## How the order was chosen
@@ -153,4 +190,4 @@ was pencilled in for it was absorbed into 9 and 11.
 - **Versioning the API path (`/api/v1`).** Considered 2026-09-02 and deferred, because it
   breaks every incoming-webhook URL already pasted into somebody's CI for a benefit that
   only comes with a client of another version. The phone apps are that client, so it is
-  now CS-122, in 5.0.0.
+  now CS-141, in 5.0.0.
