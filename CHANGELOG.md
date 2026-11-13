@@ -49,6 +49,12 @@ instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   they join; a guest who accepts no longer joins the default channels. Guests already in a
   workspace become multi-channel guests with no end date.
 
+### Fixed
+
+- Opening a link to a channel a guest is not in showed the channel with an error and a *Join
+  channel* button the guest could not use; the tab now goes back to the workspace. The same
+  request no longer tells someone outside a private channel its name, topic or description.
+
 ## [4.7.2] — 2026-11-13
 
 ### Upgrading from 4.7.1

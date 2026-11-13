@@ -775,3 +775,56 @@ async fn a_guest_always_has_a_kind_and_only_a_guest_has_one(pool: PgPool) {
         "a guest nobody described is multi-channel"
     );
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_channel_opens_only_for_those_who_can_read_it(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "peek-owner", false).await;
+    let ws = seed_workspace(&state, owner_id, "Peeking").await;
+    let vendor = seed_channel(&state, ws, owner_id, "vendor", false).await;
+    let general = seed_channel(&state, ws, owner_id, "general", false).await;
+    let secret = seed_channel(&state, ws, owner_id, "secret", true).await;
+    let (member_id, _, member) = seed_and_login(&app, &state, "peek-member", false).await;
+    add_ws_member(&state, ws, member_id, "member").await;
+    let (guest_id, _, guest) = seed_and_login(&app, &state, "peek-guest", false).await;
+    make_guest(&state, ws, guest_id, "multi", None).await;
+    join(&state, vendor, guest_id).await;
+
+    let open = |token: &str, ch: Uuid| {
+        let app = app.clone();
+        let token = token.to_owned();
+        async move {
+            send(
+                &app,
+                "GET",
+                &format!("/api/channels/{ch}"),
+                Some(&token),
+                None,
+            )
+            .await
+            .0
+        }
+    };
+
+    assert_eq!(
+        open(&guest, vendor).await,
+        StatusCode::OK,
+        "the guest's own channel"
+    );
+    assert_eq!(
+        open(&guest, general).await,
+        StatusCode::FORBIDDEN,
+        "a public channel the guest is not in stays shut"
+    );
+    assert_eq!(
+        open(&member, general).await,
+        StatusCode::OK,
+        "a member previews a public channel before joining"
+    );
+    assert_eq!(
+        open(&member, secret).await,
+        StatusCode::FORBIDDEN,
+        "a private channel says nothing to those outside it"
+    );
+    assert_eq!(open(&owner, secret).await, StatusCode::OK);
+}

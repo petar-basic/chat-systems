@@ -3253,3 +3253,11 @@ channel, and the audit log had `guest.updated` from the admin and `guest.expired
 The check found two faults, fixed here: the dialog's *No end date* button covered the date
 picker's calendar icon, and moved below the field; and the toast, which stays until dismissed,
 was still there for the next person to sign in on that tab, so signing out now clears toasts.
+
+The same check showed the guest, signed in on a tab whose last route was #general, a channel
+header with an error and a *Join channel* button. `GET /channels/{id}` asked only for workspace
+membership, so a guest got the preview of any public channel, and anyone in the workspace the
+name, topic and description of a private one; it now goes through `require_channel_access`,
+and the routing hook, which sends a refused preview back to the workspace, does the rest. Diana,
+a guest in #general alone, opened the link to #random: the request answered 403 and the tab
+moved to #general, while Charlie, a member outside #random, still got its preview.

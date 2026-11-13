@@ -760,9 +760,8 @@ async fn get_channel(
     auth: AuthUser,
     Path(ch_id): Path<Uuid>,
 ) -> AppResult<Json<Channel>> {
-    let channel = authz::find_channel(&state, ch_id).await?;
-    authz::require_workspace_member(&state, channel.workspace_id, auth.user_id).await?;
-    Ok(Json(channel))
+    let access = authz::require_channel_access(&state, ch_id, auth.user_id).await?;
+    Ok(Json(access.channel))
 }
 
 #[utoipa::path(patch, path = "/channels/{ch_id}", tag = "channels", request_body = UpdateChannelRequest, responses((status = 200, body = Channel)))]
