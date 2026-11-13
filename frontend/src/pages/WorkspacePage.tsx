@@ -228,6 +228,8 @@ export default function WorkspacePage() {
             onSave={c.handleSaveMessage}
             onForward={c.handleForwardMessage}
             onAddPeople={(people) => void c.handleOpenWith(people)}
+            canConvert={creatableChannelKinds(role, currentWorkspace.settings).includes('private')}
+            onConverted={(channel) => c.navigate(ROUTES.channel(currentWorkspace.id, channel.id))}
           />
         ) : (
           <FileDropZone

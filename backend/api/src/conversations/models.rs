@@ -67,3 +67,9 @@ pub struct DepartedParticipant {
 pub struct CreateConversationRequest {
     pub participant_ids: Vec<Uuid>,
 }
+
+#[derive(Debug, Deserialize, garde::Validate, ToSchema)]
+pub struct ConvertConversationRequest {
+    #[garde(custom(shared_common::validation::rules::channel_name))]
+    pub name: String,
+}

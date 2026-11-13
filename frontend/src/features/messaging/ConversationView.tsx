@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Menu, UserMinus, UserPlus } from 'lucide-react';
+import { ArrowLeft, Hash, Menu, UserMinus, UserPlus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useUserCache } from '@/stores/users';
 import { usePresenceStore } from '@/stores/presence';
@@ -23,6 +23,7 @@ import { OffHoursNote } from './OffHoursNote';
 import { asAttachments, useComposerAttachments } from './useComposerAttachments';
 import { useSlashCommand } from './hooks/useSlashCommand';
 import { CommandAnswer } from './CommandAnswer';
+import { ConvertConversationModal } from './ConvertConversationModal';
 
 interface Props {
   workspaceId: string;
@@ -39,6 +40,8 @@ interface Props {
   onSave: (message: Message) => void;
   onForward: (message: Message) => void;
   onAddPeople: (participantIds: string[]) => void;
+  canConvert: boolean;
+  onConverted: (channel: Channel) => void;
 }
 
 /// A direct message is a channel nobody can browse, so the feed, the composer
@@ -59,6 +62,8 @@ export default function ConversationView({
   onSave,
   onForward,
   onAddPeople,
+  canConvert,
+  onConverted,
 }: Props) {
   const { t } = useTranslation(['messages', 'channel']);
   const { getUser } = useUserCache();
@@ -73,6 +78,8 @@ export default function ConversationView({
   const others = participantIds.filter((id) => id !== currentUserId);
   const canAddPeople = !gone && others.length > 0 && others.length < MAX_GROUP_OTHERS;
   const [addingPeople, setAddingPeople] = useState(false);
+  const convertible = canConvert && !isDirect && participantIds.length >= 3;
+  const [converting, setConverting] = useState(false);
 
   const sendMutation = useSendMessage(conversation.id, currentUserId);
   const { signalTyping, stopTyping } = useTypingSignal(typingTargetOf(conversation.id), instanceUrl);
@@ -156,6 +163,17 @@ export default function ConversationView({
                 <UserPlus className="w-4 h-4" />
               </button>
             )}
+            {convertible && (
+              <button
+                onClick={() => setConverting(true)}
+                aria-label={t('conversation.convert.open')}
+                data-tooltip={t('conversation.convert.open')}
+                data-qa="conversation-convert"
+                className="p-1.5 rounded-lg text-muted hover:text-fg hover:bg-raised/50"
+              >
+                <Hash className="w-4 h-4" />
+              </button>
+            )}
             <NotificationLevelButton channelId={conversation.id} direct />
             {isDirect && !gone && (
               <HuddleStartButton
@@ -228,6 +246,15 @@ export default function ConversationView({
           adding={others}
           onStart={onAddPeople}
           onClose={() => setAddingPeople(false)}
+        />
+      )}
+      {converting && (
+        <ConvertConversationModal
+          conversationId={conversation.id}
+          instanceUrl={instanceUrl}
+          channels={channels}
+          onConverted={onConverted}
+          onClose={() => setConverting(false)}
         />
       )}
     </FileDropZone>

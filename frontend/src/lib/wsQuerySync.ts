@@ -23,6 +23,7 @@ import { QUERY_KEYS } from '@/shared/constants';
 import { applyReadState, recountAfterReplay } from './readState';
 import { applyChannel } from './channelArchive';
 import { applyChannelPrivacy, forgetChannel } from './channelAccess';
+import { applyConversion } from './conversationConversion';
 import { belongsElsewhere } from './channelWorkspace';
 import { readOnReturn, readOnScreen } from './readOnScreen';
 import { patchMessageEverywhere, shownInChannel } from './messagePatch';
@@ -319,6 +320,7 @@ export const useWebSocketQuerySync = () => {
     );
 
     unsubs.push(
+      globalEventBus.on('conversation.converted', (event) => applyConversion(queryClient, event.channel)),
       globalEventBus.on('conversation.created', (event) => {
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.conversations(event.workspace_id) });
         const instanceUrl = useWorkspaceStore.getState().currentWorkspace?.instanceUrl;

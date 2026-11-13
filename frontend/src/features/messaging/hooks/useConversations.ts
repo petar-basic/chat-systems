@@ -3,6 +3,7 @@ import type { components } from '@/api/schema';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { logger } from '@/lib/logger';
 import { newestSentIn } from '@/lib/readOnScreen';
+import { applyConversion } from '@/lib/conversationConversion';
 import { QUERY_KEYS } from '@/shared/constants';
 
 export type Conversation = components['schemas']['ConversationSummary'];
@@ -38,6 +39,20 @@ export const useOpenConversation = (workspaceId: string, instanceUrl?: string) =
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.conversations(workspaceId) });
     },
+  });
+};
+
+export const useConvertConversation = (instanceUrl?: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ conversationId, name }: { conversationId: string; name: string }) =>
+      getApiForInstance(instanceUrl).typed((c) =>
+        c.POST('/conversations/{conversation_id}/convert', {
+          params: { path: { conversation_id: conversationId } },
+          body: { name },
+        }),
+      ),
+    onSuccess: (channel) => applyConversion(queryClient, channel),
   });
 };
 

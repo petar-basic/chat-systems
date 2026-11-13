@@ -18,6 +18,9 @@ single-channel guests, multi-channel guests and an end date on both, all set on 
   - `guest_until`: a date, or none.
   - A single-channel guest is in exactly one channel. Adding them to a second is refused,
     and the answer says to make them a multi-channel guest first.
+  - Converting a group DM into a private channel (CS-123, `conversations::convert`) counts
+    as adding everyone in it. A single-channel guest already in another channel blocks the
+    conversion, and the answer and the dialog name who.
 - **The invite** for a guest says which channels and, optionally, until when. The admin
   picks the channels in the invite dialog; one only for a single-channel guest. Accepting
   joins them to those channels in the same transaction that makes them a member. A link
@@ -49,6 +52,7 @@ single-channel guests, multi-channel guests and an end date on both, all set on 
 `http_tests`:
 - a guest invite with channels, and a link invite for guests refused;
 - the second channel refused for a single-channel guest;
+- a group DM conversion refused while a single-channel guest in it is in another channel;
 - expiry through the loop with sessions revoked;
 - the three-day notice once only;
 - a Slack import of both kinds.

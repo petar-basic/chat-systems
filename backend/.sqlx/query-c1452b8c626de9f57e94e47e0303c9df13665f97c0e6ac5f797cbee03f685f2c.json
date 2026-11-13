@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE channel_members\n               SET role = CASE WHEN user_id = $2 THEN 'admin'::channel_role ELSE 'member'::channel_role END,\n                   notify_level = COALESCE(notify_level, 'all')\n             WHERE channel_id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c1452b8c626de9f57e94e47e0303c9df13665f97c0e6ac5f797cbee03f685f2c"
+}

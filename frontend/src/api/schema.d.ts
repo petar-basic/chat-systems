@@ -1211,6 +1211,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/conversations/{conversation_id}/convert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["convert_conversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/email/unsubscribe/{token}": {
         parameters: {
             query?: never;
@@ -4073,6 +4089,9 @@ export interface components {
             cleared: number;
             /** Format: int64 */
             converted: number;
+        };
+        ConvertConversationRequest: {
+            name: string;
         };
         CreateBotAppRequest: {
             description?: string | null;
@@ -8647,6 +8666,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    convert_conversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConvertConversationRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Channel"];
                 };
             };
         };

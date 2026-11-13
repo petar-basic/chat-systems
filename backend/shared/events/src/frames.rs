@@ -139,6 +139,14 @@ pub enum ServerFrame {
         conversation_id: Uuid,
         participant_ids: Vec<Uuid>,
     },
+    #[serde(rename = "conversation.converted")]
+    ConversationConverted {
+        conversation_id: Uuid,
+        workspace_id: Uuid,
+        participant_ids: Vec<Uuid>,
+        #[ts(type = "Channel")]
+        channel: serde_json::Value,
+    },
     #[serde(rename = "huddle.member_joined")]
     HuddleMemberJoined { huddle_id: Uuid, user_id: Uuid },
     #[serde(rename = "huddle.member_left")]

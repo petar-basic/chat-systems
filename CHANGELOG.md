@@ -27,6 +27,12 @@ instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   A DM, a group DM, an archived channel and a channel everyone joins by default keep their
   type. The channel shows who changed it, and the audit log records it as
   `channel.privacy_changed`.
+- A group DM of three or more people can become a private channel, from the button next to
+  *Add people* in its header. It keeps its history, threads, files and unread counts, the
+  person who converts it names it and becomes its admin, and it moves from *Direct messages*
+  to *Channels* for everyone in it, where new people can then be added. It cannot be turned
+  back. The workspace's rule for who may make private channels applies, and the audit log
+  records it as `conversation.converted`.
 
 ## [4.7.2] — 2026-11-13
 
