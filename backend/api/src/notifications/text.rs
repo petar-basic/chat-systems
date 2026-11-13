@@ -196,6 +196,8 @@ pub fn body(words: &Words, kind: &str, data: &NotificationData, content: &str) -
 
 #[cfg(test)]
 mod tests {
+    use std::collections::{BTreeMap, BTreeSet};
+
     use super::*;
 
     const JA: &str = r##"{
@@ -383,5 +385,59 @@ mod tests {
         };
         assert_eq!(title(&en, "message", &sneaky), "{{channel}} in #general");
         assert_eq!(fill("{{unknown}} and {{", &[]), "{{unknown}} and {{");
+    }
+
+    fn leaves(value: &Value, path: &str) -> Vec<(String, String)> {
+        match value {
+            Value::Object(map) => map
+                .iter()
+                .flat_map(|(key, child)| leaves(child, &format!("{path}.{key}")))
+                .collect(),
+            Value::String(text) => vec![(path.to_string(), text.clone())],
+            other => panic!("{path} is {other}, not a string"),
+        }
+    }
+
+    fn base(key: &str) -> &str {
+        key.strip_suffix("_one")
+            .or_else(|| key.strip_suffix("_other"))
+            .unwrap_or(key)
+    }
+
+    fn placeholders(text: &str) -> BTreeSet<&str> {
+        text.split("{{")
+            .skip(1)
+            .filter_map(|rest| rest.split_once("}}").map(|(name, _)| name.trim()))
+            .collect()
+    }
+
+    #[test]
+    fn every_email_string_has_japanese_with_the_same_placeholders() {
+        let catalog = |source| {
+            let value: Value = serde_json::from_str(source).expect("a catalog");
+            leaves(&value["email"], "email")
+        };
+        let en = catalog(include_str!("../../locales/en.json"));
+        let ja = catalog(include_str!("../../locales/ja.json"));
+        let japanese: BTreeMap<&str, &str> = ja
+            .iter()
+            .map(|(key, text)| (base(key), text.as_str()))
+            .collect();
+        for (key, text) in &en {
+            let translated = japanese
+                .get(base(key))
+                .unwrap_or_else(|| panic!("{key} has no Japanese"));
+            assert_eq!(placeholders(translated), placeholders(text), "{key}");
+        }
+        let english: BTreeSet<&str> = en.iter().map(|(key, _)| base(key)).collect();
+        for (key, _) in &ja {
+            assert!(english.contains(base(key)), "{key} is not in en.json");
+        }
+        let ja = words(Language::Ja);
+        assert_eq!(ja.count("email.mentions", 1, &[]), "1件のメンション");
+        assert_eq!(
+            ja.count("email.code.expiry", 1, &[]),
+            "コードは1回だけ使えます。有効期限は1分です。"
+        );
     }
 }
