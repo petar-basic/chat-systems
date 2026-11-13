@@ -17,6 +17,14 @@ instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ## [Unreleased]
 
+## [4.7.2] — 2026-11-13
+
+### Upgrading from 4.7.1
+
+- Set `VERSION=4.7.2`, pull the app images and restart `api`, `realtime`, `worker` and
+  `frontend` together. There are no migrations; Postgres stays as it is. The desktop app needs
+  no update.
+
 ### Changed
 
 - Every email is written in its reader's language: the one set in *Preferences → Language &
