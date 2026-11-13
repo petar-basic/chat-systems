@@ -11,6 +11,8 @@ pub fn validate_email(email: &str) -> AppResult<()> {
     let domain = &email[at + 1..];
     if local.is_empty()
         || domain.is_empty()
+        || domain.contains('@')
+        || email.trim().contains(char::is_whitespace)
         || !domain.contains('.')
         || domain.starts_with('.')
         || domain.ends_with('.')
@@ -470,6 +472,12 @@ mod tests {
     fn validate_email_rejects_empty_local_or_domain() {
         assert_validation_err(validate_email("@example.com"));
         assert_validation_err(validate_email("user@"));
+    }
+
+    #[test]
+    fn validate_email_rejects_two_addresses_run_together() {
+        assert_validation_err(validate_email("ana@example.comben@example.com"));
+        assert_validation_err(validate_email("ana@example.com ben@example.com"));
     }
 
     #[test]
