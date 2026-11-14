@@ -248,3 +248,104 @@ async fn a_japanese_invite_writes_the_names_it_was_given_as_plain_text(pool: PgP
         "{html}"
     );
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_japanese_invite_request_writes_what_the_requester_wrote_as_plain_text(pool: PgPool) {
+    let requester = r#"<img src=x onerror="alert(1)"> {{workspace}}"#;
+    let reason = r#"<img src=x onerror="alert(1)"> {{emails}}"#;
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, owner_address, owner_token) =
+        seed_and_login(&app, &state, "ja-asked", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Ja Requests").await;
+    let vendor = seed_channel(&state, ws_id, owner_id, "vendor", false).await;
+    let (member_id, _, member_token) = seed_and_login(&app, &state, "ja-asker", false).await;
+    add_ws_member(&state, ws_id, member_id, "member").await;
+    for (id, name) in [(owner_id, "Ana"), (member_id, requester)] {
+        sqlx::query("UPDATE users SET display_name = $2 WHERE id = $1")
+            .bind(id)
+            .bind(name)
+            .execute(&state.pool)
+            .await
+            .expect("set the name");
+    }
+    prefer(&state, owner_id, "ja").await;
+    let newcomer = unique_email("ja-asked-for");
+    let (status, request) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/invite-requests"),
+        Some(&member_token),
+        Some(json!({
+            "emails": [newcomer],
+            "role": "guest",
+            "guest_kind": "single",
+            "channel_ids": [vendor],
+            "reason": reason,
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{request}");
+    sent(&state, &owner_address, 1).await;
+
+    let (subject, text, html): (String, String, String) = sqlx::query_as(
+        "SELECT subject, text_body, html_body FROM outbound_emails WHERE to_address = $1",
+    )
+    .bind(&owner_address)
+    .fetch_one(&state.pool)
+    .await
+    .expect("the request");
+
+    let body = format!(
+        "{requester} さんから、{newcomer} を Ja Requests にゲストとして招待してほしいという依頼がありました。"
+    );
+    let because = format!("理由: {reason}");
+    assert_eq!(
+        subject,
+        format!("{requester} さんから Ja Requests への招待の依頼")
+    );
+    for line in [
+        body.as_str(),
+        because.as_str(),
+        "招待の依頼",
+        "30日以内に誰も対応しなかった場合、この依頼は期限切れになります。",
+    ] {
+        assert!(text.lines().any(|l| l == line), "{line} in {text}");
+    }
+    assert!(!html.contains("<img src=x"), "{html}");
+    assert!(!html.contains("onerror=\""), "{html}");
+    assert!(html.contains(&format!(">{}</p>", escaped(&body))), "{html}");
+    assert!(
+        html.contains(&format!(">{}</p>", escaped(&because))),
+        "{html}"
+    );
+    assert!(html.contains(">依頼を確認</a>"), "{html}");
+
+    let id = request["id"].as_str().expect("request id");
+    let (status, approved) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{ws_id}/invite-requests/{id}/approve"),
+        Some(&owner_token),
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{approved}");
+    sent(&state, &newcomer, 1).await;
+
+    let (text, html): (String, String) =
+        sqlx::query_as("SELECT text_body, html_body FROM outbound_emails WHERE to_address = $1")
+            .bind(&newcomer)
+            .fetch_one(&state.pool)
+            .await
+            .expect("the invite");
+    let invited = format!(
+        "{requester} さんの依頼を受けて、Ana さんが Test のワークスペース「Ja Requests」にあなたを招待しました。"
+    );
+    assert!(text.lines().any(|l| l == invited), "{text}");
+    assert!(!html.contains("<img src=x"), "{html}");
+    assert!(!html.contains("onerror=\""), "{html}");
+    assert!(
+        html.contains(&format!(">{}</p>", escaped(&invited))),
+        "{html}"
+    );
+}
