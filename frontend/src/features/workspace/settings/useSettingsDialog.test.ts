@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { createElement, Suspense } from 'react';
+import { renderHook, act, render, screen } from '@testing-library/react';
 import { useSettingsDialog } from './useSettingsDialog';
 
 describe('useSettingsDialog', () => {
@@ -12,6 +13,25 @@ describe('useSettingsDialog', () => {
     const { result } = renderHook(() => useSettingsDialog());
     expect(result.current.dialog).toEqual({ section: 'audit-log', inviting: false, app: null });
     expect(window.location.search).toBe('?x=1');
+  });
+
+  it('still opens the section when React throws its first render away', async () => {
+    window.history.replaceState({}, '', '/app/ws-1?settings=members');
+    let ready = false;
+    const gate = new Promise<void>((resolve) =>
+      setTimeout(() => {
+        ready = true;
+        resolve();
+      }, 0),
+    );
+    function Probe() {
+      const { dialog } = useSettingsDialog();
+      if (!ready) throw gate;
+      return createElement('p', null, dialog?.section ?? 'closed');
+    }
+    render(createElement(Suspense, { fallback: null }, createElement(Probe)));
+    expect(await screen.findByText('members')).toBeInTheDocument();
+    expect(window.location.search).toBe('');
   });
 
   it('opens General for a section it does not know', () => {
