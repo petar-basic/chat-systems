@@ -411,16 +411,7 @@ mod tests {
             .collect()
     }
 
-    const AWAITING_JAPANESE: &[&str] = &[
-        "email.invite.bodyRequested",
-        "email.inviteRequest.subject",
-        "email.inviteRequest.heading",
-        "email.inviteRequest.bodyMember",
-        "email.inviteRequest.bodyGuest",
-        "email.inviteRequest.reason",
-        "email.inviteRequest.button",
-        "email.inviteRequest.expiry",
-    ];
+    const AWAITING_JAPANESE: &[&str] = &[];
 
     #[test]
     fn every_email_string_has_japanese_with_the_same_placeholders() {
