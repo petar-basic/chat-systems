@@ -29,7 +29,7 @@ test('a member asks for an invite, an admin approves it, and the invite names th
     await page.getByTestId('invite-request-reason').fill('New hires on the support team');
     await page.getByTestId('invite-request-submit').click();
     await expect(page.getByTestId('invite-request-sent')).toBeVisible();
-    await expect(page.getByTestId('my-invite-request-row')).toContainText(first);
+    await expect(page.getByTestId('my-invite-request-row').filter({ hasText: first })).toBeVisible();
 
     await login(adminPage, 'admin@dev.local');
     await adminPage.goto(`/app/${workspace.id}`);
@@ -64,6 +64,14 @@ test('a member asks for an invite, an admin approves it, and the invite names th
     await page.getByTestId('open-invite').click();
     await expect(page.getByTestId('my-invite-requests')).toHaveCount(0);
   } finally {
+    const requests = await (await admin.get(`${API}/workspaces/${workspace.id}/invite-requests`)).json();
+    for (const request of requests.data ?? []) {
+      if (request.status === 'pending' && request.emails.some((e: string) => e === first || e === second)) {
+        await admin.post(`${API}/workspaces/${workspace.id}/invite-requests/${request.id}/decline`, {
+          data: {},
+        });
+      }
+    }
     const invites = await (await admin.get(`${API}/workspaces/${workspace.id}/invites`)).json();
     for (const invite of invites.data ?? []) {
       if (invite.email === first || invite.email === second) {
