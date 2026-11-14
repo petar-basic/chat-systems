@@ -209,5 +209,29 @@
     "removeNamed": "{{name}} を削除",
     "added": "パスキーを追加しました。",
     "removed": "パスキーを削除しました。"
+  },
+  "fields": {
+    "heading": "プロフィール項目",
+    "nobody": "指定なし",
+    "none": "未設定",
+    "pickPerson": "メンバーを選択",
+    "save": "保存",
+    "saveFailed": "プロフィール項目を保存できませんでした。"
+  },
+  "people": {
+    "title": "メンバー一覧",
+    "search": "メンバーを検索",
+    "searchPlaceholder": "名前、肩書き、プロフィール項目の内容で検索",
+    "any": "すべて",
+    "anyone": "すべて",
+    "empty": "まだ誰もいません。",
+    "noMatch": "該当するメンバーはいません。",
+    "clear": "検索と絞り込みをクリア",
+    "failed": "このワークスペースのメンバーを読み込めませんでした。"
+  },
+  "panel": {
+    "title": "プロフィール",
+    "editFields": "項目を編集",
+    "editFieldsOf": "{{name}} さんのプロフィール項目"
   }
 }

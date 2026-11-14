@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import '@/lib/i18n';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import i18n from '@/lib/i18n';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import type { WorkspaceMember } from '@/stores/workspace';
@@ -108,5 +108,44 @@ describe('PeopleView', () => {
     renderAt('/app/ws/people?filter=dept:sup');
     fireEvent.click(screen.getByTestId('people-clear'));
     expect(screen.getByTestId('where')).toBeEmptyDOMElement();
+  });
+});
+
+describe('PeopleView in Japanese', () => {
+  beforeEach(async () => {
+    directory.mockReset();
+    directory.mockReturnValue({ data: [ana], isSuccess: true, isError: false });
+    await i18n.changeLanguage('ja');
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('names the directory, the search and the filters', () => {
+    renderAt('/app/ws/people');
+    expect(screen.getByRole('main', { name: 'メンバー一覧' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'メンバー一覧' })).toBeInTheDocument();
+    expect(screen.getByLabelText('メンバーを検索')).toHaveAttribute(
+      'placeholder',
+      '名前、肩書き、プロフィール項目の内容で検索',
+    );
+    expect(screen.getByTestId('people-filter-dept')).toHaveDisplayValue('すべて');
+  });
+
+  it('says when nobody is here and when nobody matches', () => {
+    directory.mockReturnValue({ data: [], isSuccess: true, isError: false });
+    renderAt('/app/ws/people');
+    expect(screen.getByTestId('people-empty')).toHaveTextContent('まだ誰もいません。');
+
+    renderAt('/app/ws/people?filter=dept:sup');
+    expect(screen.getAllByTestId('people-empty')[1]).toHaveTextContent('該当するメンバーはいません。');
+    expect(screen.getByTestId('people-clear')).toHaveTextContent('検索と絞り込みをクリア');
+  });
+
+  it('says the directory could not be loaded', () => {
+    directory.mockReturnValue({ data: undefined, isSuccess: false, isError: true });
+    renderAt('/app/ws/people');
+    expect(screen.getByText('このワークスペースのメンバーを読み込めませんでした。')).toBeInTheDocument();
   });
 });
