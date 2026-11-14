@@ -286,4 +286,29 @@ describe('ConversationView in Japanese', () => {
     fireEvent.click(screen.getAllByTestId('new-dm-candidate')[0]);
     expect(screen.getByTestId('new-dm-start').textContent).toBe('追加');
   });
+
+  it('converts a group into a private channel', async () => {
+    const group = conversation({ kind: 'group', participant_ids: ['me', 'ana', 'cy'], departed: [] });
+    const channels = [{ id: 'ch-1', name: 'launch' } as Channel];
+    view.convert.mockReset().mockRejectedValue({});
+    await i18n.changeLanguage('ja');
+    renderView(group, [], vi.fn(), { canConvert: true, channels });
+
+    fireEvent.click(screen.getByRole('button', { name: 'プライベートチャンネルに変換' }));
+    expect(screen.getByRole('heading', { name: 'プライベートチャンネルに変換' })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'このグループチャットの全員が、これまでの会話をすべて引き継いだプライベートチャンネルのメンバーになり、あなたがその管理者になります。チャンネルをグループチャットに戻すことはできません。',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('conversation-convert-submit').textContent).toBe('変換する');
+
+    fireEvent.change(screen.getByTestId('conversation-convert-name'), { target: { value: 'Launch' } });
+    fireEvent.click(screen.getByTestId('conversation-convert-submit'));
+    expect(screen.getByText('同じ名前のチャンネルがすでにあります。')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByTestId('conversation-convert-name'), { target: { value: 'Launch Plan' } });
+    fireEvent.click(screen.getByTestId('conversation-convert-submit'));
+    expect(await screen.findByText('この会話を変換できませんでした')).toBeInTheDocument();
+  });
 });

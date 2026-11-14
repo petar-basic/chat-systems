@@ -468,4 +468,56 @@ describe('ChannelDetailsModal in Japanese', () => {
     expect(within(incoming).getByRole('button', { name: `${hostile} の URL を再発行` })).toBeInTheDocument();
     expect(document.querySelector('[onerror]')).toBeNull();
   });
+
+  it('asks before making a channel private, by its name as text', () => {
+    role = 'admin';
+    renderModal({ of: { ...channel, name: hostile, channel_type: 'public' }, initialTab: 'settings' });
+    const field = screen.getByTestId('channel-settings-privacy');
+    expect(field).toHaveTextContent(
+      '公開範囲パブリック: ワークスペースの全員がこのチャンネルを見つけて、過去のメッセージを読めます。プライベートにする',
+    );
+
+    fireEvent.click(screen.getByTestId('channel-settings-privacy-change'));
+    expect(
+      screen.getByRole('heading', { name: `#${hostile} をプライベートにしますか?` }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'これ以降は、参加しているメンバーだけが見られるようになります。それ以外の人は、すぐにこのチャンネルを見られなくなります。メッセージ、ファイル、検索結果、このチャンネルへのリンクも同様です。',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('channel-privacy-private-dialog-confirm')).toHaveTextContent(
+      'プライベートにする',
+    );
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
+
+  it('says what a private channel holds before making it public, by its name as text', () => {
+    role = 'admin';
+    renderModal({ of: { ...channel, name: hostile, channel_type: 'private' }, initialTab: 'settings' });
+    expect(screen.getByTestId('channel-settings-privacy')).toHaveTextContent(
+      '公開範囲プライベート: 参加しているメンバーだけが見られます。パブリックにする',
+    );
+
+    fireEvent.click(screen.getByTestId('channel-settings-privacy-change'));
+    expect(screen.getByRole('heading', { name: `#${hostile} をパブリックにしますか?` })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'ワークスペースの全員がこのチャンネルを見つけて、これまでの履歴をすべて読めるようになります(12件のメッセージ、1件のファイル)。ゲストは引き続き、参加しているチャンネルだけを見られます。',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('プライベートで書かれた内容を、全員が読めるようになることを理解しました'),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('channel-privacy-public-dialog-confirm')).toHaveTextContent('パブリックにする');
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
+
+  it('says it is still counting', () => {
+    role = 'admin';
+    contents = undefined;
+    renderModal({ of: { ...channel, channel_type: 'private' }, initialTab: 'settings' });
+    fireEvent.click(screen.getByTestId('channel-settings-privacy-change'));
+    expect(screen.getByText('件数を数えています…')).toBeInTheDocument();
+  });
 });
