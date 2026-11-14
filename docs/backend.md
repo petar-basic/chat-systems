@@ -815,7 +815,9 @@ Activity and in a desktop banner. Push and the email digest are written on the s
 `notifications::text` from `api/locales/{en,ja}.json`, whose `activity` keys are the
 client's `notifications:activity` keys. The catalog is the recipient's `preferences.language`;
 `browser`, which the server cannot see, reads English, and so does a string a language does not
-have yet. Counts take `key_one` for one, else `key_other`, else `key`, as i18next does.
+have yet. A test refuses an `email` string with no Japanese unless it is on the test's
+`AWAITING_JAPANESE` list, and refuses a listed string once its Japanese is in. So a feature can
+ship its English, and the translation takes the key off the list. Counts take `key_one` for one, else `key_other`, else `key`, as i18next does.
 
 **Active, not just connected.** An open socket is not someone looking: a tab left in the
 background, or a phone that kept its socket for a while, used to hold back every push. The
