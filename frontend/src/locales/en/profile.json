@@ -210,5 +210,29 @@
     "removeNamed": "Remove {{name}}",
     "added": "Passkey added.",
     "removed": "Passkey removed."
+  },
+  "fields": {
+    "heading": "Profile fields",
+    "nobody": "Nobody",
+    "none": "Not set",
+    "pickPerson": "Pick someone",
+    "save": "Save",
+    "saveFailed": "Could not save the profile fields."
+  },
+  "people": {
+    "title": "People",
+    "search": "Search people",
+    "searchPlaceholder": "Search by name, title or what they wrote in a field",
+    "any": "Any",
+    "anyone": "Anyone",
+    "empty": "Nobody is here yet.",
+    "noMatch": "Nobody matches.",
+    "clear": "Clear search and filters",
+    "failed": "Could not load the people in this workspace."
+  },
+  "panel": {
+    "title": "Profile",
+    "editFields": "Edit fields",
+    "editFieldsOf": "{{name}}'s profile fields"
   }
 }

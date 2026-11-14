@@ -7,6 +7,7 @@ import { GeneralSection } from './GeneralSection';
 import { MembersSection } from './MembersSection';
 import { UserGroupsSection } from './UserGroupsSection';
 import { CustomEmojiSection } from './CustomEmojiSection';
+import { ProfileFieldsSection } from './ProfileFieldsSection';
 import { AppsSection } from './AppsSection';
 import { IntegrationsSection } from './IntegrationsSection';
 import { SlackImportSection } from './SlackImportSection';
@@ -60,6 +61,7 @@ export function WorkspaceSettingsModal({
       {active === 'user-groups' && (
         <UserGroupsSection workspaceId={id} instanceUrl={instanceUrl} members={members} isAdmin={isAdmin} />
       )}
+      {active === 'profile-fields' && <ProfileFieldsSection workspaceId={id} instanceUrl={instanceUrl} />}
       {active === 'custom-emoji' && <CustomEmojiSection workspaceId={id} instanceUrl={instanceUrl} />}
       {active === 'apps' && <AppsSection workspaceId={id} initialApp={app} />}
       {active === 'integrations' && (

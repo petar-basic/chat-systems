@@ -8,8 +8,8 @@ use chat_api::config::AppConfig;
 use chat_api::state::AppState;
 use chat_api::{
     analytics, app_events, build_state, connect_pool, email, export, guests, health, hooks, huddle,
-    init_tracing, later, messaging, metrics, notifications, retention, scheduled, shutdown_signal,
-    slack_import, supervise, workflows,
+    init_tracing, invite_requests, later, messaging, metrics, notifications, retention, scheduled,
+    shutdown_signal, slack_import, supervise, workflows,
 };
 
 #[tokio::main]
@@ -159,6 +159,19 @@ fn spawn_consumers(state: &Arc<AppState>, redis_url: &str) {
                 let guest_state = guest_state.clone();
                 async move {
                     guests::expiry::start(guest_state).await;
+                }
+            })
+            .await;
+        });
+    }
+
+    {
+        let request_state = state.clone();
+        tokio::spawn(async move {
+            supervise("invite_request_expiry", || {
+                let request_state = request_state.clone();
+                async move {
+                    invite_requests::expiry::start(request_state).await;
                 }
             })
             .await;

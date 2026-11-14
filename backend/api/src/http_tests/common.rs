@@ -154,6 +154,7 @@ pub async fn email_invite(
             max_uses: 1,
             expires_at,
             guest,
+            requested_by: None,
         },
     )
     .await

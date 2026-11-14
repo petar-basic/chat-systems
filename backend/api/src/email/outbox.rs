@@ -267,6 +267,7 @@ mod tests {
                 crate::auth::service::InviteEmail {
                     workspace_name: "Ops",
                     inviter: Some("Ana"),
+                    requester: None,
                     url: "https://chat.example/invite/x",
                     expires_at: Utc::now() + chrono::Duration::days(7),
                 },

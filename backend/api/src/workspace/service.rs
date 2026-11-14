@@ -97,6 +97,7 @@ impl WorkspaceService {
                 max_uses: lifetime.max_uses,
                 expires_at,
                 guest: terms.guest,
+                requested_by: inviter.on_behalf_of,
             },
         )
         .await?;
@@ -168,12 +169,22 @@ impl WorkspaceService {
             .await
             .ok()
             .flatten();
+        let requester = match self.repo.invite_requester(invite.id).await {
+            Ok(Some(user_id)) => self
+                .repo
+                .inviter_name(invite.workspace_id, user_id)
+                .await
+                .ok()
+                .flatten(),
+            _ => None,
+        };
         match auth_service
             .send_invite_email(
                 email,
                 InviteEmail {
                     workspace_name: &workspace.name,
                     inviter: inviter.as_deref(),
+                    requester: requester.as_deref(),
                     url: invite_url,
                     expires_at,
                 },

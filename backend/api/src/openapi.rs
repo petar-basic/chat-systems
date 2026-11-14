@@ -117,6 +117,8 @@ pub fn typed_routes() -> OpenApiRouter<Arc<AppState>> {
         .merge(crate::messaging::routes::router())
         .merge(crate::workspace::routes::router())
         .merge(crate::guests::routes::router())
+        .merge(crate::invite_requests::routes::router())
+        .merge(crate::profile_fields::routes::router())
         .merge(crate::channel_context::routes::router())
         .merge(crate::channel_integrations::routes::router())
         .merge(crate::conversations::routes::router())

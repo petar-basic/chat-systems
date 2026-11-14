@@ -847,6 +847,7 @@ async fn an_erase_leaves_no_passkey_keyword_push_subscription_or_poll(pool: PgPo
             "push_subscriptions": 1,
             "sidebar_sections": 1,
             "photos": 0,
+            "profile_fields": 0,
         })
     );
     assert_eq!(erased["removed"]["polls"], 1);

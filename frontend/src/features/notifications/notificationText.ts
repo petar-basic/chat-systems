@@ -12,6 +12,10 @@ export interface NotificationText {
 
 type Translate = TFunction<['notifications', 'messages']>;
 
+function emailsOf(data: NotificationData, said: string): string {
+  return data.invite_emails?.join(', ') || said;
+}
+
 function systemText(t: Translate, data: NotificationData, said: string, sender: string): NotificationText {
   switch (data.notice) {
     case 'workflow_stopped':
@@ -30,6 +34,25 @@ function systemText(t: Translate, data: NotificationData, said: string, sender: 
       return {
         title: t('activity.guestEnding', { name: data.guest_name ?? '' }),
         body: data.guest_until ? t('activity.guestEndingBody', { date: formatDay(data.guest_until) }) : said,
+      };
+    case 'invite_requested':
+      return { title: t('activity.inviteRequested', { sender }), body: said };
+    case 'invite_request_approved':
+      return {
+        title: t('activity.inviteRequestApproved', { sender }),
+        body: t('activity.inviteRequestFor', { emails: emailsOf(data, said) }),
+      };
+    case 'invite_request_declined':
+      return {
+        title: t('activity.inviteRequestDeclined', { sender }),
+        body: data.note
+          ? t('activity.inviteRequestForWithNote', { emails: emailsOf(data, said), note: data.note })
+          : t('activity.inviteRequestFor', { emails: emailsOf(data, said) }),
+      };
+    case 'invite_request_expired':
+      return {
+        title: t('activity.inviteRequestExpired'),
+        body: t('activity.inviteRequestExpiredBody', { emails: emailsOf(data, said) }),
       };
     case 'not_delivered':
       return {

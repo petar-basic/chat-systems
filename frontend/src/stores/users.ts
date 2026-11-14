@@ -14,6 +14,7 @@ export interface UserInfo {
   timezone?: string | null;
   is_bot?: boolean;
   left?: boolean;
+  profile_fields?: Record<string, string>;
 }
 
 interface UserCacheState {

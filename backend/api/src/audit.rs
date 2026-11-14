@@ -36,6 +36,13 @@ pub enum AuditAction {
     WorkspaceRoleChanged,
     GuestUpdated,
     GuestExpired,
+    InviteRequestCreated,
+    InviteRequestApproved,
+    InviteRequestDeclined,
+    InviteRequestExpired,
+    ProfileFieldCreated,
+    ProfileFieldUpdated,
+    ProfileFieldDeleted,
     InviteCreated,
     InviteRevoked,
     InviteAccepted,
@@ -124,6 +131,13 @@ impl AuditAction {
             Self::WorkspaceRoleChanged => "workspace.role_changed",
             Self::GuestUpdated => "guest.updated",
             Self::GuestExpired => "guest.expired",
+            Self::InviteRequestCreated => "invite_request.created",
+            Self::InviteRequestApproved => "invite_request.approved",
+            Self::InviteRequestDeclined => "invite_request.declined",
+            Self::InviteRequestExpired => "invite_request.expired",
+            Self::ProfileFieldCreated => "profile_field.created",
+            Self::ProfileFieldUpdated => "profile_field.updated",
+            Self::ProfileFieldDeleted => "profile_field.deleted",
             Self::InviteCreated => "invite.created",
             Self::InviteRevoked => "invite.revoked",
             Self::InviteAccepted => "invite.accepted",
@@ -211,6 +225,13 @@ impl AuditAction {
             | Self::GuestUpdated
             | Self::GuestExpired => "workspace",
             Self::InviteCreated | Self::InviteRevoked | Self::InviteAccepted => "invite",
+            Self::InviteRequestCreated
+            | Self::InviteRequestApproved
+            | Self::InviteRequestDeclined
+            | Self::InviteRequestExpired => "invite_request",
+            Self::ProfileFieldCreated | Self::ProfileFieldUpdated | Self::ProfileFieldDeleted => {
+                "profile_field"
+            }
             Self::HookCreated
             | Self::HookDeleted
             | Self::HookRevealed

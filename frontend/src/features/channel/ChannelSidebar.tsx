@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { CreateChannelDraft } from '@/shared/models/channel';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { Bookmark, Compass, FolderPlus, Inbox, MessagesSquare } from 'lucide-react';
+import { Bookmark, BookUser, Compass, FolderPlus, Inbox, MessagesSquare } from 'lucide-react';
 import { useLater } from '@/features/later';
 import { useUnreadThreadCount } from '@/features/threads';
 import type { Channel, Workspace, WorkspaceMember } from '@/stores/workspace';
@@ -60,6 +60,8 @@ interface Props {
   unreadsActive: boolean;
   onOpenThreads: () => void;
   threadsActive: boolean;
+  onOpenPeople: () => void;
+  peopleActive: boolean;
   onLogout: () => void;
 }
 
@@ -96,6 +98,8 @@ export default function ChannelSidebar({
   unreadsActive,
   onOpenThreads,
   threadsActive,
+  onOpenPeople,
+  peopleActive,
   onLogout,
 }: Props) {
   const { t } = useTranslation('sidebar');
@@ -109,7 +113,7 @@ export default function ChannelSidebar({
   const { instances, activeInstanceUrl } = useInstanceStore();
   const currentInstance = instances.find((i) => i.url === activeInstanceUrl);
   const isInstanceAdmin = currentInstance?.user.instance_role === 'admin';
-  const isWorkspaceAdmin = currentUserRole === 'admin' || currentUserRole === 'owner';
+  const canInvite = !!currentUserRole && currentUserRole !== 'guest';
   const otherMembers = workspaceMembers.filter((m) => m.user_id !== currentUserId);
   const creatableKinds = creatableChannelKinds(currentUserRole, currentWorkspace?.settings);
 
@@ -170,7 +174,7 @@ export default function ChannelSidebar({
       >
         <WorkspaceMenu
           workspaceName={currentWorkspace?.name}
-          isWorkspaceAdmin={isWorkspaceAdmin}
+          canInvite={canInvite}
           isInstanceAdmin={isInstanceAdmin}
           canUseWorkflows={!!currentUserRole && currentUserRole !== 'guest'}
           canLeave={!!currentUserRole}
@@ -225,6 +229,20 @@ export default function ChannelSidebar({
                 {unreadThreads > 99 ? '99+' : unreadThreads}
               </span>
             )}
+          </button>
+          <button
+            type="button"
+            onClick={onOpenPeople}
+            aria-current={peopleActive ? 'page' : undefined}
+            data-qa="people-open"
+            className={`w-full px-3 py-1.5 mb-2 -mt-1.5 flex items-center gap-2 text-sm transition cursor-pointer ${
+              peopleActive
+                ? 'bg-sidebar-selected text-sidebar-selected-fg'
+                : 'text-fg-dim hover:bg-raised/30 hover:text-fg-soft'
+            }`}
+          >
+            <BookUser className="w-4 h-4 shrink-0" />
+            <span className="truncate">{t('directory')}</span>
           </button>
           <button
             type="button"
@@ -350,7 +368,7 @@ export default function ChannelSidebar({
               {collapsed.people ? null : otherMembers.length === 0 ? (
                 <div className="px-3 py-1.5 text-xs text-muted" data-qa="sidebar-people-empty">
                   {t('justYou')}
-                  {isWorkspaceAdmin && (
+                  {canInvite && (
                     <>
                       {' '}
                       <button

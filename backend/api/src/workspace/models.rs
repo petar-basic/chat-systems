@@ -78,6 +78,8 @@ pub struct WorkspaceMember {
     pub is_bot: bool,
 }
 
+pub type FieldValues = sqlx::types::Json<std::collections::HashMap<Uuid, String>>;
+
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct MemberWithUser {
     pub workspace_id: Uuid,
@@ -97,6 +99,8 @@ pub struct MemberWithUser {
     pub is_bot: bool,
     pub guest_kind: Option<GuestKind>,
     pub guest_until: Option<DateTime<Utc>>,
+    #[schema(value_type = std::collections::HashMap<String, String>)]
+    pub profile_fields: FieldValues,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -331,6 +335,8 @@ pub struct UpdateWorkspaceRequest {
     pub public_channel_creators: Option<WhoMay>,
     #[garde(skip)]
     pub private_channel_creators: Option<WhoMay>,
+    #[garde(skip)]
+    pub inviters: Option<WhoMay>,
 }
 
 impl UpdateWorkspaceRequest {
@@ -350,6 +356,7 @@ impl UpdateWorkspaceRequest {
                 WhoMay::PRIVATE_CHANNEL_CREATORS,
                 self.private_channel_creators,
             ),
+            (WhoMay::INVITERS, self.inviters),
         ] {
             if let Some(rule) = rule {
                 patch.insert(key.into(), rule.as_str().into());
@@ -371,6 +378,7 @@ impl WhoMay {
     pub const BROADCAST_MENTIONS: &'static str = "broadcast_mentions";
     pub const PUBLIC_CHANNEL_CREATORS: &'static str = "public_channel_creators";
     pub const PRIVATE_CHANNEL_CREATORS: &'static str = "private_channel_creators";
+    pub const INVITERS: &'static str = "inviters";
 
     pub fn as_str(self) -> &'static str {
         match self {
@@ -380,10 +388,19 @@ impl WhoMay {
     }
 
     pub fn of(settings: &serde_json::Value, key: &str) -> Self {
+        Self::of_or(settings, key, Self::Members)
+    }
+
+    pub fn of_or(settings: &serde_json::Value, key: &str, unset: Self) -> Self {
         match settings.get(key).and_then(|v| v.as_str()) {
             Some("admins") => Self::Admins,
-            _ => Self::Members,
+            Some("members") => Self::Members,
+            _ => unset,
         }
+    }
+
+    pub fn inviters(settings: &serde_json::Value) -> Self {
+        Self::of_or(settings, Self::INVITERS, Self::Admins)
     }
 
     pub fn allows(self, role: &WorkspaceRole) -> bool {
@@ -415,6 +432,7 @@ pub struct CreateInviteRequest {
 pub struct Inviter {
     pub user_id: Uuid,
     pub language: Language,
+    pub on_behalf_of: Option<Uuid>,
 }
 
 pub struct InviteLifetime {
