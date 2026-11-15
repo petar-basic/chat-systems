@@ -124,10 +124,10 @@
         "revoked": "招待を取り消し"
       },
       "invite_request": {
-        "created": "招待を依頼",
-        "approved": "招待の依頼を承認",
-        "declined": "招待の依頼を却下",
-        "expired": "招待の依頼が期限切れ"
+        "created": "招待をリクエスト",
+        "approved": "招待のリクエストを承認",
+        "declined": "招待のリクエストを却下",
+        "expired": "招待のリクエストが期限切れ"
       },
       "profile_field": {
         "created": "プロフィール項目を追加",
