@@ -11,7 +11,7 @@ use crate::connection_manager::Audience;
 
 use crate::connection_manager::ConnectionManager;
 
-pub const SUBSCRIBED_CHANNELS: [&str; 16] = [
+pub const SUBSCRIBED_CHANNELS: [&str; 17] = [
     "events:message",
     "events:reaction",
     "events:notification",
@@ -25,6 +25,7 @@ pub const SUBSCRIBED_CHANNELS: [&str; 16] = [
     "events:session",
     "events:channel",
     "events:later",
+    "events:draft",
     "events:thread",
     "events:list",
     "events:command",
@@ -411,6 +412,12 @@ pub(crate) async fn handle_event_for(
                 return;
             };
             let frame = ServerFrame::LaterUpdated { workspace_id };
+            cm.send_to_user(audience, uid, &framed(&frame)).await;
+        }
+        "draft.updated" => {
+            let (Some(uid), Some(frame)) = (field("user_id"), typed(event_type, payload)) else {
+                return;
+            };
             cm.send_to_user(audience, uid, &framed(&frame)).await;
         }
         "thread.read_state" => {

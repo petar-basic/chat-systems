@@ -219,6 +219,20 @@
     "cancelFailed": "Failed to cancel",
     "sendFailed": "Failed to send"
   },
+  "drafts": {
+    "title": "Drafts & sent",
+    "tab": "Drafts",
+    "empty": "No drafts. Start a message anywhere and leave it unsent, and it waits here on every device you sign in on.",
+    "filesLeftBehind": "The files stay on the device you added them on",
+    "delete": "Delete draft"
+  },
+  "sent": {
+    "tab": "Sent",
+    "empty": "Nothing sent yet. What you send in channels, direct messages and threads shows up here.",
+    "failed": "Could not load what you sent",
+    "more": "Show older",
+    "loading": "Loading…"
+  },
   "conversation": {
     "label": "Direct message",
     "back": "Back to channels",

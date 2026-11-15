@@ -26,6 +26,7 @@ import {
 import { QUERY_KEYS } from '@/shared/constants';
 import { useUnsent } from '@/stores/unsent';
 import { discardUnsent } from '@/lib/unsent';
+import { draftKeyOf } from '@/stores/drafts';
 import { DAY_AND_TIME, formatClock } from '@/lib/datetime';
 import { useWindowInUse } from '@/lib/readOnScreen';
 
@@ -250,7 +251,8 @@ function ThreadCard({
       },
       refreshThreads,
     );
-  const discard = (reply: Message) => discardUnsent(queryClient, reply, `thread:${root.id}`);
+  const discard = (reply: Message) =>
+    discardUnsent(queryClient, reply, draftKeyOf({ channelId: root.channel_id, threadParentId: root.id }));
 
   return (
     <section
@@ -317,7 +319,12 @@ function ThreadCard({
             placeholder={t('view.reply')}
             members={members}
             channels={channels}
-            draftKey={`thread:${root.id}`}
+            draftKey={draftKeyOf({ channelId: root.channel_id, threadParentId: root.id })}
+            draftPlace={
+              instanceUrl
+                ? { instanceUrl, workspaceId, channelId: root.channel_id, threadParentId: root.id }
+                : undefined
+            }
             slashCommands
             onSend={handleSend}
             attachments={attachments}

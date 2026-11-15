@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { Button } from '@/shared/components/Button/Button';
-import { PanelHeader } from '@/shared/components/PanelHeader/PanelHeader';
 import { toUserMessage } from '@/lib/errors';
 import { formatDateTime } from '@/lib/datetime';
 import { AlertCircle, Clock, Hash, Trash2, MessageSquare } from 'lucide-react';
@@ -27,7 +26,6 @@ interface Props {
   instanceUrl?: string;
   channels: Channel[];
   conversations: Conversation[];
-  onClose: () => void;
 }
 
 function ScheduledRow({
@@ -201,13 +199,7 @@ function ScheduledRow({
   );
 }
 
-export default function ScheduledMessagesPanel({
-  workspaceId,
-  instanceUrl,
-  channels,
-  conversations,
-  onClose,
-}: Props) {
+export default function ScheduledList({ workspaceId, instanceUrl, channels, conversations }: Props) {
   const { t } = useTranslation('messages');
   const { data: scheduled = [], isLoading } = useScheduledMessages(workspaceId, instanceUrl);
   const cancelScheduled = useCancelScheduledMessage(workspaceId, instanceUrl);
@@ -235,50 +227,39 @@ export default function ScheduledMessagesPanel({
     setError((err as { message?: string })?.message || fallback);
 
   return (
-    <div
-      className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-surface border-l border-line/50 flex flex-col"
-      data-qa="scheduled-panel"
-    >
-      <PanelHeader
-        title={t('scheduled.title')}
-        icon={<Clock className="h-4 w-4 text-muted" />}
-        onClose={onClose}
-      />
+    <div className="flex-1 overflow-y-auto" data-qa="scheduled-list">
+      {error && <div className="px-4 py-2 text-xs text-danger">{error}</div>}
 
-      <div className="flex-1 overflow-y-auto">
-        {error && <div className="px-4 py-2 text-xs text-danger">{error}</div>}
-
-        {isLoading ? (
-          <div className="flex justify-center py-8">
-            <Spinner className="text-accent" />
-          </div>
-        ) : scheduled.length === 0 ? (
-          <div className="text-center py-10 px-6 text-sm text-muted" data-qa="scheduled-empty">
-            {t('scheduled.empty')}
-          </div>
-        ) : (
-          scheduled.map((message) => (
-            <ScheduledRow
-              key={message.id}
-              scheduled={message}
-              target={targetOf(message)}
-              busy={busy}
-              onCancel={() => {
-                setError(null);
-                cancelScheduled.mutate(message.id, { onError: failWith(t('scheduled.cancelFailed')) });
-              }}
-              onReschedule={async (sendAt) => {
-                setError(null);
-                await reschedule.mutateAsync({ id: message.id, sendAt });
-              }}
-              onSendNow={() => {
-                setError(null);
-                sendNow.mutate(message.id, { onError: failWith(t('scheduled.sendFailed')) });
-              }}
-            />
-          ))
-        )}
-      </div>
+      {isLoading ? (
+        <div className="flex justify-center py-8">
+          <Spinner className="text-accent" />
+        </div>
+      ) : scheduled.length === 0 ? (
+        <div className="text-center py-10 px-6 text-sm text-muted" data-qa="scheduled-empty">
+          {t('scheduled.empty')}
+        </div>
+      ) : (
+        scheduled.map((message) => (
+          <ScheduledRow
+            key={message.id}
+            scheduled={message}
+            target={targetOf(message)}
+            busy={busy}
+            onCancel={() => {
+              setError(null);
+              cancelScheduled.mutate(message.id, { onError: failWith(t('scheduled.cancelFailed')) });
+            }}
+            onReschedule={async (sendAt) => {
+              setError(null);
+              await reschedule.mutateAsync({ id: message.id, sendAt });
+            }}
+            onSendNow={() => {
+              setError(null);
+              sendNow.mutate(message.id, { onError: failWith(t('scheduled.sendFailed')) });
+            }}
+          />
+        ))
+      )}
     </div>
   );
 }

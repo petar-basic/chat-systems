@@ -36,6 +36,7 @@ mod commands;
 mod conversation_convert;
 mod conversations;
 mod creator_stops;
+mod drafts;
 mod file_content_search;
 mod file_search;
 mod files;

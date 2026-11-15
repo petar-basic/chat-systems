@@ -11,6 +11,7 @@ pub mod channel_integrations;
 pub mod commands;
 pub mod config;
 pub mod conversations;
+pub mod drafts;
 pub mod dto;
 pub mod email;
 pub mod emoji;
@@ -125,6 +126,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
     let notification_repo = NotificationRepo::new(pool.clone());
     let conversation_repo = ConversationRepo::new(pool.clone());
     let later_repo = later::repo::LaterRepo::new(pool.clone());
+    let draft_repo = drafts::repo::DraftRepo::new(pool.clone());
     let guest_repo = guests::repo::GuestRepo::new(pool.clone());
     let invite_request_repo = invite_requests::repo::InviteRequestRepo::new(pool.clone());
     let profile_field_repo = profile_fields::repo::ProfileFieldRepo::new(pool.clone());
@@ -177,6 +179,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
         notification_repo,
         conversation_repo,
         later_repo,
+        draft_repo,
         guest_repo,
         invite_request_repo,
         profile_field_repo,

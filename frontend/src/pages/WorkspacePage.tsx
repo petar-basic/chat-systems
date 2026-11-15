@@ -49,6 +49,7 @@ import TypingIndicator from '@/features/messaging/TypingIndicator';
 import { useChannelModeration } from '@/features/channel/hooks/useChannelModeration';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 import { useActiveHuddlesSync } from '@/features/huddle';
+import { useDraftSync } from '@/features/drafts';
 import { FileDropZone } from '@/shared/components/FileDropZone';
 import type { Workspace } from '@/stores/workspace';
 import { desktopShell } from '@/lib/desktopShell';
@@ -61,6 +62,7 @@ export default function WorkspacePage() {
   const activeConversation = c.conversations.find((conv) => conv.id === c.currentConversationId);
 
   useActiveHuddlesSync(currentWorkspace?.id, currentWorkspace?.instanceUrl);
+  useDraftSync(currentWorkspace?.id, currentWorkspace?.instanceUrl);
   const theme = useWorkspaceTheme();
   usePreferencesSync();
 
@@ -149,7 +151,7 @@ export default function WorkspacePage() {
             onInvite={inviteToWorkspace}
             onOpenWorkflows={() => panel.toggle('workflows')}
             onLeaveWorkspace={() => setLeaving(currentWorkspace)}
-            onOpenScheduled={() => panel.toggle('scheduled')}
+            onOpenDrafts={() => panel.toggle('drafts')}
             onOpenLater={() => panel.toggle('later')}
             laterActive={panel.active?.kind === 'later'}
             onOpenProfile={() => c.setAccountDialog('profile')}
@@ -371,6 +373,16 @@ export default function WorkspacePage() {
                   slashCommands
                   channelName={currentChannel.name ?? undefined}
                   draftKey={currentChannel.id}
+                  draftPlace={
+                    currentWorkspace
+                      ? {
+                          instanceUrl: currentWorkspace.instanceUrl,
+                          workspaceId: currentWorkspace.id,
+                          channelId: currentChannel.id,
+                          threadParentId: null,
+                        }
+                      : undefined
+                  }
                   members={c.workspaceMembers}
                   channels={c.channels}
                   canBroadcast={canBroadcast}

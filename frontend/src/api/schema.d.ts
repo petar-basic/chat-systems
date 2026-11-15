@@ -2701,6 +2701,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{ws_id}/drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_drafts"];
+        put: operations["save_draft"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{ws_id}/emojis": {
         parameters: {
             query?: never;
@@ -3488,6 +3504,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{ws_id}/sent-messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_sent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{ws_id}/sidebar": {
         parameters: {
             query?: never;
@@ -3691,6 +3723,8 @@ export interface components {
         AccountErased: {
             /** Format: int64 */
             authenticators: number;
+            /** Format: int64 */
+            drafts: number;
             /** Format: int64 */
             keywords: number;
             /** Format: int64 */
@@ -4599,6 +4633,22 @@ export interface components {
                 workspace_id: string;
             }[];
         };
+        DataList_Draft: {
+            data: {
+                /** Format: uuid */
+                channel_id: string;
+                content: string;
+                files_left_behind: boolean;
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                thread_parent_id?: string | null;
+                /** Format: date-time */
+                updated_at: string;
+                /** Format: uuid */
+                workspace_id: string;
+            }[];
+        };
         DataList_EmojiView: {
             data: {
                 /** Format: date-time */
@@ -5213,6 +5263,20 @@ export interface components {
             dnd_until?: string | null;
             /** Format: date-time */
             schedule_paused_until?: string | null;
+        };
+        Draft: {
+            /** Format: uuid */
+            channel_id: string;
+            content: string;
+            files_left_behind: boolean;
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            thread_parent_id?: string | null;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: uuid */
+            workspace_id: string;
         };
         EmailCodeRequest: {
             email: string;
@@ -6264,6 +6328,16 @@ export interface components {
             /** Format: int32 */
             position: number;
             succeeded: boolean;
+        };
+        SaveDraftRequest: {
+            /** Format: uuid */
+            channel_id: string;
+            content: string;
+            files_left_behind?: boolean;
+            /** Format: uuid */
+            thread_parent_id?: string | null;
+            /** Format: date-time */
+            updated_at: string;
         };
         SaveWorkflowRequest: {
             definition: components["schemas"]["Definition"];
@@ -11828,6 +11902,52 @@ export interface operations {
             };
         };
     };
+    list_drafts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_Draft"];
+                };
+            };
+        };
+    };
+    save_draft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveDraftRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Draft"];
+                };
+            };
+        };
+    };
     list_emojis: {
         parameters: {
             query?: never;
@@ -13415,6 +13535,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ScheduledMessage"];
+                };
+            };
+        };
+    };
+    list_sent: {
+        parameters: {
+            query?: {
+                limit?: number | null;
+                cursor?: string | null;
+            };
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_Message"];
                 };
             };
         };

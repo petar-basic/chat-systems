@@ -1,0 +1,101 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT d.id, d.workspace_id, d.channel_id, d.thread_parent_id, d.content,\n                   d.files_left_behind, d.updated_at\n              FROM drafts d\n              JOIN channel_members cm ON cm.channel_id = d.channel_id AND cm.user_id = d.user_id\n              LEFT JOIN messages root ON root.id = d.thread_parent_id\n             WHERE d.user_id = $1\n               AND d.workspace_id = $2\n               AND d.content <> ''\n               AND (d.thread_parent_id IS NULL OR root.deleted_at IS NULL OR root.reply_count > 0)\n             ORDER BY d.updated_at DESC\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "drafts",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "drafts",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "channel_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "drafts",
+            "name": "channel_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "thread_parent_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "drafts",
+            "name": "thread_parent_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "content",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "drafts",
+            "name": "content"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "files_left_behind",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "drafts",
+            "name": "files_left_behind"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "drafts",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "4d480165fe804c7df0a79aecd88d1b52cafefe864d911ec7f36576648e988401"
+}

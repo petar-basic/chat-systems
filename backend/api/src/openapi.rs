@@ -41,6 +41,7 @@ use crate::state::AppState;
         (name = "threads", description = "Threads you follow and their unread replies"),
         (name = "apps", description = "Connected apps: Jira and others, set up per workspace"),
         (name = "scheduled", description = "Messages scheduled for later"),
+        (name = "drafts", description = "Unsent messages kept per place, and what you sent"),
         (name = "admin", description = "Instance administration"),
         (name = "commands", description = "Slash commands"),
         (name = "exports", description = "Data exports"),
@@ -130,6 +131,7 @@ pub fn typed_routes() -> OpenApiRouter<Arc<AppState>> {
         .merge(crate::emoji::routes::router())
         .merge(crate::profile::routes::router())
         .merge(crate::later::routes::router())
+        .merge(crate::drafts::routes::router())
         .merge(crate::polls::routes::router())
         .merge(crate::lists::routes::router())
         .merge(crate::threads::routes::router())

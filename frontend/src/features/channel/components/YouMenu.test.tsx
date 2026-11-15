@@ -32,7 +32,7 @@ function renderMenu() {
         unreadNotifCount={0}
         onOpenProfile={vi.fn()}
         onOpenPreferences={vi.fn()}
-        onOpenScheduled={vi.fn()}
+        onOpenDrafts={vi.fn()}
         onOpenLater={vi.fn()}
         onOpenNotifications={vi.fn()}
         onLogout={vi.fn()}

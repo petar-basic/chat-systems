@@ -284,6 +284,12 @@ pub enum ServerFrame {
     },
     #[serde(rename = "later.updated")]
     LaterUpdated { workspace_id: Uuid },
+    #[serde(rename = "draft.updated")]
+    DraftUpdated {
+        workspace_id: Uuid,
+        #[ts(type = "Draft")]
+        draft: serde_json::Value,
+    },
     #[serde(rename = "user.instance_role_changed")]
     InstanceRoleChanged { role: String },
     #[serde(rename = "thread.read_state")]
@@ -411,7 +417,8 @@ impl ServerFrame {
              type ListItem = components['schemas']['ListItem'];\n\
              type ListView = components['schemas']['ListView'];\n\
              type ListComment = components['schemas']['ListComment'];\n\
-             type NotificationData = components['schemas']['NotificationData'];\n\n\
+             type NotificationData = components['schemas']['NotificationData'];\n\
+             type Draft = components['schemas']['Draft'];\n\n\
              export {decl}\n"
         )
     }

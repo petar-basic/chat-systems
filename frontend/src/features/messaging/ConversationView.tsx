@@ -189,7 +189,7 @@ export default function ConversationView({
         <div className="relative flex min-h-0 flex-1 flex-col">
           <MessageList
             channelId={conversation.id}
-            draftKey={`conversation:${conversation.id}`}
+            draftKey={conversation.id}
             markReadIn={workspaceId}
             members={members}
             channels={channels}
@@ -224,7 +224,7 @@ export default function ConversationView({
           <MessageInput
             key={`conversation:${conversation.id}`}
             channelName={title}
-            draftKey={`conversation:${conversation.id}`}
+            draftPlace={{ instanceUrl, workspaceId, channelId: conversation.id, threadParentId: null }}
             isDm
             members={members}
             channels={channels}

@@ -1,8 +1,10 @@
 import { useTranslation } from 'react-i18next';
+import { Pencil } from 'lucide-react';
 import type { Conversation } from '@/features/messaging';
 import { conversationTitle, departedPartner } from '@/lib/conversationHelpers';
 import { displayNameOf } from '@/lib/userHelpers';
 import { useUserCache } from '@/stores/users';
+import { hasDraftIn, useDraftStore } from '@/stores/drafts';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import PresenceDot from '@/shared/components/PresenceDot';
 import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
@@ -37,11 +39,13 @@ export function ConversationRow({
   isUnread: boolean;
   onSelect: (conversationId: string) => void;
 }) {
+  const { t } = useTranslation('sidebar');
   const { getUser } = useUserCache();
   const title = conversationTitle(conversation, currentUserId, (id) => getUser(id)?.display_name);
   const others = conversation.participant_ids.filter((id) => id !== currentUserId);
   const partnerId = others[0] ?? currentUserId ?? '';
   const gone = departedPartner(conversation, currentUserId);
+  const drafted = useDraftStore((s) => hasDraftIn(s.drafts, conversation.id)) && !isActive;
 
   return (
     <button
@@ -79,7 +83,16 @@ export function ConversationRow({
         <UserAvatarWithPresence userId={partnerId} name={title} avatarUrl={getUser(partnerId)?.avatar_url} />
       )}
       <span className="truncate">{title}</span>
-      {isUnread && !isActive && <span className="ml-auto w-2 h-2 bg-purple-400 rounded-full shrink-0" />}
+      {drafted && (
+        <Pencil
+          className="ml-auto w-3 h-3 text-faint shrink-0"
+          aria-label={t('row.draft')}
+          data-qa="conversation-draft"
+        />
+      )}
+      {isUnread && !isActive && (
+        <span className={`${drafted ? '' : 'ml-auto '}w-2 h-2 bg-purple-400 rounded-full shrink-0`} />
+      )}
     </button>
   );
 }

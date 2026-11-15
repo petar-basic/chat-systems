@@ -285,6 +285,12 @@ pub struct ListMessagesQuery {
 }
 
 #[derive(Debug, Deserialize, IntoParams)]
+pub struct SentQuery {
+    pub limit: Option<i64>,
+    pub cursor: Option<Uuid>,
+}
+
+#[derive(Debug, Deserialize, IntoParams)]
 pub struct ThreadQuery {
     pub limit: Option<i64>,
     pub cursor: Option<Uuid>,

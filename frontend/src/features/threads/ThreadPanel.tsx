@@ -33,6 +33,7 @@ import { useChannelModeration, useChannelPreview } from '@/features/channel';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUnsent, withUnsent } from '@/stores/unsent';
 import { discardUnsent } from '@/lib/unsent';
+import { draftKeyOf } from '@/stores/drafts';
 import { isClosedThread } from './closedThread';
 import { formatTime } from '@/lib/datetime';
 import { useWindowInUse } from '@/lib/readOnScreen';
@@ -155,7 +156,12 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
       attachments: reply.metadata?.attachments ?? [],
       alsoToChannel: !!reply.metadata?.also_in_channel,
     });
-  const discard = (reply: Message) => discardUnsent(queryClient, reply, `thread:${parentMessage.id}`);
+  const discard = (reply: Message) =>
+    discardUnsent(
+      queryClient,
+      reply,
+      draftKeyOf({ channelId: parentMessage.channel_id, threadParentId: parentMessage.id }),
+    );
 
   const { getUser } = useUserCache();
   const parentSender = getUser(parentMessage.user_id);
@@ -301,7 +307,20 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
                 channels={channels}
                 canBroadcast={canBroadcast}
                 channelMemberCount={channelMembers.length}
-                draftKey={`thread:${parentMessage.id}`}
+                draftKey={draftKeyOf({
+                  channelId: parentMessage.channel_id,
+                  threadParentId: parentMessage.id,
+                })}
+                draftPlace={
+                  currentWorkspace
+                    ? {
+                        instanceUrl: currentWorkspace.instanceUrl,
+                        workspaceId: currentWorkspace.id,
+                        channelId: parentMessage.channel_id,
+                        threadParentId: parentMessage.id,
+                      }
+                    : undefined
+                }
                 slashCommands
                 onSend={handleSend}
                 attachments={attachments}

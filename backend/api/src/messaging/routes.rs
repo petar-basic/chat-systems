@@ -14,6 +14,7 @@ use super::models::*;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
 use crate::bots::{self, models::Scope, Caller};
+use crate::drafts;
 use crate::files::service as files;
 use crate::middleware::AuthUser;
 use crate::state::AppState;
@@ -26,6 +27,7 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new()
         .routes(routes!(list_messages, send_message))
         .routes(routes!(list_pins))
+        .routes(routes!(list_sent))
         .routes(routes!(mark_read))
         .routes(routes!(mark_workspace_read))
         .routes(routes!(mark_unread))
@@ -251,12 +253,16 @@ async fn send_message(
                     )
                     .await?;
             }
+            let cleared = state
+                .draft_repo
+                .clear_on_send_in(&mut tx, auth.user_id, ch_id, thread_parent_id)
+                .await?;
             let staged = state
                 .publisher
                 .stage_message_created(&mut tx, &msg, channel.workspace_id, &mentioned_ids)
                 .await?;
             tx.commit().await?;
-            (msg, Some(staged))
+            (msg, Some((staged, cleared)))
         }
         // The only unique key a client controls is `(channel_id,
         // client_message_id)`, so a violation means this exact send already
@@ -278,10 +284,13 @@ async fn send_message(
         }
     };
 
-    if let Some(staged) = staged {
+    if let Some((staged, cleared)) = staged {
         state.publisher.dispatch(staged).await;
         if let Some(root) = &thread_root {
             threads::routes::announce_reply(&state, root.id, channel.workspace_id).await;
+        }
+        if let Some(draft) = cleared {
+            drafts::routes::announce(&state, auth.user_id, &draft).await;
         }
     }
 
@@ -691,6 +700,24 @@ async fn list_pins(
     authz::require_channel_access(&state, ch_id, auth.user_id).await?;
     let pins = state.message_repo.list_pinned(ch_id).await?;
     Ok(Json(pins.into()))
+}
+
+#[utoipa::path(get, path = "/workspaces/{ws_id}/sent-messages", tag = "drafts",
+    params(SentQuery),
+    responses((status = 200, body = DataList<Message>)))]
+async fn list_sent(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(ws_id): Path<Uuid>,
+    Query(query): Query<SentQuery>,
+) -> AppResult<Json<DataList<Message>>> {
+    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
+    let limit = query.limit.unwrap_or(30).clamp(1, 100);
+    let sent = state
+        .message_repo
+        .list_sent(auth.user_id, ws_id, limit, query.cursor)
+        .await?;
+    Ok(Json(sent.into()))
 }
 
 async fn with_reactions(

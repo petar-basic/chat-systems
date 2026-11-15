@@ -10,7 +10,7 @@ export type RightPanel =
   | { kind: 'files' }
   | { kind: 'channelMembers'; adding?: boolean }
   | { kind: 'workflows'; workflowId?: string }
-  | { kind: 'scheduled' }
+  | { kind: 'drafts' }
   | { kind: 'later' }
   | { kind: 'notifications' }
   | { kind: 'profile'; userId: string }
@@ -25,9 +25,7 @@ function panelFromUrl(): RightPanel {
   const requested = new URLSearchParams(window.location.search).get('panel');
   if (!requested) return null;
 
-  const opened = (['search', 'later', 'scheduled', 'notifications'] as const).find(
-    (kind) => kind === requested,
-  );
+  const opened = (['search', 'later', 'drafts', 'notifications'] as const).find((kind) => kind === requested);
   if (!opened) return null;
 
   const params = new URLSearchParams(window.location.search);

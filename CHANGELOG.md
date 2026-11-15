@@ -61,6 +61,16 @@ instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   filtered list can be shared. Bots with `users:read` get the fields and each member's
   values. A person export includes the values, and erasing a person or their leaving deletes
   them. The audit log records `profile_field.created`, `updated` and `deleted`.
+- Drafts follow you. What you type in a composer and leave unsent is kept on the server too,
+  so it is in the same channel, DM or thread on your other browsers and the desktop app,
+  where an open composer takes it when you are not typing there. The newest one wins, so a
+  draft typed offline goes up when you are back and does not undo a newer one. Sending a
+  message clears its draft everywhere. A channel or DM holding a draft shows a pencil in the
+  sidebar. Files are not kept with a draft; it says when some were left behind. Only you ever
+  see your drafts. A person export includes them and erasing a person deletes them.
+- *Drafts & sent* in the *You* menu, in place of *Scheduled*: your drafts, newest first, each
+  opening where it was written and deletable; your scheduled messages; and what you sent
+  across channels, DMs and threads, each opening the message.
 
 ### Changed
 

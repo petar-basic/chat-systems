@@ -63,6 +63,7 @@ export const QUERY_KEYS = {
   botApps: (workspaceId: string) => ['bot-apps', workspaceId] as const,
 
   scheduledMessages: (workspaceId: string) => ['scheduled-messages', workspaceId] as const,
+  sentMessages: (workspaceId: string) => ['sent-messages', workspaceId] as const,
 
   slackImports: (workspaceId: string) => ['slack-imports', workspaceId] as const,
   laterAll: () => ['later'] as const,

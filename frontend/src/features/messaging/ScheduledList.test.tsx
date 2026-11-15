@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import i18n from '@/lib/i18n';
 import type { Channel } from '@/stores/workspace';
 import type { ScheduledMessage } from '@/features/messaging/hooks/useScheduledMessages';
-import ScheduledMessagesPanel from './ScheduledMessagesPanel';
+import ScheduledList from './ScheduledList';
 
 let scheduled: ScheduledMessage[] = [];
 const idle = { mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false };
@@ -32,12 +32,10 @@ const message = (over: Partial<ScheduledMessage>): ScheduledMessage =>
   }) as unknown as ScheduledMessage;
 
 function renderPanel() {
-  render(
-    <ScheduledMessagesPanel workspaceId="ws-1" channels={channels} conversations={[]} onClose={vi.fn()} />,
-  );
+  render(<ScheduledList workspaceId="ws-1" channels={channels} conversations={[]} />);
 }
 
-describe('ScheduledMessagesPanel in Japanese', () => {
+describe('ScheduledList in Japanese', () => {
   afterEach(async () => {
     scheduled = [];
     await i18n.changeLanguage('en');
