@@ -80,5 +80,158 @@
     "appointMember": "Member",
     "noCandidates": "Nobody in this workspace has an active account who isn't already an owner.",
     "appointFailed": "Could not make them an owner. Try again."
+  },
+  "audit": {
+    "when": "When",
+    "who": "Who",
+    "action": "Action",
+    "workspace": "Workspace",
+    "details": "Details",
+    "from": "From",
+    "empty": "Nothing has been recorded yet.",
+    "loadFailed": "Failed to load the audit log",
+    "unknownActor": "unknown",
+    "actions": {
+      "message": {
+        "deleted": "Message deleted",
+        "history_read": "Edit history read"
+      },
+      "channel": {
+        "created": "Channel created",
+        "archived": "Channel archived",
+        "unarchived": "Channel unarchived",
+        "updated": "Channel updated",
+        "member_added": "Added to channel",
+        "member_removed": "Removed from channel",
+        "role_changed": "Channel role changed",
+        "post_policy_changed": "Posting policy changed",
+        "broadcast_mentions_changed": "Broadcast mentions changed",
+        "privacy_changed": "Channel made private or public"
+      },
+      "workspace": {
+        "created": "Workspace created",
+        "deleted": "Workspace deleted",
+        "restored": "Workspace restored",
+        "member_removed": "Member removed",
+        "role_changed": "Role changed"
+      },
+      "guest": {
+        "updated": "Guest access changed",
+        "expired": "Guest access ended"
+      },
+      "invite": {
+        "created": "Invite created",
+        "revoked": "Invite revoked"
+      },
+      "invite_request": {
+        "created": "Invite requested",
+        "approved": "Invite request approved",
+        "declined": "Invite request declined",
+        "expired": "Invite request expired"
+      },
+      "profile_field": {
+        "created": "Profile field added",
+        "updated": "Profile field changed",
+        "deleted": "Profile field deleted"
+      },
+      "hook": {
+        "created": "Integration created",
+        "deleted": "Integration deleted",
+        "revealed": "Integration secret revealed",
+        "rotated": "Integration secret rotated",
+        "disabled": "Integration turned off",
+        "enabled": "Integration turned back on"
+      },
+      "app": {
+        "configured": "App set up",
+        "removed": "App removed",
+        "connected": "App account connected",
+        "disconnected": "App account disconnected"
+      },
+      "bot_app": {
+        "created": "App created",
+        "updated": "App changed",
+        "token_rotated": "App token replaced",
+        "removed": "App deleted",
+        "called": "App called the API",
+        "disabled": "App turned off",
+        "enabled": "App turned back on"
+      },
+      "workflow": {
+        "created": "Workflow created",
+        "updated": "Workflow edited",
+        "enabled": "Workflow published",
+        "disabled": "Workflow turned off",
+        "taken_over": "Workflow taken over",
+        "link_rotated": "Workflow URL replaced",
+        "deleted": "Workflow deleted"
+      },
+      "file": {
+        "deleted": "File deleted"
+      },
+      "user": {
+        "suspended": "User suspended",
+        "activated": "User activated",
+        "instance_role_changed": "Instance role changed",
+        "provisioned": "User provisioned",
+        "data_erased": "User data erased"
+      },
+      "conversation": {
+        "converted": "Group DM made a channel"
+      },
+      "command": {
+        "invoked": "Command run"
+      },
+      "emoji": {
+        "created": "Custom emoji added",
+        "deleted": "Custom emoji removed"
+      },
+      "group": {
+        "created": "Group created",
+        "updated": "Group updated",
+        "deleted": "Group deleted",
+        "member_added": "Added to group",
+        "member_removed": "Removed from group"
+      },
+      "export": {
+        "requested": "Export requested",
+        "completed": "Export completed"
+      },
+      "retention": {
+        "changed": "Retention policy changed",
+        "purge": "Retention purge"
+      },
+      "scim": {
+        "token_created": "SCIM token created",
+        "token_revoked": "SCIM token revoked",
+        "token_rotated": "SCIM token rotated"
+      },
+      "slack_import": {
+        "started": "Slack import started",
+        "discarded": "Slack export discarded"
+      },
+      "sso": {
+        "linked": "SSO account linked"
+      },
+      "totp": {
+        "enrolled": "Two-factor enabled",
+        "disabled": "Two-factor disabled",
+        "failed": "Two-factor challenge failed",
+        "recovery_used": "Recovery code used"
+      },
+      "passkey": {
+        "added": "Passkey added",
+        "removed": "Passkey removed",
+        "used": "Signed in with a passkey"
+      },
+      "email_code": {
+        "sent": "Sign-in code emailed",
+        "used": "Signed in with an emailed code",
+        "exhausted": "Sign-in code ran out of tries"
+      },
+      "instance": {
+        "settings_changed": "Instance settings changed"
+      }
+    }
   }
 }

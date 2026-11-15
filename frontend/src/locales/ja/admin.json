@@ -80,5 +80,158 @@
     "appointMember": "メンバー",
     "noCandidates": "このワークスペースには、オーナー以外に有効なアカウントを持つメンバーがいません。",
     "appointFailed": "オーナーにできませんでした。もう一度お試しください。"
+  },
+  "audit": {
+    "when": "日時",
+    "who": "実行者",
+    "action": "操作",
+    "workspace": "ワークスペース",
+    "details": "詳細",
+    "from": "接続元",
+    "empty": "まだ記録はありません。",
+    "loadFailed": "監査ログを読み込めませんでした",
+    "unknownActor": "不明",
+    "actions": {
+      "message": {
+        "deleted": "メッセージを削除",
+        "history_read": "編集履歴を閲覧"
+      },
+      "channel": {
+        "created": "チャンネルを作成",
+        "archived": "チャンネルをアーカイブ",
+        "unarchived": "チャンネルのアーカイブを解除",
+        "updated": "チャンネルを変更",
+        "member_added": "チャンネルにメンバーを追加",
+        "member_removed": "チャンネルからメンバーを削除",
+        "role_changed": "チャンネルでの役割を変更",
+        "post_policy_changed": "投稿できる人を変更",
+        "broadcast_mentions_changed": "全員宛てメンションの設定を変更",
+        "privacy_changed": "チャンネルの公開範囲を変更"
+      },
+      "workspace": {
+        "created": "ワークスペースを作成",
+        "deleted": "ワークスペースを削除",
+        "restored": "ワークスペースを復元",
+        "member_removed": "ワークスペースからメンバーを削除",
+        "role_changed": "ワークスペースでの役割を変更"
+      },
+      "guest": {
+        "updated": "ゲストのアクセスを変更",
+        "expired": "ゲストのアクセスが終了"
+      },
+      "invite": {
+        "created": "招待を作成",
+        "revoked": "招待を取り消し"
+      },
+      "invite_request": {
+        "created": "招待を依頼",
+        "approved": "招待の依頼を承認",
+        "declined": "招待の依頼を却下",
+        "expired": "招待の依頼が期限切れ"
+      },
+      "profile_field": {
+        "created": "プロフィール項目を追加",
+        "updated": "プロフィール項目を変更",
+        "deleted": "プロフィール項目を削除"
+      },
+      "hook": {
+        "created": "連携を作成",
+        "deleted": "連携を削除",
+        "revealed": "連携のシークレットを表示",
+        "rotated": "連携のシークレットを再発行",
+        "disabled": "連携をオフ",
+        "enabled": "連携を再びオン"
+      },
+      "app": {
+        "configured": "アプリを設定",
+        "removed": "アプリの設定を削除",
+        "connected": "アプリのアカウントを接続",
+        "disconnected": "アプリのアカウントの接続を解除"
+      },
+      "bot_app": {
+        "created": "アプリを作成",
+        "updated": "アプリを変更",
+        "token_rotated": "アプリのトークンを再発行",
+        "removed": "アプリを削除",
+        "called": "アプリが API を呼び出し",
+        "disabled": "アプリをオフ",
+        "enabled": "アプリを再びオン"
+      },
+      "workflow": {
+        "created": "ワークフローを作成",
+        "updated": "ワークフローを編集",
+        "enabled": "ワークフローを公開",
+        "disabled": "ワークフローをオフ",
+        "taken_over": "ワークフローを引き継ぎ",
+        "link_rotated": "ワークフローの URL を再発行",
+        "deleted": "ワークフローを削除"
+      },
+      "file": {
+        "deleted": "ファイルを削除"
+      },
+      "user": {
+        "suspended": "ユーザーを停止",
+        "activated": "ユーザーを有効化",
+        "instance_role_changed": "サーバーでの役割を変更",
+        "provisioned": "ユーザーを自動登録",
+        "data_erased": "ユーザーのデータを消去"
+      },
+      "conversation": {
+        "converted": "グループチャットをチャンネルに変換"
+      },
+      "command": {
+        "invoked": "コマンドを実行"
+      },
+      "emoji": {
+        "created": "カスタム絵文字を追加",
+        "deleted": "カスタム絵文字を削除"
+      },
+      "group": {
+        "created": "ユーザーグループを作成",
+        "updated": "ユーザーグループを変更",
+        "deleted": "ユーザーグループを削除",
+        "member_added": "ユーザーグループにメンバーを追加",
+        "member_removed": "ユーザーグループからメンバーを削除"
+      },
+      "export": {
+        "requested": "エクスポートを要求",
+        "completed": "エクスポートが完了"
+      },
+      "retention": {
+        "changed": "保持期間の設定を変更",
+        "purge": "保持期間による削除"
+      },
+      "scim": {
+        "token_created": "SCIM トークンを作成",
+        "token_revoked": "SCIM トークンを無効化",
+        "token_rotated": "SCIM トークンを再発行"
+      },
+      "slack_import": {
+        "started": "Slack からの取り込みを開始",
+        "discarded": "Slack のエクスポートを破棄"
+      },
+      "sso": {
+        "linked": "SSO のアカウントを紐付け"
+      },
+      "totp": {
+        "enrolled": "2要素認証をオン",
+        "disabled": "2要素認証をオフ",
+        "failed": "2要素認証に失敗",
+        "recovery_used": "リカバリーコードを使用"
+      },
+      "passkey": {
+        "added": "パスキーを追加",
+        "removed": "パスキーを削除",
+        "used": "パスキーでサインイン"
+      },
+      "email_code": {
+        "sent": "サインインコードをメールで送信",
+        "used": "メールのコードでサインイン",
+        "exhausted": "サインインコードの試行回数が上限に到達"
+      },
+      "instance": {
+        "settings_changed": "サーバーの設定を変更"
+      }
+    }
   }
 }
