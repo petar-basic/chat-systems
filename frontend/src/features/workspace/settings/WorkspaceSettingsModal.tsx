@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Channel, Workspace, WorkspaceMember } from '@/stores/workspace';
 import type { AppRef } from '@/features/workspace/hooks/useAppDirectory';
 import { SectionedModal } from '@/shared/components/Modal/SectionedModal';
@@ -39,7 +40,11 @@ export function WorkspaceSettingsModal({
   channels,
   onClose,
 }: Props) {
-  const sections = sectionsFor(viewer);
+  const { t } = useTranslation('workspace');
+  const sections = sectionsFor(viewer).map((section) => ({
+    ...section,
+    label: t(`settings.sections.${section.key}`),
+  }));
   const isAdmin = isWorkspaceAdmin(viewer.role);
   const [chosen, setChosen] = useState<SettingsSection>(initial);
   const active = sections.some((s) => s.key === chosen) ? chosen : sections[0].key;
@@ -47,7 +52,7 @@ export function WorkspaceSettingsModal({
 
   return (
     <SectionedModal
-      title="Workspace settings"
+      title={t('settings.title')}
       sections={sections}
       active={active}
       onSelect={setChosen}

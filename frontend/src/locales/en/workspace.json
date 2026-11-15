@@ -164,5 +164,72 @@
     "deleteDescription": "{{name}} stops answering its phrases.",
     "delete": "Delete response",
     "deleteFailed": "Could not delete the response."
+  },
+  "settings": {
+    "title": "Workspace settings",
+    "sections": {
+      "general": "General",
+      "members": "Members",
+      "user-groups": "User groups",
+      "profile-fields": "Profile fields",
+      "custom-emoji": "Custom emoji",
+      "custom-responses": "Custom responses",
+      "apps": "Apps",
+      "integrations": "Integrations",
+      "retention": "Data retention",
+      "analytics": "Analytics",
+      "exports": "Exports",
+      "slack-import": "Slack import",
+      "audit-log": "Audit log",
+      "scim": "SCIM provisioning"
+    },
+    "general": {
+      "icon": "Workspace icon",
+      "uploadIcon": "Upload icon",
+      "uploading": "Uploading…",
+      "removeIcon": "Remove",
+      "name": "Workspace name",
+      "description": "Description",
+      "descriptionPlaceholder": "What is this workspace about?",
+      "linkPreviews": "Link previews",
+      "linkPreviewsHint": "Show a card with the title and image of pages linked in messages. The server fetches each public page to build it.",
+      "gifs": "GIFs",
+      "gifsHint": "Let people search GIPHY from the message box and send what they pick. Browsers fetch the search and the GIFs from GIPHY directly, and an instance admin has to add a GIPHY key first.",
+      "gifRating": "GIF rating",
+      "gifRatingHint": "GIPHY leaves out GIFs rated above this.",
+      "gifRatings": {
+        "g": "G — fit for everyone",
+        "pg": "PG — mild",
+        "pg-13": "PG-13 — some adult themes",
+        "r": "R — adult"
+      },
+      "permissions": "Permissions",
+      "rules": {
+        "workflow_builders": "Who can build workflows",
+        "broadcast_mentions": "Who can use @channel, @here and @everyone",
+        "public_channel_creators": "Who can create public channels",
+        "private_channel_creators": "Who can create private channels",
+        "inviters": "Who can invite people",
+        "custom_responders": "Who can edit custom responses"
+      },
+      "everyMember": "Every member",
+      "adminsOnly": "Admins only",
+      "saving": "Saving…",
+      "saved": "Saved",
+      "saveFailed": "Failed to save settings",
+      "dangerZone": "Danger zone",
+      "softDeleted": "This workspace was soft-deleted. You can restore it to make it visible to members again.",
+      "restore": "Restore workspace",
+      "deleteExplain": "Deleting a workspace is irreversible (hard) or hides it from members (soft).",
+      "delete": "Delete workspace",
+      "deleteTitle": "Delete “{{name}}”",
+      "deleteDescription": "Choose how to delete this workspace",
+      "howToDelete": "How to delete",
+      "soft": "Soft delete",
+      "softHint": "Hides the workspace from members. Its admins and instance admins still see it, and its owner or an instance admin can restore it.",
+      "hard": "Delete permanently",
+      "hardHint": "Permanently deletes everything: channels, messages, members. This cannot be undone.",
+      "deleteFailed": "Failed to delete workspace"
+    }
   }
 }

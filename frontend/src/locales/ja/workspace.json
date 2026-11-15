@@ -122,5 +122,72 @@
     "deleteDescription_other": "すべてのプロフィールから、入力済みの{{count}}件の値とともに削除されます。",
     "delete": "項目を削除",
     "deleteFailed": "項目を削除できませんでした。"
+  },
+  "settings": {
+    "title": "ワークスペースの設定",
+    "sections": {
+      "general": "全般",
+      "members": "メンバー",
+      "user-groups": "ユーザーグループ",
+      "profile-fields": "プロフィール項目",
+      "custom-emoji": "カスタム絵文字",
+      "custom-responses": "カスタムレスポンス",
+      "apps": "アプリ",
+      "integrations": "連携",
+      "retention": "データの保持期間",
+      "analytics": "分析",
+      "exports": "エクスポート",
+      "slack-import": "Slack からの取り込み",
+      "audit-log": "監査ログ",
+      "scim": "SCIM プロビジョニング"
+    },
+    "general": {
+      "icon": "ワークスペースのアイコン",
+      "uploadIcon": "アイコンをアップロード",
+      "uploading": "アップロードしています…",
+      "removeIcon": "削除",
+      "name": "ワークスペース名",
+      "description": "説明",
+      "descriptionPlaceholder": "このワークスペースは何のためのものですか?",
+      "linkPreviews": "リンクのプレビュー",
+      "linkPreviewsHint": "メッセージ内のリンク先ページのタイトルと画像を、カードで表示します。カードを作るために、サーバーが公開ページを読み込みます。",
+      "gifs": "GIF",
+      "gifsHint": "メッセージの入力欄から GIPHY を検索して、選んだ GIF を送れるようにします。検索と GIF の読み込みは、各ブラウザが GIPHY から直接行います。先にサーバー管理者が GIPHY のキーを登録する必要があります。",
+      "gifRating": "GIF のレーティング",
+      "gifRatingHint": "これより上のレーティングの GIF は、GIPHY が除外します。",
+      "gifRatings": {
+        "g": "G — 全年齢向け",
+        "pg": "PG — 軽い表現を含む",
+        "pg-13": "PG-13 — 大人向けの要素を一部含む",
+        "r": "R — 成人向け"
+      },
+      "permissions": "権限",
+      "rules": {
+        "workflow_builders": "ワークフローを作成できる人",
+        "broadcast_mentions": "@channel、@here、@everyone を使える人",
+        "public_channel_creators": "公開チャンネルを作成できる人",
+        "private_channel_creators": "非公開チャンネルを作成できる人",
+        "inviters": "メンバーを招待できる人",
+        "custom_responders": "カスタムレスポンスを編集できる人"
+      },
+      "everyMember": "メンバー全員",
+      "adminsOnly": "管理者のみ",
+      "saving": "保存しています…",
+      "saved": "保存しました",
+      "saveFailed": "設定を保存できませんでした",
+      "dangerZone": "危険な操作",
+      "softDeleted": "このワークスペースは論理削除(非表示)されています。表示状態に戻すと、メンバーがまた閲覧できるようになります。",
+      "restore": "ワークスペースを表示状態に戻す",
+      "deleteExplain": "ワークスペースの削除には、元に戻せない完全削除と、メンバーから閲覧不能にする論理削除(非表示)があります。",
+      "delete": "ワークスペースを削除",
+      "deleteTitle": "「{{name}}」を削除",
+      "deleteDescription": "削除の方法を選んでください",
+      "howToDelete": "削除の方法",
+      "soft": "論理削除(非表示)",
+      "softHint": "メンバーからは閲覧不能(非表示)になります。ワークスペースの管理者とサーバー管理者は引き続き閲覧可能です。オーナーとサーバー管理者は表示状態に戻すことができます。",
+      "hard": "完全に削除",
+      "hardHint": "チャンネル、メッセージ、メンバーなど、すべてを完全に削除します。元に戻すことはできません。",
+      "deleteFailed": "ワークスペースを削除できませんでした"
+    }
   }
 }

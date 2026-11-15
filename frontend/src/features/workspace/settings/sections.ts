@@ -40,21 +40,21 @@ export interface Viewer {
   isInstanceAdmin: boolean;
 }
 
-const SECTIONS: (ModalSection<SettingsSection> & { audience: Audience })[] = [
-  { key: 'general', label: 'General', Icon: Settings, audience: 'admin' },
-  { key: 'members', label: 'Members', Icon: Users, audience: 'everyone' },
-  { key: 'user-groups', label: 'User groups', Icon: UsersRound, audience: 'everyone' },
-  { key: 'profile-fields', label: 'Profile fields', Icon: IdCard, audience: 'admin' },
-  { key: 'custom-emoji', label: 'Custom emoji', Icon: Smile, audience: 'everyone' },
-  { key: 'custom-responses', label: 'Custom responses', Icon: BotMessageSquare, audience: 'members' },
-  { key: 'apps', label: 'Apps', Icon: LayoutGrid, audience: 'everyone' },
-  { key: 'integrations', label: 'Integrations', Icon: Plug, audience: 'admin' },
-  { key: 'retention', label: 'Data retention', Icon: Clock, audience: 'owner' },
-  { key: 'analytics', label: 'Analytics', Icon: ChartColumn, audience: 'admin' },
-  { key: 'exports', label: 'Exports', Icon: Archive, audience: 'admin' },
-  { key: 'slack-import', label: 'Slack import', Icon: Upload, audience: 'admin' },
-  { key: 'audit-log', label: 'Audit log', Icon: ScrollText, audience: 'admin' },
-  { key: 'scim', label: 'SCIM provisioning', Icon: KeyRound, audience: 'instance-admin' },
+const SECTIONS: (Omit<ModalSection<SettingsSection>, 'label'> & { audience: Audience })[] = [
+  { key: 'general', Icon: Settings, audience: 'admin' },
+  { key: 'members', Icon: Users, audience: 'everyone' },
+  { key: 'user-groups', Icon: UsersRound, audience: 'everyone' },
+  { key: 'profile-fields', Icon: IdCard, audience: 'admin' },
+  { key: 'custom-emoji', Icon: Smile, audience: 'everyone' },
+  { key: 'custom-responses', Icon: BotMessageSquare, audience: 'members' },
+  { key: 'apps', Icon: LayoutGrid, audience: 'everyone' },
+  { key: 'integrations', Icon: Plug, audience: 'admin' },
+  { key: 'retention', Icon: Clock, audience: 'owner' },
+  { key: 'analytics', Icon: ChartColumn, audience: 'admin' },
+  { key: 'exports', Icon: Archive, audience: 'admin' },
+  { key: 'slack-import', Icon: Upload, audience: 'admin' },
+  { key: 'audit-log', Icon: ScrollText, audience: 'admin' },
+  { key: 'scim', Icon: KeyRound, audience: 'instance-admin' },
 ];
 
 export function isWorkspaceAdmin(role: WorkspaceRole | null) {
@@ -76,12 +76,8 @@ function sees(viewer: Viewer, audience: Audience) {
   }
 }
 
-export function sectionsFor(viewer: Viewer): ModalSection<SettingsSection>[] {
-  return SECTIONS.filter((s) => sees(viewer, s.audience)).map(({ key, label, Icon }) => ({
-    key,
-    label,
-    Icon,
-  }));
+export function sectionsFor(viewer: Viewer): Omit<ModalSection<SettingsSection>, 'label'>[] {
+  return SECTIONS.filter((s) => sees(viewer, s.audience)).map(({ key, Icon }) => ({ key, Icon }));
 }
 
 export function isSettingsSection(value: string | null): value is SettingsSection {
