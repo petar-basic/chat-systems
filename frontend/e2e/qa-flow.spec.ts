@@ -58,7 +58,9 @@ test('2. typing indicator reaches the other user (before any send)', async () =>
   await editor.type('typing test…', { delay: 40 });
   await expect(admin.getByText(/is typing/i)).toBeVisible({ timeout: 10_000 });
   await admin.screenshot({ path: `${SHOTS}/03-typing-indicator.png` });
-  await editor.fill('');
+  await editor.press('ControlOrMeta+a');
+  await editor.press('Backspace');
+  await expect(editor).toHaveText('');
 });
 
 test('3. channel message is delivered live in both directions', async () => {
@@ -79,7 +81,9 @@ test('3b. typing indicator still works after the user sent a message', async () 
   await editor.type('typing again after send', { delay: 40 });
   await expect(admin.getByText(/is typing/i)).toBeVisible({ timeout: 5000 });
   await admin.screenshot({ path: `${SHOTS}/03b-typing-after-send.png` });
-  await editor.fill('');
+  await editor.press('ControlOrMeta+a');
+  await editor.press('Backspace');
+  await expect(editor).toHaveText('');
 });
 
 test('4. reaction added by one user shows for the other', async () => {
