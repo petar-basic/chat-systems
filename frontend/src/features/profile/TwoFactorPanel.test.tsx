@@ -54,7 +54,17 @@ describe('TwoFactorPanel', () => {
     await i18n.changeLanguage('ja');
     renderPanel();
     expect(await screen.findByText('オン。リカバリーコードは残り 1 個です。')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: '2段階認証' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '2要素認証' })).toBeInTheDocument();
+  });
+
+  it('in Japanese says why an admin cannot turn it off', async () => {
+    get.mockResolvedValue({ enrolled: true, recovery_codes_remaining: 5, required: true });
+    await i18n.changeLanguage('ja');
+    renderPanel();
+    expect(await screen.findByTestId('totp-disable')).toHaveAttribute(
+      'data-tooltip',
+      '管理者のアカウントには2要素認証が必要です',
+    );
   });
 
   it('does not treat an unfinished enrolment as protection', async () => {
