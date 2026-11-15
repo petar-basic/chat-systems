@@ -135,4 +135,11 @@ describe('UserHoverCard in Japanese', () => {
     renderCard();
     expect(screen.getByTestId('hover-card-left').textContent).toBe('このワークスペースにはもういません');
   });
+
+  it('offers the full profile', async () => {
+    person({});
+    await i18n.changeLanguage('ja');
+    renderCard();
+    expect(screen.getByTestId('hover-card-profile')).toHaveTextContent('プロフィールをすべて見る');
+  });
 });
