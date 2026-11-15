@@ -1,6 +1,7 @@
 import type { components } from '@/api/schema';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { formatDateTime } from '@/lib/datetime';
+import { useTranslation } from 'react-i18next';
 
 export type AuditEntry = components['schemas']['AuditRow'];
 
@@ -10,96 +11,100 @@ interface Props {
   showWorkspace?: boolean;
 }
 
-const ACTION_LABELS: Record<string, string> = {
-  'message.deleted': 'Message deleted',
-  'channel.created': 'Channel created',
-  'channel.archived': 'Channel archived',
-  'channel.unarchived': 'Channel unarchived',
-  'channel.updated': 'Channel updated',
-  'channel.member_added': 'Added to channel',
-  'channel.member_removed': 'Removed from channel',
-  'channel.role_changed': 'Channel role changed',
-  'workspace.created': 'Workspace created',
-  'workspace.deleted': 'Workspace deleted',
-  'workspace.restored': 'Workspace restored',
-  'workspace.member_removed': 'Member removed',
-  'workspace.role_changed': 'Role changed',
-  'guest.updated': 'Guest access changed',
-  'guest.expired': 'Guest access ended',
-  'invite.created': 'Invite created',
-  'invite.revoked': 'Invite revoked',
-  'invite_request.created': 'Invite requested',
-  'invite_request.approved': 'Invite request approved',
-  'invite_request.declined': 'Invite request declined',
-  'invite_request.expired': 'Invite request expired',
-  'profile_field.created': 'Profile field added',
-  'profile_field.updated': 'Profile field changed',
-  'profile_field.deleted': 'Profile field deleted',
-  'hook.created': 'Integration created',
-  'app.configured': 'App set up',
-  'app.removed': 'App removed',
-  'app.connected': 'App account connected',
-  'app.disconnected': 'App account disconnected',
-  'bot_app.created': 'App created',
-  'bot_app.updated': 'App changed',
-  'bot_app.token_rotated': 'App token replaced',
-  'bot_app.removed': 'App deleted',
-  'bot_app.called': 'App called the API',
-  'bot_app.disabled': 'App turned off',
-  'bot_app.enabled': 'App turned back on',
-  'workflow.created': 'Workflow created',
-  'workflow.updated': 'Workflow edited',
-  'workflow.enabled': 'Workflow published',
-  'workflow.disabled': 'Workflow turned off',
-  'workflow.taken_over': 'Workflow taken over',
-  'workflow.link_rotated': 'Workflow URL replaced',
-  'workflow.deleted': 'Workflow deleted',
-  'hook.deleted': 'Integration deleted',
-  'hook.revealed': 'Integration secret revealed',
-  'hook.rotated': 'Integration secret rotated',
-  'hook.disabled': 'Integration turned off',
-  'hook.enabled': 'Integration turned back on',
-  'file.deleted': 'File deleted',
-  'user.suspended': 'User suspended',
-  'user.activated': 'User activated',
-  'user.instance_role_changed': 'Instance role changed',
-  'user.provisioned': 'User provisioned',
-  'user.data_erased': 'User data erased',
-  'channel.post_policy_changed': 'Posting policy changed',
-  'channel.broadcast_mentions_changed': 'Broadcast mentions changed',
-  'channel.privacy_changed': 'Channel made private or public',
-  'conversation.converted': 'Group DM made a channel',
-  'message.history_read': 'Edit history read',
-  'command.invoked': 'Command run',
-  'emoji.created': 'Custom emoji added',
-  'emoji.deleted': 'Custom emoji removed',
-  'group.created': 'Group created',
-  'group.updated': 'Group updated',
-  'group.deleted': 'Group deleted',
-  'group.member_added': 'Added to group',
-  'group.member_removed': 'Removed from group',
-  'export.requested': 'Export requested',
-  'export.completed': 'Export completed',
-  'retention.changed': 'Retention policy changed',
-  'retention.purge': 'Retention purge',
-  'scim.token_created': 'SCIM token created',
-  'scim.token_revoked': 'SCIM token revoked',
-  'scim.token_rotated': 'SCIM token rotated',
-  'slack_import.started': 'Slack import started',
-  'slack_import.discarded': 'Slack export discarded',
-  'sso.linked': 'SSO account linked',
-  'totp.enrolled': 'Two-factor enabled',
-  'totp.disabled': 'Two-factor disabled',
-  'totp.failed': 'Two-factor challenge failed',
-  'totp.recovery_used': 'Recovery code used',
-  'passkey.added': 'Passkey added',
-  'passkey.removed': 'Passkey removed',
-  'passkey.used': 'Signed in with a passkey',
-  'email_code.sent': 'Sign-in code emailed',
-  'email_code.used': 'Signed in with an emailed code',
-  'email_code.exhausted': 'Sign-in code ran out of tries',
-  'instance.settings_changed': 'Instance settings changed',
-};
+const ACTIONS = [
+  'message.deleted',
+  'channel.created',
+  'channel.archived',
+  'channel.unarchived',
+  'channel.updated',
+  'channel.member_added',
+  'channel.member_removed',
+  'channel.role_changed',
+  'workspace.created',
+  'workspace.deleted',
+  'workspace.restored',
+  'workspace.member_removed',
+  'workspace.role_changed',
+  'guest.updated',
+  'guest.expired',
+  'invite.created',
+  'invite.revoked',
+  'invite_request.created',
+  'invite_request.approved',
+  'invite_request.declined',
+  'invite_request.expired',
+  'profile_field.created',
+  'profile_field.updated',
+  'profile_field.deleted',
+  'hook.created',
+  'app.configured',
+  'app.removed',
+  'app.connected',
+  'app.disconnected',
+  'bot_app.created',
+  'bot_app.updated',
+  'bot_app.token_rotated',
+  'bot_app.removed',
+  'bot_app.called',
+  'bot_app.disabled',
+  'bot_app.enabled',
+  'workflow.created',
+  'workflow.updated',
+  'workflow.enabled',
+  'workflow.disabled',
+  'workflow.taken_over',
+  'workflow.link_rotated',
+  'workflow.deleted',
+  'hook.deleted',
+  'hook.revealed',
+  'hook.rotated',
+  'hook.disabled',
+  'hook.enabled',
+  'file.deleted',
+  'user.suspended',
+  'user.activated',
+  'user.instance_role_changed',
+  'user.provisioned',
+  'user.data_erased',
+  'channel.post_policy_changed',
+  'channel.broadcast_mentions_changed',
+  'channel.privacy_changed',
+  'conversation.converted',
+  'message.history_read',
+  'command.invoked',
+  'emoji.created',
+  'emoji.deleted',
+  'group.created',
+  'group.updated',
+  'group.deleted',
+  'group.member_added',
+  'group.member_removed',
+  'export.requested',
+  'export.completed',
+  'retention.changed',
+  'retention.purge',
+  'scim.token_created',
+  'scim.token_revoked',
+  'scim.token_rotated',
+  'slack_import.started',
+  'slack_import.discarded',
+  'sso.linked',
+  'totp.enrolled',
+  'totp.disabled',
+  'totp.failed',
+  'totp.recovery_used',
+  'passkey.added',
+  'passkey.removed',
+  'passkey.used',
+  'email_code.sent',
+  'email_code.used',
+  'email_code.exhausted',
+  'instance.settings_changed',
+] as const;
+
+type Action = (typeof ACTIONS)[number];
+
+const isAction = (action: string): action is Action => (ACTIONS as readonly string[]).includes(action);
 
 function humanizeAction(action: string): string {
   const words = action.replace(/[._]/g, ' ').trim();
@@ -107,7 +112,7 @@ function humanizeAction(action: string): string {
 }
 
 function actorLabel(entry: AuditEntry) {
-  return entry.actor_display_name || entry.actor_email || entry.user_id || 'unknown';
+  return entry.actor_display_name || entry.actor_email || entry.user_id;
 }
 
 function detailSummary(details: unknown) {
@@ -119,6 +124,8 @@ function detailSummary(details: unknown) {
 }
 
 export default function AuditLogTable({ entries, loading, showWorkspace = false }: Props) {
+  const { t } = useTranslation('admin');
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -130,7 +137,7 @@ export default function AuditLogTable({ entries, loading, showWorkspace = false 
   if (entries.length === 0) {
     return (
       <div className="text-sm text-muted py-10 text-center" data-qa="audit-log-empty">
-        Nothing has been recorded yet.
+        {t('audit.empty')}
       </div>
     );
   }
@@ -141,24 +148,24 @@ export default function AuditLogTable({ entries, loading, showWorkspace = false 
         <thead>
           <tr className="border-b border-line">
             <th className="text-left px-4 py-3 text-xs font-medium text-muted uppercase tracking-wider">
-              When
+              {t('audit.when')}
             </th>
             <th className="text-left px-4 py-3 text-xs font-medium text-muted uppercase tracking-wider">
-              Who
+              {t('audit.who')}
             </th>
             <th className="text-left px-4 py-3 text-xs font-medium text-muted uppercase tracking-wider">
-              Action
+              {t('audit.action')}
             </th>
             {showWorkspace && (
               <th className="text-left px-4 py-3 text-xs font-medium text-muted uppercase tracking-wider">
-                Workspace
+                {t('audit.workspace')}
               </th>
             )}
             <th className="text-left px-4 py-3 text-xs font-medium text-muted uppercase tracking-wider">
-              Details
+              {t('audit.details')}
             </th>
             <th className="text-left px-4 py-3 text-xs font-medium text-muted uppercase tracking-wider">
-              From
+              {t('audit.from')}
             </th>
           </tr>
         </thead>
@@ -168,9 +175,9 @@ export default function AuditLogTable({ entries, loading, showWorkspace = false 
               <td className="px-4 py-3 text-xs text-muted whitespace-nowrap">
                 {formatDateTime(entry.created_at)}
               </td>
-              <td className="px-4 py-3 text-sm text-fg">{actorLabel(entry)}</td>
+              <td className="px-4 py-3 text-sm text-fg">{actorLabel(entry) || t('audit.unknownActor')}</td>
               <td className="px-4 py-3 text-sm text-fg-soft" data-qa="audit-log-action">
-                {ACTION_LABELS[entry.action] ?? humanizeAction(entry.action)}
+                {isAction(entry.action) ? t(`audit.actions.${entry.action}`) : humanizeAction(entry.action)}
               </td>
               {showWorkspace && (
                 <td className="px-4 py-3 text-xs text-muted font-mono">
