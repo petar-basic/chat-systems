@@ -3430,4 +3430,7 @@ api came back. Bob's export held `drafts.jsonl` with his three places.
 The check found one fault, fixed here. *Sent* showed a message Bob had just sent only after
 its tab was opened again; a `message.created` of one's own now refetches it. Writing this entry
 found another: the first cut deleted drafts only on an erase with `hard_delete`, so a plain
-erase left them, though nobody else could ever have read them.
+erase left them, though nobody else could ever have read them. CI found a third: the client
+knew the answer to a save belonged to the draft still held by comparing their times, so a
+second edit in the same millisecond took the answer to the first, was marked saved and never
+went up. It now compares the draft itself.

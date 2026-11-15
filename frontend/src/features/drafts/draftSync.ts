@@ -43,7 +43,7 @@ async function send(key: string): Promise<void> {
   if (!draft?.place || !draft.pending) return;
   try {
     const saved = await upload(draft.place, draft);
-    useDraftStore.getState().settle(key, draft.at, saved);
+    useDraftStore.getState().settle(key, draft, saved);
     settledLately.add(key);
   } catch (error) {
     if (refused(error)) useDraftStore.getState().keepLocal(key);

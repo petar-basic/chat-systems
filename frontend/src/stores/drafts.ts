@@ -73,7 +73,7 @@ interface DraftState {
   clearDraft: (key: string) => void;
   discardDraft: (key: string) => void;
   accept: (instanceUrl: string, saved: SavedDraft) => void;
-  settle: (key: string, sentAt: string, saved: SavedDraft) => void;
+  settle: (key: string, sent: LocalDraft | undefined, saved: SavedDraft) => void;
   keepLocal: (key: string) => void;
   forgetMissing: (workspaceId: string, kept: Set<string>) => void;
 }
@@ -134,9 +134,9 @@ export const useDraftStore = create<DraftState>((set, get) => {
       if (!current && !saved.content) return;
       take(key, place, saved);
     },
-    settle: (key, sentAt, saved) => {
+    settle: (key, sent, saved) => {
       const current = get().drafts[ownKey(key)];
-      if (!current?.place || Date.parse(current.at) !== Date.parse(sentAt)) return;
+      if (!current?.place || current !== sent) return;
       take(key, current.place, saved);
     },
     keepLocal: (key) => {

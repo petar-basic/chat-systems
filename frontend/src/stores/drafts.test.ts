@@ -109,16 +109,15 @@ describe('useDraftStore', () => {
     expect(store().entry('ch-1')).toMatchObject({ text: 'typed offline', pending: true });
   });
 
-  it('settles on what the server kept, unless more was typed meanwhile', () => {
+  it('settles on what the server kept, unless more was typed meanwhile, even within the same millisecond', () => {
     store().setDraft('ch-1', 'first', { place: general });
-    const sentAt = store().entry('ch-1')?.at ?? '';
-    store().settle('ch-1', sentAt, saved({ content: 'won elsewhere', updated_at: '2026-11-14T10:00:00Z' }));
+    const sent = store().entry('ch-1');
+    store().settle('ch-1', sent, saved({ content: 'won elsewhere', updated_at: '2026-11-14T10:00:00Z' }));
     expect(store().entry('ch-1')).toMatchObject({ text: 'won elsewhere', pending: false });
 
     vi.useFakeTimers({ now: new Date('2026-11-14T11:00:00Z') });
     store().setDraft('ch-1', 'first again', { place: general });
-    const stale = store().entry('ch-1')?.at ?? '';
-    vi.setSystemTime(new Date('2026-11-14T11:00:05Z'));
+    const stale = store().entry('ch-1');
     store().setDraft('ch-1', 'first again, longer', { place: general });
     store().settle('ch-1', stale, saved({ content: 'first again' }));
     expect(store().entry('ch-1')).toMatchObject({ text: 'first again, longer', pending: true });
