@@ -19,7 +19,7 @@ const place = (
 });
 const channels = [{ id: 'ch-1', name: 'design' }] as unknown as Channel[];
 const conversations = [
-  { id: 'dm-1', kind: 'direct', participant_ids: ['u-1', 'u-2'] },
+  { id: 'dm-1', kind: 'direct', participant_ids: ['u-1', 'u-2'], departed: [] },
 ] as unknown as Conversation[];
 
 function Where() {
