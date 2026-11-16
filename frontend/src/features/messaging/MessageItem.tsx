@@ -47,7 +47,7 @@ interface MessageItemProps {
   channels?: Channel[];
   onThreadOpen?: (msg: Message) => void;
   onToggleReaction: (messageId: string, emoji: string, hasOwn: boolean) => void;
-  onTogglePin: (messageId: string, isPinned: boolean) => void;
+  onTogglePin?: (messageId: string, isPinned: boolean) => void;
   onEdit: (messageId: string, content: string, attachmentIds?: string[]) => Promise<unknown> | void;
   onDelete: (messageId: string) => Promise<unknown> | void;
   onHidePreviews?: (messageId: string) => void;
@@ -129,7 +129,7 @@ function MessageItem({
     onCopyLink: onCopyLink ? () => onCopyLink(message.id) : undefined,
     onMarkUnread: onMarkUnread ? () => onMarkUnread(message.id) : undefined,
     onForward: onForward ? () => onForward(message) : undefined,
-    onTogglePin: archived ? undefined : () => onTogglePin(message.id, message.is_pinned),
+    onTogglePin: archived || !onTogglePin ? undefined : () => onTogglePin(message.id, message.is_pinned),
     onEdit: () => setEditing(true),
     onDelete: () => setConfirmDelete(true),
   };
@@ -155,13 +155,7 @@ function MessageItem({
   const canSeeHistory = message.user_id === currentUserId || role === 'admin' || role === 'owner';
 
   if (message.metadata?.kind === 'huddle_started' && message.metadata.huddle_id && !message.deleted_at) {
-    return (
-      <HuddleSystemMessage
-        channelId={message.channel_id}
-        huddleId={message.metadata.huddle_id}
-        initiatorId={message.metadata.initiator_id ?? message.user_id}
-      />
-    );
+    return <HuddleSystemMessage message={message} onThreadOpen={onThreadOpen} />;
   }
   const time = formatClock(message.created_at, TIME, clock);
   const attachments = message.metadata?.attachments ?? [];

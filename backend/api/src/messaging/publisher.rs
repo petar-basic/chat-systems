@@ -279,15 +279,18 @@ impl EventPublisher {
     pub async fn stage_message_deleted(
         &self,
         conn: &mut PgConnection,
-        message_id: Uuid,
-        channel_id: Uuid,
+        message: &Message,
         workspace_id: Uuid,
     ) -> AppResult<Staged> {
         Self::stage(
             conn,
             "message.deleted",
             workspace_id,
-            serde_json::json!({ "message_id": message_id, "channel_id": channel_id }),
+            serde_json::json!({
+                "message_id": message.id,
+                "channel_id": message.channel_id,
+                "thread_parent_id": message.thread_parent_id,
+            }),
         )
         .await
     }
@@ -317,13 +320,17 @@ impl EventPublisher {
         &self,
         conn: &mut PgConnection,
         reaction: &Reaction,
-        channel_id: Uuid,
+        message: &Message,
         workspace_id: Uuid,
     ) -> AppResult<Staged> {
         let mut payload =
             serde_json::to_value(reaction).map_err(|e| AppError::Internal(e.to_string()))?;
         if let Some(obj) = payload.as_object_mut() {
-            obj.insert("channel_id".into(), serde_json::json!(channel_id));
+            obj.insert("channel_id".into(), serde_json::json!(message.channel_id));
+            obj.insert(
+                "thread_parent_id".into(),
+                serde_json::json!(message.thread_parent_id),
+            );
         }
         Self::stage(conn, "reaction.added", workspace_id, payload).await
     }
@@ -331,8 +338,7 @@ impl EventPublisher {
     pub async fn stage_reaction_removed(
         &self,
         conn: &mut PgConnection,
-        message_id: Uuid,
-        channel_id: Uuid,
+        message: &Message,
         workspace_id: Uuid,
         user_id: Uuid,
         emoji: &str,
@@ -342,8 +348,9 @@ impl EventPublisher {
             "reaction.removed",
             workspace_id,
             serde_json::json!({
-                "message_id": message_id,
-                "channel_id": channel_id,
+                "message_id": message.id,
+                "channel_id": message.channel_id,
+                "thread_parent_id": message.thread_parent_id,
                 "user_id": user_id,
                 "emoji": emoji,
             }),

@@ -999,6 +999,20 @@ with it. A string the language does not have yet reads in English.
 
 ### Huddles (`features/huddle/hooks/useHuddle.ts`)
 `useActiveHuddles(wsId, instanceUrl?)` backfills currently-active huddles for the workspace.
+`useHuddleThread(huddleId, instanceUrl?, enabled)` reads `GET /huddles/{id}/thread` once per
+huddle: the `huddle_started` message and whether the reader can see its channel. The window
+enables it once the join has gone out, and it retries with backoff, since an invitee from
+outside the channel is refused until the worker has recorded the join.
+
+The huddle's thread opens from the *Thread* button of `HuddleControlBar`, beside the stage (in
+place of it on a phone), for a huddle in the open workspace. It is the ordinary `ThreadPanel` with
+`variant="huddle"`. With `inChannel={false}`, for an invitee from outside the channel, the panel
+asks nothing of the channel (no preview, no channel members), has no *Also send to* box, no slash
+commands, scheduling, polls, server drafts or pinning, and says the thread is theirs only while
+they are in the huddle. While the panel is closed the button counts unread replies from the
+thread's cached `ThreadState` (`useKnownThreadState`, which never fetches, since fetching it marks
+the thread read). `HuddleSystemMessage` takes the message itself: once `metadata.ended_at` is set
+it says how long the huddle lasted and who was in it, and it links the replies like any message.
 
 `HuddleController` carries the media over a `HuddleTransport` (`features/huddle/lib`) and
 sees nothing else of it: set a microphone, camera or screen track, mute, add or drop a peer,

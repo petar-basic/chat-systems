@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
+use crate::messaging::models::Message;
+
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct StartHuddleRequest {
     pub channel_id: Option<Uuid>,
@@ -23,6 +25,16 @@ pub struct HuddleSession {
     pub initiated_by: Uuid,
     pub started_at: DateTime<Utc>,
     pub ended_at: Option<DateTime<Utc>>,
+    pub message_id: Option<Uuid>,
+}
+
+pub struct NewSession {
+    pub id: Uuid,
+    pub workspace_id: Uuid,
+    pub channel_id: Option<Uuid>,
+    pub dm_partner_id: Option<Uuid>,
+    pub initiated_by: Uuid,
+    pub message_id: Uuid,
 }
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
@@ -50,6 +62,13 @@ pub struct ActiveHuddle {
 #[derive(Debug, Serialize, ToSchema)]
 pub struct HuddleStarted {
     pub huddle_id: Uuid,
+    pub message_id: Uuid,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct HuddleThread {
+    pub message: Message,
+    pub in_channel: bool,
 }
 
 #[derive(Debug, Serialize, ToSchema)]

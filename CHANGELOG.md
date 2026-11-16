@@ -95,6 +95,13 @@ instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   not see them. The bot is named after the instance until an admin renames it, shows the *App*
   badge, and the audit log records every change as `custom_response.created`, `updated` and
   `deleted`, and a rename as `workspace_bot.renamed`.
+- Every huddle has a thread: the *Thread* button in the huddle window opens it beside the
+  call, with mentions, files and emoji, and counts unread replies while it is closed. Everyone
+  in the huddle follows it while there and keeps following it if they wrote in it; nobody
+  else in the channel is notified. Someone invited from outside the channel can read and
+  write in that thread, and nowhere else in the channel, until they leave. When the huddle
+  ends, its message says how long it lasted and who was in it, and links its replies. A DM
+  huddle now posts its message, and keeps its thread, in the two people's DM.
 
 ### Changed
 

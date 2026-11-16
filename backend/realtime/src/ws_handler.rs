@@ -470,6 +470,9 @@ pub(crate) async fn handle_client_message(
                 } => (transport, promoted),
             };
             cm.join_huddle(conn_id, huddle_id);
+            if let Some(thread) = cm.huddle_thread(huddle_id).await {
+                cm.hear_huddle_thread(conn_id, huddle_id, thread);
+            }
             cm.publish_huddle(
                 "huddle.member_joined",
                 serde_json::json!({ "huddle_id": huddle_id, "user_id": user_id }),

@@ -13,6 +13,7 @@ import {
   Smile,
   Sparkles,
   UserPlus,
+  MessageSquare,
 } from 'lucide-react';
 import { useHuddleStore, type ActiveHuddle } from '@/stores/huddle';
 import { displayNameOf } from '@/lib/userHelpers';
@@ -25,7 +26,19 @@ import { Select } from '@/shared/components/Form/Select';
 
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '🎉', '👏', '🙌'];
 
-export function HuddleControlBar({ controls, active }: { controls: HuddleControls; active: ActiveHuddle }) {
+export interface HuddleThreadToggle {
+  open: boolean;
+  unread: number;
+  onToggle: () => void;
+}
+
+interface Props {
+  controls: HuddleControls;
+  active: ActiveHuddle;
+  thread?: HuddleThreadToggle;
+}
+
+export function HuddleControlBar({ controls, active, thread }: Props) {
   const { t } = useTranslation('huddle');
   const localMuted = useHuddleStore((s) => s.localMuted);
   const localCameraOn = useHuddleStore((s) => s.localCameraOn);
@@ -77,6 +90,7 @@ export function HuddleControlBar({ controls, active }: { controls: HuddleControl
       <ReactionPicker onPick={controls.sendReaction} />
       <InvitePicker active={active} />
       <DevicePicker controls={controls} />
+      {thread && <ThreadToggle thread={thread} />}
       <button
         onClick={controls.leave}
         aria-label={t('controls.leave')}
@@ -114,6 +128,36 @@ function ControlButton({ active, onClick, on, off, label, danger, highlight }: C
       className={`p-2.5 rounded-full transition ${tone}`}
     >
       {active ? on : off}
+    </button>
+  );
+}
+
+function ThreadToggle({ thread }: { thread: HuddleThreadToggle }) {
+  const { t } = useTranslation('huddle');
+  const label = thread.open ? t('thread.close') : t('thread.open');
+  const unread = !thread.open && thread.unread > 0;
+  return (
+    <button
+      onClick={thread.onToggle}
+      aria-label={unread ? `${label}, ${t('thread.unread', { count: thread.unread })}` : label}
+      data-tooltip={label}
+      aria-pressed={thread.open}
+      data-qa="huddle-thread-toggle"
+      className={`relative p-2.5 rounded-full transition ${
+        thread.open
+          ? 'bg-purple-600/30 text-accent-soft hover:bg-purple-600/40'
+          : 'bg-raised text-fg hover:bg-elevated'
+      }`}
+    >
+      <MessageSquare className="w-4 h-4" />
+      {unread && (
+        <span
+          data-qa="huddle-thread-unread"
+          className="pointer-events-none absolute -top-1 -right-1 min-w-4 h-4 px-1 bg-badge text-badge-fg text-4xs font-bold rounded-full flex items-center justify-center leading-none ring-2 ring-surface"
+        >
+          {thread.unread > 99 ? '99+' : thread.unread}
+        </span>
+      )}
     </button>
   );
 }

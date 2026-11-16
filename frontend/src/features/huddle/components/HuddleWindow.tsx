@@ -2,6 +2,10 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LayoutGrid, Maximize2, Expand, Shrink } from 'lucide-react';
 import { useHuddleStore } from '@/stores/huddle';
+import { useWorkspaceStore } from '@/stores/workspace';
+import { ThreadPanel, useKnownThreadState } from '@/features/threads';
+import { useWorkspaceMembers } from '@/features/workspace';
+import { useHuddleThread } from '../hooks/useHuddle';
 import type { HuddleControls } from '../HuddleController';
 import { buildTiles } from './huddleTiles';
 import { HuddleStage, type Layout } from './HuddleStage';
@@ -20,6 +24,17 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
   const localStream = useHuddleStore((s) => s.localStream);
   const [layout, setLayout] = useState<Layout>('grid');
   const [expanded, setExpanded] = useState(false);
+  const [threadFor, setThreadFor] = useState<string | null>(null);
+  const currentWorkspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id);
+  const here = !!active && active.workspaceId === currentWorkspaceId;
+  const threadOpen = here && threadFor === active.huddleId;
+  const { data: huddleThread } = useHuddleThread(
+    active?.huddleId ?? '',
+    active?.instanceUrl,
+    here && !!localStream,
+  );
+  const { data: threadState } = useKnownThreadState(huddleThread?.message.id);
+  const { data: members } = useWorkspaceMembers(threadOpen ? active.workspaceId : null, active?.instanceUrl);
 
   if (!active) return null;
 
@@ -45,7 +60,7 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
       className={
         expanded
           ? 'fixed inset-0 z-60 bg-app p-4 flex flex-col gap-3'
-          : 'fixed bottom-4 right-4 z-60 w-120 max-w-[calc(100vw-2rem)] bg-surface border border-line rounded-2xl shadow-2xl p-3 flex flex-col gap-3'
+          : `fixed bottom-4 right-4 z-60 ${threadOpen ? 'w-200' : 'w-120'} max-w-[calc(100vw-2rem)] bg-surface border border-line rounded-2xl shadow-2xl p-3 flex flex-col gap-3`
       }
     >
       <div className="flex items-center justify-between">
@@ -73,9 +88,39 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
         </div>
       </div>
 
-      <HuddleStage tiles={tiles} self={self} layout={layout} expanded={expanded} />
+      <div className={`flex gap-3 min-h-0 ${expanded ? 'flex-1' : ''}`}>
+        <div
+          className={`flex-1 min-w-0 min-h-0 flex flex-col ${threadOpen && huddleThread ? 'max-sm:hidden' : ''}`}
+        >
+          <HuddleStage tiles={tiles} self={self} layout={layout} expanded={expanded} />
+        </div>
+        {threadOpen && huddleThread && (
+          <div className={`flex min-h-0 max-sm:flex-1 ${expanded ? '' : 'h-112 max-h-[60vh]'}`}>
+            <ThreadPanel
+              key={huddleThread.message.id}
+              parentMessage={huddleThread.message}
+              members={members}
+              variant="huddle"
+              inChannel={huddleThread.in_channel}
+              onClose={() => setThreadFor(null)}
+            />
+          </div>
+        )}
+      </div>
 
-      <HuddleControlBar controls={controls} active={active} />
+      <HuddleControlBar
+        controls={controls}
+        active={active}
+        thread={
+          huddleThread
+            ? {
+                open: threadOpen,
+                unread: threadState?.unread_count ?? 0,
+                onToggle: () => setThreadFor(threadOpen ? null : active.huddleId),
+              }
+            : undefined
+        }
+      />
 
       {!localStream ? (
         <p className="text-xs text-muted text-center">Connecting…</p>

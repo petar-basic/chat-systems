@@ -24,7 +24,8 @@
     "empty": "No replies yet. Start the conversation!",
     "earlier": "Show earlier replies",
     "deleted": "This thread was deleted, so it takes no new replies.",
-    "archived": "#{{name}} is archived, so its threads take no new replies."
+    "archived": "#{{name}} is archived, so its threads take no new replies.",
+    "huddleOnly": "You can read and write in this thread while you're in the huddle. It closes to you when you leave."
   },
   "toasts": {
     "followFailed": "Couldn't update the thread"

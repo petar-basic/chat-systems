@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT user_id FROM huddle_participants\n              WHERE huddle_id = $1\n              ORDER BY joined_at, user_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "huddle_participants",
+            "name": "user_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "3b080736839bc9b69f2851c46424aa4b4ae9e871a0b0e65d71008b262fa3934e"
+}

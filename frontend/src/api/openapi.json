@@ -3540,6 +3540,36 @@
         }
       }
     },
+    "/huddles/{huddle_id}/thread": {
+      "get": {
+        "tags": [
+          "huddles"
+        ],
+        "operationId": "huddle_thread",
+        "parameters": [
+          {
+            "name": "huddle_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HuddleThread"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/instance/info": {
       "get": {
         "tags": [
@@ -18135,12 +18165,32 @@
       "HuddleStarted": {
         "type": "object",
         "required": [
-          "huddle_id"
+          "huddle_id",
+          "message_id"
         ],
         "properties": {
           "huddle_id": {
             "type": "string",
             "format": "uuid"
+          },
+          "message_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "HuddleThread": {
+        "type": "object",
+        "required": [
+          "message",
+          "in_channel"
+        ],
+        "properties": {
+          "in_channel": {
+            "type": "boolean"
+          },
+          "message": {
+            "$ref": "#/components/schemas/Message"
           }
         }
       },
@@ -19473,6 +19523,13 @@
               }
             ]
           },
+          "ended_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
           "fields": {
             "type": [
               "array",
@@ -19531,6 +19588,16 @@
               "string",
               "null"
             ]
+          },
+          "participant_ids": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           },
           "poll": {
             "oneOf": [

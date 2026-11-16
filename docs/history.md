@@ -3603,3 +3603,67 @@ Bob still saw the buttons, or the note; it is fetched each time the section open
 refused with 403 left the buttons in place; every save, delete and rename now refetches the
 list and the members, whether it worked or not, and the refused save flipped the section to
 read-only.
+
+### [CS-131] A huddle's own thread ✅ shipped
+What was shared in a huddle landed between unrelated messages in the channel, or in a DM to
+one person, and nothing tied it to the huddle once it ended. Every huddle now has a thread: the
+`huddle_started` message is its root. Start posts that message and writes the
+`huddle_sessions` row with it as `message_id` in one transaction, so the two always exist
+together. A DM huddle used to post nothing; it now posts its message in the two people's DM,
+opening one if they had none, while the session keeps its `dm_partner_id` and no `channel_id`,
+so who may join is unchanged. `GET /huddles/{id}/thread` gives the root and whether the reader
+can see its channel. The huddle window has a *Thread* button that opens the ordinary
+`ThreadPanel` beside the stage, with its composer, and counts unread replies while it is
+closed. The count is the thread's `ThreadState` from the cache, never fetched, since fetching
+it marks the thread read.
+
+Someone invited from outside the channel may read the thread, react, reply, open its files
+and edit or delete their own replies while they are in the huddle, and nothing else in the
+channel. The predicate is `HuddleRepo::hears`: the message's root is the root of an open
+huddle and the reader is a participant who has not left. `authz::require_message_access` and
+`require_thread_post_as` try the channel first and fall back on it only when the channel
+refused, so a member's access is never decided by the huddle. The member set is the
+database's `huddle_participants`, written by the consumer from the gateway's own join and
+leave events, rather than Redis, so the API needs no view of the gateway's rooms. For live
+updates the gateway keeps the huddle's thread on each socket that joined it and also delivers
+that thread's `message.*` and `reaction.*` events there; `message.deleted` and `reaction.*`
+now carry `thread_parent_id` so they can be routed without the outsider hearing anything else
+from the channel. Their panel has no *Also send to* box, slash commands, scheduling, polls,
+server drafts or pinning, all of which act on the channel, and says the thread is theirs only
+while they are in the huddle.
+
+The consumer follows the thread for each person who joins, and records in
+`huddle_participants.followed_on_join` whether the join turned it on. On leave it turns it off
+again only for them and only if they did not reply there, so someone who already followed the
+thread, or wrote in it, keeps it. Replies notify by the CS-080 rules, so nobody else in the
+channel hears of huddle chat unless mentioned; `reply_recipients` counts the open huddle's
+current participants as readers, so an outsider is notified while in the huddle and not
+after. When the last person leaves, the consumer merges `ended_at` and `participant_ids` (in
+the order they joined) into the message's metadata and stages `message.updated`, and the
+message says how long the huddle lasted and who was in it, three names and a count of the
+rest, with the replies link every message has.
+
+Checked by hand on the Docker build with a script of four people on sockets beside the
+browser. Charlie, invited from outside a private channel, got 403 for the thread before
+joining; in the huddle he read and answered it, reacted and edited his reply, and was refused
+a top-level post, a reply to another thread, the channel's history, another message's thread
+and a reaction elsewhere. His socket, which also asked to join the channel and was refused,
+received the thread's replies, edit, reaction and unfurl and none of the channel's other
+messages. After leaving, the thread, its replies and posting there were 403 again. Alice
+followed the thread on joining; Diana, a member who never joined, followed nothing and got no
+notification; Bob, who replied, kept following after leaving, and Diana, joining and leaving
+without writing, followed and then did not. The ended message held `ended_at`, four
+participants in join order and both replies, and a DM huddle's thread was in the DM. In the
+browser as Bob (with the pane's microphone replaced by a generated stream, since the pane
+blocks capture), the window showed *Thread* with 2 unread after Alice and Charlie wrote,
+opened the panel beside the stage and cleared the count, offered Charlie in the mention list
+above the window and sent the reply, which Charlie got as a mention; the channel's message
+read *3 replies* by the time Bob left, and the earlier huddle's message said *Lasted less than
+a minute · with Alice Johnson, Bob Smith, Charlie Brown, and 1 other*. As Charlie, accepting
+Alice's ring opened the window, and the panel showed the note, no *Also send to* box and no
+poll or schedule buttons, took his reply, and closed to him when he left.
+
+The check found one fault, fixed here. The window asked for the thread as soon as the huddle
+became active, before the worker had recorded the join, so an outsider got 403, and with no
+retry the button never appeared. It now asks once the join has gone out and retries with
+backoff.

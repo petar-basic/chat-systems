@@ -1,7 +1,7 @@
-use sqlx::PgPool;
+use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
 
-use super::models::HuddleSession;
+use super::models::{HuddleSession, NewSession};
 
 #[derive(Clone)]
 pub struct HuddleRepo {
@@ -13,25 +13,21 @@ impl HuddleRepo {
         Self { pool }
     }
 
-    pub async fn start_session(
-        &self,
-        id: Uuid,
-        workspace_id: Uuid,
-        channel_id: Option<Uuid>,
-        dm_partner_id: Option<Uuid>,
-        initiated_by: Uuid,
+    pub async fn start_session_in(
+        conn: &mut PgConnection,
+        session: NewSession,
     ) -> sqlx::Result<()> {
         sqlx::query!(
-            "INSERT INTO huddle_sessions (id, workspace_id, channel_id, dm_partner_id, initiated_by)
-             VALUES ($1, $2, $3, $4, $5)
-             ON CONFLICT (id) DO NOTHING",
-            id,
-            workspace_id,
-            channel_id,
-            dm_partner_id,
-            initiated_by
+            "INSERT INTO huddle_sessions (id, workspace_id, channel_id, dm_partner_id, initiated_by, message_id)
+             VALUES ($1, $2, $3, $4, $5, $6)",
+            session.id,
+            session.workspace_id,
+            session.channel_id,
+            session.dm_partner_id,
+            session.initiated_by,
+            session.message_id
         )
-        .execute(&self.pool)
+        .execute(&mut *conn)
         .await?;
         Ok(())
     }
@@ -75,7 +71,7 @@ impl HuddleRepo {
         sqlx::query_as!(
             HuddleSession,
             "SELECT h.id, h.workspace_id, h.channel_id, h.dm_partner_id, h.initiated_by,
-                    h.started_at, h.ended_at
+                    h.started_at, h.ended_at, h.message_id
                FROM huddle_sessions h
                JOIN channel_members cm ON cm.channel_id = h.channel_id AND cm.user_id = $2
               WHERE h.workspace_id = $1 AND h.ended_at IS NULL
@@ -94,7 +90,7 @@ impl HuddleRepo {
     ) -> sqlx::Result<Option<HuddleSession>> {
         sqlx::query_as!(
             HuddleSession,
-            "SELECT id, workspace_id, channel_id, dm_partner_id, initiated_by, started_at, ended_at
+            "SELECT id, workspace_id, channel_id, dm_partner_id, initiated_by, started_at, ended_at, message_id
                FROM huddle_sessions
               WHERE id = $1 AND workspace_id = $2 AND ended_at IS NULL",
             huddle_id,
@@ -128,7 +124,7 @@ impl HuddleRepo {
             HuddleSession,
             "UPDATE huddle_sessions SET ended_at = NOW()
               WHERE id = $1 AND ended_at IS NULL
-              RETURNING id, workspace_id, channel_id, dm_partner_id, initiated_by, started_at, ended_at",
+              RETURNING id, workspace_id, channel_id, dm_partner_id, initiated_by, started_at, ended_at, message_id",
             huddle_id
         )
         .fetch_optional(&self.pool)
@@ -142,6 +138,83 @@ impl HuddleRepo {
                 RETURNING livekit_room AS "livekit_room!""#,
             huddle_id,
             room
+        )
+        .fetch_one(&self.pool)
+        .await
+    }
+
+    pub async fn find(&self, huddle_id: Uuid) -> sqlx::Result<Option<HuddleSession>> {
+        sqlx::query_as!(
+            HuddleSession,
+            "SELECT id, workspace_id, channel_id, dm_partner_id, initiated_by, started_at, ended_at, message_id
+               FROM huddle_sessions
+              WHERE id = $1",
+            huddle_id
+        )
+        .fetch_optional(&self.pool)
+        .await
+    }
+
+    pub async fn set_followed_on_join(
+        &self,
+        huddle_id: Uuid,
+        user_id: Uuid,
+        followed: bool,
+    ) -> sqlx::Result<()> {
+        sqlx::query!(
+            "UPDATE huddle_participants SET followed_on_join = $3
+              WHERE huddle_id = $1 AND user_id = $2",
+            huddle_id,
+            user_id,
+            followed
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn followed_on_join(&self, huddle_id: Uuid, user_id: Uuid) -> sqlx::Result<bool> {
+        sqlx::query_scalar!(
+            r#"SELECT COALESCE(
+                   (SELECT followed_on_join FROM huddle_participants
+                     WHERE huddle_id = $1 AND user_id = $2),
+                   FALSE) AS "followed!""#,
+            huddle_id,
+            user_id
+        )
+        .fetch_one(&self.pool)
+        .await
+    }
+
+    pub async fn participant_ids(&self, huddle_id: Uuid) -> sqlx::Result<Vec<Uuid>> {
+        sqlx::query_scalar!(
+            "SELECT user_id FROM huddle_participants
+              WHERE huddle_id = $1
+              ORDER BY joined_at, user_id",
+            huddle_id
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn hears(
+        &self,
+        message_id: Uuid,
+        channel_id: Uuid,
+        user_id: Uuid,
+    ) -> sqlx::Result<bool> {
+        sqlx::query_scalar!(
+            r#"SELECT EXISTS(
+                   SELECT 1 FROM messages m
+                     JOIN huddle_sessions h
+                       ON h.message_id = COALESCE(m.thread_parent_id, m.id) AND h.ended_at IS NULL
+                     JOIN huddle_participants p
+                       ON p.huddle_id = h.id AND p.user_id = $3 AND p.left_at IS NULL
+                    WHERE m.id = $1 AND m.channel_id = $2
+               ) AS "hears!""#,
+            message_id,
+            channel_id,
+            user_id
         )
         .fetch_one(&self.pool)
         .await

@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT EXISTS(\n                   SELECT 1 FROM messages m\n                     JOIN huddle_sessions h\n                       ON h.message_id = COALESCE(m.thread_parent_id, m.id) AND h.ended_at IS NULL\n                     JOIN huddle_participants p\n                       ON p.huddle_id = h.id AND p.user_id = $3 AND p.left_at IS NULL\n                    WHERE m.id = $1 AND m.channel_id = $2\n               ) AS \"hears!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "hears!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "911bc5063f4a36e6a01f1da057e3a3c99d134dfe20e09ada0b9aae3b69b30c82"
+}

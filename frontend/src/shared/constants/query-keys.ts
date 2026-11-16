@@ -124,4 +124,5 @@ export const QUERY_KEYS = {
 
   huddlesActive: () => ['huddles', 'active'] as const,
   workspaceActiveHuddles: (workspaceId: string) => ['huddles', 'active', workspaceId] as const,
+  huddleThread: (huddleId: string) => ['huddles', 'thread', huddleId] as const,
 } as const;

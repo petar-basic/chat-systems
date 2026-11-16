@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT h.id, h.workspace_id, h.channel_id, h.dm_partner_id, h.initiated_by,\n                    h.started_at, h.ended_at\n               FROM huddle_sessions h\n               JOIN channel_members cm ON cm.channel_id = h.channel_id AND cm.user_id = $2\n              WHERE h.workspace_id = $1 AND h.ended_at IS NULL\n              ORDER BY h.started_at DESC",
+  "query": "UPDATE huddle_sessions SET ended_at = NOW()\n              WHERE id = $1 AND ended_at IS NULL\n              RETURNING id, workspace_id, channel_id, dm_partner_id, initiated_by, started_at, ended_at, message_id",
   "describe": {
     "columns": [
       {
@@ -79,11 +79,21 @@
             "name": "ended_at"
           }
         }
+      },
+      {
+        "ordinal": 7,
+        "name": "message_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "huddle_sessions",
+            "name": "message_id"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid",
         "Uuid"
       ]
     },
@@ -94,8 +104,9 @@
       true,
       false,
       false,
+      true,
       true
     ]
   },
-  "hash": "46e3678dcf3936238f38233840966bb57e41cbcbcd2c3c5b369a5cca483aa30d"
+  "hash": "b8530ed95ad2ff0065bd676c7ec5aa4059e8be9ff0bbf10ed234700f4d94e7b6"
 }

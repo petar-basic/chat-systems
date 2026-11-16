@@ -146,6 +146,10 @@ pub(crate) async fn handle_event_for(
             .and_then(|v| v.as_str())
             .and_then(|v| v.parse::<uuid::Uuid>().ok())
     };
+    let thread_ids: Vec<uuid::Uuid> = ["id", "message_id", "thread_parent_id"]
+        .into_iter()
+        .filter_map(field)
+        .collect();
     let text = |name: &str| {
         payload
             .get(name)
@@ -173,7 +177,7 @@ pub(crate) async fn handle_event_for(
                     message: payload.clone(),
                     mentioned_user_ids,
                 };
-                cm.broadcast_to_channel(audience, ch_id, &framed(&frame))
+                cm.broadcast_to_channel_or_thread(audience, ch_id, &thread_ids, &framed(&frame))
                     .await;
             }
         }
@@ -182,7 +186,7 @@ pub(crate) async fn handle_event_for(
                 let frame = ServerFrame::MessageUpdated {
                     message: payload.clone(),
                 };
-                cm.broadcast_to_channel(audience, ch_id, &framed(&frame))
+                cm.broadcast_to_channel_or_thread(audience, ch_id, &thread_ids, &framed(&frame))
                     .await;
             }
         }
@@ -193,8 +197,13 @@ pub(crate) async fn handle_event_for(
                     message_id,
                     channel_id,
                 };
-                cm.broadcast_to_channel(audience, channel_id, &framed(&frame))
-                    .await;
+                cm.broadcast_to_channel_or_thread(
+                    audience,
+                    channel_id,
+                    &thread_ids,
+                    &framed(&frame),
+                )
+                .await;
             }
         }
         "message.pinned" => {
@@ -218,7 +227,7 @@ pub(crate) async fn handle_event_for(
                     message_id,
                     reaction: payload.clone(),
                 };
-                cm.broadcast_to_channel(audience, ch_id, &framed(&frame))
+                cm.broadcast_to_channel_or_thread(audience, ch_id, &thread_ids, &framed(&frame))
                     .await;
             }
         }
@@ -232,8 +241,13 @@ pub(crate) async fn handle_event_for(
                     user_id,
                     emoji: text("emoji").unwrap_or_default(),
                 };
-                cm.broadcast_to_channel(audience, channel_id, &framed(&frame))
-                    .await;
+                cm.broadcast_to_channel_or_thread(
+                    audience,
+                    channel_id,
+                    &thread_ids,
+                    &framed(&frame),
+                )
+                .await;
             }
         }
         "workspace.deleted" => {

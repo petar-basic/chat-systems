@@ -12,12 +12,15 @@ use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
-use super::models::{IceServer, IceServersResponse, InviteRequest, SfuToken, StartHuddleRequest};
+use super::models::{
+    ActiveHuddle, HuddleStarted, HuddleThread, IceServer, IceServersResponse, InviteRequest,
+    NewSession, SfuToken, StartHuddleRequest,
+};
+use super::repo::HuddleRepo;
 use super::sfu;
 use crate::authz;
-use crate::conversations::routes::require_reachable;
+use crate::conversations::routes::{open_direct, require_reachable};
 use crate::dto::{DataList, StatusResponse};
-use crate::huddle::models::{ActiveHuddle, HuddleStarted};
 use crate::middleware::AuthUser;
 use crate::state::AppState;
 
@@ -30,6 +33,7 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(start_huddle))
         .routes(routes!(invite_to_huddle))
         .routes(routes!(sfu_token))
+        .routes(routes!(huddle_thread))
 }
 
 #[utoipa::path(get, path = "/workspaces/{ws_id}/active-huddles", tag = "huddles", responses((status = 200, body = DataList<ActiveHuddle>)))]
@@ -137,9 +141,7 @@ async fn start_huddle(
 ) -> AppResult<Json<HuddleStarted>> {
     let starter = authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
 
-    let huddle_id = Uuid::new_v4();
-
-    match (req.channel_id, req.dm_partner_id) {
+    let (posted_in, channel_id, dm_partner_id) = match (req.channel_id, req.dm_partner_id) {
         (Some(channel_id), None) => {
             let channel = authz::require_channel_access(&state, channel_id, auth.user_id)
                 .await?
@@ -150,62 +152,107 @@ async fn start_huddle(
                     "Channel does not belong to workspace".into(),
                 ));
             }
-            state
-                .huddle_repo
-                .start_session(huddle_id, ws_id, Some(channel_id), None, auth.user_id)
-                .await?;
-
-            let mut tx = state.pool.begin().await?;
-            let msg = state
-                .message_repo
-                .create_system_message_in(
-                    &mut tx,
-                    channel_id,
-                    auth.user_id,
-                    "started a huddle",
-                    serde_json::json!({
-                        "kind": "huddle_started",
-                        "huddle_id": huddle_id,
-                        "initiator_id": auth.user_id,
-                    }),
-                )
-                .await?;
-            let staged = state
-                .publisher
-                .stage_message_created(&mut tx, &msg, ws_id, &[])
-                .await?;
-            tx.commit().await?;
-            state.publisher.dispatch(staged).await;
-
-            let _ = state
-                .publisher
-                .publish(
-                    "huddle.started",
-                    serde_json::json!({
-                        "huddle_id": huddle_id,
-                        "workspace_id": ws_id,
-                        "channel_id": channel_id,
-                        "initiator_id": auth.user_id,
-                    }),
-                )
-                .await;
+            (channel_id, Some(channel_id), None)
         }
         (None, Some(partner_id)) => {
             require_reachable(&state, &starter, partner_id).await?;
-            state
-                .huddle_repo
-                .start_session(huddle_id, ws_id, None, Some(partner_id), auth.user_id)
-                .await?;
-            ring(&state, ws_id, huddle_id, auth.user_id, partner_id).await;
+            let direct = open_direct(&state, ws_id, auth.user_id, partner_id).await?;
+            (direct.id, None, Some(partner_id))
         }
         _ => {
             return Err(AppError::BadRequest(
                 "Provide exactly one of channel_id or dm_partner_id".into(),
             ))
         }
+    };
+
+    let huddle_id = Uuid::new_v4();
+    let mut tx = state.pool.begin().await?;
+    let msg = state
+        .message_repo
+        .create_system_message_in(
+            &mut tx,
+            posted_in,
+            auth.user_id,
+            "started a huddle",
+            serde_json::json!({
+                "kind": "huddle_started",
+                "huddle_id": huddle_id,
+                "initiator_id": auth.user_id,
+            }),
+        )
+        .await?;
+    HuddleRepo::start_session_in(
+        &mut tx,
+        NewSession {
+            id: huddle_id,
+            workspace_id: ws_id,
+            channel_id,
+            dm_partner_id,
+            initiated_by: auth.user_id,
+            message_id: msg.id,
+        },
+    )
+    .await?;
+    let staged = state
+        .publisher
+        .stage_message_created(&mut tx, &msg, ws_id, &[])
+        .await?;
+    tx.commit().await?;
+    state.publisher.dispatch(staged).await;
+
+    if let Some(channel_id) = channel_id {
+        let _ = state
+            .publisher
+            .publish(
+                "huddle.started",
+                serde_json::json!({
+                    "huddle_id": huddle_id,
+                    "workspace_id": ws_id,
+                    "channel_id": channel_id,
+                    "initiator_id": auth.user_id,
+                }),
+            )
+            .await;
+    }
+    if let Some(partner_id) = dm_partner_id {
+        ring(&state, ws_id, huddle_id, auth.user_id, partner_id).await;
     }
 
-    Ok(Json(HuddleStarted { huddle_id }))
+    Ok(Json(HuddleStarted {
+        huddle_id,
+        message_id: msg.id,
+    }))
+}
+
+#[utoipa::path(get, path = "/huddles/{huddle_id}/thread", tag = "huddles", responses((status = 200, body = HuddleThread)))]
+async fn huddle_thread(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(huddle_id): Path<Uuid>,
+) -> AppResult<Json<HuddleThread>> {
+    let not_found = || AppError::NotFound("This huddle has no thread".into());
+    let message_id = state
+        .huddle_repo
+        .find(huddle_id)
+        .await?
+        .and_then(|session| session.message_id)
+        .ok_or_else(not_found)?;
+    let message = state
+        .message_repo
+        .find_by_id(message_id)
+        .await?
+        .ok_or_else(not_found)?;
+    let in_channel = authz::require_channel_access(&state, message.channel_id, auth.user_id)
+        .await
+        .is_ok();
+    if !in_channel {
+        authz::require_message_access(&state, message.channel_id, message.id, auth.user_id).await?;
+    }
+    Ok(Json(HuddleThread {
+        message,
+        in_channel,
+    }))
 }
 
 #[utoipa::path(post, path = "/huddles/{huddle_id}/sfu-token", tag = "huddles", responses((status = 200, body = SfuToken)))]

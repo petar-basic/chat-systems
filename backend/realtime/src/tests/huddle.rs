@@ -636,3 +636,93 @@ async fn huddle_transport_broadcasts_to_huddle_subscribers(pool: PgPool) {
     assert_eq!(frame["type"], "huddle.transport");
     assert_eq!(frame["transport"], "sfu");
 }
+
+fn frame_types(rx: &mut tokio::sync::mpsc::Receiver<axum::extract::ws::Message>) -> Vec<String> {
+    drain_json(rx)
+        .iter()
+        .filter_map(|v| v.get("type").and_then(|t| t.as_str()).map(String::from))
+        .collect()
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn someone_in_the_huddle_from_outside_hears_its_thread_and_nothing_else(pool: PgPool) {
+    let cm = manager(pool).await;
+    let huddle = Uuid::new_v4();
+    let channel = Uuid::new_v4();
+    let root = Uuid::new_v4();
+    let thread = crate::connection_manager::HuddleThread {
+        channel_id: channel,
+        root_id: root,
+    };
+    let (outsider, mut outsider_rx) = fake_conn(&cm, Uuid::new_v4());
+    let (member, mut member_rx) = fake_conn(&cm, Uuid::new_v4());
+    cm.join_channel(&member, channel);
+    for conn in [outsider, member] {
+        cm.join_huddle(&conn, huddle);
+        cm.hear_huddle_thread(&conn, huddle, thread);
+    }
+
+    let reply = Uuid::new_v4();
+    let elsewhere = Uuid::new_v4();
+    let events = [
+        (
+            "message.created",
+            json!({ "id": reply, "channel_id": channel, "thread_parent_id": root }),
+        ),
+        (
+            "message.created",
+            json!({ "id": elsewhere, "channel_id": channel, "thread_parent_id": null }),
+        ),
+        (
+            "message.updated",
+            json!({ "id": root, "channel_id": channel, "thread_parent_id": null }),
+        ),
+        (
+            "reaction.added",
+            json!({ "id": Uuid::new_v4(), "message_id": reply, "channel_id": channel,
+                    "thread_parent_id": root, "user_id": Uuid::new_v4(), "emoji": "👍" }),
+        ),
+        (
+            "reaction.added",
+            json!({ "id": Uuid::new_v4(), "message_id": elsewhere, "channel_id": channel,
+                    "thread_parent_id": null, "user_id": Uuid::new_v4(), "emoji": "👍" }),
+        ),
+        (
+            "message.deleted",
+            json!({ "message_id": reply, "channel_id": channel, "thread_parent_id": root }),
+        ),
+        (
+            "message.created",
+            json!({ "id": Uuid::new_v4(), "channel_id": Uuid::new_v4(), "thread_parent_id": root }),
+        ),
+    ];
+    for (event_type, payload) in &events {
+        crate::event_consumer::handle_event(event_type, payload, &cm).await;
+    }
+
+    assert_eq!(
+        frame_types(&mut outsider_rx),
+        [
+            "message.new",
+            "message.updated",
+            "reaction.added",
+            "message.deleted"
+        ]
+    );
+    assert_eq!(
+        frame_types(&mut member_rx),
+        [
+            "message.new",
+            "message.new",
+            "message.updated",
+            "reaction.added",
+            "reaction.added",
+            "message.deleted"
+        ],
+        "a member hears the channel once, thread or not"
+    );
+
+    cm.leave_huddle(&outsider, huddle);
+    crate::event_consumer::handle_event("message.created", &events[0].1, &cm).await;
+    assert!(frame_types(&mut outsider_rx).is_empty());
+}

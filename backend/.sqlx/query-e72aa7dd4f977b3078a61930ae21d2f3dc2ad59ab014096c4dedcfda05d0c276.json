@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, workspace_id, channel_id, dm_partner_id, initiated_by, started_at, ended_at\n               FROM huddle_sessions\n              WHERE id = $1 AND workspace_id = $2 AND ended_at IS NULL",
+  "query": "SELECT h.id, h.workspace_id, h.channel_id, h.dm_partner_id, h.initiated_by,\n                    h.started_at, h.ended_at, h.message_id\n               FROM huddle_sessions h\n               JOIN channel_members cm ON cm.channel_id = h.channel_id AND cm.user_id = $2\n              WHERE h.workspace_id = $1 AND h.ended_at IS NULL\n              ORDER BY h.started_at DESC",
   "describe": {
     "columns": [
       {
@@ -79,6 +79,17 @@
             "name": "ended_at"
           }
         }
+      },
+      {
+        "ordinal": 7,
+        "name": "message_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "huddle_sessions",
+            "name": "message_id"
+          }
+        }
       }
     ],
     "parameters": {
@@ -94,8 +105,9 @@
       true,
       false,
       false,
+      true,
       true
     ]
   },
-  "hash": "1825fb2adbb43edb1a6bd78432cf754a003aeabf546ab42750bb5b935e367f7c"
+  "hash": "e72aa7dd4f977b3078a61930ae21d2f3dc2ad59ab014096c4dedcfda05d0c276"
 }

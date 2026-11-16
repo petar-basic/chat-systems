@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { skipToken, useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { components } from '@/api/schema';
 import type { Message } from '@/stores/workspace';
 import { useCurrentApi } from '@/shared/hooks/useCurrentApi';
@@ -58,6 +58,9 @@ export const useThreadState = (rootId: string) => {
     staleTime: Infinity,
   });
 };
+
+export const useKnownThreadState = (rootId: string | undefined) =>
+  useQuery<ThreadState>({ queryKey: QUERY_KEYS.threadState(rootId ?? ''), queryFn: skipToken });
 
 export const useMarkThreadRead = () => {
   const queryClient = useQueryClient();
