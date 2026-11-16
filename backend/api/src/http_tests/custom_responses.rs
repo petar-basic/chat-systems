@@ -16,7 +16,7 @@ struct Team {
     ana_id: Uuid,
     ana: String,
     ben_id: Uuid,
-    general: Uuid,
+    help: Uuid,
 }
 
 async fn team(app: &axum::Router, state: &AppState) -> Team {
@@ -28,7 +28,7 @@ async fn team(app: &axum::Router, state: &AppState) -> Team {
     add_ws_member(state, ws, ana_id, "member").await;
     let (ben_id, _, _) = seed_and_login(app, state, "cr-ben", false).await;
     add_ws_member(state, ws, ben_id, "member").await;
-    let general = open_channel(state, ws, owner_id, "general", &[ana_id, ben_id]).await;
+    let help = open_channel(state, ws, owner_id, "it-help", &[ana_id, ben_id]).await;
     Team {
         ws,
         owner_id,
@@ -36,7 +36,7 @@ async fn team(app: &axum::Router, state: &AppState) -> Team {
         ana_id,
         ana,
         ben_id,
-        general,
+        help,
     }
 }
 
@@ -326,8 +326,8 @@ async fn the_bot_answers_once_in_the_channel_or_the_thread(pool: PgPool) {
     )
     .await;
 
-    say(&app, &t.ana, t.general, "what's the WiFi password?").await;
-    say(&app, &t.ana, t.general, "nothing to see here").await;
+    say(&app, &t.ana, t.help, "what's the WiFi password?").await;
+    say(&app, &t.ana, t.help, "nothing to see here").await;
     assert_eq!(deliver(&state).await, 1);
     assert_eq!(
         deliver(&state).await,
@@ -335,22 +335,15 @@ async fn the_bot_answers_once_in_the_channel_or_the_thread(pool: PgPool) {
         "a replayed entry is not answered again"
     );
     assert_eq!(
-        bot_says(&state, t.general).await,
+        bot_says(&state, t.help).await,
         [("It's on the fridge".to_string(), None)]
     );
 
-    let root = say(&app, &t.ana, t.general, "IT questions").await;
-    say_in(
-        &app,
-        &t.ana,
-        t.general,
-        Some(root),
-        "where is the VPN guide?",
-    )
-    .await;
+    let root = say(&app, &t.ana, t.help, "IT questions").await;
+    say_in(&app, &t.ana, t.help, Some(root), "where is the VPN guide?").await;
     assert_eq!(deliver(&state).await, 1);
     assert_eq!(
-        bot_says(&state, t.general).await[1],
+        bot_says(&state, t.help).await[1],
         ("See the wiki".to_string(), Some(root)),
         "a thread is answered in the thread"
     );
@@ -383,11 +376,11 @@ async fn a_response_answers_once_a_minute_in_a_channel(pool: PgPool) {
     let random = open_channel(&state, t.ws, t.owner_id, "random", &[t.ana_id]).await;
     created(&app, &t.admin, t.ws, wifi()).await;
 
-    say(&app, &t.ana, t.general, "wifi password?").await;
-    say(&app, &t.ana, t.general, "wifi password??").await;
+    say(&app, &t.ana, t.help, "wifi password?").await;
+    say(&app, &t.ana, t.help, "wifi password??").await;
     say(&app, &t.ana, random, "wifi password").await;
     assert_eq!(deliver(&state).await, 2);
-    assert_eq!(bot_says(&state, t.general).await.len(), 1);
+    assert_eq!(bot_says(&state, t.help).await.len(), 1);
     assert_eq!(bot_says(&state, random).await.len(), 1);
 
     sqlx::query(
@@ -396,12 +389,12 @@ async fn a_response_answers_once_a_minute_in_a_channel(pool: PgPool) {
     .execute(&state.pool)
     .await
     .expect("age");
-    let later = say(&app, &t.ana, t.general, "the wifi password again").await;
+    let later = say(&app, &t.ana, t.help, "the wifi password again").await;
     assert!(consumer::handle(&state, &created_event(later))
         .await
         .expect("handle")
         .is_some());
-    assert_eq!(bot_says(&state, t.general).await.len(), 2);
+    assert_eq!(bot_says(&state, t.help).await.len(), 2);
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
@@ -410,7 +403,7 @@ async fn bots_archived_channels_and_direct_messages_get_no_answer(pool: PgPool) 
     let t = team(&app, &state).await;
     created(&app, &t.admin, t.ws, wifi()).await;
 
-    let hooked = say(&app, &t.ana, t.general, "wifi password").await;
+    let hooked = say(&app, &t.ana, t.help, "wifi password").await;
     sqlx::query("UPDATE messages SET metadata = '{\"bot\": {\"name\": \"CI\"}}' WHERE id = $1")
         .bind(hooked)
         .execute(&state.pool)
@@ -431,7 +424,7 @@ async fn bots_archived_channels_and_direct_messages_get_no_answer(pool: PgPool) 
     let robot: Uuid = sqlx::query_scalar(
         "INSERT INTO messages (channel_id, user_id, content) VALUES ($1, $2, 'wifi password') RETURNING id",
     )
-    .bind(t.general)
+    .bind(t.help)
     .bind(robot_id)
     .fetch_one(&state.pool)
     .await
@@ -469,7 +462,7 @@ async fn bots_archived_channels_and_direct_messages_get_no_answer(pool: PgPool) 
         .expect("handle")
         .is_none());
 
-    for ch in [t.general, dm, archived] {
+    for ch in [t.help, dm, archived] {
         assert!(bot_says(&state, ch)
             .await
             .iter()
