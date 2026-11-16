@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO custom_response_replies (message_id, response_id, channel_id)\n             SELECT $1, $2, $3\n              WHERE NOT EXISTS (\n                    SELECT 1 FROM custom_response_replies\n                     WHERE response_id = $2 AND channel_id = $3\n                       AND answered_at > NOW() - make_interval(secs => $4))\n             ON CONFLICT (message_id) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2bea3cf912444e3785474f596341f16021361fb0982f450c6a25f318e5f521e2"
+}

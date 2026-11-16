@@ -11,6 +11,7 @@ pub mod channel_integrations;
 pub mod commands;
 pub mod config;
 pub mod conversations;
+pub mod custom_responses;
 pub mod drafts;
 pub mod dto;
 pub mod email;
@@ -54,6 +55,7 @@ pub mod state;
 pub mod threads;
 pub mod workflows;
 pub mod workspace;
+pub mod workspace_bots;
 
 #[cfg(test)]
 mod http_tests;
@@ -133,6 +135,8 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
     let guest_repo = guests::repo::GuestRepo::new(pool.clone());
     let invite_request_repo = invite_requests::repo::InviteRequestRepo::new(pool.clone());
     let profile_field_repo = profile_fields::repo::ProfileFieldRepo::new(pool.clone());
+    let custom_response_repo = custom_responses::repo::CustomResponseRepo::new(pool.clone());
+    let workspace_bot_repo = workspace_bots::repo::WorkspaceBotRepo::new(pool.clone());
     let poll_repo = polls::repo::PollRepo::new(pool.clone());
     let list_repo = lists::repo::ListRepo::new(pool.clone());
     let thread_repo = threads::repo::ThreadRepo::new(pool.clone());
@@ -187,6 +191,8 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
         guest_repo,
         invite_request_repo,
         profile_field_repo,
+        custom_response_repo,
+        workspace_bot_repo,
         poll_repo,
         list_repo,
         thread_repo,

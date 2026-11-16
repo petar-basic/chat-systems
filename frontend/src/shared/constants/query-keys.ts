@@ -14,6 +14,7 @@ export const QUERY_KEYS = {
   workspaceInvites: (id: string) => ['workspaces', id, 'invites'] as const,
   inviteRequests: (id: string) => ['workspaces', id, 'invite-requests'] as const,
   profileFields: (id: string) => ['workspaces', id, 'profile-fields'] as const,
+  customResponses: (id: string) => ['workspaces', id, 'custom-responses'] as const,
   directory: (id: string, q: string, filter: string) =>
     ['workspaces', id, 'members', 'directory', q, filter] as const,
   workspaceChannels: (id: string) => ['workspaces', id, 'channels'] as const,

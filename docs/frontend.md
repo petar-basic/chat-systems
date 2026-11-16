@@ -513,8 +513,8 @@ helpers (schedule presets, insertion, reordering, who may build).
 refetches the workspace's GIF settings and command list.
 
 *Workspace settings → General* has a *Permissions* group: who can build workflows, use
-`@channel`, `@here` and `@everyone`, and create public or private channels (every member or
-admins only each). `lib/workspaceRules.ts` reads a rule from the settings; `lib/channelPermissions.ts`
+`@channel`, `@here` and `@everyone`, create public or private channels, invite people and edit
+custom responses (every member or admins only each). `lib/workspaceRules.ts` reads a rule from the settings; `lib/channelPermissions.ts`
 mirrors the server's checks so the composer leaves the broadcasts out of its suggestions for
 someone who would be refused, and *Create channel* offers only the kinds the person may make
 (no *+* at all when neither). In a channel of more than 25 people the composer asks *This
@@ -600,8 +600,9 @@ Shows members of the current channel with add/remove actions.
 ### `workspace/settings/WorkspaceSettingsModal`
 Everything about the workspace in one `SectionedModal`, opened from the workspace menu's
 *Workspace settings* (or *Invite people*, which opens *Members* with the invite form). An admin
-sees *General*, *Members*, *User groups*, *Custom emoji*, *Apps*, *Integrations*, *Analytics*,
-*Exports*, *Slack import* and *Audit log*; a member sees the four they can use (`sections.ts`). *Slack import*
+sees *General*, *Members*, *User groups*, *Profile fields*, *Custom emoji*, *Custom responses*,
+*Apps*, *Integrations*, *Analytics*, *Exports*, *Slack import* and *Audit log*; a member sees the
+five they can use and a guest four, without *Custom responses* (`sections.ts`). *Slack import*
 lists the last runs with their counts (guests, people who left Slack and archived channels
 among them) and *Start again* under a failed run whose export is still stored
 (`retryable`), which calls `POST /workspaces/{id}/slack-imports/{run}/retry`. *Discard* beside
@@ -610,6 +611,16 @@ whose `archive_deleted_at` is set says when the export was deleted and that it h
 uploaded again. Each section is
 the former right panel's content (`MembersSection`, `IntegrationsSection`, …). `?settings=<section>`
 in the address opens it at that section and is then removed (`useSettingsDialog`).
+
+*Custom responses* (`CustomResponsesSection`, hooks in `features/custom-responses`) reads GET
+`/workspaces/{id}/custom-responses`: the bot that answers, with its avatar, name and *App*
+badge, then each response's phrases and first answer. `can_edit` decides whether *Add
+response*, the pencil and the bin show; without it the section says only admins can edit.
+`CustomResponseDialog` holds a list of phrase inputs and a list of answer text areas, 20 each,
+with *Save* off until one of each is filled (`responseDraft.ts` trims and drops blanks). An
+admin (`can_rename`) sees *Rename*, which opens `BotNameDialog`. Every change refetches the
+list and the workspace's members, so a bot made by the first response gets its name in the
+message list.
 
 *Analytics* (`AnalyticsSection`) reads GET `/workspaces/{id}/analytics` and
 `/analytics/members` for the last 7, 30 or 90 days, with or without guests. Four totals sit

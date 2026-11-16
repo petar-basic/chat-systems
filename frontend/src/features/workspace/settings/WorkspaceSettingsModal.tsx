@@ -7,6 +7,7 @@ import { GeneralSection } from './GeneralSection';
 import { MembersSection } from './MembersSection';
 import { UserGroupsSection } from './UserGroupsSection';
 import { CustomEmojiSection } from './CustomEmojiSection';
+import { CustomResponsesSection } from './CustomResponsesSection';
 import { ProfileFieldsSection } from './ProfileFieldsSection';
 import { AppsSection } from './AppsSection';
 import { IntegrationsSection } from './IntegrationsSection';
@@ -63,6 +64,7 @@ export function WorkspaceSettingsModal({
       )}
       {active === 'profile-fields' && <ProfileFieldsSection workspaceId={id} instanceUrl={instanceUrl} />}
       {active === 'custom-emoji' && <CustomEmojiSection workspaceId={id} instanceUrl={instanceUrl} />}
+      {active === 'custom-responses' && <CustomResponsesSection workspaceId={id} instanceUrl={instanceUrl} />}
       {active === 'apps' && <AppsSection workspaceId={id} initialApp={app} />}
       {active === 'integrations' && (
         <IntegrationsSection workspaceId={id} instanceUrl={instanceUrl} channels={channels} />

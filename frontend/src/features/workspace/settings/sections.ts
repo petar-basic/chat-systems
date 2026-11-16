@@ -1,5 +1,6 @@
 import {
   Archive,
+  BotMessageSquare,
   ChartColumn,
   Clock,
   IdCard,
@@ -22,6 +23,7 @@ export type SettingsSection =
   | 'user-groups'
   | 'profile-fields'
   | 'custom-emoji'
+  | 'custom-responses'
   | 'apps'
   | 'integrations'
   | 'retention'
@@ -31,7 +33,7 @@ export type SettingsSection =
   | 'audit-log'
   | 'scim';
 
-type Audience = 'everyone' | 'admin' | 'owner' | 'instance-admin';
+type Audience = 'everyone' | 'members' | 'admin' | 'owner' | 'instance-admin';
 
 export interface Viewer {
   role: WorkspaceRole | null;
@@ -44,6 +46,7 @@ const SECTIONS: (ModalSection<SettingsSection> & { audience: Audience })[] = [
   { key: 'user-groups', label: 'User groups', Icon: UsersRound, audience: 'everyone' },
   { key: 'profile-fields', label: 'Profile fields', Icon: IdCard, audience: 'admin' },
   { key: 'custom-emoji', label: 'Custom emoji', Icon: Smile, audience: 'everyone' },
+  { key: 'custom-responses', label: 'Custom responses', Icon: BotMessageSquare, audience: 'members' },
   { key: 'apps', label: 'Apps', Icon: LayoutGrid, audience: 'everyone' },
   { key: 'integrations', label: 'Integrations', Icon: Plug, audience: 'admin' },
   { key: 'retention', label: 'Data retention', Icon: Clock, audience: 'owner' },
@@ -62,6 +65,8 @@ function sees(viewer: Viewer, audience: Audience) {
   switch (audience) {
     case 'everyone':
       return true;
+    case 'members':
+      return viewer.role !== null && viewer.role !== 'guest';
     case 'admin':
       return isWorkspaceAdmin(viewer.role);
     case 'owner':

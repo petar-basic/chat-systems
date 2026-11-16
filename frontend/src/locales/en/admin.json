@@ -140,6 +140,14 @@
         "updated": "Profile field changed",
         "deleted": "Profile field deleted"
       },
+      "custom_response": {
+        "created": "Custom response added",
+        "updated": "Custom response changed",
+        "deleted": "Custom response deleted"
+      },
+      "workspace_bot": {
+        "renamed": "Bot renamed"
+      },
       "hook": {
         "created": "Integration created",
         "deleted": "Integration deleted",

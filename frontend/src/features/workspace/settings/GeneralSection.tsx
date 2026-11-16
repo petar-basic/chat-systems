@@ -33,6 +33,7 @@ const PERMISSIONS: { rule: WorkspaceRule; label: string }[] = [
   { rule: 'public_channel_creators', label: 'Who can create public channels' },
   { rule: 'private_channel_creators', label: 'Who can create private channels' },
   { rule: 'inviters', label: 'Who can invite people' },
+  { rule: 'custom_responders', label: 'Who can edit custom responses' },
 ];
 
 interface Props {

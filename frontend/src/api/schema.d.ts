@@ -2701,6 +2701,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{ws_id}/custom-responses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_custom_responses"];
+        put?: never;
+        post: operations["create_custom_response"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/custom-responses/bot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["rename_responses_bot"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/custom-responses/{response_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete_custom_response"];
+        options?: never;
+        head?: never;
+        patch: operations["update_custom_response"];
+        trace?: never;
+    };
     "/workspaces/{ws_id}/drafts": {
         parameters: {
             query?: never;
@@ -4435,6 +4483,26 @@ export interface components {
             email_status?: components["schemas"]["InviteEmailStatus"] | null;
             invite_url?: string | null;
         };
+        CustomResponse: {
+            answers: string[];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            created_by?: string | null;
+            /** Format: uuid */
+            id: string;
+            triggers: string[];
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: uuid */
+            workspace_id: string;
+        };
+        CustomResponses: {
+            bot: components["schemas"]["WorkspaceBot"];
+            can_edit: boolean;
+            can_rename: boolean;
+            data: components["schemas"]["CustomResponse"][];
+        };
         DailyActivity: {
             /** Format: int64 */
             active_members: number;
@@ -6048,6 +6116,10 @@ export interface components {
             name: string;
             options?: components["schemas"]["ColumnOptionsInput"];
         };
+        NewCustomResponse: {
+            answers: string[];
+            triggers: string[];
+        };
         NewProfileField: {
             admins_only?: boolean;
             hint?: string | null;
@@ -6363,6 +6435,9 @@ export interface components {
             token: string;
         };
         RenamePasskeyRequest: {
+            name: string;
+        };
+        RenameResponsesBot: {
             name: string;
         };
         ReorderSectionsRequest: {
@@ -6872,6 +6947,10 @@ export interface components {
             name?: string | null;
             options?: components["schemas"]["ColumnOptionsInput"] | null;
         };
+        UpdateCustomResponse: {
+            answers?: string[] | null;
+            triggers?: string[] | null;
+        };
         UpdateGroupRequest: {
             description?: string | null;
             name: string;
@@ -6970,6 +7049,7 @@ export interface components {
         };
         UpdateWorkspaceRequest: {
             broadcast_mentions?: components["schemas"]["WhoMay"] | null;
+            custom_responders?: components["schemas"]["WhoMay"] | null;
             description?: string | null;
             gif_rating?: components["schemas"]["GifRating"] | null;
             gifs?: boolean | null;
@@ -7137,6 +7217,12 @@ export interface components {
             /** Format: date */
             to: string;
             weekly: components["schemas"]["WeeklyActivity"][];
+        };
+        WorkspaceBot: {
+            avatar_url?: string | null;
+            name: string;
+            /** Format: uuid */
+            user_id?: string | null;
         };
         WorkspaceInvite: {
             channel_ids: string[];
@@ -12017,6 +12103,125 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Conversation"];
+                };
+            };
+        };
+    };
+    list_custom_responses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomResponses"];
+                };
+            };
+        };
+    };
+    create_custom_response: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewCustomResponse"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomResponse"];
+                };
+            };
+        };
+    };
+    rename_responses_bot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameResponsesBot"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceBot"];
+                };
+            };
+        };
+    };
+    delete_custom_response: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+                response_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    update_custom_response: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+                response_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCustomResponse"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomResponse"];
                 };
             };
         };

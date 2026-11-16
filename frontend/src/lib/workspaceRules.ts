@@ -7,7 +7,8 @@ export type WorkspaceRule =
   | 'broadcast_mentions'
   | 'public_channel_creators'
   | 'private_channel_creators'
-  | 'inviters';
+  | 'inviters'
+  | 'custom_responders';
 
 const UNSET: Record<WorkspaceRule, WhoMay> = {
   workflow_builders: 'members',
@@ -15,6 +16,7 @@ const UNSET: Record<WorkspaceRule, WhoMay> = {
   public_channel_creators: 'members',
   private_channel_creators: 'members',
   inviters: 'admins',
+  custom_responders: 'members',
 };
 
 export function ruleOf(settings: unknown, rule: WorkspaceRule): WhoMay {

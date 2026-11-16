@@ -6,7 +6,7 @@ the crates under `shared/`:
 | Process | Port | Role | Replicas |
 |---|---|---|---|
 | **`chat-api`** | 3000 | Stateless REST API. Owns the migrations, applied at startup. | scale freely |
-| **`chat-worker`** | 3005 | Background consumers: outgoing webhooks, reminders, notifications, huddle history, call ringing, analytics rollup, scheduled messages, email delivery, event outbox relay, text extraction from files. Serves only `/livez`, `/readyz`, `/metrics`. | scale freely |
+| **`chat-worker`** | 3005 | Background consumers: outgoing webhooks, reminders, notifications, huddle history, call ringing, analytics rollup, scheduled messages, email delivery, event outbox relay, text extraction from files, custom responses. Serves only `/livez`, `/readyz`, `/metrics`. | scale freely |
 | **`chat-realtime`** | 3004 | WebSocket gateway. | scale freely |
 
 `chat-api` serves an OpenAPI document at `/api/openapi.json`, generated from the handlers
@@ -252,6 +252,9 @@ feature — see `dm` below.)
 | Manage invites, answer invite requests, change workspace settings | `Admin` |
 | Define profile fields, fill in anyone's, including an *admins only* one | `Admin` |
 | Fill in your own profile fields, except an *admins only* one | Anyone in the workspace, a Guest included |
+| See custom responses | `Member`; never a Guest |
+| Add, change or delete custom responses | `Member`, or `Admin` when `settings.custom_responders` is `admins`; never a Guest |
+| Rename the workspace's responses bot | `Admin` |
 | Change a member's role | `Admin`, and the actor must strictly outrank the target and may not grant a role above their own; the Owner cannot be demoted |
 | Remove a member | `Admin` and strictly outranking the target, or the member removing themselves; the Owner cannot be removed |
 | Soft/hard delete or restore a workspace | `Owner` (or instance admin) |
@@ -263,7 +266,7 @@ feature — see `dm` below.)
 | GET | `/workspaces` | — | `{ data: Workspace[] }` |
 | POST | `/workspaces` | `{ name, description? }` | `Workspace` — a 403 for a `member` while the instance restricts workspace creation |
 | GET | `/workspaces/:ws_id` | — | `Workspace` |
-| PATCH | `/workspaces/:ws_id` | `{ name?, description?, icon_url?, link_previews?, gifs?, gif_rating?, workflow_builders?, broadcast_mentions?, public_channel_creators?, private_channel_creators?, inviters? }` | `Workspace` — admins; each is merged into `settings`. `link_previews` and `gifs` default to on, `gif_rating` to `pg`; the five rules are `members` or `admins`, `members` unless set, except `inviters`, which is `admins` unless set. `icon_url: ""` removes the icon; a replaced or removed stored icon is deleted |
+| PATCH | `/workspaces/:ws_id` | `{ name?, description?, icon_url?, link_previews?, gifs?, gif_rating?, workflow_builders?, broadcast_mentions?, public_channel_creators?, private_channel_creators?, inviters?, custom_responders? }` | `Workspace` — admins; each is merged into `settings`. `link_previews` and `gifs` default to on, `gif_rating` to `pg`; the six rules are `members` or `admins`, `members` unless set, except `inviters`, which is `admins` unless set. `icon_url: ""` removes the icon; a replaced or removed stored icon is deleted |
 | POST | `/workspaces/:ws_id/icon` | multipart `file`, as `/users/me/avatar` | `Workspace` with the new `icon_url` — admins; processed like a photo and stored as `icons/{ws_id}/{uuid}.{ext}`, outside `files` and retention, readable by the workspace's members; the previous icon is deleted, and so is the icon on a hard delete |
 | DELETE | `/workspaces/:ws_id` | Query: `hard=bool` | `{ status: "soft_deleted" \| "hard_deleted" }` |
 | POST | `/workspaces/:ws_id/restore` | — | `Workspace` |
@@ -1261,6 +1264,48 @@ the list.
 | POST | `/list-items/:item_id/comments` | `{ content }` | `ListComment` |
 | PATCH | `/list-comments/:comment_id` | `{ content }` — the author only | `ListComment` |
 | DELETE | `/list-comments/:comment_id` | — | `{ status: "deleted" }` — the author or a channel moderator |
+
+---
+
+### custom_responses
+
+A custom response is a set of trigger phrases and a set of answers. When someone writes one of
+the phrases, the workspace's responses bot posts one of the answers, picked at random, in the
+same channel, or in the thread when the message was a reply.
+
+| Method | Route | Input | Output |
+|--------|-------|-------|--------|
+| GET | `/workspaces/:ws_id/custom-responses` | — | `CustomResponses` `{ data, can_edit, can_rename, bot }` — members, not guests (403). `data` is oldest first, each `{ id, triggers, answers, created_by, created_at, updated_at }`; `bot` is `{ user_id, name, avatar_url }`, with `user_id` null and the instance's name and icon until the bot exists |
+| POST | `/workspaces/:ws_id/custom-responses` | `{ triggers, answers }` | `CustomResponse` — an editor (`settings.custom_responders`, `members` unless set; never a guest). Phrases are trimmed, inner whitespace collapsed, blanks dropped and repeats dropped whatever the case: 1–20 of at most 100 characters. Answers are trimmed and blanks dropped: 1–20 of at most 4000 bytes (422 otherwise). 409 past 500 in a workspace. Makes the bot on first use. Audited as `custom_response.created` with the phrases |
+| PATCH | `/workspaces/:ws_id/custom-responses/:response_id` | `{ triggers?, answers? }` | `CustomResponse` — an editor; each list given replaces the old one, checked as on create. Audited as `custom_response.updated` |
+| DELETE | `/workspaces/:ws_id/custom-responses/:response_id` | — | `{ status: "deleted" }` — an editor. Audited as `custom_response.deleted` |
+| PUT | `/workspaces/:ws_id/custom-responses/bot` | `{ name }` | `WorkspaceBot` — admins; a display name of 1–100 characters, trimmed. Makes the bot if there is none yet. Audited as `workspace_bot.renamed` |
+
+**Built-in bots.** A workspace's own bots are rows of `workspace_bots` keyed by workspace and
+`kind` (`responses` only, for now), each pointing at a `users` row with `is_bot` and a
+`workspace_members` row, as an app's bot has, but with no app and no token. One is made on
+first use under a transaction-scoped advisory lock on the workspace and kind, named after the
+instance (`INSTANCE_NAME`) with its icon (`INSTANCE_ICON_URL`), and staging
+`workspace.member_joined` so open clients load it. Its messages carry no `metadata.bot`, so
+they show under its user's name with the *App* badge.
+
+**Matching.** `consumer.rs` is `custom_responses_consumer` in `chat-worker`, consumer group
+`custom_responses` on the workspace streams. On `message.created` it loads the message and
+gives up when it is deleted, older than 15 minutes (a backlog after an outage is not answered),
+written by a bot user, or carries `metadata.bot` (hooks, workflows, commands) or
+`metadata.kind` (system messages). Text and phrases are folded the same way (`matcher.rs`):
+a mention token becomes `@Label`, then NFKC, lower case, and runs of whitespace as one space. A
+phrase matches where neither neighbour glues on: a letter or digit next to a letter or digit at
+the phrase's edge is a word going on, unless either is in a script written without spaces
+(Han, kana, Thai, Lao, Khmer, Myanmar), so *パスワード* matches inside *Wi-Fiのパスワードは？*.
+The earliest match wins, the longest on a tie, skipping responses that answered in this
+channel in the last 60 seconds. The bot then answers only where the author could post now
+(`authz::require_channel_post`: not archived, not moderators-only for a non-moderator) and
+never in a 1:1 DM. In one transaction it locks the response row, inserts a
+`custom_response_replies` row keyed by the message id unless the response answered in the
+channel within the minute, posts the reply and stages its `message.created`. The key makes a
+replayed stream entry a no-op, and the row lock makes two messages racing in one channel
+answer once.
 
 ---
 

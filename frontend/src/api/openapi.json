@@ -7535,6 +7535,200 @@
         ]
       }
     },
+    "/workspaces/{ws_id}/custom-responses": {
+      "get": {
+        "tags": [
+          "workspaces"
+        ],
+        "operationId": "list_custom_responses",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponses"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "workspaces"
+        ],
+        "operationId": "create_custom_response",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewCustomResponse"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/custom-responses/bot": {
+      "put": {
+        "tags": [
+          "workspaces"
+        ],
+        "operationId": "rename_responses_bot",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameResponsesBot"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceBot"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/custom-responses/{response_id}": {
+      "delete": {
+        "tags": [
+          "workspaces"
+        ],
+        "operationId": "delete_custom_response",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "response_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "workspaces"
+        ],
+        "operationId": "update_custom_response",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "response_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCustomResponse"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workspaces/{ws_id}/drafts": {
       "get": {
         "tags": [
@@ -13580,6 +13774,80 @@
           }
         ]
       },
+      "CustomResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "workspace_id",
+          "triggers",
+          "answers",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "answers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "triggers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "CustomResponses": {
+        "type": "object",
+        "required": [
+          "data",
+          "can_edit",
+          "can_rename",
+          "bot"
+        ],
+        "properties": {
+          "bot": {
+            "$ref": "#/components/schemas/WorkspaceBot"
+          },
+          "can_edit": {
+            "type": "boolean"
+          },
+          "can_rename": {
+            "type": "boolean"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustomResponse"
+            }
+          }
+        }
+      },
       "DailyActivity": {
         "type": "object",
         "required": [
@@ -19425,6 +19693,27 @@
           }
         }
       },
+      "NewCustomResponse": {
+        "type": "object",
+        "required": [
+          "triggers",
+          "answers"
+        ],
+        "properties": {
+          "answers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "triggers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "NewProfileField": {
         "type": "object",
         "required": [
@@ -20534,6 +20823,17 @@
         }
       },
       "RenamePasskeyRequest": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "RenameResponsesBot": {
         "type": "object",
         "required": [
           "name"
@@ -22511,6 +22811,29 @@
           }
         }
       },
+      "UpdateCustomResponse": {
+        "type": "object",
+        "properties": {
+          "answers": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "triggers": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "UpdateGroupRequest": {
         "type": "object",
         "required": [
@@ -22984,6 +23307,16 @@
         "type": "object",
         "properties": {
           "broadcast_mentions": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/WhoMay"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "custom_responders": {
             "oneOf": [
               {
                 "$ref": "#/components/schemas/WhoMay"
@@ -23635,6 +23968,30 @@
             "items": {
               "$ref": "#/components/schemas/WeeklyActivity"
             }
+          }
+        }
+      },
+      "WorkspaceBot": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "avatar_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
           }
         }
       },

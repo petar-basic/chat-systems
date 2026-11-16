@@ -85,6 +85,16 @@ instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   workspace can turn GIFs off and choose the highest rating, PG unless changed, in
   *Workspace settings → General*. Browsers fetch the search and the GIFs from GIPHY directly,
   as GIPHY requires, so the key is given to every member and GIPHY sees their addresses.
+- Custom responses, in *Workspace settings → Custom responses*: when someone writes one of a
+  response's phrases, the workspace's bot answers with one of its answers, picked at random, in
+  the same channel, or in the thread if it was a reply. Phrases match whole words whatever the
+  case, and anywhere in Japanese and other text written without spaces. A response answers at
+  most once a minute in a channel, never a message from a bot, an integration or a workflow,
+  never in a 1:1 DM, and only where the person who wrote could post. Every member can edit
+  them unless an admin sets *Who can edit custom responses* to admins in *General*; guests do
+  not see them. The bot is named after the instance until an admin renames it, shows the *App*
+  badge, and the audit log records every change as `custom_response.created`, `updated` and
+  `deleted`, and a rename as `workspace_bot.renamed`.
 
 ### Changed
 
