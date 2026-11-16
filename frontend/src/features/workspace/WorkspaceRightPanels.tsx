@@ -6,7 +6,7 @@ import { SearchPanel } from '@/features/search';
 import { PinnedMessagesPanel, ChannelFilesPanel, ChannelMembersPanel } from '@/features/channel';
 import { NotificationsPanel } from '@/features/notifications';
 import { useCurrentWorkspaceRole } from './hooks/useCurrentWorkspaceRole';
-import { ScheduledMessagesPanel } from '@/features/messaging';
+import { DraftsPanel } from '@/features/drafts';
 import { LaterPanel } from '@/features/later';
 import { WorkflowsPanel, canBuild, workflowBuildersOf } from '@/features/workflows';
 import { PersonPanel } from './PersonPanel';
@@ -126,14 +126,15 @@ export default function WorkspaceRightPanels({
       />
     );
   }
-  if (panel.kind === 'scheduled' && currentWorkspace) {
+  if (panel.kind === 'drafts' && currentWorkspace) {
     return (
-      <ScheduledMessagesPanel
+      <DraftsPanel
         workspaceId={currentWorkspace.id}
         instanceUrl={currentWorkspace.instanceUrl}
         channels={channels}
         conversations={conversations}
         onClose={onClose}
+        onOpenMessage={onOpenMessage}
       />
     );
   }

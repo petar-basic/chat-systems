@@ -27,7 +27,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { transferFiles } from '@/lib/fileUploads';
 import { AttachmentTray } from './AttachmentTray';
 import type { ComposerAttachments } from './useComposerAttachments';
-import { RESTORE_DRAFT_EVENT, useDraftStore } from '@/stores/drafts';
+import {
+  REMOTE_DRAFT_EVENT,
+  RESTORE_DRAFT_EVENT,
+  draftKeyOf,
+  useDraftStore,
+  type DraftPlace,
+} from '@/stores/drafts';
 import { flattenMentions } from '@/lib/mentions';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog/ConfirmDialog';
 import { useScheduleMessage, type ScheduleTarget } from '@/features/messaging/hooks/useScheduledMessages';
@@ -73,6 +79,7 @@ interface Props {
   channelMemberCount?: number;
   placeholder?: string;
   draftKey?: string;
+  draftPlace?: DraftPlace;
   initialContent?: string;
   editing?: boolean;
   autoFocus?: boolean;
@@ -98,7 +105,8 @@ export default function MessageInput({
   canBroadcast = true,
   channelMemberCount = 0,
   placeholder,
-  draftKey,
+  draftKey: localDraftKey,
+  draftPlace,
   initialContent,
   editing = false,
   autoFocus = false,
@@ -116,11 +124,14 @@ export default function MessageInput({
   slashCommands = false,
 }: Props) {
   const { t } = useTranslation(['messages', 'common', 'polls']);
+  const draftKey = draftPlace ? draftKeyOf(draftPlace) : localDraftKey;
   const attachmentsRef = useRef(attachments);
   const allowEmptyRef = useRef(allowEmpty);
+  const draftPlaceRef = useRef(draftPlace);
   useEffect(() => {
     attachmentsRef.current = attachments;
     allowEmptyRef.current = allowEmpty;
+    draftPlaceRef.current = draftPlace;
   });
 
   const addFiles = useCallback((files: File[]) => {
@@ -264,7 +275,10 @@ export default function MessageInput({
       if (!draftKey) return;
       if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
       draftTimerRef.current = setTimeout(() => {
-        useDraftStore.getState().setDraft(draftKey, ed.storage.markdown.getMarkdown());
+        useDraftStore.getState().setDraft(draftKey, ed.storage.markdown.getMarkdown(), {
+          place: draftPlaceRef.current,
+          filesLeftBehind: (attachmentsRef.current?.items.length ?? 0) > 0,
+        });
       }, DRAFT_SAVE_DEBOUNCE_MS);
     },
   });
@@ -375,7 +389,7 @@ export default function MessageInput({
         await onSend(markdown);
       } catch {
         editor.commands.setContent(markdown);
-        if (draftKey) useDraftStore.getState().setDraft(draftKey, markdown);
+        if (draftKey) useDraftStore.getState().setDraft(draftKey, markdown, { place: draftPlaceRef.current });
       }
     },
     [
@@ -412,11 +426,21 @@ export default function MessageInput({
     const restore = (event: Event) => {
       const { key, text } = (event as CustomEvent<{ key: string; text: string }>).detail;
       if (key !== draftKey) return;
-      editor.commands.setContent(text);
+      editor.commands.setContent(text, { emitUpdate: false });
+      useDraftStore.getState().setDraft(draftKey, text, { place: draftPlaceRef.current });
       editor.commands.focus('end');
     };
+    const takeRemote = (event: Event) => {
+      const { key, text } = (event as CustomEvent<{ key: string; text: string }>).detail;
+      if (key !== draftKey || editor.isFocused) return;
+      editor.commands.setContent(text, { emitUpdate: false });
+    };
     window.addEventListener(RESTORE_DRAFT_EVENT, restore);
-    return () => window.removeEventListener(RESTORE_DRAFT_EVENT, restore);
+    window.addEventListener(REMOTE_DRAFT_EVENT, takeRemote);
+    return () => {
+      window.removeEventListener(RESTORE_DRAFT_EVENT, restore);
+      window.removeEventListener(REMOTE_DRAFT_EVENT, takeRemote);
+    };
   }, [editor, draftKey]);
 
   const isEmpty = !editor || (editor.isEmpty && !attachments?.hasReady && !allowEmpty);

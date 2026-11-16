@@ -49,7 +49,6 @@
     "setActive": "オンラインに戻す",
     "profile": "プロフィール",
     "preferences": "設定",
-    "scheduled": "予約済み",
     "later": "後で",
     "notifications": "通知",
     "paused": "通知({{time}} まで一時停止中)",

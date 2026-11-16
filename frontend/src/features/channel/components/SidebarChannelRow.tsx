@@ -1,9 +1,10 @@
 import { useRef, useState, type ReactNode } from 'react';
-import { BellOff, Hash, Lock, FolderInput } from 'lucide-react';
+import { BellOff, Hash, Lock, FolderInput, Pencil } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { AnchoredPopover } from '@/shared/components/Popover/AnchoredPopover';
 import { CHANNEL_DRAG_TYPE } from './channelDrag';
 import type { Channel } from '@/stores/workspace';
+import { hasDraftIn, useDraftStore } from '@/stores/drafts';
 
 /** Slack stops at 99+, and so does the space in the sidebar. */
 function formatBadge(count: number): string {
@@ -43,8 +44,15 @@ export function SidebarChannelRow({
   const [moveOpen, setMoveOpen] = useState(false);
   const moveAnchor = useRef<HTMLButtonElement>(null);
   const targets = moveTargets.filter((target) => target.id !== sectionId);
+  const drafted = useDraftStore((s) => hasDraftIn(s.drafts, channel.id));
   const icon =
-    channel.channel_type === 'private' ? (
+    drafted && !active ? (
+      <Pencil
+        className="w-4 h-4 text-muted shrink-0"
+        aria-label={t('row.draft')}
+        data-qa="sidebar-channel-draft"
+      />
+    ) : channel.channel_type === 'private' ? (
       <Lock className="w-4 h-4 text-muted shrink-0" />
     ) : (
       <Hash className="w-4 h-4 text-muted shrink-0" />

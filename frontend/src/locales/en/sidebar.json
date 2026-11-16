@@ -24,7 +24,8 @@
     "notificationsOff": "Notifications off",
     "move": "Move {{name}} to a section",
     "moveHint": "Move to…",
-    "moveTo": "Move to"
+    "moveTo": "Move to",
+    "draft": "Draft"
   },
   "section": {
     "options": "Options for {{name}}",
@@ -49,7 +50,7 @@
     "setActive": "Set yourself active",
     "profile": "Profile",
     "preferences": "Preferences",
-    "scheduled": "Scheduled",
+    "drafts": "Drafts & sent",
     "later": "Later",
     "notifications": "Notifications",
     "paused": "Notifications paused until {{time}}",

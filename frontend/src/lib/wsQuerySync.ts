@@ -218,6 +218,9 @@ export const useWebSocketQuerySync = () => {
         const isIncoming = message.user_id !== currentUserId;
         if (belongsElsewhere(queryClient, message.channel_id)) return;
         if (isIncoming) readOnScreen(queryClient, message.channel_id);
+        else if (currentWorkspace) {
+          queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sentMessages(currentWorkspace.id) });
+        }
 
         const conversationsKey = QUERY_KEYS.conversations(currentWorkspace?.id ?? '');
         const conversations = queryClient.getQueryData<Conversation[]>(conversationsKey);

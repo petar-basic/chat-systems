@@ -7,7 +7,7 @@ export type { ForwardSource } from './ForwardMessageModal';
 export { GalleryProvider } from './GalleryProvider';
 export { ImageGallery } from './ImageGallery';
 export { default as RichTextDisplay } from './RichTextDisplay';
-export { default as ScheduledMessagesPanel } from './ScheduledMessagesPanel';
+export { default as ScheduledList } from './ScheduledList';
 export {
   conversationsQuery,
   useConversations,

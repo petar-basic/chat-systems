@@ -380,6 +380,40 @@ impl MessageRepo {
         .await
     }
 
+    pub async fn list_sent(
+        &self,
+        user_id: Uuid,
+        workspace_id: Uuid,
+        limit: i64,
+        cursor: Option<Uuid>,
+    ) -> sqlx::Result<Vec<Message>> {
+        sqlx::query_as!(
+            Message,
+            r#"
+            SELECT m.id, m.channel_id, m.user_id, m.client_message_id, m.content,
+                   m.metadata AS "metadata!", m.thread_parent_id, m.reply_count AS "reply_count!",
+                   m.is_pinned AS "is_pinned!", m.created_at, m.updated_at, m.deleted_at
+              FROM messages m
+              JOIN channels c ON c.id = m.channel_id
+              JOIN channel_members cm ON cm.channel_id = m.channel_id AND cm.user_id = m.user_id
+             WHERE m.user_id = $1
+               AND c.workspace_id = $2
+               AND m.deleted_at IS NULL
+               AND NOT (m.metadata ? 'kind')
+               AND NOT (m.metadata ? 'bot')
+               AND ($4::uuid IS NULL OR (m.created_at, m.id) < (SELECT created_at, id FROM messages WHERE id = $4))
+             ORDER BY m.created_at DESC, m.id DESC
+             LIMIT $3
+            "#,
+            user_id,
+            workspace_id,
+            limit,
+            cursor
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
     pub async fn find_root(&self, id: Uuid) -> sqlx::Result<Option<Message>> {
         sqlx::query_as!(
             Message,

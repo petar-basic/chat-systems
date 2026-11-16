@@ -1,0 +1,106 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO drafts (workspace_id, user_id, channel_id, thread_parent_id, content,\n                                files_left_behind, updated_at)\n            VALUES ($1, $2, $3, $4, $5, $6, LEAST($7, NOW()))\n            ON CONFLICT ON CONSTRAINT drafts_place DO UPDATE\n               SET content = EXCLUDED.content,\n                   files_left_behind = EXCLUDED.files_left_behind,\n                   updated_at = EXCLUDED.updated_at\n             WHERE drafts.updated_at < EXCLUDED.updated_at\n            RETURNING id, workspace_id, channel_id, thread_parent_id, content,\n                      files_left_behind, updated_at AS \"updated_at!\"\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "drafts",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "drafts",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "channel_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "drafts",
+            "name": "channel_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "thread_parent_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "drafts",
+            "name": "thread_parent_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "content",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "drafts",
+            "name": "content"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "files_left_behind",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "drafts",
+            "name": "files_left_behind"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "updated_at!",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "drafts",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Bool",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "7588c56e32e398839d7d0465f87ce0672adab41a62d04c0d0cf24c8c4a85fe9b"
+}

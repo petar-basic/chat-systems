@@ -3371,3 +3371,66 @@ option's id, which says nothing to the person reading it; each such row now carr
 scrolling body, under the fold now that the fields make the form longer; it sits in the
 footer beside *Save changes*. And a field dragged in the settings list set no drag data, which
 Firefox needs before it starts a drag; it sets the field's id.
+
+### [CS-127] Drafts that follow you, and *Drafts & sent* ✅ shipped
+A half-written message lived in the `localStorage` of the browser it was typed in, so a reply
+started on the laptop was not on the desktop app, and nothing listed the drafts left around a
+workspace. A draft is now also a row of `drafts`, one per place, `(user_id, channel_id,
+thread_parent_id)` under `UNIQUE NULLS NOT DISTINCT`, so a channel's own draft, with no thread,
+is one row too. Only its author ever reads it, and writing it needs a seat in the channel, so
+a place the person cannot reach answers 404 whichever way it is out of reach.
+
+The ticket asked for `PUT` and `DELETE`; there is no `DELETE`. A clear is a save of empty
+content, and its row stays, because the place has to remember when it was cleared: a laptop
+that was offline while the draft was sent from the desktop would otherwise put its older text
+back when it reconnects. Every save carries the moment it was typed, and the upsert keeps it
+only `WHERE drafts.updated_at < EXCLUDED.updated_at`; that moment is cut to `NOW()` when the
+device's clock is ahead, so a fast clock cannot make a draft that nothing later replaces. A
+save that loses gets back the row that stayed. Sending a message clears its place's draft in
+the send's own transaction, at the server's time. The list leaves out cleared rows and the
+places the person can no longer write in.
+
+The composer still writes locally first and sends a place 1.2 seconds after the typing stops,
+one request per place at a time, so the answer it settles on is the answer to the last thing
+it sent; it takes the server's row unless more was typed meanwhile. `draft.updated` goes to the
+author's sockets only, on `events:draft`, and is not kept for replay, since a reconnect lists
+the drafts again anyway. An open composer takes a draft from elsewhere only while it is not
+focused, so text never moves under someone's cursor, and setting it is not typing: it is not
+sent back and starts no typing indicator. A save refused outright, for a channel left
+meanwhile, keeps the draft on that device rather than trying again forever. Files stay out of
+drafts, since an upload belongs to its message and a pending one is held for a day only;
+`files_left_behind` says the composer held some.
+
+*Drafts & sent* replaces *Scheduled* in the *You* menu, with *Scheduled* as one of its tabs
+(`ScheduledMessagesPanel` became the body-only `ScheduledList`). *Sent* pages the person's own
+messages, newest first, on a `(created_at, id)` cursor over a new partial index, without
+deleted ones, system or bot messages, or channels they have left. A sidebar row holding a draft
+shows a pencil while it is not open. A person export writes `drafts.jsonl`. Erasing someone
+deletes their drafts whether or not `hard_delete` is set, unlike their messages: nobody else
+ever saw a draft, so there is nothing for anyone to keep, and it is counted with the account,
+as `account.drafts`, leaving out the cleared places.
+
+Checked by hand on the Docker build, as Bob, with curl standing in for a second device. A save
+answered 200, an older one got back the newer text, and one stamped two hours ahead was stored
+at the server's time. A channel Bob is not in, a channel of Northwind, a reply given as a thread
+root and a root given with another channel each answered 404; Northwind's list 403, 4001
+characters 422, and Alice's list was empty. A draft put from curl reached Bob's unfocused
+composer in #general at once, and one put while he was typing there did not touch it; what he
+typed next went up 1.2 seconds later and replaced it. #random, holding a draft, showed a pencil
+in place of its `#`, as did the DM with Alice on its right. *Drafts* listed three places with
+plain text, the thread one with *#general · thread* and the note about files; opening it opened
+the thread with the draft in its composer, and sending it cleared that draft on the server and
+left the channel's. The bin cleared #random's draft on the server and its pencil. *Sent* paged
+Bob's 59 messages, the same count SQL gives for his own messages in channels he is still in,
+left out the rest of his 1181, and opened a DM message and a thread reply where they were.
+Offline was the api stopped: text typed then stayed pending, lost to a newer one written
+meanwhile, which the composer then showed, and once typed after that newer one won when the
+api came back. Bob's export held `drafts.jsonl` with his three places.
+
+The check found one fault, fixed here. *Sent* showed a message Bob had just sent only after
+its tab was opened again; a `message.created` of one's own now refetches it. Writing this entry
+found another: the first cut deleted drafts only on an erase with `hard_delete`, so a plain
+erase left them, though nobody else could ever have read them. CI found a third: the client
+knew the answer to a save belonged to the draft still held by comparing their times, so a
+second edit in the same millisecond took the answer to the first, was marked saved and never
+went up. It now compares the draft itself.

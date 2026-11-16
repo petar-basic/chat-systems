@@ -82,6 +82,7 @@ pub struct AccountErased {
     pub push_subscriptions: u64,
     pub sidebar_sections: u64,
     pub profile_fields: u64,
+    pub drafts: u64,
     pub photos: u64,
 }
 
@@ -406,6 +407,15 @@ impl ExportRepo {
         .execute(&mut *tx)
         .await?
         .rows_affected();
+        let drafts = sqlx::query_scalar!(
+            r#"
+            WITH gone AS (DELETE FROM drafts WHERE user_id = $1 RETURNING content)
+            SELECT COUNT(*) FILTER (WHERE content <> '') AS "count!" FROM gone
+            "#,
+            user_id
+        )
+        .fetch_one(&mut *tx)
+        .await? as u64;
 
         sqlx::query!(
             r"
@@ -460,6 +470,7 @@ impl ExportRepo {
             push_subscriptions,
             sidebar_sections,
             profile_fields,
+            drafts,
             photos: 0,
         })
     }

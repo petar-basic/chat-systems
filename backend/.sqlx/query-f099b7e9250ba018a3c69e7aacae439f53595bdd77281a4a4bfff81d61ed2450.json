@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH gone AS (DELETE FROM drafts WHERE user_id = $1 RETURNING content)\n            SELECT COUNT(*) FILTER (WHERE content <> '') AS \"count!\" FROM gone\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "f099b7e9250ba018a3c69e7aacae439f53595bdd77281a4a4bfff81d61ed2450"
+}

@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Bell, BellOff, Bookmark, CircleDot, Clock, LogOut, SlidersHorizontal, User } from 'lucide-react';
+import { Bell, BellOff, Bookmark, CircleDot, LogOut, Send, SlidersHorizontal, User } from 'lucide-react';
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { displayNameOf } from '@/lib/userHelpers';
@@ -18,7 +18,7 @@ interface Props {
   unreadNotifCount: number;
   onOpenProfile: () => void;
   onOpenPreferences: () => void;
-  onOpenScheduled: () => void;
+  onOpenDrafts: () => void;
   onOpenLater: () => void;
   onOpenNotifications: () => void;
   onLogout: () => void;
@@ -34,7 +34,7 @@ export function YouMenu({
   unreadNotifCount,
   onOpenProfile,
   onOpenPreferences,
-  onOpenScheduled,
+  onOpenDrafts,
   onOpenLater,
   onOpenNotifications,
   onLogout,
@@ -111,8 +111,8 @@ export function YouMenu({
               <SlidersHorizontal className="w-4 h-4 shrink-0" /> {t('you.preferences')}
             </button>
             <div className="my-1 h-px bg-raised" />
-            <button className={ITEM} data-qa="open-scheduled" onClick={pick(onOpenScheduled)}>
-              <Clock className="w-4 h-4" /> {t('you.scheduled')}
+            <button className={ITEM} data-qa="open-drafts" onClick={pick(onOpenDrafts)}>
+              <Send className="w-4 h-4" /> {t('you.drafts')}
             </button>
             <button className={ITEM} data-qa="open-later" onClick={pick(onOpenLater)}>
               <Bookmark className="w-4 h-4" /> {t('you.later')}

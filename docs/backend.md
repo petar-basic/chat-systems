@@ -454,6 +454,29 @@ the same question the message route, `invoke` and a command's later answer ask.
 
 ---
 
+### drafts
+
+What someone was writing and has not sent, one per place: a channel or conversation, or a
+thread in one. Only its author sees it. Writing in a place needs a seat in it, so both routes
+answer 404 for a channel of another workspace or one the caller is not in, and a save also for
+a thread root that is gone, is in another channel or is itself a reply. The last writer wins: a
+save carries the moment it was typed (`updated_at`, cut to the server's clock when it is
+ahead), and an older one changes nothing and gets back the draft that stayed. Clearing is a
+save of empty content, not a delete, so a clear from a device that was offline loses to what
+was typed after it; the cleared row stays as that marker. Sending a message clears the draft of
+its place in the send's transaction. Every change goes as a `draft.updated` frame to the
+author's sessions and nobody else's. Drafts go with the workspace membership and with the
+channel or thread root; a person export writes them to `drafts.jsonl`, and an erase deletes
+them (`account.drafts`, cleared places not counted).
+
+| Method | Route | Input | Output |
+|--------|-------|-------|--------|
+| GET | `/workspaces/:ws_id/drafts` | — | `{ data: Draft[] }` — the ones with text, newest first, in places the caller can still write in; a thread's draft stays while its root is there or still has replies |
+| PUT | `/workspaces/:ws_id/drafts` | `{ channel_id, thread_parent_id?, content, files_left_behind?, updated_at }` | `Draft` — the one that stayed; whitespace counts as cleared; `files_left_behind` says the composer held files, which a draft does not carry |
+| GET | `/workspaces/:ws_id/sent-messages` | Query: `limit=30` (1–100), `cursor?` (a message id) | `{ data: Message[] }` — the caller's own messages in the workspace, newest first, without deleted ones, system or bot messages, and those in channels the caller has left |
+
+---
+
 ### messaging
 
 Sends and manages messages, threads, reactions, pins, read tracking, and search.
@@ -1462,7 +1485,7 @@ false; it is true by default.
 | GET | `/admin/workspaces/:ws_id/members` | — | `{ data: WorkspacePerson[] }` — everyone in it but apps, with their account `status` |
 | POST | `/admin/workspaces/:ws_id/owners` | `{ user_id }` | `WorkspaceMember` — makes a member an owner, for a workspace whose owner is gone; 404 outside the workspace, 400 for an app or an account that isn't active; `owner_id` moves to them when it names nobody who is still an active owner; audited `workspace.role_changed` with `instance_admin: true` |
 | DELETE | `/admin/workspaces/:ws_id` | — | `{ status: "deleted" }` |
-| DELETE | `/admin/users/:user_id/data` | `{ hard_delete?: bool }` | `{ status: "erased", hard_delete, removed, account }` — either way the account is tombstoned (no password, timezone or preferences), signed out and unlinked from SSO, and its passkeys, authenticator, recovery codes, keywords, push subscriptions, sidebar sections, profile field values, sign-in codes and reset links are deleted, with every photo under `avatars/<user id>/`; `account` counts `passkeys`, `authenticators`, `recovery_codes`, `keywords`, `push_subscriptions`, `sidebar_sections`, `profile_fields` and `photos`. `hard_delete` also removes what they wrote: their messages (a thread root someone else answered stays as an empty tombstone, its poll removed), every earlier version of them, the notifications that quote them, their reactions, poll votes, list comments, scheduled messages and *Later* items, and their files with the stored objects; `removed` counts `messages`, `edits`, `reactions`, `votes`, `comments`, `scheduled`, `polls` and `files` |
+| DELETE | `/admin/users/:user_id/data` | `{ hard_delete?: bool }` | `{ status: "erased", hard_delete, removed, account }` — either way the account is tombstoned (no password, timezone or preferences), signed out and unlinked from SSO, and its passkeys, authenticator, recovery codes, keywords, push subscriptions, sidebar sections, profile field values, drafts, sign-in codes and reset links are deleted, with every photo under `avatars/<user id>/`; `account` counts `passkeys`, `authenticators`, `recovery_codes`, `keywords`, `push_subscriptions`, `sidebar_sections`, `profile_fields`, `drafts` and `photos`. `hard_delete` also removes what they wrote: their messages (a thread root someone else answered stays as an empty tombstone, its poll removed), every earlier version of them, the notifications that quote them, their reactions, poll votes, list comments, scheduled messages and *Later* items, and their files with the stored objects; `removed` counts `messages`, `edits`, `reactions`, `votes`, `comments`, `scheduled`, `polls` and `files` |
 | GET | `/admin/scim/tokens` | — | `{ data: ScimToken[] }` |
 | POST | `/admin/scim/tokens` | `{ description? }` | `{ id, description, token }`, the token only here |
 | POST | `/admin/scim/tokens/:id/rotate` | — | `{ id, description, token }`; the old one is revoked |
@@ -1500,6 +1523,9 @@ workspace when they left (else the account name).
 A person export writes their profile field values to `profile_fields.jsonl`, one row per
 value with its `workspace_id`, `field_id`, the field's `label` and `kind`, and the `value`; an
 options value also carries the option's `option_label`, since the value is the option's id.
+Their drafts go to `drafts.jsonl`, one row per place with text, with its `workspace_id`,
+`channel_id`, the channel's `channel_name`, the `thread_parent_id`, the `content`,
+`files_left_behind` and `updated_at`.
 `files.jsonl` follows the same choices as `messages.jsonl`: without `include_dms` it leaves out
 files posted in DMs, and `since`/`until` bound files by their upload time. Edits, reactions, polls and votes follow their message's date. Each workspace's
 purge is audited as one `retention.purge` row with that workspace's counts; the run's total
@@ -1653,6 +1679,7 @@ A join is authorised against the huddle's own `huddle_sessions` row, never again
 | `events:list` | `list.upserted`, `list.deleted`, `list.columns_changed`, `list.item_upserted`, `list.item_deleted` — to the list's channel, or to the owner of a personal list |
 | `events:thread` | `thread.read_state` — sent only to the user whose thread state changed (a reply, `/read`, follow or unfollow), with its `following` and `unread_count` |
 | `events:channel` | `channel.read_state` — sent only to the user whose read position moved (by `/read` or `/unread`), so their other tabs and devices update their badges; it is durable, for the analytics rollup, so a reconnect replays it to that user; `channel.member_removed` becomes `channel.access_revoked` for the removed user; `channel.updated` (the whole `Channel`) goes to everyone in the channel whenever its name, topic, description, settings, type or archived state is written; `channel.privacy_changed` `{ channel_id, workspace_id, private }` goes to the whole workspace, which is how a client that is not in the channel, and so hears none of its frames, learns that it went private and drops it, and how every client refreshes *Browse channels* |
+| `events:draft` | `draft.updated` `{ workspace_id, draft }` — ephemeral, to every socket of the draft's author and nobody else's; a cleared draft comes with empty `content` |
 | `events:huddle-signal` | `huddle.offer`, `huddle.answer`, `huddle.ice`, `huddle.mute`, `huddle.camera`, `huddle.screenshare`, `huddle.hand`, `huddle.reaction` — high-frequency relay, realtime-only (kept off `events:huddle` so the API consumers don't parse every ICE candidate) |
 
 All events use the envelope: `{ id, event_type, payload, timestamp }`.

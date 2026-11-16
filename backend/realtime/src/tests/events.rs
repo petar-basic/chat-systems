@@ -831,6 +831,45 @@ async fn later_updated_reaches_only_its_owner(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn a_draft_reaches_every_socket_of_its_author_and_nobody_else(pool: PgPool) {
+    let cm = manager(pool).await;
+    let author = Uuid::new_v4();
+    let other = Uuid::new_v4();
+    let ws = Uuid::new_v4();
+    let channel = Uuid::new_v4();
+    let (_laptop, mut laptop_rx) = fake_conn(&cm, author);
+    let (_desktop, mut desktop_rx) = fake_conn(&cm, author);
+    let (_other_conn, mut other_rx) = fake_conn(&cm, other);
+
+    assert!(
+        crate::event_consumer::SUBSCRIBED_CHANNELS.contains(&"events:draft"),
+        "draft.updated is published on events:draft"
+    );
+    let payload = json!({
+        "user_id": author.to_string(),
+        "workspace_id": ws.to_string(),
+        "draft": {
+            "id": Uuid::new_v4().to_string(),
+            "workspace_id": ws.to_string(),
+            "channel_id": channel.to_string(),
+            "thread_parent_id": null,
+            "content": "half a thought",
+            "files_left_behind": false,
+            "updated_at": "2026-11-14T10:00:00Z",
+        },
+    });
+    crate::event_consumer::handle_event("draft.updated", &payload, &cm).await;
+
+    for rx in [&mut laptop_rx, &mut desktop_rx] {
+        let frame = next_json(rx).expect("each of the author's sockets hears it");
+        assert_eq!(frame["type"], "draft.updated");
+        assert_eq!(frame["workspace_id"], ws.to_string());
+        assert_eq!(frame["draft"]["content"], "half a thought");
+    }
+    assert!(next_json(&mut other_rx).is_none());
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_new_instance_role_reaches_every_socket_of_the_person(pool: PgPool) {
     let cm = manager(pool).await;
     let person = Uuid::new_v4();

@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { act, render, screen, fireEvent } from '@testing-library/react';
 import i18n from '@/lib/i18n';
 import { SidebarChannelRow } from './SidebarChannelRow';
 import type { Channel } from '@/stores/workspace';
+import { useDraftStore } from '@/stores/drafts';
 
 const channel = { id: 'ch-1', name: 'design', channel_type: 'public' } as Channel;
 
@@ -31,6 +32,35 @@ describe('SidebarChannelRow', () => {
     expect(screen.queryByText('Channels')).not.toBeInTheDocument();
     fireEvent.click(screen.getByText('Projects'));
     expect(onMove).toHaveBeenCalledWith('ch-1', 'sec-1');
+  });
+});
+
+describe('SidebarChannelRow with a draft', () => {
+  afterEach(() => {
+    useDraftStore.setState({ drafts: {} });
+  });
+
+  it('marks a channel holding a draft with a pencil, except the one you are in', () => {
+    useDraftStore.getState().setDraft('ch-1', 'half a thought');
+    const row = (active: boolean) => (
+      <SidebarChannelRow
+        channel={channel}
+        active={active}
+        muted={false}
+        unread={false}
+        mentioned={false}
+        unreadCount={undefined}
+        mentionCount={undefined}
+        onSelect={vi.fn()}
+      />
+    );
+    const { rerender } = render(row(false));
+    expect(screen.getByTestId('sidebar-channel-draft')).toHaveAttribute('aria-label', 'Draft');
+    rerender(row(true));
+    expect(screen.queryByTestId('sidebar-channel-draft')).not.toBeInTheDocument();
+    rerender(row(false));
+    act(() => useDraftStore.getState().clearDraft('ch-1'));
+    expect(screen.queryByTestId('sidebar-channel-draft')).not.toBeInTheDocument();
   });
 });
 

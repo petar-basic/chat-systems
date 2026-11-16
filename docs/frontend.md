@@ -673,7 +673,27 @@ is converted by `convertTrailingEmoticon`, so `thanks :)` and Enter sends `thank
 touches code. The emoji picker holds Enter only while it shows emoji
 (`editor.storage.emojiSuggestion.open`), not for every `:` followed by text.
 A composer's unsent text is kept per place and per signed-in person (`stores/drafts.ts` keys it
-`<user id>:<place>`), so someone else who signs in on the same browser sees none of it. *Mark as read* chooses where a channel opens:
+`<user id>:<place>`, the place being `draftKeyOf`: the channel id, or `<channel id>/<root id>`
+for a thread), so someone else who signs in on the same browser sees none of it. A composer
+given a `draftPlace` also follows its author to their other devices (`features/drafts`):
+`useDraftSync`, mounted by `WorkspacePage`, watches the store and puts a changed place to
+`PUT /workspaces/{ws_id}/drafts` 1.2 seconds after the last keystroke, one request per place at a
+time, then takes what the server kept unless more was typed meanwhile. A `draft.updated` frame
+is taken when it is newer than what this device has, and the composer shows it only while it
+is not focused (`REMOTE_DRAFT_EVENT`), so it never moves text under someone's cursor. On mount,
+on `sync.complete` and on going back online it sends what waited and then lists the server's
+drafts, dropping synced ones the server no longer has, never one it has yet to hear about. A
+save the server refuses (a place left meanwhile) stays on this device. A clear is a save of
+nothing, so the store keeps a pending blank entry until the server has it. A list comment's
+draft stays local. A row in the sidebar with a draft and not open shows a pencil
+(`hasDraftIn`). *Drafts & sent* in the You menu opens `DraftsPanel` (the `drafts` panel of
+`useRightPanel`, in the URL as `?panel=drafts`), with three tabs: *Drafts* (`DraftsList`, from
+the store, newest first; opening one goes to its place or thread, the bin discards it on every
+device), *Scheduled* (`ScheduledList`) and *Sent* (`SentList`, `GET /workspaces/{ws_id}/sent-messages`
+thirty at a time, refetched when a message of yours arrives; a row opens the message, or its
+thread).
+
+*Mark as read* chooses where a channel opens:
 where you left off, under the unread line, or at the newest message, with no line; opening a
 channel marks it read either way.
 

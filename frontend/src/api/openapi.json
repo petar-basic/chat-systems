@@ -7535,6 +7535,74 @@
         ]
       }
     },
+    "/workspaces/{ws_id}/drafts": {
+      "get": {
+        "tags": [
+          "drafts"
+        ],
+        "operationId": "list_drafts",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_Draft"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "drafts"
+        ],
+        "operationId": "save_draft",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveDraftRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Draft"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workspaces/{ws_id}/emojis": {
       "get": {
         "tags": [
@@ -10169,6 +10237,60 @@
         }
       }
     },
+    "/workspaces/{ws_id}/sent-messages": {
+      "get": {
+        "tags": [
+          "drafts"
+        ],
+        "operationId": "list_sent",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_Message"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workspaces/{ws_id}/sidebar": {
       "get": {
         "tags": [
@@ -10772,10 +10894,16 @@
           "push_subscriptions",
           "sidebar_sections",
           "profile_fields",
+          "drafts",
           "photos"
         ],
         "properties": {
           "authenticators": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "drafts": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
@@ -14196,6 +14324,59 @@
           }
         }
       },
+      "DataList_Draft": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "workspace_id",
+                "channel_id",
+                "content",
+                "files_left_behind",
+                "updated_at"
+              ],
+              "properties": {
+                "channel_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "content": {
+                  "type": "string"
+                },
+                "files_left_behind": {
+                  "type": "boolean"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "thread_parent_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
+                },
+                "updated_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "workspace_id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          }
+        }
+      },
       "DataList_EmojiView": {
         "type": "object",
         "required": [
@@ -16445,6 +16626,48 @@
               "null"
             ],
             "format": "date-time"
+          }
+        }
+      },
+      "Draft": {
+        "type": "object",
+        "required": [
+          "id",
+          "workspace_id",
+          "channel_id",
+          "content",
+          "files_left_behind",
+          "updated_at"
+        ],
+        "properties": {
+          "channel_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "content": {
+            "type": "string"
+          },
+          "files_left_behind": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "thread_parent_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
@@ -20196,6 +20419,37 @@
           }
         }
       },
+      "SaveDraftRequest": {
+        "type": "object",
+        "required": [
+          "channel_id",
+          "content",
+          "updated_at"
+        ],
+        "properties": {
+          "channel_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "content": {
+            "type": "string"
+          },
+          "files_left_behind": {
+            "type": "boolean"
+          },
+          "thread_parent_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "SaveWorkflowRequest": {
         "type": "object",
         "required": [
@@ -23379,6 +23633,10 @@
     {
       "name": "scheduled",
       "description": "Messages scheduled for later"
+    },
+    {
+      "name": "drafts",
+      "description": "Unsent messages kept per place, and what you sent"
     },
     {
       "name": "admin",

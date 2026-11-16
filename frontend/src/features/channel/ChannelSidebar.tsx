@@ -50,7 +50,7 @@ interface Props {
   onInvite: () => void;
   onOpenWorkflows: () => void;
   onLeaveWorkspace: () => void;
-  onOpenScheduled: () => void;
+  onOpenDrafts: () => void;
   onOpenLater: () => void;
   laterActive: boolean;
   onOpenProfile: () => void;
@@ -88,7 +88,7 @@ export default function ChannelSidebar({
   onInvite,
   onOpenWorkflows,
   onLeaveWorkspace,
-  onOpenScheduled,
+  onOpenDrafts,
   onOpenLater,
   laterActive,
   onOpenProfile,
@@ -404,7 +404,7 @@ export default function ChannelSidebar({
           unreadNotifCount={unreadNotifCount}
           onOpenProfile={onOpenProfile}
           onOpenPreferences={onOpenPreferences}
-          onOpenScheduled={onOpenScheduled}
+          onOpenDrafts={onOpenDrafts}
           onOpenLater={onOpenLater}
           onOpenNotifications={onOpenNotifications}
           onLogout={onLogout}

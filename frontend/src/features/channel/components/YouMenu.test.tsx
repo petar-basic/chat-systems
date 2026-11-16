@@ -32,7 +32,7 @@ function renderMenu() {
         unreadNotifCount={0}
         onOpenProfile={vi.fn()}
         onOpenPreferences={vi.fn()}
-        onOpenScheduled={vi.fn()}
+        onOpenDrafts={vi.fn()}
         onOpenLater={vi.fn()}
         onOpenNotifications={vi.fn()}
         onLogout={vi.fn()}
@@ -106,7 +106,7 @@ describe('YouMenu in Japanese', () => {
 
   it('names the menu and the buttons', () => {
     renderMenu();
-    for (const name of ['離席中にする', 'プロフィール', '設定', '予約済み', '後で']) {
+    for (const name of ['離席中にする', 'プロフィール', '設定', '後で']) {
       expect(screen.getByRole('button', { name })).toBeInTheDocument();
     }
     expect(screen.getByRole('button', { name: 'プロフィールを編集' })).toBeInTheDocument();

@@ -220,8 +220,9 @@ test('the scheduled panel lists a queued message and cancels it', async ({ page 
     await page.goto(`/app/${workspace.id}/${channelId}`);
 
     await page.locator('[data-qa="open-you-menu"]').click();
-    await page.locator('[data-qa="open-scheduled"]').click();
-    await expect(page.locator('[data-qa="scheduled-panel"]')).toBeVisible();
+    await page.locator('[data-qa="open-drafts"]').click();
+    await page.locator('[data-qa="drafts-tab-scheduled"]').click();
+    await expect(page.locator('[data-qa="scheduled-list"]')).toBeVisible();
 
     const row = page.locator(`[data-qa="scheduled-row"][data-scheduled-id="${scheduledId}"]`);
     await expect(row.locator('[data-qa="scheduled-content"]')).toHaveText(`panel-queued-${stamp}`);
@@ -270,7 +271,8 @@ test('a queued message can be moved to a new time from the panel', async ({ page
     await login(page, 'admin@dev.local');
     await page.goto(`/app/${workspace.id}/${channelId}`);
     await page.locator('[data-qa="open-you-menu"]').click();
-    await page.locator('[data-qa="open-scheduled"]').click();
+    await page.locator('[data-qa="open-drafts"]').click();
+    await page.locator('[data-qa="drafts-tab-scheduled"]').click();
 
     const row = page.locator(`[data-qa="scheduled-row"][data-scheduled-id="${scheduledId}"]`);
     await row.locator('[data-qa="scheduled-reschedule"]').click();
