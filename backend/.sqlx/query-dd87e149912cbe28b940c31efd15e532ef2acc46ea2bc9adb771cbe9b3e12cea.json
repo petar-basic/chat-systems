@@ -1,0 +1,88 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT id AS \"id!\", query AS \"query!\", tab AS \"tab!: SearchTab\",\n                   filters AS \"filters!: Json<SearchFilters>\", searched_at AS \"searched_at!\"\n              FROM (SELECT DISTINCT ON (lower(query), tab, filters)\n                           id, query, tab, filters, searched_at\n                      FROM recent_searches_seen\n                     WHERE user_id = $1 AND workspace_id = $2\n                     ORDER BY lower(query), tab, filters, searched_at DESC, id DESC) once\n             ORDER BY searched_at DESC, id DESC\n             LIMIT $3\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "recent_searches_seen",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "query!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "recent_searches_seen",
+            "name": "query"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "tab!: SearchTab",
+        "type_info": {
+          "Custom": {
+            "name": "search_tab",
+            "kind": {
+              "Enum": [
+                "messages",
+                "files"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "recent_searches_seen",
+            "name": "tab"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "filters!: Json<SearchFilters>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "recent_searches_seen",
+            "name": "filters"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "searched_at!",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "recent_searches_seen",
+            "name": "searched_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "dd87e149912cbe28b940c31efd15e532ef2acc46ea2bc9adb771cbe9b3e12cea"
+}

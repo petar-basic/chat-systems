@@ -64,6 +64,7 @@ export const QUERY_KEYS = {
 
   scheduledMessages: (workspaceId: string) => ['scheduled-messages', workspaceId] as const,
   sentMessages: (workspaceId: string) => ['sent-messages', workspaceId] as const,
+  recentSearches: (workspaceId: string) => ['recent-searches', workspaceId] as const,
 
   slackImports: (workspaceId: string) => ['slack-imports', workspaceId] as const,
   laterAll: () => ['later'] as const,

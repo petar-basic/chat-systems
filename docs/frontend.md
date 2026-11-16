@@ -541,7 +541,18 @@ with the typed fragment marked, size, uploader, place (the hit's `channel_name`,
 anything else its message, and download is a hover action. The channel files panel's *Filter
 by name* box asks the same route with `channel_id`.
 
-**API calls:** GET `/search?q=...&limit=20`, GET `/search/files?q=...&limit=20`
+While the box is empty and no filter is set, the panel lists the person's recent searches
+under *Recent* (`features/search/RecentSearches`, fed by `useRecentSearches`): each with its
+words and its filters and tab as chips, a remove button, and *Clear* at the end. Picking one
+fills the box, the filters and the tab and runs it. ↓ from the box moves into the list, ↑/↓
+move through it, ↑ from the first goes back to the box, and Enter picks. A search is kept
+(`useRecentSearchActions().record`) when Enter submits it, when one of its results is opened,
+and when it is picked from the list, which moves it to the top; typing alone keeps nothing.
+Removing and clearing update the list at once and ask the server after; the list is fetched
+again whenever the panel opens, so another device's changes show there.
+
+**API calls:** GET `/search?q=...&limit=20`, GET `/search/files?q=...&limit=20`, GET/POST/DELETE
+`/workspaces/{ws_id}/searches/recent`, DELETE `/workspaces/{ws_id}/searches/recent/{id}`
 
 `lib/fileKinds.ts` holds the icon and tone per server `kind` (`FILE_KINDS`) and `kindOf()`, the
 same rules as the database's `file_kind_of()` for files that have no server kind yet (the

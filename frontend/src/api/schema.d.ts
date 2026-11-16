@@ -3504,6 +3504,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{ws_id}/searches/recent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_recent_searches"];
+        put?: never;
+        post: operations["record_search"];
+        delete: operations["clear_recent_searches"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/searches/recent/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["forget_search"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{ws_id}/sent-messages": {
         parameters: {
             query?: never;
@@ -3737,6 +3769,8 @@ export interface components {
             push_subscriptions: number;
             /** Format: int64 */
             recovery_codes: number;
+            /** Format: int64 */
+            searches: number;
             /** Format: int64 */
             sidebar_sections: number;
         };
@@ -5036,6 +5070,17 @@ export interface components {
                 user_id: string;
             }[];
         };
+        DataList_RecentSearch: {
+            data: {
+                filters: components["schemas"]["SearchFilters"];
+                /** Format: uuid */
+                id: string;
+                query: string;
+                /** Format: date-time */
+                searched_at: string;
+                tab: components["schemas"]["SearchTab"];
+            }[];
+        };
         DataList_ScheduledMessage: {
             data: {
                 also_in_channel: boolean;
@@ -6251,6 +6296,15 @@ export interface components {
             /** Format: int32 */
             unread_count: number;
         };
+        RecentSearch: {
+            filters: components["schemas"]["SearchFilters"];
+            /** Format: uuid */
+            id: string;
+            query: string;
+            /** Format: date-time */
+            searched_at: string;
+            tab: components["schemas"]["SearchTab"];
+        };
         Recipient: {
             /** @enum {string} */
             kind: "person";
@@ -6259,6 +6313,11 @@ export interface components {
         } | {
             /** @enum {string} */
             kind: "trigger_user";
+        };
+        RecordSearchRequest: {
+            filters?: components["schemas"]["SearchFilters"];
+            query: string;
+            tab: components["schemas"]["SearchTab"];
         };
         RegisterCompleteRequest: {
             display_name: string;
@@ -6383,6 +6442,22 @@ export interface components {
         };
         /** @enum {string} */
         Scope: "chat:write" | "chat:write.public" | "channels:read" | "channels:history" | "groups:history" | "im:write" | "reactions:write" | "files:write" | "users:read" | "commands";
+        SearchFilters: {
+            /** Format: date */
+            after?: string | null;
+            /** Format: date */
+            before?: string | null;
+            /** Format: uuid */
+            from?: string | null;
+            has?: components["schemas"]["SearchHas"] | null;
+            /** Format: uuid */
+            in?: string | null;
+            kind?: components["schemas"]["FileKind"] | null;
+            /** Format: date */
+            on?: string | null;
+        };
+        /** @enum {string} */
+        SearchHas: "file" | "image" | "link";
         SearchHit: components["schemas"]["Message"] & {
             channel_name?: string | null;
         };
@@ -6397,6 +6472,8 @@ export interface components {
          * @enum {string}
          */
         SearchScope: "channels" | "conversations" | "all";
+        /** @enum {string} */
+        SearchTab: "messages" | "files";
         SendMessageRequest: {
             also_to_channel?: boolean;
             attachment_ids?: string[];
@@ -13535,6 +13612,95 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ScheduledMessage"];
+                };
+            };
+        };
+    };
+    list_recent_searches: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_RecentSearch"];
+                };
+            };
+        };
+    };
+    record_search: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordSearchRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecentSearch"];
+                };
+            };
+        };
+    };
+    clear_recent_searches: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    forget_search: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
                 };
             };
         };

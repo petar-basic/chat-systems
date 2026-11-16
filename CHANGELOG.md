@@ -71,6 +71,12 @@ instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - *Drafts & sent* in the *You* menu, in place of *Scheduled*: your drafts, newest first, each
   opening where it was written and deletable; your scheduled messages; and what you sent
   across channels, DMs and threads, each opening the message.
+- Recent searches. With the search box empty, the search panel lists your last 20 searches,
+  with their filters and tab, on every device. Picking one runs it again; each can be removed
+  and *Clear* removes them all. A search is kept when you submit it or open one of its
+  results, not as you type, and repeating it moves it to the top. A search in a channel or
+  conversation you have since left keeps its words but no longer names the place.
+  A person export includes them and erasing a person deletes them.
 
 ### Changed
 

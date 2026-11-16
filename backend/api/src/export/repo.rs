@@ -83,6 +83,7 @@ pub struct AccountErased {
     pub sidebar_sections: u64,
     pub profile_fields: u64,
     pub drafts: u64,
+    pub searches: u64,
     pub photos: u64,
 }
 
@@ -416,6 +417,10 @@ impl ExportRepo {
         )
         .fetch_one(&mut *tx)
         .await? as u64;
+        let searches = sqlx::query!("DELETE FROM recent_searches WHERE user_id = $1", user_id)
+            .execute(&mut *tx)
+            .await?
+            .rows_affected();
 
         sqlx::query!(
             r"
@@ -471,6 +476,7 @@ impl ExportRepo {
             sidebar_sections,
             profile_fields,
             drafts,
+            searches,
             photos: 0,
         })
     }

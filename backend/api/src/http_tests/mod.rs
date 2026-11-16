@@ -54,6 +54,7 @@ mod polls;
 mod profile;
 mod profile_fields;
 mod scheduled;
+mod searches;
 mod sidebar;
 mod thread_keep_up;
 mod threads;

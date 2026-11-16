@@ -44,6 +44,7 @@ pub mod scheduled;
 pub mod scim;
 pub mod sealed;
 pub mod search;
+pub mod searches;
 pub mod sessions;
 pub mod setup;
 pub mod sidebar;
@@ -127,6 +128,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
     let conversation_repo = ConversationRepo::new(pool.clone());
     let later_repo = later::repo::LaterRepo::new(pool.clone());
     let draft_repo = drafts::repo::DraftRepo::new(pool.clone());
+    let search_repo = searches::repo::SearchRepo::new(pool.clone());
     let guest_repo = guests::repo::GuestRepo::new(pool.clone());
     let invite_request_repo = invite_requests::repo::InviteRequestRepo::new(pool.clone());
     let profile_field_repo = profile_fields::repo::ProfileFieldRepo::new(pool.clone());
@@ -180,6 +182,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
         conversation_repo,
         later_repo,
         draft_repo,
+        search_repo,
         guest_repo,
         invite_request_repo,
         profile_field_repo,

@@ -486,7 +486,7 @@ the built-in bot users that the calendars of CS-140 post as.
 | # | Ticket | Area |
 |---|---|---|
 | CS-127 ✅ | Drafts that follow you, and *Drafts & sent* | backend · frontend · realtime |
-| CS-128 | Recent searches | backend · frontend |
+| CS-128 ✅ | Recent searches | backend · frontend |
 | CS-129 | GIFs | backend · frontend · ops |
 | CS-130 | Custom responses from the workspace's bot | backend · frontend |
 
@@ -608,7 +608,7 @@ Tickets that touch the same files, and the order that avoids rework:
 | `workspace_members` profile and the *People* directory | CS-126 ✅ |
 | `MessageInput.tsx` and the composer's buttons | CS-127 ✅ → CS-129 → CS-133 |
 | *You* menu and `DraftsPanel` | CS-127 ✅ |
-| `SearchPanel` and `SearchFilterBar` | CS-128 |
+| `SearchPanel` and `SearchFilterBar` | CS-128 ✅ |
 | `commands/builtin.rs` | CS-129 |
 | built-in bot users and the message stream consumers in `chat-worker` | CS-130 → CS-140 |
 | huddle window, `HuddleControlBar` and huddle realtime frames | CS-131 → CS-132 |

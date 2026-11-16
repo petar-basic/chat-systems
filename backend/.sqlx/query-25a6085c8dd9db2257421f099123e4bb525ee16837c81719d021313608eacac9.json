@@ -1,0 +1,100 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO recent_searches (workspace_id, user_id, query, tab, filters)\n            VALUES ($1, $2, $3, $4, $5)\n            ON CONFLICT (user_id, workspace_id, lower(query), tab, filters)\n            DO UPDATE SET query = EXCLUDED.query, searched_at = NOW()\n            RETURNING id, query, tab AS \"tab: SearchTab\",\n                      filters AS \"filters!: Json<SearchFilters>\", searched_at\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "recent_searches",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "query",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "recent_searches",
+            "name": "query"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "tab: SearchTab",
+        "type_info": {
+          "Custom": {
+            "name": "search_tab",
+            "kind": {
+              "Enum": [
+                "messages",
+                "files"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "recent_searches",
+            "name": "tab"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "filters!: Json<SearchFilters>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "recent_searches",
+            "name": "filters"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "searched_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "recent_searches",
+            "name": "searched_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        {
+          "Custom": {
+            "name": "search_tab",
+            "kind": {
+              "Enum": [
+                "messages",
+                "files"
+              ]
+            }
+          }
+        },
+        "Jsonb"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "25a6085c8dd9db2257421f099123e4bb525ee16837c81719d021313608eacac9"
+}
