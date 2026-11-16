@@ -263,7 +263,7 @@ feature — see `dm` below.)
 | GET | `/workspaces` | — | `{ data: Workspace[] }` |
 | POST | `/workspaces` | `{ name, description? }` | `Workspace` — a 403 for a `member` while the instance restricts workspace creation |
 | GET | `/workspaces/:ws_id` | — | `Workspace` |
-| PATCH | `/workspaces/:ws_id` | `{ name?, description?, icon_url?, link_previews?, workflow_builders?, broadcast_mentions?, public_channel_creators?, private_channel_creators?, inviters? }` | `Workspace` — admins; each is merged into `settings`. `link_previews` defaults to on; the five rules are `members` or `admins`, `members` unless set, except `inviters`, which is `admins` unless set. `icon_url: ""` removes the icon; a replaced or removed stored icon is deleted |
+| PATCH | `/workspaces/:ws_id` | `{ name?, description?, icon_url?, link_previews?, gifs?, gif_rating?, workflow_builders?, broadcast_mentions?, public_channel_creators?, private_channel_creators?, inviters? }` | `Workspace` — admins; each is merged into `settings`. `link_previews` and `gifs` default to on, `gif_rating` to `pg`; the five rules are `members` or `admins`, `members` unless set, except `inviters`, which is `admins` unless set. `icon_url: ""` removes the icon; a replaced or removed stored icon is deleted |
 | POST | `/workspaces/:ws_id/icon` | multipart `file`, as `/users/me/avatar` | `Workspace` with the new `icon_url` — admins; processed like a photo and stored as `icons/{ws_id}/{uuid}.{ext}`, outside `files` and retention, readable by the workspace's members; the previous icon is deleted, and so is the icon on a hard delete |
 | DELETE | `/workspaces/:ws_id` | Query: `hard=bool` | `{ status: "soft_deleted" \| "hard_deleted" }` |
 | POST | `/workspaces/:ws_id/restore` | — | `Workspace` |
@@ -501,6 +501,34 @@ to `recent_searches.jsonl`, and an erase deletes them (`account.searches`).
 
 ---
 
+### gifs
+
+GIFs come from GIPHY, on GIPHY's terms: the browser searches GIPHY itself with the
+instance's key, and a message links to the MP4 that GIPHY served. The server never proxies a
+search and keeps no copy of a GIF. The key is GIPHY's public kind, so every member of a
+workspace with GIFs on is given it. An instance admin sets the key
+(`PATCH /admin/settings { giphy_api_key }`); a workspace admin turns GIFs off
+(`gifs: false`) or caps their rating (`gif_rating`: `g`, `pg`, `pg-13` or `r`, `pg` unless
+set). The rating goes with every search the app sends, so it binds the app's own picker,
+not a client that leaves it out.
+
+| Method | Route | Input | Output |
+|--------|-------|-------|--------|
+| GET | `/workspaces/:ws_id/gifs` | — | `GifSettings` — `{ provider: "giphy", api_key, rating }` for a member; 404 when the instance has no key or the workspace turned GIFs off |
+
+A message carries its GIF as `gif` on send: `{ provider, id, title, url, still, width,
+height }`, stored as `metadata.gif`. The server checks its shape, not GIPHY: `id` is 1–64
+letters and digits, `title` up to 200 characters (trimmed), each side 1–4096, and `url` and
+`still` are https on a GIPHY media host (`i.giphy.com`, `media.giphy.com` or
+`mediaN.giphy.com`) with no port or credentials, kept as sent, query string included. A GIF
+goes without files or a forward (422), `content` may be empty beside it, and an edit may
+empty it too. With GIFs off a GIF is a 404 and plain text still goes. A notification about one
+reads *GIF: title*. `/giphy` is a built-in command: the app's message box opens the picker on
+it, run on the server it only says where GIFs are picked, and it leaves the command list
+while GIFs are off.
+
+---
+
 ### messaging
 
 Sends and manages messages, threads, reactions, pins, read tracking, and search.
@@ -510,7 +538,7 @@ Sends and manages messages, threads, reactions, pins, read tracking, and search.
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/channels/:ch_id/messages` | Query: `limit=50, cursor?, mark_read?` | `{ data: Message[], unread_notifications?, last_read_before?, last_read_before_at? }` — with `mark_read=true` and no cursor, the newest message becomes the caller's read position (as `POST /channels/:ch_id/read`), `unread_notifications` is the workspace's count afterwards, and `last_read_before` is the message the caller had read up to when anything after it was unread (where the *New* line goes), read at `last_read_before_at` |
-| POST | `/channels/:ch_id/messages` | `{ content, thread_parent_id?, also_to_channel?, client_message_id?, attachment_ids?, forwarded_from? }` | `Message` — the one send path; a `thread_parent_id` makes it a reply (one level deep, same channel; 404 once the root is deleted and has no replies left), `also_to_channel` shows that reply in the channel too (`metadata.also_in_channel`), and `client_message_id` makes a retry idempotent. `attachment_ids` (at most 10, the sender's own drafts) are linked in the message's transaction and listed in `metadata.attachments`; `content` may then be empty. `forwarded_from` (a forward) copies that message's files, if the sender can read it, and records `metadata.forwarded_from`; the quoted lines (`>`) of a forward neither mention nor broadcast, only the sender's own words do |
+| POST | `/channels/:ch_id/messages` | `{ content, thread_parent_id?, also_to_channel?, client_message_id?, attachment_ids?, forwarded_from?, gif? }` | `Message` — the one send path; a `thread_parent_id` makes it a reply (one level deep, same channel; 404 once the root is deleted and has no replies left), `also_to_channel` shows that reply in the channel too (`metadata.also_in_channel`), and `client_message_id` makes a retry idempotent. `attachment_ids` (at most 10, the sender's own drafts) are linked in the message's transaction and listed in `metadata.attachments`; `content` may then be empty. `forwarded_from` (a forward) copies that message's files, if the sender can read it, and records `metadata.forwarded_from`; the quoted lines (`>`) of a forward neither mention nor broadcast, only the sender's own words do. `gif` is a GIPHY GIF (see *gifs*), recorded as `metadata.gif` |
 | PATCH | `/messages/:msg_id` | `{ content, attachment_ids? }` | `Message` — `attachment_ids` is the set of files to keep; the rest are deleted |
 | DELETE | `/messages/:msg_id` | — | `{ status: "deleted" }` |
 | DELETE | `/messages/:msg_id/unfurls` | — | `Message` — the author removes its link previews; they stay removed across edits |
@@ -717,7 +745,7 @@ slash command need a non-empty `config.channel_ids`; without one the 422 names t
 for (*slash_command requires a non-empty channel_ids array in config*).
 
 Built-in commands run before any registered one and never leave the instance: `/away`,
-`/dnd`, `/topic`, `/invite`, `/shrug` and `/remind`. `/topic` and `/invite` run what
+`/dnd`, `/topic`, `/invite`, `/shrug`, `/remind` and `/giphy`. `/topic` and `/invite` run what
 `PATCH /channels/:ch_id` and `POST /channels/:ch_id/members` run, checks and audit row
 included; `/topic` answers with an empty `in_channel`, since the topic message is the answer.
 An `in_channel` answer where the caller may not post comes back ephemeral, and one from a thread is a reply in that thread. `/away` switches `manual_away` on or off. `/remind` understands `me in 30m to ship`,
@@ -1499,8 +1527,8 @@ false; it is true by default.
 | GET | `/admin/health` | — | `{ status, service, version }` |
 | GET | `/admin/stats` | — | `{ users, workspaces, messages, files }` |
 | POST | `/admin/email/test` | — | `{ sent_to, error }`: sent now to the caller's address; `error` says in words why it did not go |
-| GET | `/admin/settings` | — | `{ email_code_sign_in, email_configured, workspace_creation_restricted }` |
-| PATCH | `/admin/settings` | `{ email_code_sign_in?, workspace_creation_restricted? }` | the same; changes only the settings it names (none is a 422); audited `instance.settings_changed` with what changed |
+| GET | `/admin/settings` | — | `{ email_code_sign_in, email_configured, workspace_creation_restricted, giphy_api_key }` |
+| PATCH | `/admin/settings` | `{ email_code_sign_in?, workspace_creation_restricted?, giphy_api_key? }` | the same; changes only the settings it names (none is a 422); audited `instance.settings_changed` with what changed. `giphy_api_key` is up to 128 letters and digits, `""` removes it, and the audit row says `set` or `cleared`, never the key |
 | GET | `/admin/users` | Query: `limit?, offset?` | `{ data: AdminUser[] }` — `{ id, email, display_name, status, instance_role, created_at }` |
 | POST | `/admin/users/:user_id/suspend` | — | `{ status: "suspended" }` — also revokes sessions and app connections and turns off the person's hooks and workflows |
 | POST | `/admin/users/:user_id/activate` | — | `{ status: "activated" }` — an account with no password and no SSO link goes back to `pending`, waiting for its invite; SCIM `active: true` does the same |

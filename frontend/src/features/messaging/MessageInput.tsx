@@ -44,6 +44,7 @@ import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 import { asksBeforeBroadcast, buildMentionItems, matchesMention } from './mentionItems';
 import { useUserGroups } from '@/features/workspace';
 import { useWorkspaceStore } from '@/stores/workspace';
+import { GifPicker, parseGiphyCommand, useGifSettings, type Gif } from '@/features/gifs';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { FilePicker } from '@/shared/components/Form/FilePicker';
 import {
@@ -84,7 +85,7 @@ interface Props {
   editing?: boolean;
   autoFocus?: boolean;
   allowEmpty?: boolean;
-  onSend: (content: string) => Promise<void>;
+  onSend: (content: string, gif?: Gif) => Promise<void>;
   onCancel?: () => void;
   attachments?: ComposerAttachments;
   onTyping?: () => void;
@@ -95,6 +96,7 @@ interface Props {
   pollTarget?: PollTarget;
   shortcutChannelId?: string;
   slashCommands?: boolean;
+  gifs?: boolean;
 }
 
 export default function MessageInput({
@@ -122,6 +124,7 @@ export default function MessageInput({
   pollTarget,
   shortcutChannelId,
   slashCommands = false,
+  gifs = false,
 }: Props) {
   const { t } = useTranslation(['messages', 'common', 'polls']);
   const draftKey = draftPlace ? draftKeyOf(draftPlace) : localDraftKey;
@@ -141,6 +144,12 @@ export default function MessageInput({
   const sendRef = useRef<() => void>(() => {});
   const emojiBtnRef = useRef<HTMLButtonElement>(null);
   const [showEmoji, setShowEmoji] = useState(false);
+  const gifBtnRef = useRef<HTMLButtonElement>(null);
+  const [gifPicking, setGifPicking] = useState<{ query: string; fromCommand: boolean } | null>(null);
+  const { data: gifSettings = null } = useGifSettings(
+    gifs && !editing ? workspaceId : undefined,
+    instanceUrl,
+  );
   const [showFormatting, setShowFormatting] = useState(false);
   const enterKey = useDisplayStore((s) => s.enterKey);
   const sendLabel = shortcutLabel(sendKeys(enterKey), isApplePlatform());
@@ -342,6 +351,11 @@ export default function MessageInput({
       if (!editor) return;
       convertTrailingEmoticon(editor);
       const markdown = editor.storage.markdown.getMarkdown().trim();
+      const giphy = gifSettings && !editing ? parseGiphyCommand(markdown) : null;
+      if (giphy !== null) {
+        setGifPicking({ query: giphy, fromCommand: true });
+        return;
+      }
       const pollCommand = pollTarget && !editing ? parsePollCommand(markdown) : null;
       if (pollCommand?.kind === 'invalid') {
         toast.error(
@@ -403,8 +417,33 @@ export default function MessageInput({
       t,
       setShowPoll,
       setConfirmingBroadcast,
+      gifSettings,
     ],
   );
+
+  const sendGif = useCallback(
+    async (gif: Gif) => {
+      if (!editor || !gifPicking) return;
+      const markdown = gifPicking.fromCommand ? '' : editor.storage.markdown.getMarkdown().trim();
+      setGifPicking(null);
+      editor.commands.clearContent();
+      editor.commands.focus();
+      if (draftKey) useDraftStore.getState().clearDraft(draftKey);
+      try {
+        await onSend(markdown, gif);
+      } catch {
+        if (!markdown) return;
+        editor.commands.setContent(markdown);
+        if (draftKey) useDraftStore.getState().setDraft(draftKey, markdown, { place: draftPlaceRef.current });
+      }
+    },
+    [editor, gifPicking, draftKey, onSend],
+  );
+
+  const closeGifPicker = useCallback(() => {
+    setGifPicking(null);
+    editor?.commands.focus();
+  }, [editor]);
 
   useEffect(() => {
     sendRef.current = () => {
@@ -533,6 +572,22 @@ export default function MessageInput({
                 />
               )}
             </div>
+            {gifSettings && !editing && (
+              <button
+                ref={gifBtnRef}
+                type="button"
+                onClick={() => setGifPicking((open) => (open ? null : { query: '', fromCommand: false }))}
+                aria-label={t('composer.gif')}
+                data-tooltip={t('composer.gif')}
+                aria-expanded={!!gifPicking}
+                data-qa="composer-gif"
+                className="p-1 text-muted hover:text-fg-soft transition cursor-pointer rounded hover:bg-raised/60"
+              >
+                <span className="block text-2xs font-bold leading-3.5" aria-hidden="true">
+                  GIF
+                </span>
+              </button>
+            )}
           </div>
 
           {editing ? (
@@ -653,6 +708,15 @@ export default function MessageInput({
         </div>
       </div>
       {showPoll && pollTarget && <PollDialog target={pollTarget} onClose={() => setShowPoll(false)} />}
+      {gifPicking && gifSettings && (
+        <GifPicker
+          anchorRef={gifBtnRef}
+          settings={gifSettings}
+          initialQuery={gifPicking.query}
+          onPick={(gif) => void sendGif(gif)}
+          onClose={closeGifPicker}
+        />
+      )}
       {confirmingBroadcast && (
         <ConfirmDialog
           title={t('composer.broadcastTitle', { count: channelMemberCount - 1 })}

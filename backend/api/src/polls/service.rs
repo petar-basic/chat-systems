@@ -46,6 +46,7 @@ pub async fn create(
                 thread_parent_id: root.as_ref().map(|root| root.id),
                 also_in_channel: false,
                 forwarded_from: None,
+                gif: None,
                 client_message_id: None,
                 mentioned: &mentioned,
             },

@@ -6,6 +6,7 @@ import { MessageSquare, Trash2 } from 'lucide-react';
 import { useUserCache } from '@/stores/users';
 import { useWorkspaceStore } from '@/stores/workspace';
 import type { Message, WorkspaceMember, Channel } from '@/stores/workspace';
+import { GifMessage, type Gif } from '@/features/gifs';
 import { displayNameOf } from '@/lib/userHelpers';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import {
@@ -138,12 +139,13 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
     resetKey: parentMessage.id,
   });
   const command = useSlashCommand(parentMessage.channel_id, parentMessage.id, currentWorkspace?.instanceUrl);
-  const handleSend = async (content: string) => {
-    if (await command.run(content)) return;
+  const handleSend = async (content: string, gif?: Gif) => {
+    if (!gif && (await command.run(content))) return;
     sendReply.mutate({
       content,
       id: crypto.randomUUID(),
-      attachments: asAttachments(attachments.take()),
+      attachments: gif ? [] : asAttachments(attachments.take()),
+      gif,
       alsoToChannel,
     });
     setAlsoToChannel(false);
@@ -154,6 +156,7 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
       content: reply.content,
       id: reply.id,
       attachments: reply.metadata?.attachments ?? [],
+      gif: reply.metadata?.gif,
       alsoToChannel: !!reply.metadata?.also_in_channel,
     });
   const discard = (reply: Message) =>
@@ -212,10 +215,13 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
                   {t('item.deleted', { ns: 'messages' })}
                 </p>
               ) : (
-                <RichTextDisplay
-                  content={parentMessage.content}
-                  attachments={parentMessage.metadata?.attachments}
-                />
+                <>
+                  <RichTextDisplay
+                    content={parentMessage.content}
+                    attachments={parentMessage.metadata?.attachments}
+                  />
+                  {parentMessage.metadata?.gif && <GifMessage gif={parentMessage.metadata.gif} />}
+                </>
               )}
             </div>
           </div>
@@ -322,6 +328,7 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
                     : undefined
                 }
                 slashCommands
+                gifs
                 onSend={handleSend}
                 attachments={attachments}
                 workspaceId={currentWorkspace?.id}

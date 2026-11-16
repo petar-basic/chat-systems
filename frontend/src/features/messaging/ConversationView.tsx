@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useUserCache } from '@/stores/users';
 import { usePresenceStore } from '@/stores/presence';
 import type { Channel, Message, WorkspaceMember } from '@/stores/workspace';
+import type { Gif } from '@/features/gifs';
 import type { Conversation } from '@/features/messaging/hooks/useConversations';
 import { useSendMessage } from '@/features/messaging/hooks/useMessages';
 import { conversationTitle, departedPartner, departureNote } from '@/lib/conversationHelpers';
@@ -85,10 +86,14 @@ export default function ConversationView({
   const { signalTyping, stopTyping } = useTypingSignal(typingTargetOf(conversation.id), instanceUrl);
   const attachments = useComposerAttachments({ workspaceId, instanceUrl, resetKey: conversation.id });
   const command = useSlashCommand(conversation.id, undefined, instanceUrl);
-  const handleSend = async (content: string) => {
+  const handleSend = async (content: string, gif?: Gif) => {
     stopTyping();
-    if (await command.run(content)) return;
-    sendMutation.mutate({ content, id: crypto.randomUUID(), attachments: asAttachments(attachments.take()) });
+    if (!gif && (await command.run(content))) return;
+    sendMutation.mutate(
+      gif
+        ? { content, id: crypto.randomUUID(), gif }
+        : { content, id: crypto.randomUUID(), attachments: asAttachments(attachments.take()) },
+    );
   };
 
   return (
@@ -233,6 +238,7 @@ export default function ConversationView({
             onTyping={signalTyping}
             scheduleTarget={{ channelId: conversation.id }}
             pollTarget={{ channelId: conversation.id, instanceUrl }}
+            gifs
             slashCommands
             workspaceId={workspaceId}
             instanceUrl={instanceUrl}

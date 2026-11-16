@@ -20,6 +20,7 @@ import { Select } from '@/shared/components/Form/Select';
 import { TestEmailCheck } from '@/features/setup/TestEmailCheck';
 import { EmailCodeSetting } from '@/features/setup/EmailCodeSetting';
 import { WorkspaceCreationSetting } from '@/features/setup/WorkspaceCreationSetting';
+import { GiphyKeySetting } from '@/features/gifs';
 import { AdminWorkspaces } from '@/features/instance/AdminWorkspaces';
 
 type AdminTab = 'users' | 'workspaces' | 'audit' | 'email';
@@ -150,8 +151,9 @@ export default function InstanceAdminPage() {
           </div>
         ) : (
           <div className="max-w-4xl mx-auto">
-            <div className="mb-6 bg-surface rounded-xl border border-line p-4 sm:p-6">
+            <div className="mb-6 bg-surface rounded-xl border border-line p-4 sm:p-6 space-y-6">
               <WorkspaceCreationSetting instanceUrl={instanceUrl} />
+              <GiphyKeySetting instanceUrl={instanceUrl} />
             </div>
             <div className="mb-4 text-sm text-muted">{t('users.count', { count: users.length })}</div>
 

@@ -14,6 +14,7 @@ import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { Checkbox } from '@/shared/components/Form/Checkbox';
 import { useUserCache } from '@/stores/users';
 import type { Channel, Message, WorkspaceMember } from '@/stores/workspace';
+import { GifMessage, type Gif } from '@/features/gifs';
 import { displayNameOf } from '@/lib/userHelpers';
 import { conversationTitle } from '@/lib/conversationHelpers';
 import type { Conversation } from '@/features/messaging';
@@ -233,10 +234,16 @@ function ThreadCard({
   };
 
   const command = useSlashCommand(root.channel_id, root.id, instanceUrl);
-  const handleSend = async (content: string) => {
-    if (await command.run(content)) return;
+  const handleSend = async (content: string, gif?: Gif) => {
+    if (!gif && (await command.run(content))) return;
     sendReply.mutate(
-      { content, id: crypto.randomUUID(), attachments: asAttachments(attachments.take()), alsoToChannel },
+      {
+        content,
+        id: crypto.randomUUID(),
+        attachments: gif ? [] : asAttachments(attachments.take()),
+        gif,
+        alsoToChannel,
+      },
       refreshThreads,
     );
     setAlsoToChannel(false);
@@ -247,6 +254,7 @@ function ThreadCard({
         content: reply.content,
         id: reply.id,
         attachments: reply.metadata?.attachments ?? [],
+        gif: reply.metadata?.gif,
         alsoToChannel: !!reply.metadata?.also_in_channel,
       },
       refreshThreads,
@@ -333,6 +341,7 @@ function ThreadCard({
             scheduleTarget={{ channelId: root.channel_id, threadParentId: root.id, alsoToChannel }}
             onScheduled={() => setAlsoToChannel(false)}
             pollTarget={{ channelId: root.channel_id, threadParentId: root.id, instanceUrl }}
+            gifs
           />
         </div>
       )}
@@ -369,7 +378,10 @@ function ThreadLine({
             {t('item.deleted')}
           </p>
         ) : (
-          <RichTextDisplay content={message.content} attachments={message.metadata?.attachments} />
+          <>
+            <RichTextDisplay content={message.content} attachments={message.metadata?.attachments} />
+            {message.metadata?.gif && <GifMessage gif={message.metadata.gif} />}
+          </>
         )}
         {failure && (
           <div className="mt-1 flex items-center gap-2 text-xs text-danger" data-qa="message-failed">

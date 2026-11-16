@@ -208,6 +208,7 @@ gated; redirects non-admins to `/app`.
 - POST `/admin/workspaces/{id}/owners` `{ user_id }` — the *Workspaces* tab (`features/instance/AdminWorkspaces`): each workspace with its owners, a suspended one marked and "No owner can sign in" when none is active; *Make an owner* picks from its active members who aren't owners
 - PATCH `/admin/users/{id}/instance-role` `{ is_instance_admin }` — grant/revoke instance admin
 - PATCH `/admin/settings` `{ email_code_sign_in }` — the *Email* tab's `EmailCodeSetting`, disabled while the instance has no SMTP
+- PATCH `/admin/settings` `{ giphy_api_key }` — `features/gifs/GiphyKeySetting`, under who may create workspaces: saves the key, *Remove* sends `""`, and either refetches every workspace's GIF settings and command list; its hint says that members are given the key and that browsers reach GIPHY directly
 
 (Workspace deletion lives in *Workspace settings → General*, not here.)
 
@@ -301,6 +302,22 @@ Given a `pollTarget` (the channel, DM or thread it writes to), it has a poll but
 paperclip and reads `/poll` before sending: `/poll` alone opens `PollDialog`,
 `/poll "Q" "A" "B"` creates the poll straight away (`parsePollCommand` in
 `features/polls/pollCommand.ts`), and a malformed one is a toast, not a message.
+
+Given `gifs`, which the channel, DM and thread composers and each Threads card set, it reads
+GET `/workspaces/{id}/gifs` (`useGifSettings`; a 404 means GIFs are off and draws nothing). With
+settings it has a GIF button after the emoji picker, and `/giphy words` opens the picker on
+those words instead of sending (`parseGiphyCommand`). A pick from the button sends what was
+typed with the GIF; a pick from `/giphy` sends the GIF alone. Closing the picker puts the focus
+back in the editor. `onSend(content, gif)` carries it,
+and the send paths skip the command branch when a GIF is given. `features/gifs/GifPicker` is an
+`AnchoredPopover` that searches GIPHY straight from the browser (`findGifs` in
+`features/gifs/giphy.ts`, trending while nothing is typed, 300 ms after typing stops, 24 at a
+time with *More GIFs*) at the workspace's rating, and says *Powered by GIPHY*. The grid shows
+GIPHY's small WebP; the message gets the original MP4 and still, URLs untouched. ↓ from the
+search moves into the grid and the arrows move around it. `GifMessage` plays the MP4 muted and
+looping over its still in a box of the size GIPHY gave (at most 360 × 280, the video fitted
+inside), only while on screen, and under the system's reduced motion only while
+hovered or focused; it is captioned *via GIPHY*.
 
 With `slashCommands` on, which the channel, DM and thread composers and each Threads card all
 set, a `/` at the start offers the workspace's commands. `useSlashCommand(channelId,
@@ -490,6 +507,10 @@ new one and it runs at once; *Save changes* keeps it on or off as it was; *Turn 
 on* switch it. There are no drafts. *Run history* swaps the form for `RunHistory`, refetched every 10 seconds. Someone else's workflow,
 or yours when only admins may build, opens read-only. `workflowModel.ts` holds the pure
 helpers (schedule presets, insertion, reordering, who may build).
+
+*Workspace settings → General* also has *GIFs* and, while they are on, *GIF rating*
+(`GIF_RATINGS`, `gifsEnabled` and `gifRatingOf` in `features/gifs/settings.ts`); saving either
+refetches the workspace's GIF settings and command list.
 
 *Workspace settings → General* has a *Permissions* group: who can build workflows, use
 `@channel`, `@here` and `@everyone`, and create public or private channels (every member or

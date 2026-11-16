@@ -126,7 +126,21 @@
     "broadcastTitle": "This notifies {{count}} people. Send anyway?",
     "waitForUploads": "Wait for the files to finish uploading",
     "uploadFailed": "A file did not upload. Retry it or remove it first",
-    "pollFailed": "Couldn't create the poll"
+    "pollFailed": "Couldn't create the poll",
+    "gif": "Send a GIF"
+  },
+  "gifs": {
+    "search": "Search GIPHY",
+    "placeholder": "Search GIPHY",
+    "loading": "Loading GIFs",
+    "failed": "GIPHY did not answer. Try again in a moment.",
+    "none": "No GIFs found",
+    "results": "GIFs",
+    "trending": "Trending GIFs",
+    "more": "More GIFs",
+    "poweredBy": "Powered by GIPHY",
+    "untitled": "GIF",
+    "via": "via GIPHY"
   },
   "schedule": {
     "label": "Schedule message",

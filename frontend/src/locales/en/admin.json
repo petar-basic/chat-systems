@@ -37,6 +37,12 @@
     "everyone": "Everyone",
     "everyoneHint": "Anyone who can sign in can start a workspace."
   },
+  "giphy": {
+    "label": "GIPHY API key",
+    "hint": "Turns on GIFs for every workspace that has not turned them off. GIPHY's rules make browsers call GIPHY themselves, so the key goes to the members of those workspaces, and their browsers search and load GIFs from GIPHY directly. Get a key at developers.giphy.com.",
+    "save": "Save key",
+    "remove": "Remove key"
+  },
   "saveFailed": "Could not save the setting",
   "page": {
     "title": "Instance admin",

@@ -110,9 +110,11 @@ async fn list_commands(
     Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<DataList<CommandInfo>>> {
     authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
+    let gifs = crate::gifs::routes::are_on(&state, ws_id).await?;
 
     let mut commands: Vec<CommandInfo> = builtin::BUILTIN_COMMANDS
         .iter()
+        .filter(|(name, _)| gifs || *name != builtin::GIPHY)
         .map(|(name, hint)| CommandInfo {
             command: name.to_string(),
             hint: Some(hint.to_string()),

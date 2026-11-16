@@ -69,6 +69,7 @@ export function useMessageActions(channelId: string, draftKey: string): MessageA
           content: message.content,
           id: message.id,
           attachments: message.metadata?.attachments ?? [],
+          gif: message.metadata?.gif,
         }),
       discardMessage: (message) => discardUnsent(queryClient, message, draftKey),
       copyLink: (messageId) => {
