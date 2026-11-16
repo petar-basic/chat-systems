@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { asAttachments, useComposerAttachments, useSendMessage, useSlashCommand } from '@/features/messaging';
 import type { Channel, Workspace } from '@/stores/workspace';
+import type { Gif } from '@/features/gifs';
 import { useTypingSignal, typingTargetOf } from '@/shared/hooks/useTypingSignal';
 
 interface Args {
@@ -27,13 +28,15 @@ export function useComposer({ currentWorkspace, currentChannel, userId, currentW
   const command = useSlashCommand(currentChannel?.id, undefined, currentWsInstanceUrl);
 
   const handleSend = useCallback(
-    async (content: string) => {
+    async (content: string, gif?: Gif) => {
       if (!currentChannel || !userId) return;
       stopTyping();
-      if (await command.run(content)) return;
+      if (!gif && (await command.run(content))) return;
 
       const id = crypto.randomUUID();
-      sendMessageMutation.mutate({ content, id, attachments: asAttachments(attachments.take()) });
+      sendMessageMutation.mutate(
+        gif ? { content, id, gif } : { content, id, attachments: asAttachments(attachments.take()) },
+      );
     },
     [currentChannel, userId, stopTyping, command, sendMessageMutation, attachments],
   );

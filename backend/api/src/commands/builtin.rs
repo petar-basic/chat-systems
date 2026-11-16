@@ -32,7 +32,10 @@ pub const BUILTIN_COMMANDS: &[(&str, &str)] = &[
         "remind",
         "/remind me in 30m to ship — also `at 15:00` or `tomorrow at 9am`",
     ),
+    ("giphy", "/giphy [words] — pick a GIF to send"),
 ];
+
+pub const GIPHY: &str = "giphy";
 
 pub fn is_builtin(command: &str) -> bool {
     BUILTIN_COMMANDS.iter().any(|(name, _)| *name == command)
@@ -56,6 +59,16 @@ pub async fn run(
         "poll" => Ok(Some(CommandResponse::ephemeral(
             "Polls are made in the app's message box, or with POST /channels/{id}/polls.",
         ))),
+
+        GIPHY => {
+            let channel = authz::find_channel(state, channel_id).await?;
+            let on = crate::gifs::routes::are_on(state, channel.workspace_id).await?;
+            Ok(Some(CommandResponse::ephemeral(if on {
+                "GIFs are picked in the app's message box."
+            } else {
+                "GIFs are off in this workspace."
+            })))
+        }
 
         "workflow" => {
             let shortcuts =

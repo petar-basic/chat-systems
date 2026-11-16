@@ -20,6 +20,7 @@ import { FilePicker } from '@/shared/components/Form/FilePicker';
 import { Select } from '@/shared/components/Form/Select';
 import type { Workspace } from '@/stores/workspace';
 import { ruleOf, type WhoMay, type WorkspaceRule } from '@/lib/workspaceRules';
+import { GIF_RATINGS, gifRatingOf, gifsEnabled, type GifRating } from '@/features/gifs';
 import { linkPreviewsEnabled } from '../linkPreviews';
 import { WorkspaceIcon } from '../components/WorkspaceIcon';
 
@@ -48,6 +49,8 @@ export function GeneralSection({ workspace, onDeleted }: Props) {
   const [name, setName] = useState(workspace.name);
   const [description, setDescription] = useState(workspace.description ?? '');
   const [linkPreviews, setLinkPreviews] = useState(linkPreviewsEnabled(workspace.settings));
+  const [gifs, setGifs] = useState(gifsEnabled(workspace.settings));
+  const [gifRating, setGifRating] = useState(gifRatingOf(workspace.settings));
   const [rules, setRules] = useState(() =>
     Object.fromEntries(PERMISSIONS.map(({ rule }) => [rule, ruleOf(workspace.settings, rule)])),
   );
@@ -62,7 +65,12 @@ export function GeneralSection({ workspace, onDeleted }: Props) {
       client.typed((c) =>
         c.PATCH('/workspaces/{ws_id}', { params: { path: { ws_id: workspace.id } }, body: changes }),
       ),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaces() }),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaces() }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gifSettings(workspace.id) }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.slashCommands(workspace.id) }),
+      ]),
   });
 
   const { isSuccess: saved, reset: resetSave } = save;
@@ -205,6 +213,41 @@ export function GeneralSection({ workspace, onDeleted }: Props) {
           dataQa="workspace-link-previews"
         />
         {statusOf('link_previews')}
+
+        <Checkbox
+          label="GIFs"
+          description="Let people search GIPHY from the message box and send what they pick. Browsers fetch the search and the GIFs from GIPHY directly, and an instance admin has to add a GIPHY key first."
+          checked={gifs}
+          onChange={(on) => {
+            setGifs(on);
+            save.mutate({ gifs: on });
+          }}
+          dataQa="workspace-gifs"
+        />
+        {statusOf('gifs')}
+
+        {gifs && (
+          <>
+            <Select
+              label="GIF rating"
+              hint="GIPHY leaves out GIFs rated above this."
+              value={gifRating}
+              onChange={(e) => {
+                const rating = e.target.value as GifRating;
+                setGifRating(rating);
+                save.mutate({ gif_rating: rating });
+              }}
+              dataQa="workspace-gif-rating"
+            >
+              {GIF_RATINGS.map(({ rating, label }) => (
+                <option key={rating} value={rating}>
+                  {label}
+                </option>
+              ))}
+            </Select>
+            {statusOf('gif_rating')}
+          </>
+        )}
 
         <fieldset className="space-y-3" data-qa="workspace-permissions">
           <legend className="mb-2 text-sm font-semibold text-fg">Permissions</legend>

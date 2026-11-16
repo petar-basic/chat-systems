@@ -5,6 +5,7 @@ import { PollCard, type PollKeyVote } from '@/features/polls';
 import { FormCard, FormAnswers, introOf } from '@/features/workflows';
 import { LinkPreviews } from './LinkPreviews';
 import { AppConnectPrompt } from './AppConnectPrompt';
+import { GifMessage } from '@/features/gifs';
 
 interface Props {
   message: Message;
@@ -44,6 +45,7 @@ export function MessageBody({
       ) : (
         <RichTextDisplay content={message.content} attachments={attachments} trailing={markers} />
       )}
+      {!message.deleted_at && message.metadata?.gif && <GifMessage gif={message.metadata.gif} />}
       {!message.deleted_at && !!message.metadata?.unfurls?.length && (
         <LinkPreviews
           unfurls={message.metadata.unfurls}

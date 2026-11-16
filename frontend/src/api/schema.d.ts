@@ -2789,6 +2789,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{ws_id}/gifs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["gif_settings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{ws_id}/groups": {
         parameters: {
             query?: never;
@@ -5528,6 +5544,26 @@ export interface components {
             /** Format: uuid */
             message_id: string;
         };
+        Gif: {
+            /** Format: int32 */
+            height: number;
+            id: string;
+            provider: components["schemas"]["GifProvider"];
+            still: string;
+            title: string;
+            url: string;
+            /** Format: int32 */
+            width: number;
+        };
+        /** @enum {string} */
+        GifProvider: "giphy";
+        /** @enum {string} */
+        GifRating: "g" | "pg" | "pg-13" | "r";
+        GifSettings: {
+            api_key: string;
+            provider: components["schemas"]["GifProvider"];
+            rating: components["schemas"]["GifRating"];
+        };
         GroupMembers: {
             data: string[];
         };
@@ -5670,6 +5706,7 @@ export interface components {
         InstanceSettings: {
             email_code_sign_in: boolean;
             email_configured: boolean;
+            giphy_api_key?: string | null;
             workspace_creation_restricted: boolean;
         };
         InstanceStats: {
@@ -5968,6 +6005,7 @@ export interface components {
             fields?: components["schemas"]["MessageField"][] | null;
             form?: components["schemas"]["FormRequest"] | null;
             forwarded_from?: components["schemas"]["ForwardedFrom"] | null;
+            gif?: components["schemas"]["Gif"] | null;
             /** Format: uuid */
             huddle_id?: string | null;
             /** Format: uuid */
@@ -6486,6 +6524,7 @@ export interface components {
             content: string;
             /** Format: uuid */
             forwarded_from?: string | null;
+            gif?: components["schemas"]["Gif"] | null;
             /** Format: uuid */
             thread_parent_id?: string | null;
         };
@@ -6850,6 +6889,7 @@ export interface components {
         };
         UpdateInstanceSettings: {
             email_code_sign_in?: boolean | null;
+            giphy_api_key?: string | null;
             workspace_creation_restricted?: boolean | null;
         };
         UpdateItemRequest: {
@@ -6931,6 +6971,8 @@ export interface components {
         UpdateWorkspaceRequest: {
             broadcast_mentions?: components["schemas"]["WhoMay"] | null;
             description?: string | null;
+            gif_rating?: components["schemas"]["GifRating"] | null;
+            gifs?: boolean | null;
             icon_url?: string | null;
             inviters?: components["schemas"]["WhoMay"] | null;
             link_previews?: boolean | null;
@@ -12157,6 +12199,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DataList_FormerMember"];
+                };
+            };
+        };
+    };
+    gif_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GifSettings"];
                 };
             };
         };

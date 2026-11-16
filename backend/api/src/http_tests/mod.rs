@@ -40,6 +40,7 @@ mod drafts;
 mod file_content_search;
 mod file_search;
 mod files;
+mod gifs;
 mod guests;
 mod hooks;
 mod huddle;

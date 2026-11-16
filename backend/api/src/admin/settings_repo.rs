@@ -24,24 +24,37 @@ impl InstanceSettingsRepo {
         Ok(on.unwrap_or(true))
     }
 
-    pub async fn update(
-        &self,
-        email_code_sign_in: Option<bool>,
-        workspace_creation_restricted: Option<bool>,
-    ) -> sqlx::Result<()> {
+    pub async fn giphy_api_key(&self) -> sqlx::Result<Option<String>> {
+        let key = sqlx::query_scalar!("SELECT giphy_api_key FROM instance_settings")
+            .fetch_optional(&self.pool)
+            .await?;
+        Ok(key.flatten())
+    }
+
+    pub async fn update(&self, change: &SettingsChange<'_>) -> sqlx::Result<()> {
         sqlx::query!(
-            "INSERT INTO instance_settings (id, email_code_sign_in, workspace_creation_restricted)
-             VALUES (TRUE, COALESCE($1, TRUE), COALESCE($2, TRUE))
+            "INSERT INTO instance_settings
+                    (id, email_code_sign_in, workspace_creation_restricted, giphy_api_key)
+             VALUES (TRUE, COALESCE($1, TRUE), COALESCE($2, TRUE), $4)
              ON CONFLICT (id) DO UPDATE
                 SET email_code_sign_in = COALESCE($1, instance_settings.email_code_sign_in),
                     workspace_creation_restricted =
                         COALESCE($2, instance_settings.workspace_creation_restricted),
+                    giphy_api_key = CASE WHEN $3 THEN $4 ELSE instance_settings.giphy_api_key END,
                     updated_at = NOW()",
-            email_code_sign_in,
-            workspace_creation_restricted
+            change.email_code_sign_in,
+            change.workspace_creation_restricted,
+            change.giphy_api_key.is_some(),
+            change.giphy_api_key.flatten()
         )
         .execute(&self.pool)
         .await?;
         Ok(())
     }
+}
+
+pub struct SettingsChange<'a> {
+    pub email_code_sign_in: Option<bool>,
+    pub workspace_creation_restricted: Option<bool>,
+    pub giphy_api_key: Option<Option<&'a str>>,
 }

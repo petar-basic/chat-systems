@@ -16,6 +16,7 @@ use crate::authz;
 use crate::bots::{self, models::Scope, Caller};
 use crate::drafts;
 use crate::files::service as files;
+use crate::gifs;
 use crate::middleware::AuthUser;
 use crate::state::AppState;
 use crate::threads::{self, repo::ReplyFollows};
@@ -181,7 +182,24 @@ async fn send_message(
             files::MAX_ATTACHMENTS
         )));
     }
-    if req.content.trim().is_empty() && req.attachment_ids.is_empty() && forwarded.is_empty() {
+    let gif = match req.gif {
+        Some(gif) => {
+            if !req.attachment_ids.is_empty() || req.forwarded_from.is_some() {
+                return Err(AppError::Validation(
+                    "A GIF is sent without files or a forward".into(),
+                ));
+            }
+            let gif = gif.checked()?;
+            gifs::routes::require_on(&state, channel.workspace_id).await?;
+            Some(gif)
+        }
+        None => None,
+    };
+    if req.content.trim().is_empty()
+        && req.attachment_ids.is_empty()
+        && forwarded.is_empty()
+        && gif.is_none()
+    {
         return Err(AppError::Validation(
             "Message content cannot be empty".into(),
         ));
@@ -211,6 +229,7 @@ async fn send_message(
                 thread_parent_id,
                 also_in_channel: req.also_to_channel,
                 forwarded_from: req.forwarded_from,
+                gif: gif.as_ref(),
                 client_message_id: req.client_message_id,
                 mentioned: &mentioned_ids,
             },
@@ -372,7 +391,7 @@ async fn update_message(
                 .collect()
         });
     let remaining = kept.as_ref().map_or(current.len(), Vec::len);
-    if req.content.trim().is_empty() && remaining == 0 {
+    if req.content.trim().is_empty() && remaining == 0 && existing.metadata.get("gif").is_none() {
         return Err(AppError::Validation(
             "Message content cannot be empty".into(),
         ));

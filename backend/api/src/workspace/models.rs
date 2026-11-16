@@ -337,6 +337,10 @@ pub struct UpdateWorkspaceRequest {
     pub private_channel_creators: Option<WhoMay>,
     #[garde(skip)]
     pub inviters: Option<WhoMay>,
+    #[garde(skip)]
+    pub gifs: Option<bool>,
+    #[garde(skip)]
+    pub gif_rating: Option<crate::gifs::models::GifRating>,
 }
 
 impl UpdateWorkspaceRequest {
@@ -344,6 +348,15 @@ impl UpdateWorkspaceRequest {
         let mut patch = serde_json::Map::new();
         if let Some(on) = self.link_previews {
             patch.insert("link_previews".into(), on.into());
+        }
+        if let Some(on) = self.gifs {
+            patch.insert(crate::gifs::models::GIFS.into(), on.into());
+        }
+        if let Some(rating) = self.gif_rating {
+            patch.insert(
+                crate::gifs::models::GIF_RATING.into(),
+                rating.as_str().into(),
+            );
         }
         for (key, rule) in [
             (WhoMay::WORKFLOW_BUILDERS, self.workflow_builders),

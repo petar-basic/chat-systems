@@ -45,6 +45,7 @@ pub struct MessageMetadata {
     pub fields: Option<Vec<MessageField>>,
     pub also_in_channel: Option<bool>,
     pub forwarded_from: Option<ForwardedFrom>,
+    pub gif: Option<crate::gifs::models::Gif>,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
@@ -141,6 +142,7 @@ pub struct SendMessageRequest {
     #[serde(default)]
     pub attachment_ids: Vec<Uuid>,
     pub forwarded_from: Option<Uuid>,
+    pub gif: Option<crate::gifs::models::Gif>,
 }
 
 #[derive(Debug, Deserialize, garde::Validate, ToSchema)]
@@ -350,6 +352,7 @@ pub struct NewMessage<'a> {
     pub thread_parent_id: Option<Uuid>,
     pub also_in_channel: bool,
     pub forwarded_from: Option<Uuid>,
+    pub gif: Option<&'a crate::gifs::models::Gif>,
     pub client_message_id: Option<Uuid>,
     pub mentioned: &'a [Uuid],
 }

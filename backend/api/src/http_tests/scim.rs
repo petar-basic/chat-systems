@@ -120,6 +120,7 @@ async fn delete_deactivates_and_destroys_nothing(pool: sqlx::PgPool) {
             thread_parent_id: None,
             also_in_channel: false,
             forwarded_from: None,
+            gif: None,
             client_message_id: None,
             mentioned: &[],
         })

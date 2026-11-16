@@ -133,6 +133,7 @@ pub fn typed_routes() -> OpenApiRouter<Arc<AppState>> {
         .merge(crate::later::routes::router())
         .merge(crate::drafts::routes::router())
         .merge(crate::searches::routes::router())
+        .merge(crate::gifs::routes::router())
         .merge(crate::polls::routes::router())
         .merge(crate::lists::routes::router())
         .merge(crate::threads::routes::router())

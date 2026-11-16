@@ -638,9 +638,20 @@ fn preview_text(payload: &serde_json::Value) -> String {
     if !content.is_empty() {
         return content.to_string();
     }
-    let files = crate::files::service::attachments_in(
-        payload.get("metadata").unwrap_or(&serde_json::Value::Null),
-    );
+    let metadata = payload.get("metadata").unwrap_or(&serde_json::Value::Null);
+    if let Some(gif) = metadata.get("gif") {
+        let title = gif
+            .get("title")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .trim();
+        return if title.is_empty() {
+            "GIF".to_string()
+        } else {
+            format!("GIF: {title}")
+        };
+    }
+    let files = crate::files::service::attachments_in(metadata);
     match files.as_slice() {
         [] => String::new(),
         [only] => format!("📎 {}", only.filename),

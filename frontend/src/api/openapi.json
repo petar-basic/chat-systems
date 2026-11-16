@@ -7822,6 +7822,36 @@
         ]
       }
     },
+    "/workspaces/{ws_id}/gifs": {
+      "get": {
+        "tags": [
+          "messages"
+        ],
+        "operationId": "gif_settings",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GifSettings"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workspaces/{ws_id}/groups": {
       "get": {
         "tags": [
@@ -17573,6 +17603,78 @@
           }
         }
       },
+      "Gif": {
+        "type": "object",
+        "required": [
+          "provider",
+          "id",
+          "title",
+          "url",
+          "still",
+          "width",
+          "height"
+        ],
+        "properties": {
+          "height": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "id": {
+            "type": "string"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/GifProvider"
+          },
+          "still": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "width": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "GifProvider": {
+        "type": "string",
+        "enum": [
+          "giphy"
+        ]
+      },
+      "GifRating": {
+        "type": "string",
+        "enum": [
+          "g",
+          "pg",
+          "pg-13",
+          "r"
+        ]
+      },
+      "GifSettings": {
+        "type": "object",
+        "required": [
+          "provider",
+          "api_key",
+          "rating"
+        ],
+        "properties": {
+          "api_key": {
+            "type": "string"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/GifProvider"
+          },
+          "rating": {
+            "$ref": "#/components/schemas/GifRating"
+          }
+        }
+      },
       "GroupMembers": {
         "type": "object",
         "required": [
@@ -18094,6 +18196,12 @@
           },
           "email_configured": {
             "type": "boolean"
+          },
+          "giphy_api_key": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "workspace_creation_restricted": {
             "type": "boolean"
@@ -19120,6 +19228,16 @@
             "oneOf": [
               {
                 "$ref": "#/components/schemas/ForwardedFrom"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "gif": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Gif"
               },
               {
                 "type": "null"
@@ -20989,6 +21107,16 @@
             ],
             "format": "uuid"
           },
+          "gif": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Gif"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "thread_parent_id": {
             "type": [
               "string",
@@ -22449,6 +22577,12 @@
               "null"
             ]
           },
+          "giphy_api_key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "workspace_creation_restricted": {
             "type": [
               "boolean",
@@ -22862,6 +22996,22 @@
           "description": {
             "type": [
               "string",
+              "null"
+            ]
+          },
+          "gif_rating": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/GifRating"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "gifs": {
+            "type": [
+              "boolean",
               "null"
             ]
           },
