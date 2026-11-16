@@ -32,6 +32,7 @@ export interface OutgoingMessage {
   content: string;
   id: string;
   attachments?: Attachment[];
+  gif?: components['schemas']['Gif'] | null;
 }
 
 export interface MessagesResponse {
@@ -117,17 +118,17 @@ export const useSendMessage = (channelId: string, userId: string) => {
   const key = QUERY_KEYS.messages(channelId);
 
   return useMutation({
-    mutationFn: async ({ content, id, attachments = [] }: OutgoingMessage) => {
+    mutationFn: async ({ content, id, attachments = [], gif = null }: OutgoingMessage) => {
       // The server owns the message id; this one only makes a retry of the same
       // send idempotent, and is scoped to this channel.
       return apiClient.typed((c) =>
         c.POST('/channels/{ch_id}/messages', {
           params: { path: { ch_id: channelId } },
-          body: { content, client_message_id: id, attachment_ids: attachments.map((a) => a.id) },
+          body: { content, client_message_id: id, attachment_ids: attachments.map((a) => a.id), gif },
         }),
       );
     },
-    onMutate: async ({ content, id, attachments = [] }) => {
+    onMutate: async ({ content, id, attachments = [], gif = null }) => {
       await queryClient.cancelQueries({ queryKey: key });
       const optimistic: Message = {
         id,
@@ -141,7 +142,10 @@ export const useSendMessage = (channelId: string, userId: string) => {
         thread_parent_id: null,
         reply_count: 0,
         is_pinned: false,
-        metadata: attachments.length > 0 ? { attachments } : undefined,
+        metadata:
+          attachments.length > 0 || gif
+            ? { ...(attachments.length > 0 ? { attachments } : {}), ...(gif ? { gif } : {}) }
+            : undefined,
         pending: true,
       };
       useUnsentStore.getState().drop(optimistic);

@@ -120,7 +120,7 @@ export const useSendThreadReply = (parentMessageId: string, channelId: string, u
   const key = QUERY_KEYS.thread(parentMessageId);
 
   return useMutation({
-    mutationFn: async ({ content, id, attachments = [], alsoToChannel = false }: ThreadReply) =>
+    mutationFn: async ({ content, id, attachments = [], alsoToChannel = false, gif = null }: ThreadReply) =>
       apiClient.typed((c) =>
         c.POST('/channels/{ch_id}/messages', {
           params: { path: { ch_id: channelId } },
@@ -130,13 +130,15 @@ export const useSendThreadReply = (parentMessageId: string, channelId: string, u
             thread_parent_id: parentMessageId,
             also_to_channel: alsoToChannel,
             attachment_ids: attachments.map((a) => a.id),
+            gif,
           },
         }),
       ),
-    onMutate: async ({ content, id, attachments = [], alsoToChannel = false }) => {
+    onMutate: async ({ content, id, attachments = [], alsoToChannel = false, gif = null }) => {
       await queryClient.cancelQueries({ queryKey: key });
       const metadata = {
         ...(attachments.length > 0 ? { attachments } : {}),
+        ...(gif ? { gif } : {}),
         ...(alsoToChannel ? { also_in_channel: true } : {}),
       };
       const optimistic: Message = {

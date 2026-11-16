@@ -6,6 +6,7 @@ import { useUserCache } from '@/stores/users';
 import { displayNameOf } from '@/lib/userHelpers';
 import { conversationTitle } from '@/lib/conversationHelpers';
 import type { Conversation } from '@/features/messaging';
+import { GifMessage } from '@/features/gifs';
 import { useUnreads, useMarkGroupRead, type UnreadGroup } from '@/features/unreads/hooks/useUnreads';
 import { DAY_AND_TIME, formatClock } from '@/lib/datetime';
 
@@ -146,6 +147,7 @@ export function AllUnreadsView({
                         content={message.content}
                         attachments={message.metadata?.attachments}
                       />
+                      {message.metadata?.gif && <GifMessage gif={message.metadata.gif} />}
                     </div>
                   </li>
                 );

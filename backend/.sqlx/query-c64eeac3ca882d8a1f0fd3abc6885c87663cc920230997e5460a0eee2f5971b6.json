@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT giphy_api_key FROM instance_settings",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "giphy_api_key",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "instance_settings",
+            "name": "giphy_api_key"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "c64eeac3ca882d8a1f0fd3abc6885c87663cc920230997e5460a0eee2f5971b6"
+}

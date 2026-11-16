@@ -193,6 +193,7 @@ async fn deliver_to_channel(
                 thread_parent_id: root.as_ref().map(|root| root.id),
                 also_in_channel: scheduled.also_in_channel,
                 forwarded_from: None,
+                gif: None,
                 client_message_id: None,
                 mentioned: &mentioned,
             },

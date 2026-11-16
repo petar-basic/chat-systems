@@ -10,6 +10,7 @@ use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
+use super::settings_repo::SettingsChange;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::auth::models::InstanceRole;
 use crate::dto::{DataList, StatusResponse};
@@ -64,12 +65,14 @@ pub struct InstanceSettings {
     pub email_code_sign_in: bool,
     pub email_configured: bool,
     pub workspace_creation_restricted: bool,
+    pub giphy_api_key: Option<String>,
 }
 
 #[derive(Debug, serde::Deserialize, ToSchema)]
 pub struct UpdateInstanceSettings {
     pub email_code_sign_in: Option<bool>,
     pub workspace_creation_restricted: Option<bool>,
+    pub giphy_api_key: Option<String>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -126,12 +129,24 @@ async fn update_instance_settings(
     ip: ClientIp,
     Json(body): Json<UpdateInstanceSettings>,
 ) -> AppResult<Json<InstanceSettings>> {
-    if body.email_code_sign_in.is_none() && body.workspace_creation_restricted.is_none() {
+    if body.email_code_sign_in.is_none()
+        && body.workspace_creation_restricted.is_none()
+        && body.giphy_api_key.is_none()
+    {
         return Err(AppError::Validation("Name a setting to change".into()));
     }
+    let giphy_api_key = body
+        .giphy_api_key
+        .as_deref()
+        .map(crate::gifs::models::giphy_api_key)
+        .transpose()?;
     state
         .instance_settings_repo
-        .update(body.email_code_sign_in, body.workspace_creation_restricted)
+        .update(&SettingsChange {
+            email_code_sign_in: body.email_code_sign_in,
+            workspace_creation_restricted: body.workspace_creation_restricted,
+            giphy_api_key,
+        })
         .await?;
     let mut details = serde_json::Map::new();
     if let Some(on) = body.email_code_sign_in {
@@ -139,6 +154,10 @@ async fn update_instance_settings(
     }
     if let Some(on) = body.workspace_creation_restricted {
         details.insert("workspace_creation_restricted".into(), on.into());
+    }
+    if let Some(key) = giphy_api_key {
+        let change = if key.is_some() { "set" } else { "cleared" };
+        details.insert("giphy_api_key".into(), change.into());
     }
     audit::record(
         &state,
@@ -158,6 +177,7 @@ async fn instance_settings(state: &AppState) -> AppResult<InstanceSettings> {
             .instance_settings_repo
             .workspace_creation_restricted()
             .await?,
+        giphy_api_key: state.instance_settings_repo.giphy_api_key().await?,
     })
 }
 

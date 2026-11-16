@@ -17,6 +17,7 @@ pub mod email;
 pub mod emoji;
 pub mod export;
 pub mod files;
+pub mod gifs;
 pub mod groups;
 pub mod guests;
 pub mod health;

@@ -3,11 +3,11 @@ import { defineConfig, devices } from '@playwright/test';
 // Specs that cannot share the stack with anything else: two of them stop the
 // realtime container, one floods the write limiter on purpose, one suspends a
 // seeded user mid-run, and one posts 120 messages spread over three authors to
-// stay under that same limiter, one restarts the API with no admin, and one
-// restricts workspace creation for the whole instance. They run as their own
-// batch, one worker.
+// stay under that same limiter, one restarts the API with no admin, one
+// restricts workspace creation for the whole instance, and one gives the whole
+// instance a GIPHY key. They run as their own batch, one worker.
 const SOLO =
-  /(qa-flow|qa-flow2|qa-flow4|durable-delivery|message-pagination|first-run|create-workspace|workspace-creation)\.spec\.ts$/;
+  /(qa-flow|qa-flow2|qa-flow4|durable-delivery|message-pagination|first-run|create-workspace|workspace-creation|gifs)\.spec\.ts$/;
 
 export default defineConfig({
   testDir: './e2e',

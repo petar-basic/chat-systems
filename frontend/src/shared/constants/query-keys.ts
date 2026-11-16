@@ -65,6 +65,9 @@ export const QUERY_KEYS = {
   scheduledMessages: (workspaceId: string) => ['scheduled-messages', workspaceId] as const,
   sentMessages: (workspaceId: string) => ['sent-messages', workspaceId] as const,
   recentSearches: (workspaceId: string) => ['recent-searches', workspaceId] as const,
+  gifSettingsAll: () => ['gif-settings'] as const,
+  gifSettings: (workspaceId: string) => ['gif-settings', workspaceId] as const,
+  gifSearch: (rating: string, query: string) => ['gif-search', rating, query] as const,
 
   slackImports: (workspaceId: string) => ['slack-imports', workspaceId] as const,
   laterAll: () => ['later'] as const,
@@ -115,6 +118,7 @@ export const QUERY_KEYS = {
   workflows: (workspaceId: string) => ['workflows', workspaceId] as const,
   workflowRuns: (workflowId: string) => ['workflows', 'runs', workflowId] as const,
   workflowShortcuts: (channelId: string) => ['workflows', 'shortcuts', channelId] as const,
+  slashCommandsAll: () => ['commands'] as const,
   slashCommands: (workspaceId: string) => ['commands', workspaceId] as const,
 
   huddlesActive: () => ['huddles', 'active'] as const,

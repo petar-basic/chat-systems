@@ -3481,3 +3481,66 @@ he could search, so a search in it kept its `in`, and the panel, which names pla
 sidebar, showed *In Conversation*; `in` now needs membership, for keeping a search and for
 listing it. And picking a search whose private channel was gone stored a second row without
 `in`, so the list showed it twice, which is why the list reads the view.
+
+### [CS-129] GIFs ✅ shipped
+A GIF could only be sent by saving one and uploading it, and `/giphy` is the first thing a team
+from Slack reaches for. GIFs now come from GIPHY. The ticket had the API search GIPHY on the
+person's behalf, keep the key on the server, rate-limit each person and, if the terms allowed,
+copy the chosen GIF into object storage. GIPHY's terms rule all of that out: requests are not
+to be proxied, media is not to be cached or stored, the URLs keep their query string, and the
+picker says *Powered by GIPHY*. So the browser searches GIPHY itself and the message links to
+GIPHY's MP4, which also means GIPHY sees each viewer's address; the admin setting says so. The
+key is GIPHY's public kind, handed to every member of a workspace with GIFs on, so it is kept
+as plain text (`instance_settings.giphy_api_key`) rather than sealed: sealing a value that the
+server gives out protects nothing. With no proxy there is nothing of ours to rate-limit, and
+the workspace's rating binds the app's own picker, which sends it with every search, not a
+client that leaves it out. The CSP already allowed `https:` for images, media and fetches.
+
+An instance admin sets the key under *Instance admin*, beside who may create workspaces; the
+audit row says `set` or `cleared`, never the key. A workspace admin turns GIFs off or picks the
+highest rating (G, PG, PG-13 or R, PG unless set) in *Workspace settings → General*.
+`GET /workspaces/{id}/gifs` gives a member the provider, key and rating, or 404 when either
+switch is off, and that 404 is all the client needs to draw no button. A message carries the
+GIF as `gif`, stored in `metadata.gif`, and the server checks its shape: a short alphanumeric
+id, a title of up to 200 characters, sides up to 4096, and https URLs on a GIPHY media host
+with no port or credentials, kept exactly as sent. A GIF goes without files or a forward, the
+text beside it may be empty, an edit may empty it, and a notification reads *GIF: title*.
+`/giphy` became a built-in so it is listed while GIFs are on; run on the server it only says
+where GIFs are picked, since the message box opens the picker on it instead of sending.
+
+In the message box, the GIF button opens the picker on trending GIFs and a pick sends the GIF
+with whatever was typed; `/giphy happy cat` opens it searched for those words and sends the GIF
+alone. The grid shows GIPHY's small WebP, the message gets the original MP4 with its still as
+the poster. A GIF plays muted and looping only while it is on screen. The app has no *Reduce
+motion* setting of its own, so the system's is the one that counts: under it a GIF holds on its
+still until pointed at or focused, and the picker shows stills.
+
+Checked by hand on the Docker build, as Bob and the admin, with a placeholder key, since GIPHY
+answers a made-up key with 401. That 401 was the picker's error state; for the rest the page's
+requests to `api.giphy.com` were answered locally with real GIPHY media. Without a key the
+route was 404, `/giphy` was missing from the command list and answered that GIFs are off, and a
+GIF in a message was 404. Bob setting the key was 403 and a key with a space 422; the admin's
+was audited as `{"giphy_api_key": "set"}`, and Bob then got the key and `pg`. Bob changing the
+rating was 403, `nc-17` 422, and `g` reached the picker's next request without a reload. A GIF
+with text kept its URL, query string included, and a trimmed title; one alone and an edit to
+empty went through. A URL on another host, over http, with a port or credentials, on
+`giphy.com.evil.com` or `mediax.giphy.com`, or a `javascript:` one was 422, as were a bad id, a
+201-character title, a side of 0 or 99999, an unknown field, a `tenor` provider, and a GIF
+with a file or a forward; `i.giphy.com` and `media4.giphy.com` passed. Alice's DM with a GIF
+notified Bob as *GIF: Typing cat*, and *GIF* untitled; a socket of Alice's received Bob's GIF
+as `message.new` with the URL intact. In the browser, typing *keyboard cat* sent one search, ↓
+reached the grid and → ↓ moved by one and by a row, Enter sent the GIF and put the focus back in
+the message box; a pick from the button sent *look at this* with its GIF, `/gi` offered
+`/giphy`, `/giphy dance` opened the picker on *dance* and sent the GIF alone, and only the GIFs
+on screen played. A thread reply took a GIF too. Turning GIFs off in *General* hid the rating
+and the button; removing and saving the key in *Instance admin* took the button and `/giphy`
+away and brought them back without a reload. Reduced motion is covered by the unit tests, since
+the browser pane cannot emulate it.
+
+The check found three faults, fixed here. A GIF's box followed the video's own shape once it
+loaded, so a message grew after it was drawn and a square GIF passed the 280-pixel cap; the box
+now keeps the declared size and fits the video inside. Closing the picker with Escape left the
+focus on the page, not in the message box. And the GIF settings and command list waited out
+their cache after the key changed, or after *General* turned GIFs off, so the button and
+`/giphy` lingered; both are now refetched. The E2E spec sets a key for the whole instance, so
+it runs in the batch of specs that cannot share the stack.

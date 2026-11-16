@@ -371,6 +371,7 @@ export default function WorkspacePage() {
                   pollTarget={{ channelId: currentChannel.id, instanceUrl: currentWorkspace?.instanceUrl }}
                   shortcutChannelId={currentChannel.id}
                   slashCommands
+                  gifs
                   channelName={currentChannel.name ?? undefined}
                   draftKey={currentChannel.id}
                   draftPlace={

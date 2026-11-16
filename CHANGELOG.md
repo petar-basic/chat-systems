@@ -77,6 +77,14 @@ instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   results, not as you type, and repeating it moves it to the top. A search in a channel or
   conversation you have since left keeps its words but no longer names the place.
   A person export includes them and erasing a person deletes them.
+- GIFs from GIPHY. Once an instance admin adds a GIPHY API key in *Instance admin*, the
+  message box has a GIF button, and `/giphy` followed by words opens the picker on them. The
+  picker shows trending GIFs until you type, and a pick sends the GIF with whatever you had
+  written, or alone from `/giphy`. GIFs play muted and looping while on screen; with reduced
+  motion turned on in the system, they hold still until you point at or focus one. Each
+  workspace can turn GIFs off and choose the highest rating, PG unless changed, in
+  *Workspace settings → General*. Browsers fetch the search and the GIFs from GIPHY directly,
+  as GIPHY requires, so the key is given to every member and GIPHY sees their addresses.
 
 ### Changed
 

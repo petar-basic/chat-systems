@@ -81,7 +81,8 @@ impl MessageRepo {
             INSERT INTO messages (client_message_id, channel_id, user_id, content, thread_parent_id, metadata)
             VALUES ($1, $2, $3, $4, $5, jsonb_strip_nulls(jsonb_build_object(
                 'also_in_channel', CASE WHEN $6 THEN TRUE END,
-                'forwarded_from', CASE WHEN $7::uuid IS NULL THEN NULL ELSE jsonb_build_object('message_id', $7::uuid) END
+                'forwarded_from', CASE WHEN $7::uuid IS NULL THEN NULL ELSE jsonb_build_object('message_id', $7::uuid) END,
+                'gif', $8::jsonb
             )))
             RETURNING id, channel_id, user_id, client_message_id, content, metadata AS "metadata!", thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at
             "#,
@@ -91,7 +92,8 @@ impl MessageRepo {
             new.content,
             new.thread_parent_id,
             new.also_in_channel && new.thread_parent_id.is_some(),
-            new.forwarded_from
+            new.forwarded_from,
+            new.gif.map(sqlx::types::Json) as _
         )
         .fetch_one(&mut *conn)
         .await?;
@@ -1380,6 +1382,7 @@ mod tests {
                 thread_parent_id: None,
                 also_in_channel: false,
                 forwarded_from: None,
+                gif: None,
                 client_message_id: None,
                 mentioned: &[],
             })
@@ -1399,6 +1402,7 @@ mod tests {
                 thread_parent_id: Some(parent.id),
                 also_in_channel: false,
                 forwarded_from: None,
+                gif: None,
                 client_message_id: None,
                 mentioned: &[],
             })
@@ -1434,6 +1438,7 @@ mod tests {
                 thread_parent_id: None,
                 also_in_channel: false,
                 forwarded_from: None,
+                gif: None,
                 client_message_id: None,
                 mentioned: &[],
             })
