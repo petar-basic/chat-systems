@@ -296,18 +296,18 @@ async fn a_japanese_invite_request_writes_what_the_requester_wrote_as_plain_text
     .expect("the request");
 
     let body = format!(
-        "{requester} さんから、{newcomer} を Ja Requests にゲストとして招待してほしいという依頼がありました。"
+        "{requester} さんから、{newcomer} を Ja Requests にゲストとして招待してほしいというリクエストがありました。"
     );
     let because = format!("理由: {reason}");
     assert_eq!(
         subject,
-        format!("{requester} さんから Ja Requests への招待の依頼")
+        format!("{requester} さんから Ja Requests への招待のリクエスト")
     );
     for line in [
         body.as_str(),
         because.as_str(),
-        "招待の依頼",
-        "30日以内に誰も対応しなかった場合、この依頼は期限切れになります。",
+        "招待のリクエスト",
+        "30日以内に誰も対応しなかった場合、このリクエストは期限切れになります。",
     ] {
         assert!(text.lines().any(|l| l == line), "{line} in {text}");
     }
@@ -318,7 +318,7 @@ async fn a_japanese_invite_request_writes_what_the_requester_wrote_as_plain_text
         html.contains(&format!(">{}</p>", escaped(&because))),
         "{html}"
     );
-    assert!(html.contains(">依頼を確認</a>"), "{html}");
+    assert!(html.contains(">リクエストを確認</a>"), "{html}");
 
     let id = request["id"].as_str().expect("request id");
     let (status, approved) = send(
@@ -339,7 +339,7 @@ async fn a_japanese_invite_request_writes_what_the_requester_wrote_as_plain_text
             .await
             .expect("the invite");
     let invited = format!(
-        "{requester} さんの依頼を受けて、Ana さんが Test のワークスペース「Ja Requests」にあなたを招待しました。"
+        "{requester} さんのリクエストを受けて、Ana さんが Test のワークスペース「Ja Requests」にあなたを招待しました。"
     );
     assert!(text.lines().any(|l| l == invited), "{text}");
     assert!(!html.contains("<img src=x"), "{html}");
