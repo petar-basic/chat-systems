@@ -3434,3 +3434,50 @@ erase left them, though nobody else could ever have read them. CI found a third:
 knew the answer to a save belonged to the draft still held by comparing their times, so a
 second edit in the same millisecond took the answer to the first, was marked saved and never
 went up. It now compares the draft itself.
+
+### [CS-128] Recent searches ✅ shipped
+The search box forgot everything once it was closed, so the same `from:@alice in:#ops` was typed
+again each time, on each device. A search is now a row of `recent_searches`: its words, its tab
+(`search_tab`, `messages` or `files`) and the filters that tab uses as JSONB, at most the newest
+20 per person and workspace, trimmed in the transaction that keeps a new one. Keeping the same
+search again moves it to the top, through a unique index on `lower(query)`, the tab and the
+filters, and the server collapses whitespace and drops what the tab does not use (`has` on
+files, `kind` on messages, `after`/`before` beside `on`), so two clients cannot store one search
+in two shapes. An unknown filter is a 422. The rows go with the workspace membership through
+its foreign key, a person export writes `recent_searches.jsonl`, and an erase deletes them as
+`account.searches`.
+
+A search is kept when Enter submits it, when one of its results is opened, or when it is picked
+from the list, never on a keystroke; a failed keep is only logged, since nobody asked for it.
+While the box is empty and no filter is set, the panel lists them under *Recent*, each with its
+filters and tab as chips, a remove button and *Clear* for all; the ticket said while the box is
+focused, but clicking a row takes the focus away and the list would close under the pointer.
+Picking one fills the box, the filters and the tab, and runs it. ↓ from the box goes into the
+list, ↑ from its first row back. The rows are plain buttons, not a `listbox`, because each holds
+its own remove button.
+
+A search names its channel by id, so `in` must be a channel or conversation the caller is in, or
+keeping it answers 404. Once they are not, the list leaves `in` out and keeps the rest. That rule
+lives in the view `recent_searches_seen`, and the list takes the newest row of each search as the
+view shows it: a row keeps its `in` after access is lost, so running it again stores a second row
+that the person sees as the same search. Removing one removes its twins. Rewriting the stored rows
+instead would need a hook in every way there is of losing a channel.
+
+Checked by hand on the Docker build, as Bob, with curl beside the browser. Ten keeps of
+`"  Deploy  "` left one row reading `Deploy`; on *Files* `has` and `after` were dropped; an
+unknown filter, an empty search and 501 characters answered 422, and a channel of another
+workspace 403. Alice's list was empty, and her removing or clearing left Bob's alone, with 404
+for his id. Twenty-five more searches left the newest 20. `deploy in:#general` submitted from
+the box went to the top with an *In #general* chip; picking it filled the box and the chip and
+ran it, and picking a *Files* search from *Messages* switched the tab. ↓ from the box reached
+the first row, ↓↓ the third, ↑↑↑ the box again, and Enter on a row ran *deploy* with *Has Links*.
+Typing `thread root` kept nothing until a result was opened. After Bob left a private channel
+he had two `deploy` searches for, one with it and one without, the list showed *Deploy · Links*
+once, and its remove button deleted both rows; *Clear* emptied the server and a reload showed
+the old tip.
+
+The check found two faults, fixed here. A public channel Bob had left still counted as a place
+he could search, so a search in it kept its `in`, and the panel, which names places from the
+sidebar, showed *In Conversation*; `in` now needs membership, for keeping a search and for
+listing it. And picking a search whose private channel was gone stored a second row without
+`in`, so the list showed it twice, which is why the list reads the view.

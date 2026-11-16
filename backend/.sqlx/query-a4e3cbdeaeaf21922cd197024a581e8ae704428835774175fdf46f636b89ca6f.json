@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT jsonb_build_object(\n                       'workspace_id', workspace_id,\n                       'query', query,\n                       'tab', tab,\n                       'filters', filters,\n                       'searched_at', searched_at\n                   ) AS \"row!\"\n              FROM recent_searches\n             WHERE user_id = $1\n             ORDER BY searched_at\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "row!",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "a4e3cbdeaeaf21922cd197024a581e8ae704428835774175fdf46f636b89ca6f"
+}

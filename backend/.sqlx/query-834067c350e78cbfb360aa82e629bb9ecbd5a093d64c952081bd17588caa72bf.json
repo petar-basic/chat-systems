@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            DELETE FROM recent_searches\n             WHERE id IN (SELECT twin.id\n                            FROM recent_searches_seen picked\n                            JOIN recent_searches_seen twin\n                              ON twin.user_id = picked.user_id\n                             AND twin.workspace_id = picked.workspace_id\n                             AND lower(twin.query) = lower(picked.query)\n                             AND twin.tab = picked.tab\n                             AND twin.filters = picked.filters\n                           WHERE picked.id = $1 AND picked.user_id = $2 AND picked.workspace_id = $3)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "834067c350e78cbfb360aa82e629bb9ecbd5a093d64c952081bd17588caa72bf"
+}

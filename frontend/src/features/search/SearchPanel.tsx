@@ -20,6 +20,13 @@ import {
   type SearchTab,
 } from '@/features/search/searchFilters';
 import { FileHit, type FileSearchHit } from '@/features/search/FileHit';
+import { RECENT_ITEM, RecentSearches } from '@/features/search/RecentSearches';
+import {
+  filtersOf,
+  useRecentSearchActions,
+  useRecentSearches,
+  type RecentSearch,
+} from '@/features/search/useRecentSearches';
 import { ImageGallery, useConversations } from '@/features/messaging';
 import { isRenderableImage } from '@/lib/fileKinds';
 import { X, Search } from 'lucide-react';
@@ -134,7 +141,10 @@ export default function SearchPanel({ members, onClose, onOpenMessage }: Props) 
   const [today] = useState(() => new Date());
   const context: FilterContext = { members, channels, conversations, currentUserId, today };
   const conversationIds = new Set(conversations.map((c) => c.id));
+  const { data: recent = [] } = useRecentSearches(workspaceId, instanceUrl);
+  const kept = useRecentSearchActions(workspaceId, instanceUrl);
   const inputRef = useRef<HTMLInputElement>(null);
+  const recentRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestRef = useRef(0);
 
@@ -209,7 +219,20 @@ export default function SearchPanel({ members, onClose, onOpenMessage }: Props) 
     if (extracted) setFilters(nextFilters);
     setTab(nextTab);
     search(nextText, nextFilters, final || extracted ? 0 : 400, nextTab);
+    if (final) kept.record({ query: nextText.trim(), tab: nextTab, filters: nextFilters });
   };
+
+  const pick = (chosen: RecentSearch) => {
+    const chosenFilters = filtersOf(chosen);
+    setQuery(chosen.query);
+    setFilters(chosenFilters);
+    setTab(chosen.tab);
+    search(chosen.query, chosenFilters, 0, chosen.tab);
+    kept.record({ query: chosen.query, tab: chosen.tab, filters: chosenFilters });
+    inputRef.current?.focus();
+  };
+
+  const keepThis = () => kept.record({ query: query.trim(), tab, filters });
 
   const changeFilters = (next: SearchFilters) => {
     setFilters(next);
@@ -222,14 +245,25 @@ export default function SearchPanel({ members, onClose, onOpenMessage }: Props) 
   };
 
   const filtered = hasFilters(forTab(filters, tab));
+  const showRecent = !query.trim() && !filtered && recent.length > 0;
   const count = tab === 'files' ? files.length : results.length;
   const showMore = () => void doSearch(query, filters, tab, count);
   const images = files.filter((file) => isRenderableImage(file.mime_type));
   const placeOf = (channelName: string | null | undefined) =>
     channelName ? `#${channelName}` : t('panel.directMessage');
+  const openMessage = onOpenMessage
+    ? (messageId: string) => {
+        keepThis();
+        onOpenMessage(messageId);
+      }
+    : undefined;
   const openFile = (file: FileSearchHit) => {
-    if (isRenderableImage(file.mime_type)) return () => setViewing(images.indexOf(file));
-    return onOpenMessage ? () => onOpenMessage(file.message_id) : undefined;
+    if (isRenderableImage(file.mime_type))
+      return () => {
+        keepThis();
+        setViewing(images.indexOf(file));
+      };
+    return openMessage ? () => openMessage(file.message_id) : undefined;
   };
 
   return (
@@ -266,6 +300,10 @@ export default function SearchPanel({ members, onClose, onOpenMessage }: Props) 
           onChange={(e) => apply(e.target.value, false)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') apply(query, true);
+            if (e.key === 'ArrowDown' && showRecent) {
+              e.preventDefault();
+              recentRef.current?.querySelector<HTMLButtonElement>(RECENT_ITEM)?.focus();
+            }
           }}
           placeholder={t(`panel.placeholder.${tab}`)}
           data-tooltip={t(`panel.hint.${tab}`)}
@@ -357,7 +395,7 @@ export default function SearchPanel({ members, onClose, onOpenMessage }: Props) 
                   query={query}
                   createdAt={msg.created_at}
                   context={placeOf(msg.channel_name)}
-                  onClick={onOpenMessage ? () => onOpenMessage(msg.id) : undefined}
+                  onClick={openMessage ? () => openMessage(msg.id) : undefined}
                 />
               );
             })}
@@ -373,6 +411,17 @@ export default function SearchPanel({ members, onClose, onOpenMessage }: Props) 
                 {t('panel.showMore')}
               </Button>
             )}
+          </div>
+        ) : showRecent ? (
+          <div ref={recentRef}>
+            <RecentSearches
+              searches={recent}
+              context={context}
+              onPick={pick}
+              onForget={(chosen) => kept.forget(chosen.id)}
+              onClear={kept.clear}
+              onLeave={() => inputRef.current?.focus()}
+            />
           </div>
         ) : (
           <div className="px-4 py-8 text-center text-sm text-muted space-y-1">

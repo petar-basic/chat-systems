@@ -10237,6 +10237,141 @@
         }
       }
     },
+    "/workspaces/{ws_id}/searches/recent": {
+      "get": {
+        "tags": [
+          "messages"
+        ],
+        "operationId": "list_recent_searches",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_RecentSearch"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "messages"
+        ],
+        "operationId": "record_search",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordSearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecentSearch"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "messages"
+        ],
+        "operationId": "clear_recent_searches",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/searches/recent/{id}": {
+      "delete": {
+        "tags": [
+          "messages"
+        ],
+        "operationId": "forget_search",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workspaces/{ws_id}/sent-messages": {
       "get": {
         "tags": [
@@ -10895,6 +11030,7 @@
           "sidebar_sections",
           "profile_fields",
           "drafts",
+          "searches",
           "photos"
         ],
         "properties": {
@@ -10934,6 +11070,11 @@
             "minimum": 0
           },
           "recovery_codes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "searches": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
@@ -15781,6 +15922,46 @@
           }
         }
       },
+      "DataList_RecentSearch": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "query",
+                "tab",
+                "filters",
+                "searched_at"
+              ],
+              "properties": {
+                "filters": {
+                  "$ref": "#/components/schemas/SearchFilters"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "query": {
+                  "type": "string"
+                },
+                "searched_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "tab": {
+                  "$ref": "#/components/schemas/SearchTab"
+                }
+              }
+            }
+          }
+        }
+      },
       "DataList_ScheduledMessage": {
         "type": "object",
         "required": [
@@ -20131,6 +20312,35 @@
           }
         }
       },
+      "RecentSearch": {
+        "type": "object",
+        "required": [
+          "id",
+          "query",
+          "tab",
+          "filters",
+          "searched_at"
+        ],
+        "properties": {
+          "filters": {
+            "$ref": "#/components/schemas/SearchFilters"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "query": {
+            "type": "string"
+          },
+          "searched_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "tab": {
+            "$ref": "#/components/schemas/SearchTab"
+          }
+        }
+      },
       "Recipient": {
         "oneOf": [
           {
@@ -20167,6 +20377,24 @@
             }
           }
         ]
+      },
+      "RecordSearchRequest": {
+        "type": "object",
+        "required": [
+          "query",
+          "tab"
+        ],
+        "properties": {
+          "filters": {
+            "$ref": "#/components/schemas/SearchFilters"
+          },
+          "query": {
+            "type": "string"
+          },
+          "tab": {
+            "$ref": "#/components/schemas/SearchTab"
+          }
+        }
       },
       "RegisterCompleteRequest": {
         "type": "object",
@@ -20610,6 +20838,75 @@
           "commands"
         ]
       },
+      "SearchFilters": {
+        "type": "object",
+        "properties": {
+          "after": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "before": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "from": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "has": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SearchHas"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "in": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "kind": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FileKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SearchHas": {
+        "type": "string",
+        "enum": [
+          "file",
+          "image",
+          "link"
+        ]
+      },
       "SearchHit": {
         "allOf": [
           {
@@ -20649,6 +20946,13 @@
           "channels",
           "conversations",
           "all"
+        ]
+      },
+      "SearchTab": {
+        "type": "string",
+        "enum": [
+          "messages",
+          "files"
         ]
       },
       "SendMessageRequest": {

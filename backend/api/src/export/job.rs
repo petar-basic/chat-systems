@@ -447,6 +447,7 @@ async fn export_user(
         "files.jsonl",
         "profile_fields.jsonl",
         "drafts.jsonl",
+        "recent_searches.jsonl",
     ] {
         archive.declare(file);
     }
@@ -511,6 +512,15 @@ async fn export_user(
         .map_err(|e| e.to_string())?
     {
         archive.append("drafts.jsonl", &value);
+    }
+
+    for value in state
+        .search_repo
+        .owned_by(user_id)
+        .await
+        .map_err(|e| e.to_string())?
+    {
+        archive.append("recent_searches.jsonl", &value);
     }
 
     Ok(())

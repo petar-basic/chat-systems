@@ -421,8 +421,8 @@ jobs:
   # The only job that should be a required status check. It always runs, so it
   # always reports — a required check on a conditional job never reports at all
   # on a PR that skips it, and blocks the merge forever. Skipped counts as
-  # passing here; a real failure or a cancellation still blocks, unless a newer
-  # run of the same commit superseded this one.
+  # passing here; a real failure or a cancellation still blocks, unless another
+  # run of the same commit is still going and reports instead.
   gate:
     name: All checks
     needs: [changes, backend, frontend, desktop, e2e]
@@ -439,9 +439,9 @@ jobs:
           SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           if [ "$FAILED" = "false" ]; then
-            newer=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$SHA" \
-              --jq "[.workflow_runs[] | select(.id > $GITHUB_RUN_ID)] | length")
-            if [ "$newer" -gt 0 ]; then
+            running=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$SHA" \
+              --jq "[.workflow_runs[] | select(.id != $GITHUB_RUN_ID and .status != \"completed\")] | length")
+            if [ "$running" -gt 0 ]; then
               echo "Superseded by a newer run of $SHA, which reports instead."
               exit 0
             fi

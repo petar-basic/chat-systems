@@ -80,5 +80,10 @@
     "you": "You",
     "conversation": "Conversation",
     "channelFallback": "channel"
+  },
+  "recent": {
+    "title": "Recent",
+    "remove": "Remove “{{search}}” from recent searches",
+    "clear": "Clear"
   }
 }
