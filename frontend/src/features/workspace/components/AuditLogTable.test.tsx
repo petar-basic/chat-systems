@@ -62,6 +62,7 @@ describe('AuditLogTable in Japanese', () => {
           entry('1', 'channel.archived', { actor_display_name: hostile }),
           entry('2', 'totp.failed', { actor_email: 'ana@example.com' }),
           entry('3', 'webhook.fired'),
+          entry('4', 'invite_request.declined'),
         ]}
         loading={false}
         showWorkspace
@@ -69,7 +70,12 @@ describe('AuditLogTable in Japanese', () => {
     );
     const headers = screen.getAllByRole('columnheader').map((cell) => cell.textContent);
     expect(headers).toEqual(['日時', '実行者', '操作', 'ワークスペース', '詳細', '接続元']);
-    expect(actions()).toEqual(['チャンネルをアーカイブ', '2要素認証に失敗', 'Webhook fired']);
+    expect(actions()).toEqual([
+      'チャンネルをアーカイブ',
+      '2要素認証に失敗',
+      'Webhook fired',
+      '招待のリクエストを却下',
+    ]);
     const [first, , third] = screen.getAllByTestId('audit-log-row');
     expect(within(first).getByText(hostile)).toBeInTheDocument();
     expect(third).toHaveTextContent('不明');
