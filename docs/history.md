@@ -3544,3 +3544,62 @@ focus on the page, not in the message box. And the GIF settings and command list
 their cache after the key changed, or after *General* turned GIFs off, so the button and
 `/giphy` lingered; both are now refetched. The E2E spec sets a key for the whole instance, so
 it runs in the batch of specs that cannot share the stack.
+
+### [CS-130] Custom responses from the workspace's bot ✅ shipped
+Every team answers the same questions in its channels, the Wi-Fi password, the VPN guide, and
+somebody pasted the answer again each time. A workspace now has bot users of its own: a row of
+`workspace_bots` per workspace and kind (`responses` now, the calendar bots of CS-140 later)
+points at a `users` row with `is_bot` set that is a member of the workspace, with no app and no
+token. It is made on first use, by the first response, a rename or an answer, under an advisory
+lock so two first uses make one, and takes the instance's name and icon. Its arrival is staged
+as `member_joined`, which open clients see as `workspace.members_changed`, so they know its name
+before it speaks. An admin renames it in the section, audited as `workspace_bot.renamed`. It
+shows with the *App* badge, and the sidebar lists it under *People* as it lists an app's bot.
+
+A response is a row of `custom_responses`: 1–20 phrases of up to 100 characters and 1–20
+answers of up to 4000 bytes, at most 500 a workspace. The server collapses the whitespace in a
+phrase and drops blanks and phrases that differ only in case. Who may add, change or delete one
+is the `WhoMay` rule `custom_responders`, members unless an admin sets admins; guests see none.
+Each change is audited with its phrases. *Workspace settings → Custom responses* shows the bot,
+the responses with their phrases as chips and the first answer, and under the admins rule a
+note where the buttons were.
+
+Matching runs in `chat-worker` on `message.created`, as the consumer group `custom_responses`.
+A message from a bot user, a hook or a workflow (`metadata.bot` or `metadata.kind`) is skipped,
+as is a deleted one or one older than 15 minutes, so a replayed stream does not answer last
+week. Text and phrase are folded alike: a mention becomes `@Label`, then NFKC, lower case and
+single spaces. A phrase matches where no letter or digit glues onto either end, except in
+scripts written without spaces (CJK, kana, Thai, Lao, Myanmar, Khmer), where it matches
+anywhere: *wifi passwords* gets nothing and *会議室の予約方法を教えて* is answered. A message
+gets one answer at most, from the phrase that comes first in it, the longest on a tie. The bot
+posts where the author could still post, by the posting rule itself, so an archived or
+moderators-only channel gets nothing; a 1:1 DM is never answered, a group DM is, and a thread
+reply is answered in its thread. The claim is a row of `custom_response_replies` keyed on the
+message id, inserted with the response row locked in the transaction that posts the answer, and
+only if that response has not answered in that channel in the last 60 seconds. The ticket put
+the cool-down on the phrase; it is on the response, since its phrases all give the same answers.
+The answer is picked at random.
+
+Checked by hand on the Docker build as Bob, Alice and the admin, with a script beside the
+browser. Blank phrases or answers, a 101-character phrase, 21 phrases or answers, a 4001-byte
+answer and a missing field were 422, and *WiFi   Password* beside *wifi password* was dropped.
+The first response made the bot, *Chat Systems*, a member with `is_bot`. *what's the WiFi
+password?* was answered 22–571 ms after it was sent; the answer, which holds the phrase, got no
+answer of its own; asking again within the minute got none, and past it one. A thread reply was
+answered in the thread and counted in its replies. Eight channels drew both answers. A 1:1 DM
+got nothing, a group DM an answer, and an archived channel refused the question itself. Under
+the admins rule Bob's list had `can_edit` false and his create, change and delete were 403,
+while the admin's change went through; Bob's rename was 403, a blank one 422, and
+`  Northwind Helpdesk  ` was kept trimmed. In the browser, a response added through the dialog
+in a fresh workspace was answered live under *Chat Systems* with its badge, and a socket of
+Bob's received `workspace.members_changed` once, when the bot was made. As Bob the section was
+read-only under the admins rule and editable again under members, an edit removed a phrase, and
+a delete through its confirmation took the row away, both audited.
+
+The check found three faults, fixed here. A bot made on first use reached no other client, so
+its first answers came from an author nobody's member list had; making it now stages
+`member_joined`. The section kept its list for the five-minute cache, so after the rule changed
+Bob still saw the buttons, or the note; it is fetched each time the section opens. And a save
+refused with 403 left the buttons in place; every save, delete and rename now refetches the
+list and the members, whether it worked or not, and the refused save flipped the section to
+read-only.

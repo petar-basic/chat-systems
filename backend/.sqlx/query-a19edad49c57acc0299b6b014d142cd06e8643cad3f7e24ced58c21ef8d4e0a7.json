@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO workspace_bots (workspace_id, kind, user_id) VALUES ($1, $2, $3)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        {
+          "Custom": {
+            "name": "workspace_bot_kind",
+            "kind": {
+              "Enum": [
+                "responses"
+              ]
+            }
+          }
+        },
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a19edad49c57acc0299b6b014d142cd06e8643cad3f7e24ced58c21ef8d4e0a7"
+}

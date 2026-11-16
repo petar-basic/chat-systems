@@ -43,6 +43,10 @@ pub enum AuditAction {
     ProfileFieldCreated,
     ProfileFieldUpdated,
     ProfileFieldDeleted,
+    CustomResponseCreated,
+    CustomResponseUpdated,
+    CustomResponseDeleted,
+    WorkspaceBotRenamed,
     InviteCreated,
     InviteRevoked,
     InviteAccepted,
@@ -138,6 +142,10 @@ impl AuditAction {
             Self::ProfileFieldCreated => "profile_field.created",
             Self::ProfileFieldUpdated => "profile_field.updated",
             Self::ProfileFieldDeleted => "profile_field.deleted",
+            Self::CustomResponseCreated => "custom_response.created",
+            Self::CustomResponseUpdated => "custom_response.updated",
+            Self::CustomResponseDeleted => "custom_response.deleted",
+            Self::WorkspaceBotRenamed => "workspace_bot.renamed",
             Self::InviteCreated => "invite.created",
             Self::InviteRevoked => "invite.revoked",
             Self::InviteAccepted => "invite.accepted",
@@ -232,6 +240,10 @@ impl AuditAction {
             Self::ProfileFieldCreated | Self::ProfileFieldUpdated | Self::ProfileFieldDeleted => {
                 "profile_field"
             }
+            Self::CustomResponseCreated
+            | Self::CustomResponseUpdated
+            | Self::CustomResponseDeleted => "custom_response",
+            Self::WorkspaceBotRenamed => "workspace_bot",
             Self::HookCreated
             | Self::HookDeleted
             | Self::HookRevealed

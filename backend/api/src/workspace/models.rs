@@ -338,6 +338,8 @@ pub struct UpdateWorkspaceRequest {
     #[garde(skip)]
     pub inviters: Option<WhoMay>,
     #[garde(skip)]
+    pub custom_responders: Option<WhoMay>,
+    #[garde(skip)]
     pub gifs: Option<bool>,
     #[garde(skip)]
     pub gif_rating: Option<crate::gifs::models::GifRating>,
@@ -370,6 +372,7 @@ impl UpdateWorkspaceRequest {
                 self.private_channel_creators,
             ),
             (WhoMay::INVITERS, self.inviters),
+            (WhoMay::CUSTOM_RESPONDERS, self.custom_responders),
         ] {
             if let Some(rule) = rule {
                 patch.insert(key.into(), rule.as_str().into());
@@ -392,6 +395,7 @@ impl WhoMay {
     pub const PUBLIC_CHANNEL_CREATORS: &'static str = "public_channel_creators";
     pub const PRIVATE_CHANNEL_CREATORS: &'static str = "private_channel_creators";
     pub const INVITERS: &'static str = "inviters";
+    pub const CUSTOM_RESPONDERS: &'static str = "custom_responders";
 
     pub fn as_str(self) -> &'static str {
         match self {

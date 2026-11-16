@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT answers FROM custom_responses WHERE id = $1 FOR UPDATE",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "answers",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "custom_responses",
+            "name": "answers"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "40954e2d65d3435eeceb98eaf35d1152659fc98744d24e7f280a87242a087c0f"
+}

@@ -13,6 +13,11 @@ describe('ruleOf', () => {
     expect(ruleOf({ inviters: 'nobody' }, 'inviters')).toBe('admins');
   });
 
+  it('lets members edit custom responses until an admin restricts it', () => {
+    expect(ruleOf({}, 'custom_responders')).toBe('members');
+    expect(ruleOf({ custom_responders: 'admins' }, 'custom_responders')).toBe('admins');
+  });
+
   it('reads what was set', () => {
     expect(ruleOf({ broadcast_mentions: 'admins' }, 'broadcast_mentions')).toBe('admins');
   });

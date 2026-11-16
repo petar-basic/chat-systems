@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT DISTINCT response_id AS \"response_id!\"\n                 FROM custom_response_replies\n                WHERE channel_id = $1\n                  AND response_id IS NOT NULL\n                  AND answered_at > NOW() - make_interval(secs => $2)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "response_id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "custom_response_replies",
+            "name": "response_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Float8"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "b949b4a4c31716a57c69340af854be4e443f1c7ab21e40dea551d61ff67a48a5"
+}

@@ -7,9 +7,9 @@ use tracing::info;
 use chat_api::config::AppConfig;
 use chat_api::state::AppState;
 use chat_api::{
-    analytics, app_events, build_state, connect_pool, email, export, guests, health, hooks, huddle,
-    init_tracing, invite_requests, later, messaging, metrics, notifications, retention, scheduled,
-    shutdown_signal, slack_import, supervise, workflows,
+    analytics, app_events, build_state, connect_pool, custom_responses, email, export, guests,
+    health, hooks, huddle, init_tracing, invite_requests, later, messaging, metrics, notifications,
+    retention, scheduled, shutdown_signal, slack_import, supervise, workflows,
 };
 
 #[tokio::main]
@@ -341,6 +341,19 @@ fn spawn_consumers(state: &Arc<AppState>, redis_url: &str) {
                 let listener_state = listener_state.clone();
                 async move {
                     workflows::listener::start_listener(listener_state).await;
+                }
+            })
+            .await;
+        });
+    }
+
+    {
+        let responses_state = state.clone();
+        tokio::spawn(async move {
+            supervise("custom_responses_consumer", || {
+                let responses_state = responses_state.clone();
+                async move {
+                    custom_responses::consumer::start_consumer(responses_state).await;
                 }
             })
             .await;

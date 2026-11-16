@@ -9,6 +9,7 @@ vi.mock('./MembersSection', () => ({
 }));
 vi.mock('./UserGroupsSection', () => ({ UserGroupsSection: () => <p>groups body</p> }));
 vi.mock('./CustomEmojiSection', () => ({ CustomEmojiSection: () => <p>emoji body</p> }));
+vi.mock('./CustomResponsesSection', () => ({ CustomResponsesSection: () => <p>responses body</p> }));
 vi.mock('./ProfileFieldsSection', () => ({ ProfileFieldsSection: () => <p>fields body</p> }));
 vi.mock('./AppsSection', () => ({ AppsSection: () => <p>apps body</p> }));
 vi.mock('./IntegrationsSection', () => ({ IntegrationsSection: () => <p>integrations body</p> }));
@@ -49,6 +50,7 @@ describe('WorkspaceSettingsModal', () => {
       'User groups',
       'Profile fields',
       'Custom emoji',
+      'Custom responses',
       'Apps',
       'Integrations',
       'Analytics',
@@ -63,7 +65,17 @@ describe('WorkspaceSettingsModal', () => {
 
   it('gives a member only what they can use', () => {
     renderModal('member', 'members');
-    expect(tabNames()).toEqual(['Members', 'User groups', 'Custom emoji', 'Apps']);
+    expect(tabNames()).toEqual(['Members', 'User groups', 'Custom emoji', 'Custom responses', 'Apps']);
+  });
+
+  it('keeps custom responses from guests, as the API does', () => {
+    renderModal('guest', 'custom-responses');
+    expect(tabNames()).not.toContain('Custom responses');
+    expect(screen.queryByText('responses body')).not.toBeInTheDocument();
+
+    cleanup();
+    renderModal('member', 'custom-responses');
+    expect(screen.getByText('responses body')).toBeInTheDocument();
   });
 
   it('falls back to the first section a member may open', () => {
