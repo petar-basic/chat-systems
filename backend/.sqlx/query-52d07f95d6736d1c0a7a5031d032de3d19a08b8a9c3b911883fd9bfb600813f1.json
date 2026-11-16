@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT wm.workspace_id, wm.user_id, wm.role AS \"role: WorkspaceRole\", wm.joined_at,\n                   CASE WHEN u.is_bot THEN '' ELSE u.email END AS \"email!\",\n                   COALESCE(wm.display_name, u.display_name) AS display_name,\n                   COALESCE(wm.avatar_url, u.avatar_url) AS avatar_url,\n                   COALESCE(wm.bio, u.bio) AS bio,\n                   COALESCE(wm.title, u.title) AS title,\n                   COALESCE(wm.pronouns, u.pronouns) AS pronouns,\n                   CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()\n                        THEN wm.status_emoji END AS \"status_emoji?\",\n                   CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()\n                        THEN wm.status_text END AS \"status_text?\",\n                   public.notifications_paused_until(wm.workspace_id, u.id, NOW()) AS notifications_paused_until,\n                   u.timezone,\n                   u.is_bot,\n                   wm.guest_kind AS \"guest_kind: GuestKind\",\n                   wm.guest_until\n            FROM workspace_members wm\n            JOIN users u ON u.id = wm.user_id\n            WHERE wm.workspace_id = $1\n            ORDER BY wm.joined_at\n            ",
+  "query": "\n            SELECT wm.workspace_id, wm.user_id, wm.role AS \"role: WorkspaceRole\", wm.joined_at,\n                   CASE WHEN u.is_bot THEN '' ELSE u.email END AS \"email!\",\n                   COALESCE(wm.display_name, u.display_name) AS display_name,\n                   COALESCE(wm.avatar_url, u.avatar_url) AS avatar_url,\n                   COALESCE(wm.bio, u.bio) AS bio,\n                   COALESCE(wm.title, u.title) AS title,\n                   COALESCE(wm.pronouns, u.pronouns) AS pronouns,\n                   CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()\n                        THEN wm.status_emoji END AS \"status_emoji?\",\n                   CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()\n                        THEN wm.status_text END AS \"status_text?\",\n                   public.notifications_paused_until(wm.workspace_id, u.id, NOW()) AS notifications_paused_until,\n                   u.timezone,\n                   u.is_bot,\n                   wm.guest_kind AS \"guest_kind: GuestKind\",\n                   wm.guest_until,\n                   COALESCE((SELECT jsonb_object_agg(v.field_id, v.value)\n                               FROM profile_field_values v\n                              WHERE v.workspace_id = wm.workspace_id AND v.user_id = wm.user_id),\n                            '{}'::jsonb) AS \"profile_fields!: FieldValues\"\n            FROM workspace_members wm\n            JOIN users u ON u.id = wm.user_id\n            WHERE wm.workspace_id = $1\n            ORDER BY wm.joined_at\n            ",
   "describe": {
     "columns": [
       {
@@ -166,6 +166,12 @@
             "name": "guest_until"
           }
         }
+      },
+      {
+        "ordinal": 17,
+        "name": "profile_fields!: FieldValues",
+        "type_info": "Jsonb",
+        "origin": "Expression"
       }
     ],
     "parameters": {
@@ -190,8 +196,9 @@
       true,
       false,
       true,
-      true
+      true,
+      null
     ]
   },
-  "hash": "1b2f6254a403ff565edd4da161a3793dd9b50563c15f9e00e751ae85bdbd0c38"
+  "hash": "52d07f95d6736d1c0a7a5031d032de3d19a08b8a9c3b911883fd9bfb600813f1"
 }

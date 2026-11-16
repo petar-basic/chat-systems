@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE profile_fields f\n               SET position = o.ord - 1\n              FROM unnest($2::uuid[]) WITH ORDINALITY AS o(id, ord)\n             WHERE f.workspace_id = $1 AND f.id = o.id\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5544f1d481a6ea9fa38d8682e294f04c32dc6db2d1658c80ecdee2f2d57d0ddc"
+}

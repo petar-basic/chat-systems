@@ -32,6 +32,7 @@ import { CommandAnswer, MessageList, MessageInput } from '@/features/messaging';
 import ConversationView from '@/features/messaging/ConversationView';
 import { AllUnreadsView } from '@/features/unreads';
 import { ThreadsView } from '@/features/threads';
+import { PeopleView } from '@/features/people';
 import { ListView } from '@/features/lists';
 import { canBuild, workflowBuildersOf } from '@/features/workflows';
 import ForwardMessageModal from '@/features/messaging/ForwardMessageModal';
@@ -158,6 +159,8 @@ export default function WorkspacePage() {
             unreadsActive={c.isUnreadsRoute}
             onOpenThreads={c.handleOpenThreads}
             threadsActive={c.isThreadsRoute}
+            onOpenPeople={c.handleOpenPeople}
+            peopleActive={c.isPeopleRoute}
             onLogout={() => c.logout.mutate()}
           />
         </div>
@@ -195,6 +198,13 @@ export default function WorkspacePage() {
             onOpenThread={panel.openThread}
             onOpenChannel={(channelId) => c.handleSelectChannel({ id: channelId })}
             onOpenConversation={c.handleOpenConversation}
+            onOpenNav={() => c.setMobileNavOpen(true)}
+          />
+        ) : c.isPeopleRoute && currentWorkspace ? (
+          <PeopleView
+            workspaceId={currentWorkspace.id}
+            instanceUrl={currentWorkspace.instanceUrl}
+            members={c.workspaceMembers}
             onOpenNav={() => c.setMobileNavOpen(true)}
           />
         ) : c.listId && currentWorkspace && user ? (

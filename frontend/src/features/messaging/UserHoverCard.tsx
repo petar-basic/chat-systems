@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
-import { MessageSquare, Moon, Phone } from 'lucide-react';
+import { MessageSquare, Moon, Phone, UserRound } from 'lucide-react';
 import { HoverCard } from '@/shared/components/Popover/HoverCard';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import PresenceDot from '@/shared/components/PresenceDot';
@@ -10,6 +10,8 @@ import { useWorkspaceStore } from '@/stores/workspace';
 import { useHuddleStore } from '@/stores/huddle';
 import { usePresenceStore } from '@/stores/presence';
 import { useCurrentUser } from '@/features/instance';
+import { FieldList, cardFields, useProfileFields } from '@/features/people';
+import { useProfilePanel } from '@/stores/profilePanel';
 import { useOpenConversation } from '@/features/messaging/hooks/useConversations';
 import { useStartHuddle } from '@/features/huddle';
 import { displayNameOf } from '@/lib/userHelpers';
@@ -74,6 +76,8 @@ function UserCardBody({
   const inHuddle = useHuddleStore((s) => !!s.active);
   const openConversation = useOpenConversation(workspaceId, instanceUrl);
   const startHuddle = useStartHuddle(workspaceId, instanceUrl);
+  const { fields } = useProfileFields(workspaceId, instanceUrl);
+  const showProfile = useProfilePanel((s) => s.show);
   const [busy, setBusy] = useState(false);
 
   const isSelf = self?.id === userId;
@@ -164,6 +168,8 @@ function UserCardBody({
         </div>
       </div>
 
+      <FieldList entries={cardFields(fields, cached?.profile_fields)} dataQa="hover-card-fields" />
+
       <LocalTimeLine timezone={cached?.timezone} />
 
       {cached?.bio && (
@@ -173,6 +179,18 @@ function UserCardBody({
       )}
 
       {cached?.email && <div className="text-xs text-muted truncate">{cached.email}</div>}
+
+      {!cached?.is_bot && (
+        <button
+          type="button"
+          onClick={() => showProfile(userId)}
+          data-qa="hover-card-profile"
+          className="flex items-center gap-1.5 text-xs text-accent hover:underline cursor-pointer self-start"
+        >
+          <UserRound className="w-3.5 h-3.5" />
+          {t('hoverCard.viewProfile')}
+        </button>
+      )}
 
       {!isSelf && !left && (
         <div className="flex gap-2">

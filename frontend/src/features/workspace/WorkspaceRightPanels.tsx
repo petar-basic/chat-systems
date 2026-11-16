@@ -9,6 +9,7 @@ import { useCurrentWorkspaceRole } from './hooks/useCurrentWorkspaceRole';
 import { ScheduledMessagesPanel } from '@/features/messaging';
 import { LaterPanel } from '@/features/later';
 import { WorkflowsPanel, canBuild, workflowBuildersOf } from '@/features/workflows';
+import { PersonPanel } from './PersonPanel';
 
 interface Props {
   panel: RightPanel;
@@ -90,6 +91,17 @@ export default function WorkspaceRightPanels({
         channelId={currentChannel.id}
         channelName={currentChannel.name ?? ''}
         channelType={currentChannel.channel_type}
+        onClose={onClose}
+      />
+    );
+  }
+  if (panel.kind === 'profile' && currentWorkspace) {
+    return (
+      <PersonPanel
+        key={panel.userId}
+        userId={panel.userId}
+        workspaceId={currentWorkspace.id}
+        instanceUrl={currentWorkspace.instanceUrl}
         onClose={onClose}
       />
     );

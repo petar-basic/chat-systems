@@ -445,6 +445,7 @@ async fn export_user(
         "memberships.jsonl",
         "messages.jsonl",
         "files.jsonl",
+        "profile_fields.jsonl",
     ] {
         archive.declare(file);
     }
@@ -491,6 +492,15 @@ async fn export_user(
     .map_err(|e| e.to_string())?;
     for row in rows {
         archive.append("files.jsonl", &row);
+    }
+
+    for value in state
+        .profile_field_repo
+        .owned_by(user_id)
+        .await
+        .map_err(|e| e.to_string())?
+    {
+        archive.append("profile_fields.jsonl", &value);
     }
 
     Ok(())

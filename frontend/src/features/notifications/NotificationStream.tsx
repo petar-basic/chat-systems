@@ -65,6 +65,8 @@ export function NotificationStream() {
       if (wsId) {
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notifications(wsId) });
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notificationUnreadCount(wsId) });
+        if (data.invite_request_id)
+          queryClient.invalidateQueries({ queryKey: QUERY_KEYS.inviteRequests(wsId) });
       }
 
       if (here && thread_parent_id && document.hasFocus()) {

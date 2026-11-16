@@ -1,0 +1,145 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT f.id, f.workspace_id, f.label, f.hint, f.kind AS \"kind: ProfileFieldKind\",\n                   f.options AS \"options: Json<Vec<ProfileFieldOption>>\",\n                   f.admins_only, f.on_card, f.position,\n                   (SELECT count(*) FROM profile_field_values v WHERE v.field_id = f.id) AS \"value_count!\"\n              FROM profile_fields f\n             WHERE f.workspace_id = $1 AND f.id = $2\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "profile_fields",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "profile_fields",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "label",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "profile_fields",
+            "name": "label"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "hint",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "profile_fields",
+            "name": "hint"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "kind: ProfileFieldKind",
+        "type_info": {
+          "Custom": {
+            "name": "profile_field_kind",
+            "kind": {
+              "Enum": [
+                "text",
+                "link",
+                "date",
+                "options",
+                "person"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "profile_fields",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "options: Json<Vec<ProfileFieldOption>>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "profile_fields",
+            "name": "options"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "admins_only",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "profile_fields",
+            "name": "admins_only"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "on_card",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "profile_fields",
+            "name": "on_card"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "position",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "profile_fields",
+            "name": "position"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "value_count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "6202f28dc96d60b7c53f3c4b29c0525ba2fb5f1b050fb98a8d7bdf5c02e4ef97"
+}

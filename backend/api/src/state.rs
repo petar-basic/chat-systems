@@ -34,6 +34,8 @@ pub struct AppState {
     pub conversation_repo: ConversationRepo,
     pub later_repo: LaterRepo,
     pub guest_repo: crate::guests::repo::GuestRepo,
+    pub invite_request_repo: crate::invite_requests::repo::InviteRequestRepo,
+    pub profile_field_repo: crate::profile_fields::repo::ProfileFieldRepo,
     pub poll_repo: crate::polls::repo::PollRepo,
     pub list_repo: crate::lists::repo::ListRepo,
     pub thread_repo: crate::threads::repo::ThreadRepo,

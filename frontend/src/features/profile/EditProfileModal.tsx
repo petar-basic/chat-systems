@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Modal } from '@/shared/components/Modal/Modal';
 import { Button } from '@/shared/components/Button/Button';
 import { TextInput } from '@/shared/components/Form/TextInput';
@@ -12,6 +13,15 @@ import {
 } from '@/features/profile/hooks/useProfile';
 import { usePhotoUpload } from '@/features/profile/hooks/usePhotoUpload';
 import { useWorkspaceStore } from '@/stores/workspace';
+import { useUserCache } from '@/stores/users';
+import {
+  ProfileFieldInputs,
+  changedValues,
+  editableFields,
+  useProfileFields,
+  useSetProfileValues,
+  type FieldValues,
+} from '@/features/people';
 import { displayNameOf } from '@/lib/userHelpers';
 import { toUserMessage } from '@/lib/errors';
 import { ProfilePhotoField } from './ProfilePhotoField';
@@ -24,7 +34,10 @@ interface Props {
   onClose: () => void;
 }
 
+const NO_VALUES: FieldValues = {};
+
 export function EditProfileModal({ onClose }: Props) {
+  const { t } = useTranslation('profile');
   const workspace = useWorkspaceStore((s) => s.currentWorkspace);
   const instanceUrl = workspace?.instanceUrl;
   const { data: user } = useCurrentUser();
@@ -32,6 +45,12 @@ export function EditProfileModal({ onClose }: Props) {
   const { data: profile } = useWorkspaceProfile(workspace?.id, instanceUrl);
   const save = useSaveWorkspaceProfile(workspace?.id, instanceUrl);
   const photo = usePhotoUpload(instanceUrl, workspace?.id);
+  const { fields } = useProfileFields(workspace?.id, instanceUrl);
+  const editable = editableFields(fields, false);
+  const savedFields =
+    useUserCache((s) => (user ? s.getUser(user.id)?.profile_fields : undefined)) ?? NO_VALUES;
+  const setValues = useSetProfileValues(workspace?.id ?? '', instanceUrl);
+  const [fieldDraft, setFieldDraft] = useState<FieldValues>(NO_VALUES);
 
   const [loaded, setLoaded] = useState(false);
   const [displayName, setDisplayName] = useState('');
@@ -54,6 +73,7 @@ export function EditProfileModal({ onClose }: Props) {
     setAvatarUrl(profile.avatar_url ?? '');
     setStatusDraft(current);
     setSavedStatus(current);
+    setFieldDraft(savedFields);
   }
 
   const statusChanged = !sameStatus(status, savedStatus);
@@ -86,6 +106,10 @@ export function EditProfileModal({ onClose }: Props) {
         avatar_url: avatarUrl.trim(),
       });
       await saveStatus();
+      const changes = changedValues(savedFields, fieldDraft, editable);
+      if (user && Object.keys(changes).length > 0) {
+        await setValues.mutateAsync({ userId: user.id, values: changes });
+      }
       await save.refresh();
       onClose();
     } catch (err) {
@@ -123,6 +147,13 @@ export function EditProfileModal({ onClose }: Props) {
       size="lg"
       dataQa="profile-modal"
       onSubmit={handleSave}
+      footerStart={
+        error && (
+          <p role="alert" className="text-sm text-danger" data-qa="profile-error">
+            {error}
+          </p>
+        )
+      }
       dismissLabel="Cancel"
       actions={
         <Button
@@ -191,10 +222,15 @@ export function EditProfileModal({ onClose }: Props) {
               placeholder={account?.bio || 'What you work on, where you are, how to reach you'}
               dataQa="profile-bio"
             />
-            {error && (
-              <p role="alert" className="text-sm text-danger">
-                {error}
-              </p>
+            {editable.length > 0 && (
+              <section className="space-y-3" data-qa="profile-fields-section">
+                <h3 className="text-sm font-semibold text-fg">{t('fields.heading')}</h3>
+                <ProfileFieldInputs
+                  fields={editable}
+                  values={fieldDraft}
+                  onChange={(fieldId, value) => setFieldDraft((d) => ({ ...d, [fieldId]: value }))}
+                />
+              </section>
             )}
           </div>
 

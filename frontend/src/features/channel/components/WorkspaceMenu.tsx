@@ -6,7 +6,7 @@ import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 
 interface Props {
   workspaceName: string | undefined;
-  isWorkspaceAdmin: boolean;
+  canInvite: boolean;
   isInstanceAdmin: boolean;
   canUseWorkflows: boolean;
   canLeave: boolean;
@@ -22,7 +22,7 @@ const ITEM =
 
 export function WorkspaceMenu({
   workspaceName,
-  isWorkspaceAdmin,
+  canInvite,
   isInstanceAdmin,
   canUseWorkflows,
   canLeave,
@@ -56,7 +56,7 @@ export function WorkspaceMenu({
       </button>
       {open && (
         <div className="unthemed text-fg absolute top-full left-0 right-0 bg-surface border border-line rounded-b-lg shadow-xl z-30">
-          {isWorkspaceAdmin && (
+          {canInvite && (
             <button className={ITEM} data-qa="open-invite" onClick={pick(onInvite)}>
               <UserPlus className="w-4 h-4" /> {t('workspace.invite')}
             </button>

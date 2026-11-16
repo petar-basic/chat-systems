@@ -23,6 +23,7 @@ use crate::dto::{DataList, StatusResponse};
 use crate::messaging::publisher::EventPublisher;
 use crate::middleware::AuthUser;
 use crate::net::AcceptLanguage;
+use crate::profile_fields::models::MembersQuery;
 use crate::state::AppState;
 
 pub fn router() -> OpenApiRouter<Arc<AppState>> {
@@ -305,11 +306,13 @@ async fn list_deleted_workspaces(
     operation_id = "workspace_list_members",
     get, path = "/workspaces/{ws_id}/members", tags = ["workspaces", "bot"],
     security(("bearer" = []), ("bot" = ["users:read"])),
+    params(MembersQuery),
     responses((status = 200, body = DataList<MemberWithUser>)))]
 async fn list_members(
     State(state): State<Arc<AppState>>,
     caller: Caller,
     Path(ws_id): Path<Uuid>,
+    Query(query): Query<MembersQuery>,
 ) -> AppResult<Json<DataList<MemberWithUser>>> {
     let auth = caller.scoped(Scope::UsersRead)?;
     let member = authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
@@ -330,8 +333,13 @@ async fn list_members(
             .list_members_with_users(ws_id)
             .await?
     };
-
-    Ok(Json(members.into()))
+    if query.q.is_none() && query.filter.is_none() {
+        return Ok(Json(members.into()));
+    }
+    let fields = crate::profile_fields::service::list(&state, ws_id).await?;
+    Ok(Json(
+        crate::profile_fields::service::filter_members(members, &fields, &query)?.into(),
+    ))
 }
 
 #[utoipa::path(
@@ -463,7 +471,8 @@ async fn create_invite(
     Json(req): Json<CreateInviteRequest>,
 ) -> AppResult<Json<CreatedInvite>> {
     let actor =
-        authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Admin).await?;
+        authz::require_workspace_role(&state, ws_id, auth.user_id, &WorkspaceRole::Member).await?;
+    crate::invite_requests::service::require_inviter(&state, ws_id, &actor).await?;
     req.validate()?;
     if req
         .role
@@ -475,13 +484,15 @@ async fn create_invite(
         ));
     }
     let lifetime = InviteLifetime::resolve(&req)?;
-    let terms = crate::guests::service::invite_terms(&state, ws_id, auth.user_id, &req).await?;
+    let terms =
+        crate::guests::service::invite_terms(&state, ws_id, auth.user_id, (&req).into()).await?;
     let inviter = Inviter {
         user_id: auth.user_id,
         language: state
             .auth_service
             .language_for(auth.user_id, accept_language.header())
             .await?,
+        on_behalf_of: None,
     };
     let created = state
         .workspace_service

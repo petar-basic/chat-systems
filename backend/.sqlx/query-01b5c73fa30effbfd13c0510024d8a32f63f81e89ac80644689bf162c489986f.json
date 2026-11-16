@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT wm.user_id\n              FROM workspace_members wm\n              JOIN users u ON u.id = wm.user_id\n             WHERE wm.workspace_id = $1 AND wm.user_id = ANY($2) AND NOT u.is_bot\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "workspace_members",
+            "name": "user_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "01b5c73fa30effbfd13c0510024d8a32f63f81e89ac80644689bf162c489986f"
+}

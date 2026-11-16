@@ -1,13 +1,28 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ProfileField } from '@/features/people';
 import { EditProfileModal } from './EditProfileModal';
 
 const saveProfile = vi.fn();
 const setStatus = vi.fn();
 const clearStatus = vi.fn();
+const setValues = vi.fn();
 let account: Record<string, string | null> = {};
 let profile: Record<string, string | null> = {};
+let fields: ProfileField[] = [];
+
+const field = (id: string, label: string, admins_only = false): ProfileField => ({
+  id,
+  workspace_id: 'ws-1',
+  label,
+  kind: 'text',
+  options: [],
+  admins_only,
+  on_card: false,
+  position: 0,
+  value_count: 0,
+});
 
 vi.mock('@/features/instance/hooks/useAuth', () => ({
   useCurrentUser: () => ({ data: { id: 'user-1', email: 'alice@dev.local' } }),
@@ -21,6 +36,11 @@ vi.mock('@/features/profile/hooks/useProfile', () => ({
     clearStatus: { mutateAsync: (...args: unknown[]) => clearStatus(...args) },
     refresh: vi.fn(),
   }),
+}));
+vi.mock('@/features/people/hooks/useProfileFields', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/people/hooks/useProfileFields')>()),
+  useProfileFields: () => ({ fields }),
+  useSetProfileValues: () => ({ mutateAsync: (...args: unknown[]) => setValues(...args) }),
 }));
 vi.mock('@/features/messaging', () => ({
   EmojiPicker: ({ onSelect, onClose }: { onSelect: (emoji: string) => void; onClose: () => void }) => (
@@ -56,6 +76,8 @@ describe('EditProfileModal', () => {
     saveProfile.mockReset().mockResolvedValue(undefined);
     setStatus.mockReset().mockResolvedValue(undefined);
     clearStatus.mockReset().mockResolvedValue(undefined);
+    setValues.mockReset().mockResolvedValue(undefined);
+    fields = [];
     account = {
       display_name: 'Alice',
       title: 'Engineer',
@@ -169,6 +191,32 @@ describe('EditProfileModal', () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(clearStatus).toHaveBeenCalled();
     expect(setStatus).not.toHaveBeenCalled();
+  });
+
+  it('saves the profile fields a member may fill in, and only the changed ones', async () => {
+    fields = [field('office', 'Office'), field('number', 'Employee number', true), field('pet', 'Pet')];
+    const onClose = renderModal();
+
+    expect(screen.queryByRole('textbox', { name: /Employee number/ })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole('textbox', { name: /Office/ }), { target: { value: ' Belgrade ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(setValues).toHaveBeenCalledWith({ userId: 'user-1', values: { office: 'Belgrade' } });
+  });
+
+  it('stays open and shows a refused profile field by name', async () => {
+    fields = [field('site', 'Website')];
+    setValues.mockRejectedValue(new Error('Website: a link starting with http:// or https://'));
+    const onClose = renderModal();
+
+    fireEvent.change(screen.getByRole('textbox', { name: /Website/ }), {
+      target: { value: 'bob.example.com' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Website: a link');
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('stays open and says why when saving fails', async () => {

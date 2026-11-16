@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT DISTINCT e AS \"email!\"\n                 FROM invite_requests r, unnest(r.emails) e\n                WHERE r.workspace_id = $1 AND r.status = 'pending' AND e = ANY($2)\n                ORDER BY 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "email!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "9fa26bfd4638913a836820b3f29cb467e6b4bcb777d052cb6323ca3eaa4248c9"
+}

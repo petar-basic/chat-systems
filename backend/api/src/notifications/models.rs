@@ -34,6 +34,10 @@ pub enum SystemNotice {
     AppRequested,
     NotDelivered,
     GuestEnding,
+    InviteRequested,
+    InviteRequestApproved,
+    InviteRequestDeclined,
+    InviteRequestExpired,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, ToSchema)]
@@ -90,6 +94,12 @@ pub struct NotificationData {
     pub guest_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub guest_until: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub invite_request_id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub invite_emails: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

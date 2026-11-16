@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM profile_field_values WHERE field_id = $1 AND NOT (value = ANY($2))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "075339c8285fb301e71e3e0ad2ff8065b0923788cf65babab7ab052295ae7397"
+}

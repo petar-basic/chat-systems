@@ -126,6 +126,7 @@ function AppContent() {
             <Route path="/app/:workspaceId/c/:conversationId" element={<WorkspacePage />} />
             <Route path="/app/:workspaceId/unreads" element={<WorkspacePage />} />
             <Route path="/app/:workspaceId/threads" element={<WorkspacePage />} />
+            <Route path="/app/:workspaceId/people" element={<WorkspacePage />} />
             <Route path="/app/:workspaceId/lists/:listId" element={<WorkspacePage />} />
             <Route path="/app/:workspaceId/:channelId/:messageId" element={<WorkspacePage />} />
             <Route path="/app/:workspaceId/:channelId" element={<WorkspacePage />} />

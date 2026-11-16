@@ -1,0 +1,235 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT r.id, r.workspace_id, r.requested_by,\n                      COALESCE(NULLIF(btrim(wm.display_name), ''), NULLIF(btrim(u.display_name), ''), u.email) AS \"requester_name!\",\n                      r.emails, r.role AS \"role: WorkspaceRole\",\n                      r.guest_kind AS \"guest_kind: GuestKind\", r.guest_until,\n                      ARRAY(SELECT c.id FROM invite_request_channels rc JOIN channels c ON c.id = rc.channel_id\n                             WHERE rc.request_id = r.id ORDER BY c.name, c.id) AS \"channel_ids!\",\n                      ARRAY(SELECT COALESCE(c.name, '') FROM invite_request_channels rc JOIN channels c ON c.id = rc.channel_id\n                             WHERE rc.request_id = r.id ORDER BY c.name, c.id) AS \"channel_names!\",\n                      r.reason, r.status AS \"status: InviteRequestStatus\",\n                      r.decided_by, r.decided_at, r.note, r.created_at,\n                      r.created_at + make_interval(days => $2) AS \"expires_at!\"\n                 FROM invite_requests r\n                 JOIN users u ON u.id = r.requested_by\n                 LEFT JOIN workspace_members wm ON wm.workspace_id = r.workspace_id AND wm.user_id = r.requested_by\n                WHERE r.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "invite_requests",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "invite_requests",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "requested_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "invite_requests",
+            "name": "requested_by"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "requester_name!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "emails",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "invite_requests",
+            "name": "emails"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "role: WorkspaceRole",
+        "type_info": {
+          "Custom": {
+            "name": "workspace_role",
+            "kind": {
+              "Enum": [
+                "guest",
+                "member",
+                "admin",
+                "owner"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "invite_requests",
+            "name": "role"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "guest_kind: GuestKind",
+        "type_info": {
+          "Custom": {
+            "name": "guest_kind",
+            "kind": {
+              "Enum": [
+                "single",
+                "multi"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "invite_requests",
+            "name": "guest_kind"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "guest_until",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "invite_requests",
+            "name": "guest_until"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "channel_ids!",
+        "type_info": "UuidArray",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 9,
+        "name": "channel_names!",
+        "type_info": "VarcharArray",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 10,
+        "name": "reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "invite_requests",
+            "name": "reason"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "status: InviteRequestStatus",
+        "type_info": {
+          "Custom": {
+            "name": "invite_request_status",
+            "kind": {
+              "Enum": [
+                "pending",
+                "approved",
+                "declined",
+                "expired"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "invite_requests",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "decided_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "invite_requests",
+            "name": "decided_by"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "decided_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "invite_requests",
+            "name": "decided_at"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "note",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "invite_requests",
+            "name": "note"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "invite_requests",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "expires_at!",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      null,
+      false,
+      false,
+      true,
+      true,
+      null,
+      null,
+      true,
+      false,
+      true,
+      true,
+      true,
+      false,
+      null
+    ]
+  },
+  "hash": "3b476754b893f4787e28e0dfd774f6192ffbc017788675ca289a4979adde5067"
+}

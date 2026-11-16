@@ -247,6 +247,7 @@
     "localTime": "{{time}} local time",
     "message": "Message",
     "huddle": "Huddle",
-    "left": "No longer in this workspace"
+    "left": "No longer in this workspace",
+    "viewProfile": "View full profile"
   }
 }

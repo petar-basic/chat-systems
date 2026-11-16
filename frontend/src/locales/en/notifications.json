@@ -138,6 +138,13 @@
     "notDelivered": "Scheduled message was not delivered",
     "notice": "Notification",
     "guestEnding": "{{name}}'s guest access is ending",
-    "guestEndingBody": "Their access ends on {{date}}. Move or clear the date in Workspace settings → Members."
+    "guestEndingBody": "Their access ends on {{date}}. Move or clear the date in Workspace settings → Members.",
+    "inviteRequested": "{{sender}} asked to invite people",
+    "inviteRequestApproved": "{{sender}} approved your invite request",
+    "inviteRequestDeclined": "{{sender}} declined your invite request",
+    "inviteRequestExpired": "Your invite request expired",
+    "inviteRequestFor": "For {{emails}}",
+    "inviteRequestForWithNote": "For {{emails}}. Their note: {{note}}",
+    "inviteRequestExpiredBody": "No admin answered it within 30 days. For {{emails}}"
   }
 }

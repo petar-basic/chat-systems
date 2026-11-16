@@ -9,6 +9,7 @@ vi.mock('./MembersSection', () => ({
 }));
 vi.mock('./UserGroupsSection', () => ({ UserGroupsSection: () => <p>groups body</p> }));
 vi.mock('./CustomEmojiSection', () => ({ CustomEmojiSection: () => <p>emoji body</p> }));
+vi.mock('./ProfileFieldsSection', () => ({ ProfileFieldsSection: () => <p>fields body</p> }));
 vi.mock('./AppsSection', () => ({ AppsSection: () => <p>apps body</p> }));
 vi.mock('./IntegrationsSection', () => ({ IntegrationsSection: () => <p>integrations body</p> }));
 vi.mock('./SlackImportSection', () => ({ SlackImportSection: () => <p>import body</p> }));
@@ -46,6 +47,7 @@ describe('WorkspaceSettingsModal', () => {
       'General',
       'Members',
       'User groups',
+      'Profile fields',
       'Custom emoji',
       'Apps',
       'Integrations',

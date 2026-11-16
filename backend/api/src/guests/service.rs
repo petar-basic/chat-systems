@@ -1,4 +1,4 @@
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use sqlx::PgConnection;
 use uuid::Uuid;
 
@@ -13,10 +13,31 @@ use crate::workspace::models::{
     WorkspaceRole,
 };
 
+#[derive(Clone)]
 pub struct InviteTerms {
     pub role: WorkspaceRole,
     pub guest: Option<GuestTerms>,
     pub channel_ids: Vec<Uuid>,
+}
+
+pub struct TermsAsked<'a> {
+    pub role: Option<&'a WorkspaceRole>,
+    pub by_email: bool,
+    pub guest_kind: Option<GuestKind>,
+    pub guest_until: Option<DateTime<Utc>>,
+    pub channel_ids: &'a [Uuid],
+}
+
+impl<'a> From<&'a CreateInviteRequest> for TermsAsked<'a> {
+    fn from(req: &'a CreateInviteRequest) -> Self {
+        Self {
+            role: req.role.as_ref(),
+            by_email: req.email.is_some(),
+            guest_kind: req.guest_kind,
+            guest_until: req.guest_until,
+            channel_ids: &req.channel_ids,
+        }
+    }
 }
 
 pub async fn require_room_in(
@@ -43,26 +64,26 @@ pub async fn invite_terms(
     state: &AppState,
     workspace_id: Uuid,
     inviter: Uuid,
-    req: &CreateInviteRequest,
+    req: TermsAsked<'_>,
 ) -> AppResult<InviteTerms> {
-    if req.role.as_ref() != Some(&WorkspaceRole::Guest) {
+    if req.role != Some(&WorkspaceRole::Guest) {
         if req.guest_kind.is_some() || req.guest_until.is_some() || !req.channel_ids.is_empty() {
             return Err(AppError::Validation(
                 "Only a guest invite names channels or an end date".into(),
             ));
         }
         return Ok(InviteTerms {
-            role: req.role.clone().unwrap_or(WorkspaceRole::Member),
+            role: req.role.cloned().unwrap_or(WorkspaceRole::Member),
             guest: None,
             channel_ids: Vec::new(),
         });
     }
-    if req.email.is_none() {
+    if !req.by_email {
         return Err(AppError::Validation(
             "A guest is invited by email: a link cannot be held to one person".into(),
         ));
     }
-    let mut channel_ids = req.channel_ids.clone();
+    let mut channel_ids = req.channel_ids.to_vec();
     channel_ids.sort_unstable();
     channel_ids.dedup();
     if channel_ids.is_empty() {

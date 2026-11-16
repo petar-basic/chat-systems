@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO profile_field_values (workspace_id, user_id, field_id, value)\n            SELECT $1, $2, w.field_id, w.value\n              FROM unnest($3::uuid[], $4::text[]) AS w(field_id, value)\n            ON CONFLICT (workspace_id, user_id, field_id)\n            DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "UuidArray",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "18b19afa2f24a4d185f87cb776378fef648af7ae167ad77efee2c4bcb146e3cf"
+}

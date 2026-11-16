@@ -17,6 +17,8 @@ export interface GuestChoice {
 
 const ENDING_SOON_DAYS = 30;
 
+export const NO_GUEST: GuestInvite = { kind: 'multi', channelIds: [], until: '' };
+
 export function guestChannelChoices(mine: Channel[], browsable: BrowsableChannel[]): GuestChoice[] {
   const byId = new Map<string, GuestChoice>();
   for (const ch of mine) {

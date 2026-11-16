@@ -3261,3 +3261,113 @@ name, topic and description of a private one; it now goes through `require_chann
 and the routing hook, which sends a refused preview back to the workspace, does the rest. Diana,
 a guest in #general alone, opened the link to #random: the request answered 403 and the tab
 moved to #general, while Charlie, a member outside #random, still got its preview.
+
+### [CS-125] Asking an admin to invite someone ✅ shipped
+Only admins could invite, so a member who wanted a colleague in asked an admin in a DM and the
+admin typed the address again. The workspace now has a fifth `WhoMay` rule, `inviters`, which,
+unlike the other four, is `admins` when unset: `WhoMay::of_or` takes the default per rule, and
+the client's `ruleOf` does the same. With `members`, `POST /invites` lets any member through for
+a role no higher than their own; with `admins` it answers a member 403 and says to ask instead.
+A guest never invites and never asks.
+
+A request is a row of `invite_requests`, its guest channels in `invite_request_channels`, with
+CHECK constraints for its shape: one to twenty addresses, `member` or `guest`, a kind exactly
+for a guest, an end date only for one, and a decision time exactly when it is no longer
+pending. Its guest terms go through `invite_terms`, the CS-124 check, with the requester as the
+inviter when it is made and the approving admin when it is approved, so a member cannot ask for
+a channel they cannot read and an admin cannot approve one that has since been archived. Making
+a request and approving one take `pg_advisory_xact_lock` on the workspace, so the checks for an
+address already in the workspace or in another waiting request hold when two arrive together;
+approving claims the row with `WHERE status = 'pending'` before it makes the invites, so two
+admins cannot both send them.
+
+Each admin and owner gets an Activity item and an email in their own language that opens
+*Workspace settings → Members*. Approving makes one email invite per address as the admin, with
+the requester kept in `workspace_invites.requested_by`, so the email, and any resend, reads
+"… invited you to … at Rita's request". The requester hears each answer in Activity, a decline
+with the admin's note, and only while still a member. The `invite_request_expiry` loop in
+chat-worker expires requests nobody answered in 30 days, every ten minutes, with `SKIP LOCKED`.
+The Activity frame for a request carries `invite_request_id`, and the client refreshes the
+request lists when one arrives.
+
+The new response type was first called `InviteRequest`, the name of the huddle invite body;
+utoipa keeps one schema per name, so the generated types lost the huddle's `user_ids` and the
+frontend build failed in `useHuddle`. It is `WorkspaceInviteRequest` now.
+
+Checked by hand on the Docker build. Diana, a guest, had no *Invite people* in the workspace
+menu or in *Members*, and the request route answered her 403, as it did Maya from another
+workspace. With the rule left at admins, Bob's *Invite people* opened the request form; he
+asked for two addresses, one typed with capitals, with a reason, and the form listed the
+request as waiting, both lowercased. Asking again for one of them answered 409, an address
+listed twice 422, Alice 409, and the admin role 403. Admin and Alice each got "Bob Smith asked
+to invite people" in Activity and the email. The admin edited the request and approved it; the
+invite email read "Admin invited you to the Dev Team workspace on Chat Systems, at Bob Smith's
+request", and Bob's Activity said the admin approved it. A guest request for #random, declined
+with a note, reached Bob with the note. Charlie's request, moved 31 days back, expired when the
+loop next ran, with `invite_request.expired` and no actor, and Charlie was told. With the rule
+set to members, Bob's *Invite people* invited directly, offering Member and Guest only; asking
+then answered 400, and an admin invite from him 403.
+
+The check found one fault, fixed here. Editing the addresses, a mistyped paste joined two into
+`ana@example.comana@example.com`, and the approval sent an invite to it: `validate_email` took
+everything after the first `@` as the domain and wanted only a dot in it. It now refuses a
+second `@` and a space inside an address, which is what two addresses without a separator look
+like, everywhere an address is checked.
+
+### [CS-126] Profile fields of the workspace's own ✅ shipped
+A profile had a title and a bio and nothing a company could rely on, so "who is in Finance"
+or "who reports to Ana" had no answer but asking around. An admin now defines up to 50 fields
+for the workspace in *Workspace settings → Profile fields*, each with a label, an optional
+hint and a kind: text, link, date, options or person. A field can be *admins only*, which
+everyone reads but only an admin fills in, as for an employee number, and up to two can show
+on the hover card. The kind is fixed once the field exists, because a value written for one
+kind means nothing to another.
+
+Fields are rows of `profile_fields`, ordered by `position`; an options field keeps its options
+as `{ id, label }` in JSONB, so renaming an option keeps every value that picked it and
+removing one drops those values, which the audit row counts as `values_dropped`. Values are
+rows of `profile_field_values`, one per member and field, as `TEXT` rather than the ticket's
+`jsonb`, since every kind's value is one string: the text, the link, `YYYY-MM-DD`, the option's
+id or the person's id. Both foreign keys carry the workspace, `(workspace_id, field_id)` to the
+field and `(workspace_id, user_id)` to `workspace_members`, so a value cannot point into
+another workspace, and deleting a field or a membership deletes its values with no code of its
+own. Creating, editing and reordering take `pg_advisory_xact_lock` on the workspace, so the
+50-field and two-on-card limits hold when two admins save at once. Each value is checked
+against its kind, and a refusal names the field: "Website: a link starting with http:// or
+https://". A person value must be someone in the workspace who is not a bot, checked for all
+person values of a request in one query.
+
+The member list carries each member's values as `profile_fields`, keyed by field id, from one
+`jsonb_object_agg` per row, and takes `?q=` and `?filter=field:value,…`. The filter runs on the
+server over the list the caller may already see, so a guest's directory stays within a guest's
+view, and only an options or a person field can be filtered on. The new *People directory*
+page keeps its search and filters in the query string, so a filtered view survives a reload
+and can be sent to someone. A member fills in their own fields at the bottom of *Edit profile*;
+an admin fills anyone's, admins-only ones included, from *Edit fields* on the person's profile
+panel. That panel is new too: *View full profile* on the hover card opens it on the right, and
+a person value in it opens that person's panel. A bot with `users:read` gets the values in the
+member list and the definitions from `GET /workspaces/{ws}/profile-fields`. A person export
+writes `profile_fields.jsonl`, and erasing someone deletes their values and counts them.
+
+Checked by hand on the Docker build. As the admin, Department (options), Manager (person),
+Office (text), Employee number (admins only), Start date, Website and Pet were added; a third
+field on the hover card answered 409, a second Office 409, an options field with no options or
+with "A" and "a " 422, and Bob 403. Bob filled in his own fields; the admins-only one answered
+him 403 naming it, Charlie's fields 403, and 30 February, an option of no field, Maya from
+Northwind as manager, `javascript:` as a link and 201 characters each answered 422 with the
+field's name. People filtered by Department = Finance listed Bob and Charlie, by Manager =
+Alice the same two, and adding Manager = Admin found nobody and offered to clear; a search for
+"novi" with Finance kept only Charlie, after a reload too. The hover card showed Department and
+Manager and not Office; the panel showed all of Bob's, the date as 1 Mar 2024, and Alice's name
+opened hers. A bot with `users:read` read the fields and Bob's office, one with `chat:write`
+got 403. In settings an arrow key and a drop each moved a field and kept the order; renaming
+Finance kept Bob's and Charlie's value, removing Support dropped Alice's, and deleting Pet said
+it held one value. Leaving the workspace, tried inside a rolled-back transaction, took
+Charlie's three values with it.
+
+The check found three faults, fixed here. A person export listed an options value as the
+option's id, which says nothing to the person reading it; each such row now carries
+`option_label` too. *Edit profile* put a refused field's message at the bottom of its
+scrolling body, under the fold now that the fields make the form longer; it sits in the
+footer beside *Save changes*. And a field dragged in the settings list set no drag data, which
+Firefox needs before it starts a drag; it sets the field's id.

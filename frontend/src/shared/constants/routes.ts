@@ -17,6 +17,7 @@ export const ROUTES = {
     `/app/${workspaceId}/c/${conversationId}/${messageId}`,
   unreads: (workspaceId: string) => `/app/${workspaceId}/unreads`,
   threads: (workspaceId: string) => `/app/${workspaceId}/threads`,
+  people: (workspaceId: string) => `/app/${workspaceId}/people`,
   list: (workspaceId: string, listId: string) => `/app/${workspaceId}/lists/${listId}`,
 } as const;
 
@@ -28,5 +29,6 @@ export const ROUTE_PATTERNS = {
   conversationMessage: '/app/:workspaceId/c/:conversationId/:messageId',
   unreads: '/app/:workspaceId/unreads',
   threads: '/app/:workspaceId/threads',
+  people: '/app/:workspaceId/people',
   list: '/app/:workspaceId/lists/:listId',
 } as const;

@@ -71,11 +71,21 @@
       "subject": "Join {{workspace}} on {{instance}}",
       "heading": "Join {{workspace}}",
       "body": "{{inviter}} invited you to the {{workspace}} workspace on {{instance}}.",
+      "bodyRequested": "{{inviter}} invited you to the {{workspace}} workspace on {{instance}}, at {{requester}}'s request.",
       "bodyNoInviter": "You've been invited to the {{workspace}} workspace on {{instance}}.",
       "button": "Join {{workspace}}",
       "expiry_one": "The invitation expires in {{count}} day.",
       "expiry_other": "The invitation expires in {{count}} days.",
       "notExpected": "If you weren't expecting it, you can ignore this email."
+    },
+    "inviteRequest": {
+      "subject": "{{requester}} asks you to invite people to {{workspace}}",
+      "heading": "A request to invite people",
+      "bodyMember": "{{requester}} asked for an invite to {{workspace}} for {{emails}}, as members.",
+      "bodyGuest": "{{requester}} asked for an invite to {{workspace}} for {{emails}}, as guests.",
+      "reason": "Their reason: {{reason}}",
+      "button": "Review the request",
+      "expiry": "If nobody answers it within 30 days, the request expires."
     },
     "test": {
       "subject": "Test email from {{instance}}",

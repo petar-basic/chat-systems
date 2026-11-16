@@ -2946,6 +2946,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{ws_id}/invite-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_invite_requests"];
+        put?: never;
+        post: operations["ask_for_invites"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/invite-requests/{request_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["approve_invite_request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/invite-requests/{request_id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["decline_invite_request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{ws_id}/invites": {
         parameters: {
             query?: never;
@@ -3072,6 +3120,22 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["update_guest"];
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/members/{user_id}/profile-fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["set_profile_values"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/workspaces/{ws_id}/members/{user_id}/role": {
@@ -3237,6 +3301,54 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["update_workspace_profile"];
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/profile-fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_profile_fields"];
+        put?: never;
+        post: operations["create_profile_field"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/profile-fields/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["order_profile_fields"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/profile-fields/{field_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete_profile_field"];
+        options?: never;
+        head?: never;
+        patch: operations["update_profile_field"];
         trace?: never;
     };
     "/workspaces/{ws_id}/profile/avatar": {
@@ -3586,6 +3698,8 @@ export interface components {
             /** Format: int64 */
             photos: number;
             /** Format: int64 */
+            profile_fields: number;
+            /** Format: int64 */
             push_subscriptions: number;
             /** Format: int64 */
             recovery_codes: number;
@@ -3680,11 +3794,21 @@ export interface components {
             /** Format: uuid */
             user_id: string;
         };
+        ApproveInviteRequest: {
+            terms?: components["schemas"]["RequestTerms"] | null;
+        };
+        ApprovedInviteRequest: {
+            invites: components["schemas"]["CreatedInvite"][];
+            request: components["schemas"]["WorkspaceInviteRequest"];
+        };
         ArchiveChannelsRequest: {
             channel_ids: string[];
         };
         ArchivedChannels: {
             archived: string[];
+        };
+        AskForInvites: components["schemas"]["RequestTerms"] & {
+            reason?: string | null;
         };
         Attachment: {
             filename: string;
@@ -4725,6 +4849,9 @@ export interface components {
                 joined_at: string;
                 /** Format: date-time */
                 notifications_paused_until?: string | null;
+                profile_fields: {
+                    [key: string]: string;
+                };
                 pronouns?: string | null;
                 role: components["schemas"]["WorkspaceRole"];
                 status_emoji?: string | null;
@@ -4801,6 +4928,24 @@ export interface components {
                 /** Format: uuid */
                 option_id: string;
                 user_ids: string[];
+            }[];
+        };
+        DataList_ProfileField: {
+            data: {
+                admins_only: boolean;
+                hint?: string | null;
+                /** Format: uuid */
+                id: string;
+                kind: components["schemas"]["ProfileFieldKind"];
+                label: string;
+                on_card: boolean;
+                options: components["schemas"]["ProfileFieldOption"][];
+                /** Format: int32 */
+                position: number;
+                /** Format: int64 */
+                value_count: number;
+                /** Format: uuid */
+                workspace_id: string;
             }[];
         };
         DataList_PushSubscriptionView: {
@@ -4992,6 +5137,35 @@ export interface components {
                 workspace_id: string;
             }[];
         };
+        DataList_WorkspaceInviteRequest: {
+            data: {
+                channel_ids: string[];
+                channel_names: string[];
+                /** Format: date-time */
+                created_at: string;
+                /** Format: date-time */
+                decided_at?: string | null;
+                /** Format: uuid */
+                decided_by?: string | null;
+                emails: string[];
+                /** Format: date-time */
+                expires_at: string;
+                guest_kind?: components["schemas"]["GuestKind"] | null;
+                /** Format: date-time */
+                guest_until?: string | null;
+                /** Format: uuid */
+                id: string;
+                note?: string | null;
+                reason?: string | null;
+                /** Format: uuid */
+                requested_by: string;
+                requester_name: string;
+                role: components["schemas"]["WorkspaceRole"];
+                status: components["schemas"]["InviteRequestStatus"];
+                /** Format: uuid */
+                workspace_id: string;
+            }[];
+        };
         DataList_WorkspacePerson: {
             data: {
                 display_name?: string | null;
@@ -5008,6 +5182,9 @@ export interface components {
                 /** Format: uuid */
                 workspace_id: string;
             }[];
+        };
+        DeclineInviteRequest: {
+            note?: string | null;
         };
         Definition: {
             steps: components["schemas"]["Step"][];
@@ -5416,6 +5593,8 @@ export interface components {
         InviteRequest: {
             user_ids: string[];
         };
+        /** @enum {string} */
+        InviteRequestStatus: "pending" | "approved" | "declined" | "expired";
         InvokeRequest: {
             command: string;
             text?: string;
@@ -5610,6 +5789,9 @@ export interface components {
             joined_at: string;
             /** Format: date-time */
             notifications_paused_until?: string | null;
+            profile_fields: {
+                [key: string]: string;
+            };
             pronouns?: string | null;
             role: components["schemas"]["WorkspaceRole"];
             status_emoji?: string | null;
@@ -5719,6 +5901,14 @@ export interface components {
             name: string;
             options?: components["schemas"]["ColumnOptionsInput"];
         };
+        NewProfileField: {
+            admins_only?: boolean;
+            hint?: string | null;
+            kind: components["schemas"]["ProfileFieldKind"];
+            label: string;
+            on_card?: boolean;
+            options?: components["schemas"]["ProfileFieldOptionInput"][];
+        };
         Notification: {
             body?: string | null;
             /** Format: date-time */
@@ -5750,6 +5940,9 @@ export interface components {
             /** Format: uuid */
             huddle_id?: string | null;
             in_channel?: boolean;
+            invite_emails?: string[] | null;
+            /** Format: uuid */
+            invite_request_id?: string | null;
             /** Format: uuid */
             item_id?: string | null;
             item_title?: string | null;
@@ -5761,6 +5954,7 @@ export interface components {
             list_title?: string | null;
             /** Format: uuid */
             message_id?: string | null;
+            note?: string | null;
             notice?: components["schemas"]["SystemNotice"] | null;
             /** Format: uuid */
             requested_by?: string | null;
@@ -5804,6 +5998,9 @@ export interface components {
             /** Format: uuid */
             option_id: string;
             user_ids: string[];
+        };
+        OrderProfileFields: {
+            field_ids: string[];
         };
         PasskeyAssertion: {
             /** Format: uuid */
@@ -5907,6 +6104,41 @@ export interface components {
         };
         /** @enum {string} */
         Previews: "shown" | "collapsed";
+        ProfileField: {
+            admins_only: boolean;
+            hint?: string | null;
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["ProfileFieldKind"];
+            label: string;
+            on_card: boolean;
+            options: components["schemas"]["ProfileFieldOption"][];
+            /** Format: int32 */
+            position: number;
+            /** Format: int64 */
+            value_count: number;
+            /** Format: uuid */
+            workspace_id: string;
+        };
+        /** @enum {string} */
+        ProfileFieldKind: "text" | "link" | "date" | "options" | "person";
+        ProfileFieldOption: {
+            /** Format: uuid */
+            id: string;
+            label: string;
+        };
+        ProfileFieldOptionInput: {
+            /** Format: uuid */
+            id?: string | null;
+            label: string;
+        };
+        ProfileValues: {
+            /** Format: uuid */
+            user_id: string;
+            values: {
+                [key: string]: string;
+            };
+        };
         /** @enum {string} */
         Provider: "jira" | "github" | "google_drive" | "figma" | "confluence";
         PushKey: {
@@ -5974,6 +6206,14 @@ export interface components {
         };
         ReorderSectionsRequest: {
             section_ids: string[];
+        };
+        RequestTerms: {
+            channel_ids?: string[];
+            emails: string[];
+            guest_kind?: components["schemas"]["GuestKind"] | null;
+            /** Format: date-time */
+            guest_until?: string | null;
+            role: components["schemas"]["WorkspaceRole"];
         };
         RescheduleRequest: {
             /** Format: date-time */
@@ -6121,6 +6361,11 @@ export interface components {
         SetNotifyLevelRequest: {
             level?: components["schemas"]["NotifyLevel"] | null;
         };
+        SetProfileValues: {
+            values: {
+                [key: string]: string | null;
+            };
+        };
         SetScheduleRequest: {
             days: number[];
             enabled: boolean;
@@ -6262,7 +6507,7 @@ export interface components {
             p256dh: string;
         };
         /** @enum {string} */
-        SystemNotice: "workflow_stopped" | "app_requested" | "not_delivered" | "guest_ending";
+        SystemNotice: "workflow_stopped" | "app_requested" | "not_delivered" | "guest_ending" | "invite_requested" | "invite_request_approved" | "invite_request_declined" | "invite_request_expired";
         /** @enum {string} */
         TextSize: "90" | "100" | "112" | "125";
         Theme: {
@@ -6490,6 +6735,13 @@ export interface components {
             text_size?: components["schemas"]["TextSize"] | null;
             typeface?: components["schemas"]["Typeface"] | null;
         };
+        UpdateProfileField: {
+            admins_only?: boolean | null;
+            hint?: string | null;
+            label?: string | null;
+            on_card?: boolean | null;
+            options?: components["schemas"]["ProfileFieldOptionInput"][] | null;
+        };
         UpdateProfileRequest: {
             avatar_url?: string | null;
             bio?: string | null;
@@ -6529,6 +6781,7 @@ export interface components {
             broadcast_mentions?: components["schemas"]["WhoMay"] | null;
             description?: string | null;
             icon_url?: string | null;
+            inviters?: components["schemas"]["WhoMay"] | null;
             link_previews?: boolean | null;
             name?: string | null;
             private_channel_creators?: components["schemas"]["WhoMay"] | null;
@@ -6712,6 +6965,33 @@ export interface components {
             token: string;
             /** Format: int32 */
             use_count: number;
+            /** Format: uuid */
+            workspace_id: string;
+        };
+        WorkspaceInviteRequest: {
+            channel_ids: string[];
+            channel_names: string[];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            decided_at?: string | null;
+            /** Format: uuid */
+            decided_by?: string | null;
+            emails: string[];
+            /** Format: date-time */
+            expires_at: string;
+            guest_kind?: components["schemas"]["GuestKind"] | null;
+            /** Format: date-time */
+            guest_until?: string | null;
+            /** Format: uuid */
+            id: string;
+            note?: string | null;
+            reason?: string | null;
+            /** Format: uuid */
+            requested_by: string;
+            requester_name: string;
+            role: components["schemas"]["WorkspaceRole"];
+            status: components["schemas"]["InviteRequestStatus"];
             /** Format: uuid */
             workspace_id: string;
         };
@@ -12014,6 +12294,104 @@ export interface operations {
             };
         };
     };
+    list_invite_requests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_WorkspaceInviteRequest"];
+                };
+            };
+        };
+    };
+    ask_for_invites: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AskForInvites"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceInviteRequest"];
+                };
+            };
+        };
+    };
+    approve_invite_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApproveInviteRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovedInviteRequest"];
+                };
+            };
+        };
+    };
+    decline_invite_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeclineInviteRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceInviteRequest"];
+                };
+            };
+        };
+    };
     list_invites: {
         parameters: {
             query?: never;
@@ -12202,7 +12580,10 @@ export interface operations {
     };
     workspace_list_members: {
         parameters: {
-            query?: never;
+            query?: {
+                q?: string | null;
+                filter?: string | null;
+            };
             header?: never;
             path: {
                 ws_id: string;
@@ -12265,6 +12646,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GuestSeat"];
+                };
+            };
+        };
+    };
+    set_profile_values: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetProfileValues"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileValues"];
                 };
             };
         };
@@ -12633,6 +13040,125 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkspaceProfile"];
+                };
+            };
+        };
+    };
+    list_profile_fields: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_ProfileField"];
+                };
+            };
+        };
+    };
+    create_profile_field: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewProfileField"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileField"];
+                };
+            };
+        };
+    };
+    order_profile_fields: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderProfileFields"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_ProfileField"];
+                };
+            };
+        };
+    };
+    delete_profile_field: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+                field_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    update_profile_field: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+                field_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProfileField"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileField"];
                 };
             };
         };

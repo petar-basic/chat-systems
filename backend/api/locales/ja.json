@@ -56,10 +56,20 @@
       "subject": "{{instance}} の {{workspace}} への招待",
       "heading": "{{workspace}} への招待",
       "body": "{{inviter}} さんが、{{instance}} のワークスペース「{{workspace}}」にあなたを招待しました。",
+      "bodyRequested": "{{requester}} さんの依頼を受けて、{{inviter}} さんが {{instance}} のワークスペース「{{workspace}}」にあなたを招待しました。",
       "bodyNoInviter": "{{instance}} のワークスペース「{{workspace}}」に招待されました。",
       "button": "{{workspace}} に参加",
       "expiry_other": "招待の有効期限は{{count}}日です。",
       "notExpected": "心当たりがない場合は、このメールを無視してください。"
+    },
+    "inviteRequest": {
+      "subject": "{{requester}} さんから {{workspace}} への招待の依頼",
+      "heading": "招待の依頼",
+      "bodyMember": "{{requester}} さんから、{{emails}} を {{workspace}} にメンバーとして招待してほしいという依頼がありました。",
+      "bodyGuest": "{{requester}} さんから、{{emails}} を {{workspace}} にゲストとして招待してほしいという依頼がありました。",
+      "reason": "理由: {{reason}}",
+      "button": "依頼を確認",
+      "expiry": "30日以内に誰も対応しなかった場合、この依頼は期限切れになります。"
     },
     "test": {
       "subject": "{{instance}} からのテストメール",

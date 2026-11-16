@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO invite_request_channels (request_id, channel_id)\n             SELECT $1, unnest($2::uuid[]) ON CONFLICT DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cf94ea30fa24a3e0436f26b2ea115fdb66cb6b7bdb64ca2c5b93f97c5ff11ebd"
+}

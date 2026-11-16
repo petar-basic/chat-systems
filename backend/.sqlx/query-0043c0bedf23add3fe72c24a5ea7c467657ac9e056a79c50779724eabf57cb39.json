@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE invite_requests\n                SET status = 'declined', decided_by = $2, decided_at = NOW(), note = $3\n              WHERE id = $1 AND status = 'pending'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0043c0bedf23add3fe72c24a5ea7c467657ac9e056a79c50779724eabf57cb39"
+}

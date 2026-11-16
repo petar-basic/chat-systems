@@ -1,6 +1,7 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { Message } from '@/stores/workspace';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
+import { useProfilePanel } from '@/stores/profilePanel';
 
 export type RightPanel =
   | { kind: 'thread'; message: Message; replyId?: string }
@@ -12,6 +13,7 @@ export type RightPanel =
   | { kind: 'scheduled' }
   | { kind: 'later' }
   | { kind: 'notifications' }
+  | { kind: 'profile'; userId: string }
   | null;
 
 export type PanelKind = NonNullable<RightPanel>['kind'];
@@ -45,10 +47,18 @@ export function useRightPanel(currentChannelId?: string, currentDmPartnerId?: st
     setActive(null);
   }
 
-  const toggle = useCallback((kind: Exclude<PanelKind, 'thread'>) => {
+  useEffect(
+    () =>
+      useProfilePanel.subscribe((now, before) => {
+        if (now.opened !== before.opened && now.userId) setActive({ kind: 'profile', userId: now.userId });
+      }),
+    [],
+  );
+
+  const toggle = useCallback((kind: Exclude<PanelKind, 'thread' | 'profile'>) => {
     setActive((p) => (p?.kind === kind ? null : { kind }));
   }, []);
-  const open = useCallback((kind: Exclude<PanelKind, 'thread'>) => {
+  const open = useCallback((kind: Exclude<PanelKind, 'thread' | 'profile'>) => {
     setActive((p) => (p?.kind === kind ? p : { kind }));
   }, []);
   const addChannelMembers = useCallback(() => setActive({ kind: 'channelMembers', adding: true }), []);

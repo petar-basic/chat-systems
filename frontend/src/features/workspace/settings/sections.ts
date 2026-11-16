@@ -2,6 +2,7 @@ import {
   Archive,
   ChartColumn,
   Clock,
+  IdCard,
   KeyRound,
   LayoutGrid,
   Plug,
@@ -19,6 +20,7 @@ export type SettingsSection =
   | 'general'
   | 'members'
   | 'user-groups'
+  | 'profile-fields'
   | 'custom-emoji'
   | 'apps'
   | 'integrations'
@@ -40,6 +42,7 @@ const SECTIONS: (ModalSection<SettingsSection> & { audience: Audience })[] = [
   { key: 'general', label: 'General', Icon: Settings, audience: 'admin' },
   { key: 'members', label: 'Members', Icon: Users, audience: 'everyone' },
   { key: 'user-groups', label: 'User groups', Icon: UsersRound, audience: 'everyone' },
+  { key: 'profile-fields', label: 'Profile fields', Icon: IdCard, audience: 'admin' },
   { key: 'custom-emoji', label: 'Custom emoji', Icon: Smile, audience: 'everyone' },
   { key: 'apps', label: 'Apps', Icon: LayoutGrid, audience: 'everyone' },
   { key: 'integrations', label: 'Integrations', Icon: Plug, audience: 'admin' },

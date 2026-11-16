@@ -81,6 +81,7 @@ pub struct AccountErased {
     pub keywords: u64,
     pub push_subscriptions: u64,
     pub sidebar_sections: u64,
+    pub profile_fields: u64,
     pub photos: u64,
 }
 
@@ -398,6 +399,13 @@ impl ExportRepo {
         sqlx::query!("DELETE FROM invite_links WHERE user_id = $1", user_id)
             .execute(&mut *tx)
             .await?;
+        let profile_fields = sqlx::query!(
+            "DELETE FROM profile_field_values WHERE user_id = $1",
+            user_id
+        )
+        .execute(&mut *tx)
+        .await?
+        .rows_affected();
 
         sqlx::query!(
             r"
@@ -451,6 +459,7 @@ impl ExportRepo {
             keywords,
             push_subscriptions,
             sidebar_sections,
+            profile_fields,
             photos: 0,
         })
     }
