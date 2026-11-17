@@ -62,10 +62,12 @@ describe('MessageAttachments', () => {
       clip: { kind: 'video' as const, duration_ms: 20_000 },
     };
     const movie = { ...clip, id: 'movie-1', filename: 'holiday.mp4', clip: null };
+    const canPlay = vi.spyOn(HTMLMediaElement.prototype, 'canPlayType').mockReturnValue('maybe');
     render(<MessageAttachments attachments={[clip, movie]} />);
     expect(screen.getByTestId('clip-player')).toHaveAttribute('data-kind', 'video');
     expect(screen.getByTestId('clip-duration')).toHaveTextContent('0:20');
     expect(screen.getByTestId('attachment-video')).toHaveTextContent('holiday.mp4');
+    canPlay.mockRestore();
   });
 
   it('lets an edit drop a file', () => {
