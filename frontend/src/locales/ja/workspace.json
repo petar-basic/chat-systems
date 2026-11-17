@@ -406,6 +406,92 @@
       "people_other": "{{count}}人",
       "deleteNamed": "@{{handle}} を削除",
       "empty": "グループはまだありません。グループを作ると、チームを1つのハンドルでメンションできます。"
+    },
+    "apps": {
+      "loadFailed": "アプリを読み込めませんでした。",
+      "missing": "そのアプリは、もうインストールされていません。",
+      "installed": "インストール済み",
+      "installedHint": "このワークスペースにつながっているものすべてです。追加した人、できること、正しく動いているかが分かります。",
+      "nothingInstalled": "まだ何もつながっていません。",
+      "available": "利用できるアプリ",
+      "availableHint": "接続アプリは、リンクを最新の詳細つきのカードにして表示します。アカウントは一人ひとりが自分で接続するため、カードに表示されるのは、リンクを投稿した人が見られる内容だけです。",
+      "build": "アプリを作る",
+      "buildHint": "チームで自作するもののための、ボットユーザーとトークンです。",
+      "buildOpen": "作る",
+      "kinds": {
+        "connected_app": "接続アプリ",
+        "bot_app": "アプリ",
+        "incoming_webhook": "Incoming Webhook",
+        "outgoing_webhook": "Outgoing Webhook",
+        "slash_command": "スラッシュコマンド",
+        "workflow": "ワークフロー"
+      },
+      "everyChannel": "すべてのチャンネル",
+      "noChannels": "チャンネルなし",
+      "hiddenChannels_other": "参加していない非公開チャンネル {{count}}個",
+      "health": {
+        "off": "オフ",
+        "disabled": "停止中",
+        "failing": "エラー発生中"
+      },
+      "card": {
+        "connected": "接続済み",
+        "notSetUp": "未設定",
+        "off": "オフ",
+        "disconnect": "接続を解除",
+        "connect": "自分のアカウントを接続",
+        "promptsOff": "接続の案内: オフ",
+        "turnOn": "オンにする",
+        "turnedOff": "管理者がこのアプリをオフにしています。",
+        "askAdmin": "ワークスペースの管理者に、このアプリの設定を頼んでください。",
+        "hideSetup": "設定を閉じる",
+        "editSetup": "設定を変更",
+        "setUp": "設定する"
+      },
+      "setup": {
+        "console": "開発者コンソールを開く",
+        "callbackUrl": "コールバック URL",
+        "scopes": "スコープ",
+        "reuse": "{{name}} のアプリを使う",
+        "reuseHint": "先に、そのアプリに {{api}} の API を追加してください。",
+        "clientId": "クライアント ID",
+        "secret": "シークレット",
+        "secretStored": "保存済みです。変えないときは空欄のままにしてください",
+        "enabled": "このワークスペースでオンにする",
+        "save": "保存",
+        "removeConfirm": "削除して、全員の接続を解除",
+        "remove": "アプリを削除",
+        "installTitle": "{{name}} をインストールしますか?",
+        "installLead": "同意するまで、誰もアカウントを接続できません。接続した人ごとに、このアプリは次のことができるようになります:",
+        "installConfirm": "同意してインストール"
+      },
+      "consentNothing": "ここに表示されること以外には、何もできません。",
+      "request": {
+        "title": "アプリをリクエスト",
+        "hint": "アプリを追加できるのは管理者だけです。リクエストは管理者の通知に届きます。",
+        "name": "追加してほしいアプリ",
+        "reason": "理由",
+        "send": "リクエストを送信",
+        "sent": "{{name}} を管理者にリクエストしました。",
+        "failed": "リクエストを送信できませんでした"
+      },
+      "make": {
+        "intro": "アプリには、専用のボットユーザーとトークンがあります。読み書きできるのは追加されたチャンネルの中だけで、ここで選んだスコープの範囲に限られます。呼び出す API は、ボット API のガイドで説明しています。",
+        "name": "アプリの名前",
+        "namePlaceholder": "デプロイ用ボット",
+        "description": "説明",
+        "scopes": "スコープ",
+        "create": "アプリを作成",
+        "failed": "アプリを作成できませんでした",
+        "consentTitle": "{{name}} をインストールしますか?",
+        "consentLead": "同意すると、トークンが作られます。このトークンで、アプリは次のことができるようになります:",
+        "consentConfirm": "同意してトークンを作成"
+      },
+      "token": {
+        "copyNow": "{{name}} のトークンを今すぐコピーしてください。二度と表示されず、あとから誰も読み出せません。",
+        "label": "ボットのトークン",
+        "stored": "安全な場所に保存しました"
+      }
     }
   }
 }

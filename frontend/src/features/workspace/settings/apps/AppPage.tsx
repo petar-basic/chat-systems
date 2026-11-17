@@ -1,4 +1,5 @@
 import { AlertTriangle, ArrowLeft, Check } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/shared/components/Button/Button';
 import { formatDateTime } from '@/lib/datetime';
 import { displayNameOf } from '@/lib/userHelpers';
@@ -21,7 +22,9 @@ interface Props {
 }
 
 export function AppPage({ workspaceId, app, directory, onOpen, onBack }: Props) {
-  const { label, Icon } = KINDS[app.kind];
+  const { t } = useTranslation('workspace');
+  const Icon = KINDS[app.kind];
+  const label = t(`settings.apps.kinds.${app.kind}`);
   const owner = directory.installed.find((other) => other.kind === 'bot_app' && other.id === app.app_id);
 
   return (
