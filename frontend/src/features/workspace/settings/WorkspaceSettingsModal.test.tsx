@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import i18n from '@/lib/i18n';
 import { cleanup, render, screen, fireEvent } from '@testing-library/react';
 import { WorkspaceSettingsModal } from './WorkspaceSettingsModal';
 import type { Workspace, WorkspaceRole } from '@/stores/workspace';
@@ -116,5 +117,34 @@ describe('WorkspaceSettingsModal', () => {
     rerender(<WorkspaceSettingsModal {...props} viewer={{ role: 'owner', isInstanceAdmin: false }} />);
     expect(screen.getByRole('tab', { name: 'Data retention' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText('retention body')).toBeInTheDocument();
+  });
+});
+
+describe('WorkspaceSettingsModal in Japanese', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('names the settings and every section', async () => {
+    await i18n.changeLanguage('ja');
+    renderModal('owner', 'general', true);
+
+    expect(screen.getByText('ワークスペースの設定')).toBeInTheDocument();
+    expect(tabNames()).toEqual([
+      '全般',
+      'メンバー',
+      'ユーザーグループ',
+      'プロフィール項目',
+      'カスタム絵文字',
+      'カスタムレスポンス',
+      'アプリ',
+      '連携',
+      'データの保持期間',
+      '分析',
+      'エクスポート',
+      'Slack からの取り込み',
+      '監査ログ',
+      'SCIM プロビジョニング',
+    ]);
   });
 });

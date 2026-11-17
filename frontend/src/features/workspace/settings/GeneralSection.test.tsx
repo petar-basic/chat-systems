@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import i18n from '@/lib/i18n';
 import type { ReactNode } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -99,5 +100,71 @@ describe('GeneralSection', () => {
     await waitFor(() => expect(patch).toHaveBeenCalledTimes(2));
     expect(bodyOf(1)).toEqual({ public_channel_creators: 'admins' });
     expect(screen.getByTestId('workspace-broadcast-mentions')).toHaveValue('admins');
+  });
+});
+
+describe('GeneralSection in Japanese', () => {
+  const hostile = '<img src=x onerror="alert(1)"> {{name}}';
+
+  beforeEach(async () => {
+    patch.mockReset();
+    patch.mockResolvedValue({ data: {} });
+    await i18n.changeLanguage('ja');
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('names every setting and who may use each permission', () => {
+    render(<GeneralSection workspace={workspace} onDeleted={vi.fn()} />, { wrapper });
+
+    expect(screen.getByLabelText(/ワークスペース名/)).toHaveValue('Dev Team');
+    expect(screen.getByText('リンクのプレビュー')).toBeInTheDocument();
+    expect(screen.getByText('GIF')).toBeInTheDocument();
+    expect(screen.getByLabelText('GIF のレーティング')).toHaveDisplayValue('PG — 軽い表現を含む');
+    expect(screen.getByRole('option', { name: 'R — 成人向け' })).toBeInTheDocument();
+    expect(screen.getByText('権限')).toBeInTheDocument();
+    expect(screen.getByLabelText('ワークフローを作成できる人')).toBeInTheDocument();
+    expect(screen.getByLabelText('@channel、@here、@everyone を使える人')).toBeInTheDocument();
+    expect(screen.getByLabelText('公開チャンネルを作成できる人')).toBeInTheDocument();
+    expect(screen.getByLabelText('非公開チャンネルを作成できる人')).toBeInTheDocument();
+    expect(screen.getByLabelText('メンバーを招待できる人')).toBeInTheDocument();
+    expect(screen.getByLabelText('カスタムレスポンスを編集できる人')).toBeInTheDocument();
+    expect(screen.getAllByRole('option', { name: 'メンバー全員' })).toHaveLength(6);
+    expect(screen.getAllByRole('option', { name: '管理者のみ' })).toHaveLength(6);
+    expect(screen.getByText('危険な操作')).toBeInTheDocument();
+  });
+
+  it('says when a change is saved', async () => {
+    render(<GeneralSection workspace={workspace} onDeleted={vi.fn()} />, { wrapper });
+    fireEvent.change(screen.getByTestId('workspace-inviters'), { target: { value: 'admins' } });
+    expect(await screen.findByText('保存しました')).toBeInTheDocument();
+  });
+
+  it('says in Japanese when saving fails without a reason', async () => {
+    patch.mockRejectedValue(new Error(''));
+    render(<GeneralSection workspace={workspace} onDeleted={vi.fn()} />, { wrapper });
+    fireEvent.change(screen.getByTestId('workspace-inviters'), { target: { value: 'admins' } });
+    expect(await screen.findByText('設定を保存できませんでした')).toBeInTheDocument();
+  });
+
+  it('asks how to delete, naming the workspace as text', () => {
+    render(<GeneralSection workspace={{ ...workspace, name: hostile }} onDeleted={vi.fn()} />, {
+      wrapper,
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'ワークスペースを削除' }));
+
+    expect(screen.getByText(`「${hostile}」を削除`)).toBeInTheDocument();
+    expect(screen.getByText('削除の方法を選んでください')).toBeInTheDocument();
+    expect(screen.getAllByText('論理削除(非表示)').length).toBeGreaterThan(0);
+    expect(screen.getByText('完全に削除')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'メンバーからは閲覧不能(非表示)になります。ワークスペースの管理者とサーバー管理者は引き続き閲覧可能です。オーナーとサーバー管理者は表示状態に戻すことができます。',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'キャンセル' })).toBeInTheDocument();
+    expect(document.querySelector('[onerror]')).toBeNull();
   });
 });

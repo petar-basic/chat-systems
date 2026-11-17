@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Trash2, AlertTriangle, RotateCcw } from 'lucide-react';
 import type { components } from '@/api/schema';
@@ -27,13 +28,13 @@ import { WorkspaceIcon } from '../components/WorkspaceIcon';
 type Changes = components['schemas']['UpdateWorkspaceRequest'];
 type DeleteType = 'soft' | 'hard';
 
-const PERMISSIONS: { rule: WorkspaceRule; label: string }[] = [
-  { rule: 'workflow_builders', label: 'Who can build workflows' },
-  { rule: 'broadcast_mentions', label: 'Who can use @channel, @here and @everyone' },
-  { rule: 'public_channel_creators', label: 'Who can create public channels' },
-  { rule: 'private_channel_creators', label: 'Who can create private channels' },
-  { rule: 'inviters', label: 'Who can invite people' },
-  { rule: 'custom_responders', label: 'Who can edit custom responses' },
+const PERMISSIONS: WorkspaceRule[] = [
+  'workflow_builders',
+  'broadcast_mentions',
+  'public_channel_creators',
+  'private_channel_creators',
+  'inviters',
+  'custom_responders',
 ];
 
 interface Props {
@@ -42,6 +43,7 @@ interface Props {
 }
 
 export function GeneralSection({ workspace, onDeleted }: Props) {
+  const { t } = useTranslation(['workspace', 'common']);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const restoreMutation = useRestoreWorkspace();
@@ -53,7 +55,7 @@ export function GeneralSection({ workspace, onDeleted }: Props) {
   const [gifs, setGifs] = useState(gifsEnabled(workspace.settings));
   const [gifRating, setGifRating] = useState(gifRatingOf(workspace.settings));
   const [rules, setRules] = useState(() =>
-    Object.fromEntries(PERMISSIONS.map(({ rule }) => [rule, ruleOf(workspace.settings, rule)])),
+    Object.fromEntries(PERMISSIONS.map((rule) => [rule, ruleOf(workspace.settings, rule)])),
   );
   const [uploadingIcon, setUploadingIcon] = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
@@ -85,11 +87,11 @@ export function GeneralSection({ workspace, onDeleted }: Props) {
     save.variables && field in save.variables ? (
       <p aria-live="polite" className="-mt-2 text-xs" data-qa="workspace-save-status">
         {save.isPending ? (
-          <span className="text-muted">Saving…</span>
+          <span className="text-muted">{t('settings.general.saving')}</span>
         ) : save.isError ? (
-          <span className="text-danger">{toUserMessage(save.error, 'Failed to save settings')}</span>
+          <span className="text-danger">{toUserMessage(save.error, t('settings.general.saveFailed'))}</span>
         ) : save.isSuccess ? (
-          <span className="text-success">Saved</span>
+          <span className="text-success">{t('settings.general.saved')}</span>
         ) : null}
       </p>
     ) : null;
@@ -145,7 +147,7 @@ export function GeneralSection({ workspace, onDeleted }: Props) {
       onDeleted();
       navigate('/app');
     } catch (err: unknown) {
-      setDeleteError(toUserMessage(err, 'Failed to delete workspace'));
+      setDeleteError(toUserMessage(err, t('settings.general.deleteFailed')));
     } finally {
       setDeleting(false);
     }
@@ -162,14 +164,14 @@ export function GeneralSection({ workspace, onDeleted }: Props) {
           />
           <div className="flex items-center gap-2">
             <FilePicker
-              label="Workspace icon"
+              label={t('settings.general.icon')}
               accept="image/*"
               onFiles={handleIconUpload}
               disabled={uploadingIcon}
               dataQa="workspace-icon-upload"
               className="px-3 py-2 text-sm bg-raised hover:bg-elevated text-fg rounded-lg transition"
             >
-              {uploadingIcon ? 'Uploading…' : 'Upload icon'}
+              {uploadingIcon ? t('settings.general.uploading') : t('settings.general.uploadIcon')}
             </FilePicker>
             {workspace.icon_url && (
               <button
@@ -177,14 +179,14 @@ export function GeneralSection({ workspace, onDeleted }: Props) {
                 onClick={() => save.mutate({ icon_url: '' })}
                 className="text-xs text-muted hover:text-danger transition cursor-pointer"
               >
-                Remove
+                {t('settings.general.removeIcon')}
               </button>
             )}
           </div>
         </div>
 
         <TextInput
-          label="Workspace name"
+          label={t('settings.general.name')}
           value={name}
           onChange={(e) => setName(e.target.value)}
           onBlur={saveName}
@@ -194,18 +196,18 @@ export function GeneralSection({ workspace, onDeleted }: Props) {
         {statusOf('name')}
 
         <TextArea
-          label="Description"
+          label={t('settings.general.description')}
           optional
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           onBlur={saveDescription}
-          placeholder="What is this workspace about?"
+          placeholder={t('settings.general.descriptionPlaceholder')}
         />
         {statusOf('description')}
 
         <Checkbox
-          label="Link previews"
-          description="Show a card with the title and image of pages linked in messages. The server fetches each public page to build it."
+          label={t('settings.general.linkPreviews')}
+          description={t('settings.general.linkPreviewsHint')}
           checked={linkPreviews}
           onChange={(link_previews) => {
             setLinkPreviews(link_previews);
@@ -216,8 +218,8 @@ export function GeneralSection({ workspace, onDeleted }: Props) {
         {statusOf('link_previews')}
 
         <Checkbox
-          label="GIFs"
-          description="Let people search GIPHY from the message box and send what they pick. Browsers fetch the search and the GIFs from GIPHY directly, and an instance admin has to add a GIPHY key first."
+          label={t('settings.general.gifs')}
+          description={t('settings.general.gifsHint')}
           checked={gifs}
           onChange={(on) => {
             setGifs(on);
@@ -230,8 +232,8 @@ export function GeneralSection({ workspace, onDeleted }: Props) {
         {gifs && (
           <>
             <Select
-              label="GIF rating"
-              hint="GIPHY leaves out GIFs rated above this."
+              label={t('settings.general.gifRating')}
+              hint={t('settings.general.gifRatingHint')}
               value={gifRating}
               onChange={(e) => {
                 const rating = e.target.value as GifRating;
@@ -240,9 +242,9 @@ export function GeneralSection({ workspace, onDeleted }: Props) {
               }}
               dataQa="workspace-gif-rating"
             >
-              {GIF_RATINGS.map(({ rating, label }) => (
+              {GIF_RATINGS.map((rating) => (
                 <option key={rating} value={rating}>
-                  {label}
+                  {t(`settings.general.gifRatings.${rating}`)}
                 </option>
               ))}
             </Select>
@@ -251,11 +253,11 @@ export function GeneralSection({ workspace, onDeleted }: Props) {
         )}
 
         <fieldset className="space-y-3" data-qa="workspace-permissions">
-          <legend className="mb-2 text-sm font-semibold text-fg">Permissions</legend>
-          {PERMISSIONS.map(({ rule, label }) => (
+          <legend className="mb-2 text-sm font-semibold text-fg">{t('settings.general.permissions')}</legend>
+          {PERMISSIONS.map((rule) => (
             <Fragment key={rule}>
               <Select
-                label={label}
+                label={t(`settings.general.rules.${rule}`)}
                 value={rules[rule]}
                 onChange={(e) => {
                   const who = e.target.value as WhoMay;
@@ -264,8 +266,8 @@ export function GeneralSection({ workspace, onDeleted }: Props) {
                 }}
                 dataQa={`workspace-${rule.replaceAll('_', '-')}`}
               >
-                <option value="members">Every member</option>
-                <option value="admins">Admins only</option>
+                <option value="members">{t('settings.general.everyMember')}</option>
+                <option value="admins">{t('settings.general.adminsOnly')}</option>
               </Select>
               {statusOf(rule)}
             </Fragment>
@@ -275,13 +277,11 @@ export function GeneralSection({ workspace, onDeleted }: Props) {
         <div className="border border-red-500/30 rounded-lg p-4">
           <h3 className="text-sm font-semibold text-danger mb-2 flex items-center gap-1.5">
             <AlertTriangle className="w-4 h-4" />
-            Danger zone
+            {t('settings.general.dangerZone')}
           </h3>
           {workspace.deleted_at ? (
             <>
-              <p className="text-xs text-muted mb-3">
-                This workspace was soft-deleted. You can restore it to make it visible to members again.
-              </p>
+              <p className="text-xs text-muted mb-3">{t('settings.general.softDeleted')}</p>
               <button
                 type="button"
                 onClick={handleRestore}
@@ -293,23 +293,21 @@ export function GeneralSection({ workspace, onDeleted }: Props) {
                 ) : (
                   <>
                     <RotateCcw className="w-4 h-4" />
-                    Restore workspace
+                    {t('settings.general.restore')}
                   </>
                 )}
               </button>
             </>
           ) : (
             <>
-              <p className="text-xs text-muted mb-3">
-                Deleting a workspace is irreversible (hard) or hides it from members (soft).
-              </p>
+              <p className="text-xs text-muted mb-3">{t('settings.general.deleteExplain')}</p>
               <button
                 type="button"
                 onClick={() => setDeleteModal(true)}
                 className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-600/20 hover:bg-red-600/40 border border-red-500/40 text-danger text-sm rounded-lg transition cursor-pointer"
               >
                 <Trash2 className="w-4 h-4" />
-                Delete workspace
+                {t('settings.general.delete')}
               </button>
             </>
           )}
@@ -318,15 +316,15 @@ export function GeneralSection({ workspace, onDeleted }: Props) {
 
       {deleteModal && (
         <Modal
-          title={`Delete “${workspace.name}”`}
-          description="Choose how to delete this workspace"
+          title={t('settings.general.deleteTitle', { name: workspace.name })}
+          description={t('settings.general.deleteDescription')}
           onClose={() => {
             setDeleteModal(false);
             setDeleteError(null);
           }}
           size="sm"
           dataQa="delete-workspace-modal"
-          dismissLabel="Cancel"
+          dismissLabel={t('cancel', { ns: 'common' })}
           actions={
             <Button
               variant="danger"
@@ -334,27 +332,25 @@ export function GeneralSection({ workspace, onDeleted }: Props) {
               loading={deleting}
               icon={<Trash2 className="h-4 w-4" />}
             >
-              {deleteType === 'hard' ? 'Delete permanently' : 'Soft delete'}
+              {deleteType === 'hard' ? t('settings.general.hard') : t('settings.general.soft')}
             </Button>
           }
         >
           <RadioCards
-            label="How to delete"
+            label={t('settings.general.howToDelete')}
             labelHidden
             value={deleteType}
             onChange={setDeleteType}
             options={[
               {
                 value: 'soft',
-                label: 'Soft delete',
-                description:
-                  'Hides the workspace from members. Only instance admins and workspace admins can see and restore it.',
+                label: t('settings.general.soft'),
+                description: t('settings.general.softHint'),
               },
               {
                 value: 'hard',
-                label: 'Delete permanently',
-                description:
-                  'Permanently deletes everything: channels, messages, members. This cannot be undone.',
+                label: t('settings.general.hard'),
+                description: t('settings.general.hardHint'),
               },
             ]}
             columns={1}

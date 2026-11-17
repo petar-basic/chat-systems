@@ -1,11 +1,6 @@
 import type { GifRating } from './types';
 
-export const GIF_RATINGS: { rating: GifRating; label: string }[] = [
-  { rating: 'g', label: 'G — fit for everyone' },
-  { rating: 'pg', label: 'PG — mild' },
-  { rating: 'pg-13', label: 'PG-13 — some adult themes' },
-  { rating: 'r', label: 'R — adult' },
-];
+export const GIF_RATINGS: GifRating[] = ['g', 'pg', 'pg-13', 'r'];
 
 function settingOf(settings: unknown, key: string): unknown {
   if (typeof settings !== 'object' || settings === null) return undefined;
@@ -18,5 +13,5 @@ export function gifsEnabled(settings: unknown): boolean {
 
 export function gifRatingOf(settings: unknown): GifRating {
   const rating = settingOf(settings, 'gif_rating');
-  return GIF_RATINGS.find((r) => r.rating === rating)?.rating ?? 'pg';
+  return GIF_RATINGS.find((r) => r === rating) ?? 'pg';
 }
