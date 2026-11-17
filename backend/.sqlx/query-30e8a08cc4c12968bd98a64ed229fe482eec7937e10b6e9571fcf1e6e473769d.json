@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COALESCE(\n                   (SELECT followed_on_join FROM huddle_participants\n                     WHERE huddle_id = $1 AND user_id = $2),\n                   FALSE) AS \"followed!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "followed!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "30e8a08cc4c12968bd98a64ed229fe482eec7937e10b6e9571fcf1e6e473769d"
+}

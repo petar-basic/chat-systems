@@ -218,6 +218,64 @@ async fn channel_access(
     Ok(access)
 }
 
+pub async fn require_message_access(
+    state: &AppState,
+    channel_id: Uuid,
+    message_id: Uuid,
+    user_id: Uuid,
+) -> AppResult<ChannelAccess> {
+    match channel_access(state, channel_id, user_id, false).await {
+        Err(AppError::Forbidden(reason)) => {
+            huddle_thread_access(state, channel_id, message_id, user_id)
+                .await?
+                .ok_or(AppError::Forbidden(reason))
+        }
+        other => other,
+    }
+}
+
+pub async fn require_thread_post_as(
+    state: &AppState,
+    channel_id: Uuid,
+    thread_parent_id: Option<Uuid>,
+    auth: &AuthUser,
+) -> AppResult<ChannelAccess> {
+    match require_channel_post_as(state, channel_id, auth).await {
+        Err(AppError::Forbidden(reason)) => {
+            let Some(parent_id) = thread_parent_id.filter(|_| auth.bot.is_none()) else {
+                return Err(AppError::Forbidden(reason));
+            };
+            match huddle_thread_access(state, channel_id, parent_id, auth.user_id).await? {
+                Some(access) => require_posting(state, access).await,
+                None => Err(AppError::Forbidden(reason)),
+            }
+        }
+        other => other,
+    }
+}
+
+async fn huddle_thread_access(
+    state: &AppState,
+    channel_id: Uuid,
+    message_id: Uuid,
+    user_id: Uuid,
+) -> AppResult<Option<ChannelAccess>> {
+    if !state
+        .huddle_repo
+        .hears(message_id, channel_id, user_id)
+        .await?
+    {
+        return Ok(None);
+    }
+    let channel = find_channel(state, channel_id).await?;
+    let member = require_workspace_member(state, channel.workspace_id, user_id).await?;
+    Ok(Some(ChannelAccess {
+        channel,
+        member,
+        channel_member: None,
+    }))
+}
+
 /// Access plus the right to speak. Every path that writes a message goes
 /// through this rather than through `require_channel_access`, so an
 /// announcement channel is enforced in one place instead of in each writer --

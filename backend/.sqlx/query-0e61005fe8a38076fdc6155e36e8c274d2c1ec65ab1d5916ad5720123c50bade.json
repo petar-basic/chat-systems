@@ -1,0 +1,113 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, workspace_id, channel_id, dm_partner_id, initiated_by, started_at, ended_at, message_id\n               FROM huddle_sessions\n              WHERE id = $1 AND workspace_id = $2 AND ended_at IS NULL",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "huddle_sessions",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "huddle_sessions",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "channel_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "huddle_sessions",
+            "name": "channel_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "dm_partner_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "huddle_sessions",
+            "name": "dm_partner_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "initiated_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "huddle_sessions",
+            "name": "initiated_by"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "started_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "huddle_sessions",
+            "name": "started_at"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "ended_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "huddle_sessions",
+            "name": "ended_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "message_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "huddle_sessions",
+            "name": "message_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "0e61005fe8a38076fdc6155e36e8c274d2c1ec65ab1d5916ad5720123c50bade"
+}

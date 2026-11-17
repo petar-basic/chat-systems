@@ -75,10 +75,10 @@ const root = {
 } as unknown as Message;
 const design = { id: 'ch-1', name: 'design', channel_type: 'public', is_archived: false } as Channel;
 
-function openPanel(channels: Channel[] = [design]) {
+function openPanel(channels: Channel[] = [design], inChannel = true) {
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <ThreadPanel parentMessage={root} channels={channels} onClose={vi.fn()} />
+      <ThreadPanel parentMessage={root} channels={channels} inChannel={inChannel} onClose={vi.fn()} />
     </QueryClientProvider>,
   );
 }
@@ -170,5 +170,24 @@ describe('the thread panel', () => {
       '#design is archived, so its threads take no new replies.',
     );
     expect(screen.queryByTestId('thread-also-to-channel')).toBeNull();
+  });
+
+  it('lets someone only in the huddle write in its thread and nowhere else', async () => {
+    panel.fetched = design;
+    openPanel([], false);
+
+    expect(screen.getByTestId('thread-huddle-only')).toHaveTextContent(
+      "You can read and write in this thread while you're in the huddle. It closes to you when you leave.",
+    );
+    expect(screen.queryByTestId('thread-also-to-channel')).toBeNull();
+    expect(panel.composer.slashCommands).toBe(false);
+    expect(panel.composer.scheduleTarget).toBeUndefined();
+    expect(panel.composer.pollTarget).toBeUndefined();
+    expect(panel.composer.draftPlace).toBeUndefined();
+
+    await act(() => (panel.composer.onSend as (content: string) => Promise<void>)('/away'));
+
+    expect(panel.runCommand).not.toHaveBeenCalled();
+    expect(panel.sendReply).toHaveBeenCalledWith(expect.objectContaining({ content: '/away' }));
   });
 });

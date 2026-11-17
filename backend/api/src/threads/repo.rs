@@ -117,12 +117,66 @@ impl ThreadRepo {
                AND f.user_id IS DISTINCT FROM $2
                AND (EXISTS (SELECT 1 FROM channel_members cm
                              WHERE cm.channel_id = r.channel_id AND cm.user_id = f.user_id)
-                    OR (c.channel_type = 'public' AND wm.role <> 'guest'))
+                    OR (c.channel_type = 'public' AND wm.role <> 'guest')
+                    OR EXISTS (SELECT 1 FROM huddle_sessions h
+                                 JOIN huddle_participants p ON p.huddle_id = h.id
+                                WHERE h.message_id = r.id AND h.ended_at IS NULL
+                                  AND p.user_id = f.user_id AND p.left_at IS NULL))
             "#,
             root_message_id,
             sender_id
         )
         .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn follow_from_huddle(
+        &self,
+        user_id: Uuid,
+        workspace_id: Uuid,
+        root_message_id: Uuid,
+    ) -> sqlx::Result<bool> {
+        sqlx::query_scalar!(
+            r#"
+            WITH before AS (
+                SELECT following FROM thread_follows
+                 WHERE user_id = $1 AND root_message_id = $3
+            ), saved AS (
+                INSERT INTO thread_follows (user_id, workspace_id, root_message_id, following)
+                SELECT $1, $2, $3, TRUE
+                  FROM workspace_members WHERE workspace_id = $2 AND user_id = $1
+                ON CONFLICT (user_id, root_message_id) DO UPDATE SET following = TRUE
+                RETURNING user_id
+            )
+            SELECT NOT COALESCE((SELECT following FROM before), FALSE) AS "turned_on!"
+            "#,
+            user_id,
+            workspace_id,
+            root_message_id
+        )
+        .fetch_one(&self.pool)
+        .await
+    }
+
+    pub async fn unfollow_unless_replied(
+        &self,
+        user_id: Uuid,
+        root_message_id: Uuid,
+    ) -> sqlx::Result<Option<ThreadState>> {
+        sqlx::query_as!(
+            ThreadState,
+            r#"
+            UPDATE thread_follows SET following = FALSE
+             WHERE user_id = $1 AND root_message_id = $2 AND following
+               AND NOT EXISTS (SELECT 1 FROM messages m
+                                WHERE m.thread_parent_id = $2 AND m.user_id = $1
+                                  AND m.deleted_at IS NULL)
+            RETURNING root_message_id, following, 0::bigint AS "unread_count!"
+            "#,
+            user_id,
+            root_message_id
+        )
+        .fetch_optional(&self.pool)
         .await
     }
 

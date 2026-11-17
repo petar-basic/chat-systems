@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE huddle_participants SET followed_on_join = $3\n              WHERE huddle_id = $1 AND user_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d7bb9aba82f62119218dfb456846fa3e705c2dde7150868f454f9e09c20dd033"
+}

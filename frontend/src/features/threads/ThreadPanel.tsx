@@ -44,10 +44,26 @@ interface Props {
   replyId?: string;
   members?: WorkspaceMember[];
   channels?: Channel[];
+  variant?: 'side' | 'huddle';
+  inChannel?: boolean;
   onClose: () => void;
 }
 
-export default function ThreadPanel({ parentMessage: opened, replyId, members, channels, onClose }: Props) {
+const FRAMES = {
+  side: 'w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 flex flex-col border-l border-line/50 bg-app lg:bg-app/80',
+  huddle:
+    'w-full sm:w-80 h-full min-h-0 flex flex-col border border-line/50 rounded-xl bg-app overflow-hidden',
+};
+
+export default function ThreadPanel({
+  parentMessage: opened,
+  replyId,
+  members,
+  channels,
+  variant = 'side',
+  inChannel = true,
+  onClose,
+}: Props) {
   const { t } = useTranslation(['threads', 'messages']);
   const parentMessage = useLiveMessage(opened);
   const {
@@ -73,11 +89,11 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
   const known =
     channels?.find((ch) => ch.id === parentMessage.channel_id) ??
     (currentChannel?.id === parentMessage.channel_id ? currentChannel : undefined);
-  const { data: fetched } = useChannelPreview(known ? undefined : parentMessage.channel_id);
+  const { data: fetched } = useChannelPreview(known || !inChannel ? undefined : parentMessage.channel_id);
   const channel = known ?? fetched;
   const isConversation = channel?.channel_type === 'dm' || channel?.channel_type === 'group_dm';
   const { canBroadcast, members: channelMembers } = useChannelModeration(
-    parentMessage.channel_id,
+    inChannel ? parentMessage.channel_id : null,
     channel?.settings,
   );
   const follow = useFollowThread(parentMessage.id);
@@ -140,7 +156,7 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
   });
   const command = useSlashCommand(parentMessage.channel_id, parentMessage.id, currentWorkspace?.instanceUrl);
   const handleSend = async (content: string, gif?: Gif) => {
-    if (!gif && (await command.run(content))) return;
+    if (!gif && inChannel && (await command.run(content))) return;
     sendReply.mutate({
       content,
       id: crypto.randomUUID(),
@@ -173,11 +189,7 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
 
   return (
     <GalleryProvider messages={threadMessages}>
-      <div
-        className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 flex flex-col border-l border-line/50 bg-app lg:bg-app/80"
-        data-qa="thread-panel"
-        data-message-pane
-      >
+      <div className={FRAMES[variant]} data-qa="thread-panel" data-message-pane>
         <PanelHeader
           title={t('panel.title')}
           icon={<MessageSquare className="h-4 w-4 text-muted" />}
@@ -268,7 +280,7 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
                     members={members}
                     channels={channels}
                     onToggleReaction={toggleReaction}
-                    onTogglePin={togglePin}
+                    onTogglePin={inChannel ? togglePin : undefined}
                     onEdit={edit}
                     onDelete={remove}
                     onRetry={retry}
@@ -292,17 +304,23 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
             </p>
           ) : (
             <>
-              <Checkbox
-                label={
-                  channel && !isConversation
-                    ? t('view.alsoToChannel', { name: channel.name })
-                    : t('view.alsoToConversation')
-                }
-                checked={alsoToChannel}
-                onChange={setAlsoToChannel}
-                dataQa="thread-also-to-channel"
-                className="px-4 pt-3 pb-2"
-              />
+              {inChannel ? (
+                <Checkbox
+                  label={
+                    channel && !isConversation
+                      ? t('view.alsoToChannel', { name: channel.name })
+                      : t('view.alsoToConversation')
+                  }
+                  checked={alsoToChannel}
+                  onChange={setAlsoToChannel}
+                  dataQa="thread-also-to-channel"
+                  className="px-4 pt-3 pb-2"
+                />
+              ) : (
+                <p data-qa="thread-huddle-only" className="px-4 pt-3 pb-2 text-xs text-muted">
+                  {t('panel.huddleOnly')}
+                </p>
+              )}
               <CommandAnswer text={command.answer} pending={command.pending} onDismiss={command.dismiss} />
               <MessageInput
                 key={`thread:${parentMessage.id}`}
@@ -318,7 +336,7 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
                   threadParentId: parentMessage.id,
                 })}
                 draftPlace={
-                  currentWorkspace
+                  currentWorkspace && inChannel
                     ? {
                         instanceUrl: currentWorkspace.instanceUrl,
                         workspaceId: currentWorkspace.id,
@@ -327,23 +345,31 @@ export default function ThreadPanel({ parentMessage: opened, replyId, members, c
                       }
                     : undefined
                 }
-                slashCommands
+                slashCommands={inChannel}
                 gifs
                 onSend={handleSend}
                 attachments={attachments}
                 workspaceId={currentWorkspace?.id}
                 instanceUrl={currentWorkspace?.instanceUrl}
-                scheduleTarget={{
-                  channelId: parentMessage.channel_id,
-                  threadParentId: parentMessage.id,
-                  alsoToChannel,
-                }}
+                scheduleTarget={
+                  inChannel
+                    ? {
+                        channelId: parentMessage.channel_id,
+                        threadParentId: parentMessage.id,
+                        alsoToChannel,
+                      }
+                    : undefined
+                }
                 onScheduled={() => setAlsoToChannel(false)}
-                pollTarget={{
-                  channelId: parentMessage.channel_id,
-                  threadParentId: parentMessage.id,
-                  instanceUrl: currentWorkspace?.instanceUrl,
-                }}
+                pollTarget={
+                  inChannel
+                    ? {
+                        channelId: parentMessage.channel_id,
+                        threadParentId: parentMessage.id,
+                        instanceUrl: currentWorkspace?.instanceUrl,
+                      }
+                    : undefined
+                }
               />
             </>
           )}
