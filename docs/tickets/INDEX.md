@@ -499,7 +499,7 @@ later* list that day.
 | # | Ticket | Area |
 |---|---|---|
 | CS-131 ✅ | A huddle's own thread | backend · frontend · realtime |
-| CS-132 | Drawing on a shared screen | frontend · realtime · desktop |
+| CS-132 ✅ | Drawing on a shared screen | frontend · realtime · desktop |
 | CS-133 | Clips: recorded audio, video and screen | frontend · backend · desktop |
 
 ### Wave 36 — Apps that do more
@@ -611,7 +611,7 @@ Tickets that touch the same files, and the order that avoids rework:
 | `SearchPanel` and `SearchFilterBar` | CS-128 ✅ |
 | `commands/builtin.rs` | CS-129 ✅ |
 | built-in bot users and the message stream consumers in `chat-worker` | CS-130 ✅ → CS-140 |
-| huddle window, `HuddleControlBar` and huddle realtime frames | CS-131 ✅ → CS-132 |
+| huddle window, `HuddleControlBar` and huddle realtime frames | CS-131 ✅ → CS-132 ✅ |
 | `files/` upload metadata and `MessageAttachments.tsx` | CS-133 |
 | message `metadata`, the static renderer and `hooks/models.rs` payloads | CS-134 → CS-135 → CS-137 |
 | `app_events`, `bots/models.rs` and the app's page in *Apps* | CS-134 → CS-135 → CS-136 → CS-137 → CS-139 |

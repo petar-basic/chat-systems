@@ -15,6 +15,7 @@ export interface HuddleParticipant {
   audioMuted: boolean;
   cameraOn: boolean;
   sharing: boolean;
+  drawingEnabled: boolean;
   handRaised: boolean;
 }
 
@@ -56,7 +57,9 @@ interface HuddleState {
   localMuted: boolean;
   localCameraOn: boolean;
   localSharing: boolean;
+  localDrawing: boolean;
   localHandRaised: boolean;
+  penOn: string | null;
   background: 'none' | 'blur';
   participants: Record<string, HuddleParticipant>;
   speaking: Set<string>;
@@ -73,13 +76,16 @@ interface HuddleState {
   setLocalMuted: (muted: boolean) => void;
   setLocalCamera: (on: boolean) => void;
   setLocalSharing: (sharing: boolean) => void;
+  setLocalDrawing: (enabled: boolean) => void;
   setLocalHand: (raised: boolean) => void;
+  setPen: (sharerId: string | null) => void;
   setBackground: (mode: 'none' | 'blur') => void;
   upsertParticipant: (userId: string) => void;
   setParticipantStream: (userId: string, kind: TrackKind, stream: MediaStream | null) => void;
   setParticipantMuted: (userId: string, muted: boolean) => void;
   setParticipantCamera: (userId: string, on: boolean) => void;
   setParticipantSharing: (userId: string, sharing: boolean) => void;
+  setParticipantDrawing: (userId: string, enabled: boolean) => void;
   setParticipantHand: (userId: string, raised: boolean) => void;
   removeParticipant: (userId: string) => void;
   setSpeaking: (userId: string, speaking: boolean) => void;
@@ -101,6 +107,7 @@ const emptyParticipant = (userId: string): HuddleParticipant => ({
   audioMuted: false,
   cameraOn: false,
   sharing: false,
+  drawingEnabled: true,
   handRaised: false,
 });
 
@@ -113,7 +120,9 @@ export const useHuddleStore = create<HuddleState>((set) => ({
   localMuted: false,
   localCameraOn: false,
   localSharing: false,
+  localDrawing: true,
   localHandRaised: false,
+  penOn: null,
   background: 'none',
   participants: {},
   speaking: new Set<string>(),
@@ -130,7 +139,9 @@ export const useHuddleStore = create<HuddleState>((set) => ({
   setLocalMuted: (localMuted) => set({ localMuted }),
   setLocalCamera: (localCameraOn) => set({ localCameraOn }),
   setLocalSharing: (localSharing) => set({ localSharing }),
+  setLocalDrawing: (localDrawing) => set({ localDrawing }),
   setLocalHand: (localHandRaised) => set({ localHandRaised }),
+  setPen: (penOn) => set({ penOn }),
   setBackground: (background) => set({ background }),
 
   upsertParticipant: (userId) =>
@@ -171,12 +182,30 @@ export const useHuddleStore = create<HuddleState>((set) => ({
     })),
 
   setParticipantSharing: (userId, sharing) =>
-    set((s) => ({
-      participants: {
-        ...s.participants,
-        [userId]: { ...(s.participants[userId] ?? emptyParticipant(userId)), sharing },
-      },
-    })),
+    set((s) => {
+      const known = s.participants[userId] ?? emptyParticipant(userId);
+      return {
+        participants: {
+          ...s.participants,
+          [userId]: {
+            ...known,
+            sharing,
+            drawingEnabled: sharing && !known.sharing ? true : known.drawingEnabled,
+          },
+        },
+        penOn: !sharing && s.penOn === userId ? null : s.penOn,
+      };
+    }),
+
+  setParticipantDrawing: (userId, drawingEnabled) =>
+    set((s) =>
+      s.participants[userId]
+        ? {
+            participants: { ...s.participants, [userId]: { ...s.participants[userId], drawingEnabled } },
+            penOn: !drawingEnabled && s.penOn === userId ? null : s.penOn,
+          }
+        : s,
+    ),
 
   setParticipantHand: (userId, handRaised) =>
     set((s) => ({
@@ -196,6 +225,7 @@ export const useHuddleStore = create<HuddleState>((set) => ({
         participants: next,
         speaking,
         pinnedUserId: s.pinnedUserId === userId ? null : s.pinnedUserId,
+        penOn: s.penOn === userId ? null : s.penOn,
       };
     }),
 
@@ -225,6 +255,7 @@ export const useHuddleStore = create<HuddleState>((set) => ({
       pinnedUserId: null,
       reactions: [],
       localHandRaised: false,
+      penOn: null,
     }),
 
   addIncomingCall: (call) =>

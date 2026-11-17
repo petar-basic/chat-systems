@@ -18,6 +18,9 @@ fn main() {
             "start_sso",
             "start_passkey",
             "press_menu_keys",
+            "open_draw_overlay",
+            "draw_on_overlay",
+            "close_draw_overlay",
         ]),
     ))
     .expect("tauri build script");

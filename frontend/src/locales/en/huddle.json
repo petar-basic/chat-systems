@@ -25,6 +25,8 @@
     "cameraOff": "Turn camera off",
     "share": "Share screen",
     "stopSharing": "Stop sharing",
+    "drawingOn": "Let others draw on your screen",
+    "drawingOff": "Stop others drawing on your screen",
     "raiseHand": "Raise hand",
     "lowerHand": "Lower hand",
     "blur": "Blur background",
@@ -46,7 +48,9 @@
     "handRaised": "Hand raised",
     "waitingForScreen": "Waiting for the screen…",
     "pin": "Pin",
-    "unpin": "Unpin"
+    "unpin": "Unpin",
+    "draw": "Draw on this screen",
+    "stopDrawing": "Stop drawing (Esc)"
   },
   "incoming": {
     "title": "Incoming huddle",

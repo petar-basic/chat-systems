@@ -15,11 +15,14 @@ import i18n from '@/lib/i18n';
 import { BackgroundProcessor } from './lib/backgroundProcessor';
 import { HuddleWindow } from './components/HuddleWindow';
 import { IncomingCallRing } from './components/IncomingCallRing';
+import { drawBoard } from './lib/drawing';
+import { mirrorOnDesktop } from './lib/drawOverlay';
 
 export interface HuddleControls {
   toggleMute: () => void;
   toggleCamera: () => void;
   toggleScreen: () => void;
+  toggleDrawing: () => void;
   toggleHand: () => void;
   toggleBackground: () => void;
   sendReaction: (emoji: string) => void;
@@ -41,6 +44,7 @@ export function HuddleController() {
   const micStreamRef = useRef<MediaStream | null>(null);
   const camTrackRef = useRef<MediaStreamTrack | null>(null);
   const screenTrackRef = useRef<MediaStreamTrack | null>(null);
+  const overlayRef = useRef<(() => void) | null>(null);
   const processedTrackRef = useRef<MediaStreamTrack | null>(null);
   const bgProcessorRef = useRef<BackgroundProcessor | null>(null);
   const joinedRef = useRef(false);
@@ -77,6 +81,8 @@ export function HuddleController() {
     if (st.localMuted) ws.send({ type: 'huddle.mute', huddle_id: a.huddleId, audio_muted: true });
     if (st.localCameraOn) ws.send({ type: 'huddle.camera', huddle_id: a.huddleId, camera_on: true });
     if (st.localSharing) ws.send({ type: 'huddle.screenshare', huddle_id: a.huddleId, sharing: true });
+    if (st.localSharing && !st.localDrawing)
+      ws.send({ type: 'huddle.drawing', huddle_id: a.huddleId, enabled: false });
     if (st.localHandRaised) ws.send({ type: 'huddle.hand', huddle_id: a.huddleId, raised: true });
   }, []);
 
@@ -206,6 +212,7 @@ export function HuddleController() {
         if (event.huddle_id !== active.huddleId) return;
         transportRef.current?.removePeer(event.user_id);
         useHuddleStore.getState().removeParticipant(event.user_id);
+        drawBoard.clear(event.user_id);
       }),
       globalEventBus.on('huddle.mute', (event) => {
         if (event.huddle_id !== active.huddleId || event.user_id === active.selfUserId) return;
@@ -218,6 +225,15 @@ export function HuddleController() {
       globalEventBus.on('huddle.screenshare', (event) => {
         if (event.huddle_id !== active.huddleId || event.user_id === active.selfUserId) return;
         useHuddleStore.getState().setParticipantSharing(event.user_id, event.sharing);
+        if (!event.sharing) drawBoard.clear(event.user_id);
+      }),
+      globalEventBus.on('huddle.drawing', (event) => {
+        if (event.huddle_id !== active.huddleId || event.user_id === active.selfUserId) return;
+        useHuddleStore.getState().setParticipantDrawing(event.user_id, event.enabled);
+      }),
+      globalEventBus.on('huddle.draw', (event) => {
+        if (event.huddle_id !== active.huddleId || event.user_id === active.selfUserId) return;
+        drawBoard.apply(event.sharer_id, event.user_id, event.stroke, event.points, event.done);
       }),
       globalEventBus.on('huddle.hand', (event) => {
         if (event.huddle_id !== active.huddleId || event.user_id === active.selfUserId) return;
@@ -248,6 +264,9 @@ export function HuddleController() {
       camTrackRef.current = null;
       screenTrackRef.current?.stop();
       screenTrackRef.current = null;
+      overlayRef.current?.();
+      overlayRef.current = null;
+      drawBoard.clear();
       stopStream(micStreamRef.current);
       micStreamRef.current = null;
       const store = useHuddleStore.getState();
@@ -258,6 +277,7 @@ export function HuddleController() {
       store.setLocalMuted(false);
       store.setLocalCamera(false);
       store.setLocalSharing(false);
+      store.setLocalDrawing(true);
       store.resetParticipants();
       store.setTransport('mesh');
     };
@@ -357,9 +377,13 @@ export function HuddleController() {
     const a = useHuddleStore.getState().active;
     screenTrackRef.current?.stop();
     screenTrackRef.current = null;
+    overlayRef.current?.();
+    overlayRef.current = null;
     useHuddleStore.getState().setLocalSharing(false);
     updateVideoOutput();
-    if (a) wsFor(a).send({ type: 'huddle.screenshare', huddle_id: a.huddleId, sharing: false });
+    if (!a) return;
+    drawBoard.clear(a.selfUserId);
+    wsFor(a).send({ type: 'huddle.screenshare', huddle_id: a.huddleId, sharing: false });
   }, [updateVideoOutput]);
 
   const toggleScreen = useCallback(async () => {
@@ -371,11 +395,14 @@ export function HuddleController() {
     }
     try {
       const screenStream = await acquireScreen();
-      screenTrackRef.current = screenStream.getVideoTracks()[0];
-      screenTrackRef.current.onended = stopScreenShare;
+      const track = screenStream.getVideoTracks()[0];
+      screenTrackRef.current = track;
+      track.onended = stopScreenShare;
+      useHuddleStore.getState().setLocalDrawing(true);
       useHuddleStore.getState().setLocalSharing(true);
       updateVideoOutput();
       wsFor(a).send({ type: 'huddle.screenshare', huddle_id: a.huddleId, sharing: true });
+      overlayRef.current = mirrorOnDesktop(track, a.selfUserId);
     } catch (err) {
       logger.error('HuddleController', 'toggleScreen', err);
     }
@@ -432,6 +459,15 @@ export function HuddleController() {
     useHuddleStore.getState().setDevice('speakerId', deviceId);
   }, []);
 
+  const toggleDrawing = useCallback(() => {
+    const a = useHuddleStore.getState().active;
+    const store = useHuddleStore.getState();
+    if (!a || !store.localSharing) return;
+    const enabled = !store.localDrawing;
+    store.setLocalDrawing(enabled);
+    wsFor(a).send({ type: 'huddle.drawing', huddle_id: a.huddleId, enabled });
+  }, []);
+
   const toggleHand = useCallback(() => {
     const a = useHuddleStore.getState().active;
     if (!a) return;
@@ -455,6 +491,7 @@ export function HuddleController() {
     toggleMute,
     toggleCamera,
     toggleScreen,
+    toggleDrawing,
     toggleHand,
     toggleBackground,
     sendReaction,

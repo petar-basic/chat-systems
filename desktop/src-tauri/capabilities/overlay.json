@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "overlay",
+  "description": "The see-through window over a shared screen only listens for the strokes it draws.",
+  "windows": ["draw-overlay"],
+  "permissions": ["core:event:allow-listen", "core:event:allow-unlisten"]
+}

@@ -39,6 +39,12 @@ pub const HUDDLE_TTL_SECS: i64 = 120;
 
 pub const HUDDLE_MAX_PARTICIPANTS: usize = 8;
 
+pub const DRAW_PER_SEC: f32 = 30.0;
+pub const DRAW_BURST: f32 = 30.0;
+pub const DRAW_MAX_POINTS: usize = 64;
+const SCREEN_DRAWING_ON: &str = "on";
+const SCREEN_DRAWING_OFF: &str = "off";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct HuddleSfu {
     pub threshold: usize,
@@ -118,6 +124,7 @@ pub struct ConnectionManager {
     db: PgPool,
     redis: redis::aio::ConnectionManager,
     sfu: Option<HuddleSfu>,
+    draw_budget: DashMap<Uuid, (f32, std::time::Instant)>,
 }
 
 impl std::fmt::Debug for ConnectionManager {
@@ -137,6 +144,7 @@ impl ConnectionManager {
             db,
             redis,
             sfu: None,
+            draw_budget: DashMap::new(),
         }
     }
 
@@ -241,6 +249,7 @@ impl ConnectionManager {
                 if conns.is_empty() {
                     drop(conns);
                     self.user_connections.remove(&conn.user_id);
+                    self.draw_budget.remove(&conn.user_id);
                     was_last = true;
                 }
             }
@@ -918,6 +927,84 @@ impl ConnectionManager {
         format!("huddle:{huddle_id}:transport")
     }
 
+    fn huddle_screens_key(huddle_id: &Uuid) -> String {
+        format!("huddle:{huddle_id}:screens")
+    }
+
+    pub fn allow_draw(&self, user_id: Uuid) -> bool {
+        let now = std::time::Instant::now();
+        let mut budget = self.draw_budget.entry(user_id).or_insert((DRAW_BURST, now));
+        let (tokens, last) = *budget;
+        let tokens =
+            (tokens + now.duration_since(last).as_secs_f32() * DRAW_PER_SEC).min(DRAW_BURST);
+        if tokens < 1.0 {
+            *budget = (tokens, now);
+            return false;
+        }
+        *budget = (tokens - 1.0, now);
+        true
+    }
+
+    pub async fn huddle_redis_screen(&self, huddle_id: Uuid, user_id: Uuid, sharing: bool) {
+        let mut conn = self.redis.clone();
+        let key = Self::huddle_screens_key(&huddle_id);
+        let mut pipe = redis::pipe();
+        if sharing {
+            pipe.hset_nx(&key, user_id.to_string(), SCREEN_DRAWING_ON)
+                .ignore()
+                .expire(&key, HUDDLE_TTL_SECS)
+                .ignore();
+        } else {
+            pipe.hdel(&key, user_id.to_string()).ignore();
+        }
+        let done: redis::RedisResult<()> = pipe.query_async(&mut conn).await;
+        if let Err(e) = done {
+            warn!("huddle_redis_screen redis error huddle={huddle_id}: {e}");
+        }
+    }
+
+    pub async fn huddle_redis_set_drawing(
+        &self,
+        huddle_id: Uuid,
+        user_id: Uuid,
+        enabled: bool,
+    ) -> bool {
+        let script = redis::Script::new(
+            r"
+            if redis.call('HEXISTS', KEYS[1], ARGV[1]) == 0 then return 0 end
+            redis.call('HSET', KEYS[1], ARGV[1], ARGV[2])
+            return 1
+            ",
+        );
+        let mut conn = self.redis.clone();
+        let set: redis::RedisResult<i64> = script
+            .key(Self::huddle_screens_key(&huddle_id))
+            .arg(user_id.to_string())
+            .arg(if enabled {
+                SCREEN_DRAWING_ON
+            } else {
+                SCREEN_DRAWING_OFF
+            })
+            .invoke_async(&mut conn)
+            .await;
+        set.unwrap_or(0) == 1
+    }
+
+    pub async fn huddle_redis_may_draw(
+        &self,
+        huddle_id: Uuid,
+        user_id: Uuid,
+        sharer_id: Uuid,
+    ) -> bool {
+        let mut conn = self.redis.clone();
+        let answer: redis::RedisResult<(bool, Option<String>)> = redis::pipe()
+            .sismember(Self::huddle_members_key(&huddle_id), user_id.to_string())
+            .hget(Self::huddle_screens_key(&huddle_id), sharer_id.to_string())
+            .query_async(&mut conn)
+            .await;
+        matches!(answer, Ok((true, Some(state))) if state == SCREEN_DRAWING_ON)
+    }
+
     pub async fn huddle_redis_join(&self, huddle_id: Uuid, user_id: Uuid) {
         let mut conn = self.redis.clone();
         let key = Self::huddle_members_key(&huddle_id);
@@ -925,6 +1012,9 @@ impl ConnectionManager {
         let _: redis::RedisResult<()> = conn.expire(&key, HUDDLE_TTL_SECS).await;
         let _: redis::RedisResult<()> = conn
             .expire(Self::huddle_transport_key(&huddle_id), HUDDLE_TTL_SECS)
+            .await;
+        let _: redis::RedisResult<()> = conn
+            .expire(Self::huddle_screens_key(&huddle_id), HUDDLE_TTL_SECS)
             .await;
     }
 
@@ -991,6 +1081,9 @@ impl ConnectionManager {
         let mut conn = self.redis.clone();
         let key = Self::huddle_members_key(&huddle_id);
         let removed: redis::RedisResult<i64> = conn.srem(&key, user_id.to_string()).await;
+        let _: redis::RedisResult<()> = conn
+            .hdel(Self::huddle_screens_key(&huddle_id), user_id.to_string())
+            .await;
         match removed {
             Ok(removed) => removed > 0,
             Err(e) => {

@@ -20,6 +20,19 @@ const SLOT = { audio: 'audioTx', camera: 'cameraTx', screen: 'screenTx' } as con
   keyof PeerState
 >;
 
+export function slotOf(
+  transceiver: RTCRtpTransceiver,
+  own: Record<TrackKind, RTCRtpTransceiver>,
+  all: RTCRtpTransceiver[],
+): TrackKind {
+  const mine = (Object.keys(own) as TrackKind[]).find((kind) => own[kind] === transceiver);
+  if (mine) return mine;
+  if (transceiver.receiver.track.kind === 'audio') return 'audio';
+  const ours = new Set(Object.values(own));
+  const theirVideo = all.filter((t) => !ours.has(t) && t.receiver.track.kind === 'video');
+  return theirVideo.indexOf(transceiver) === 0 ? 'camera' : 'screen';
+}
+
 export class MeshManager implements HuddleTransport {
   readonly kind = 'mesh';
   private peers = new Map<string, PeerState>();
@@ -65,12 +78,6 @@ export class MeshManager implements HuddleTransport {
 
     const pc = new RTCPeerConnection({ iceServers: this.iceServers });
 
-    // Three m-lines up front, in an order both ends agree on: microphone,
-    // camera, screen. A transceiver both sends and receives the same slot, so
-    // the one that carries our camera carries theirs back, and `ontrack` can
-    // name a stream by identity instead of guessing from the SDP. Every later
-    // toggle is a replaceTrack into a slot that already exists, so turning a
-    // camera on mid-call renegotiates nothing.
     const audioTx = pc.addTransceiver('audio', { direction: 'sendrecv' });
     const cameraTx = pc.addTransceiver('video', { direction: 'sendrecv' });
     const screenTx = pc.addTransceiver('video', { direction: 'sendrecv' });
@@ -92,8 +99,11 @@ export class MeshManager implements HuddleTransport {
     void screenTx.sender.replaceTrack(this.tracks.screen);
 
     pc.ontrack = (event) => {
-      const kind: TrackKind =
-        event.transceiver === cameraTx ? 'camera' : event.transceiver === screenTx ? 'screen' : 'audio';
+      const kind = slotOf(
+        event.transceiver,
+        { audio: audioTx, camera: cameraTx, screen: screenTx },
+        pc.getTransceivers(),
+      );
       // A track handed over by replaceTrack carries no msid, so `event.streams`
       // is empty and the stream has to be built here.
       this.handlers.onTrack(peerId, new MediaStream([event.track]), kind);

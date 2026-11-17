@@ -1758,9 +1758,20 @@ pins, the sidebar, Activity and *Later*.
 { "type": "huddle.screenshare", "huddle_id": "...", "sharing": true }
 { "type": "huddle.hand",   "huddle_id": "...", "raised": true }
 { "type": "huddle.reaction", "huddle_id": "...", "emoji": "👍" }
+{ "type": "huddle.drawing", "huddle_id": "...", "enabled": false }
+{ "type": "huddle.draw", "huddle_id": "...", "sharer_id": "...", "stroke": 41, "points": [[0.25, 0.5], [0.2612, 0.5133]], "done": false }
 ```
 
 A join is authorised against the huddle's own `huddle_sessions` row, never against anything the client sends: it must be open, and the caller must be in its workspace and either in its channel, one of the two people of a DM huddle, or invited (`huddle_invites`). `offer`/`answer`/`ice` are relayed only to `to_user_id` (and only when both users are current room members); the rest broadcast to the room. On join the caller gets a `huddle.members` snapshot. A huddle holds at most eight people (`HUDDLE_MAX_PARTICIPANTS`), the mesh's ceiling: the check and the insert are one Lua script on the room's Redis set, so two people racing for the last place cannot both get it, and a ninth joiner gets `huddle.full { limit }` on their own socket and is not added. With `LIVEKIT_URL` set on the gateway, the same script moves the huddle to the SFU when a join takes it past `HUDDLE_SFU_THRESHOLD` (default 6): it sets `huddle:{id}:transport`, which lives as long as the member set, and the gateway publishes `huddle.transport { transport: "sfu" }` to the room once. From then on the limit is `HUDDLE_SFU_MAX_PARTICIPANTS` (default 100), and the `huddle.members` snapshot carries `transport` so a late joiner goes straight to the SFU. Someone already in the room rejoining after a reconnect always keeps their place. `huddle.member_left` is published only for a user the room actually held. Disconnect removes the user and, when a room empties, the API consumer emits `huddle.ended`.
+
+**Drawing on a shared screen.** `huddle.screenshare` also records the share in the hash `huddle:{id}:screens` (sharer → `on` or `off`), which lives as long as the member set:
+- A new share starts with drawing on. The write is `HSETNX`, so the screenshare frame every client re-sends when somebody joins keeps the sharer's choice.
+- Stopping the share or leaving the huddle removes the entry.
+- `huddle.drawing` is the sharer's switch. It is relayed only while that person is sharing.
+- `huddle.draw` is relayed, with the sender's `user_id`, only when the sender is in the room and the hash says `on` for `sharer_id`; both checks are one pipelined round trip. A frame carries 1 to 64 points, each 0 to 1 on both axes, relative to the shared video; an empty one only ends a stroke (`done: true`).
+- Draw frames skip the socket's flood guard, which would close a socket that drew for a few seconds. They go through their own bucket per person on each gateway node instead (`DRAW_PER_SEC` 30, `DRAW_BURST` 30). Past it they are dropped, not closed, and counted in `realtime_draw_dropped_total`.
+
+Nothing of a drawing is stored. The frames ride `events:huddle-signal` and the room broadcast, so a huddle on the SFU draws the same way as one on the mesh.
 
 **Outgoing events pushed to client** (live copies arrive on these pub/sub channels; the durable ones are also on `stream:ws:{id}` for replay):
 
@@ -1779,7 +1790,7 @@ A join is authorised against the huddle's own `huddle_sessions` row, never again
 | `events:thread` | `thread.read_state` — sent only to the user whose thread state changed (a reply, `/read`, follow or unfollow), with its `following` and `unread_count` |
 | `events:channel` | `channel.read_state` — sent only to the user whose read position moved (by `/read` or `/unread`), so their other tabs and devices update their badges; it is durable, for the analytics rollup, so a reconnect replays it to that user; `channel.member_removed` becomes `channel.access_revoked` for the removed user; `channel.updated` (the whole `Channel`) goes to everyone in the channel whenever its name, topic, description, settings, type or archived state is written; `channel.privacy_changed` `{ channel_id, workspace_id, private }` goes to the whole workspace, which is how a client that is not in the channel, and so hears none of its frames, learns that it went private and drops it, and how every client refreshes *Browse channels* |
 | `events:draft` | `draft.updated` `{ workspace_id, draft }` — ephemeral, to every socket of the draft's author and nobody else's; a cleared draft comes with empty `content` |
-| `events:huddle-signal` | `huddle.offer`, `huddle.answer`, `huddle.ice`, `huddle.mute`, `huddle.camera`, `huddle.screenshare`, `huddle.hand`, `huddle.reaction` — high-frequency relay, realtime-only (kept off `events:huddle` so the API consumers don't parse every ICE candidate) |
+| `events:huddle-signal` | `huddle.offer`, `huddle.answer`, `huddle.ice`, `huddle.mute`, `huddle.camera`, `huddle.screenshare`, `huddle.hand`, `huddle.reaction`, `huddle.drawing`, `huddle.draw` — high-frequency relay, realtime-only (kept off `events:huddle` so the API consumers don't parse every ICE candidate) |
 
 All events use the envelope: `{ id, event_type, payload, timestamp }`.
 
