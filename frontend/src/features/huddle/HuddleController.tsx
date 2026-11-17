@@ -9,7 +9,7 @@ import type { HuddleTransport, TrackKind, TransportHandlers } from './lib/Huddle
 import { MeshManager } from './lib/MeshManager';
 import { openSfu } from './lib/openSfu';
 import { Promotion, type LocalMedia } from './lib/Promotion';
-import { acquireCamera, acquireLocalAudio, acquireScreen, micErrorLabel, stopStream } from './lib/media';
+import { acquireCamera, acquireLocalAudio, acquireScreen, micErrorLabel, stopStream } from '@/lib/media';
 import { toast } from '@/shared/components/Toast';
 import i18n from '@/lib/i18n';
 import { BackgroundProcessor } from './lib/backgroundProcessor';

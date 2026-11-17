@@ -2,7 +2,9 @@ use chrono::{DateTime, Utc};
 use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
 
-use super::models::{FileKind, FileRecord, FileTextStatus, TextJob};
+use sqlx::types::Json;
+
+use super::models::{Clip, FileKind, FileRecord, FileTextStatus, TextJob};
 use super::text::{snippet_parts, SnippetPart};
 
 pub struct NewFile<'a> {
@@ -17,6 +19,7 @@ pub struct NewFile<'a> {
     pub thumbnail_key: Option<&'a str>,
     pub width: Option<i32>,
     pub height: Option<i32>,
+    pub clip: Option<&'a Clip>,
 }
 
 pub struct FileSearch<'a> {
@@ -62,11 +65,11 @@ impl FileRepo {
     ) -> sqlx::Result<FileRecord> {
         sqlx::query_as!(
             FileRecord,
-            r"
-            INSERT INTO files (user_id, workspace_id, message_id, filename, storage_key, mime_type, size_bytes, draft_until, thumbnail_key, width, height)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-            RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at
-            ",
+            r#"
+            INSERT INTO files (user_id, workspace_id, message_id, filename, storage_key, mime_type, size_bytes, draft_until, thumbnail_key, width, height, clip)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, clip AS "clip: Json<Clip>", created_at
+            "#,
             file.user_id,
             file.workspace_id,
             file.message_id,
@@ -77,7 +80,8 @@ impl FileRepo {
             file.draft_until,
             file.thumbnail_key,
             file.width,
-            file.height
+            file.height,
+            file.clip.map(Json) as Option<Json<&Clip>>
         )
         .fetch_one(conn)
         .await
@@ -86,7 +90,7 @@ impl FileRepo {
     pub async fn for_message(&self, message_id: Uuid) -> sqlx::Result<Vec<FileRecord>> {
         sqlx::query_as!(
             FileRecord,
-            "SELECT id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at
+            "SELECT id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, clip AS \"clip: Json<Clip>\", created_at
                FROM files WHERE message_id = $1 ORDER BY created_at, id",
             message_id
         )
@@ -107,7 +111,7 @@ impl FileRepo {
             "UPDATE files SET message_id = $2, draft_until = NULL
               WHERE id = ANY($1) AND workspace_id = $3 AND user_id = $4
                 AND message_id IS NULL AND draft_until IS NOT NULL
-              RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at",
+              RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, clip AS \"clip: Json<Clip>\", created_at",
             ids,
             message_id,
             workspace_id,
@@ -147,7 +151,7 @@ impl FileRepo {
         sqlx::query_as!(
             FileRecord,
             "DELETE FROM files WHERE message_id = $1 AND NOT (id = ANY($2))
-              RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at",
+              RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, clip AS \"clip: Json<Clip>\", created_at",
             message_id,
             keep
         )
@@ -164,7 +168,7 @@ impl FileRepo {
                   ORDER BY draft_until
                   LIMIT $1
              )
-             RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at",
+             RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, clip AS \"clip: Json<Clip>\", created_at",
             limit
         )
         .fetch_all(&self.pool)
@@ -172,13 +176,13 @@ impl FileRepo {
     }
 
     pub async fn find_by_id(&self, id: Uuid) -> sqlx::Result<Option<FileRecord>> {
-        sqlx::query_as!(FileRecord, "SELECT id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at FROM files WHERE id = $1", id)
+        sqlx::query_as!(FileRecord, "SELECT id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, clip AS \"clip: Json<Clip>\", created_at FROM files WHERE id = $1", id)
             .fetch_optional(&self.pool)
             .await
     }
 
     pub async fn find_by_storage_key(&self, key: &str) -> sqlx::Result<Option<FileRecord>> {
-        sqlx::query_as!(FileRecord, "SELECT id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at FROM files WHERE storage_key = $1 OR thumbnail_key = $1", key)
+        sqlx::query_as!(FileRecord, "SELECT id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, clip AS \"clip: Json<Clip>\", created_at FROM files WHERE storage_key = $1 OR thumbnail_key = $1", key)
             .fetch_optional(&self.pool)
             .await
     }
@@ -192,7 +196,7 @@ impl FileRepo {
     ) -> sqlx::Result<Vec<FileRecord>> {
         sqlx::query_as!(
             FileRecord,
-            "SELECT id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at FROM files WHERE workspace_id = $1 AND user_id = $2 ORDER BY created_at DESC LIMIT $3 OFFSET $4",
+            "SELECT id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, clip AS \"clip: Json<Clip>\", created_at FROM files WHERE workspace_id = $1 AND user_id = $2 ORDER BY created_at DESC LIMIT $3 OFFSET $4",
             workspace_id,
             user_id,
             limit,
@@ -211,9 +215,10 @@ impl FileRepo {
     ) -> sqlx::Result<Vec<FileRecord>> {
         sqlx::query_as!(
             FileRecord,
-            r"
+            r#"
             SELECT f.id, f.message_id, f.user_id, f.workspace_id, f.filename, f.storage_key,
-                   f.mime_type, f.size_bytes, f.thumbnail_key, f.width, f.height, f.created_at
+                   f.mime_type, f.size_bytes, f.thumbnail_key, f.width, f.height,
+                   f.clip AS "clip: Json<Clip>", f.created_at
               FROM files f
               JOIN messages m ON m.id = f.message_id
              WHERE m.channel_id = $1
@@ -231,7 +236,7 @@ impl FileRepo {
                     OR (f.created_at, f.id) < (SELECT c.created_at, c.id FROM files c WHERE c.id = $3))
              ORDER BY f.created_at DESC, f.id DESC
              LIMIT $4
-            ",
+            "#,
             channel_id,
             kind,
             cursor,
@@ -275,7 +280,7 @@ impl FileRepo {
             ),
             ranked AS (
               SELECT f.id, f.user_id, f.workspace_id, f.filename, f.storage_key, f.mime_type,
-                     f.size_bytes, f.thumbnail_key, f.width, f.height, f.created_at,
+                     f.size_bytes, f.thumbnail_key, f.width, f.height, f.clip, f.created_at,
                      m.id AS message_id, m.channel_id,
                      public.file_kind_of(f.mime_type, f.filename) AS kind,
                      COALESCE($1 <> '' AND public.search_fold(f.filename) LIKE ALL (w.patterns), FALSE) AS near,
@@ -303,7 +308,7 @@ impl FileRepo {
             SELECT id AS "id!", user_id AS "user_id!", workspace_id AS "workspace_id!",
                    filename AS "filename!", storage_key AS "storage_key!",
                    mime_type AS "mime_type!", size_bytes AS "size_bytes!",
-                   thumbnail_key, width, height, created_at AS "created_at!",
+                   thumbnail_key, width, height, clip AS "clip: Json<Clip>", created_at AS "created_at!",
                    message_id AS "message_id!", channel_id AS "channel_id!",
                    kind AS "kind!: FileKind",
                    CASE WHEN inside THEN ts_headline(
@@ -349,6 +354,7 @@ impl FileRepo {
                     thumbnail_key: row.thumbnail_key,
                     width: row.width,
                     height: row.height,
+                    clip: row.clip,
                     created_at: row.created_at,
                 },
             })
@@ -467,7 +473,7 @@ impl FileRepo {
     }
 
     pub async fn uploaded_by(&self, user_id: Uuid) -> sqlx::Result<Vec<FileRecord>> {
-        sqlx::query_as!(FileRecord, "SELECT id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at FROM files WHERE user_id = $1", user_id)
+        sqlx::query_as!(FileRecord, "SELECT id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, clip AS \"clip: Json<Clip>\", created_at FROM files WHERE user_id = $1", user_id)
             .fetch_all(&self.pool)
             .await
     }
@@ -480,7 +486,7 @@ impl FileRepo {
     }
 
     pub async fn delete(&self, id: Uuid) -> sqlx::Result<Option<FileRecord>> {
-        sqlx::query_as!(FileRecord, "DELETE FROM files WHERE id = $1 RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at", id)
+        sqlx::query_as!(FileRecord, "DELETE FROM files WHERE id = $1 RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, clip AS \"clip: Json<Clip>\", created_at", id)
             .fetch_optional(&self.pool)
             .await
     }
@@ -495,7 +501,7 @@ impl FileRepo {
     ) -> sqlx::Result<Vec<FileRecord>> {
         sqlx::query_as!(
             FileRecord,
-            "DELETE FROM files WHERE message_id = $1 RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at",
+            "DELETE FROM files WHERE message_id = $1 RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, clip AS \"clip: Json<Clip>\", created_at",
             message_id
         )
         .fetch_all(&self.pool)

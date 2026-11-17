@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at\n               FROM files WHERE message_id = $1 ORDER BY created_at, id",
+  "query": "UPDATE files SET message_id = $2, draft_until = NULL\n              WHERE id = ANY($1) AND workspace_id = $3 AND user_id = $4\n                AND message_id IS NULL AND draft_until IS NOT NULL\n              RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, clip AS \"clip: Json<Clip>\", created_at",
   "describe": {
     "columns": [
       {
@@ -126,6 +126,17 @@
       },
       {
         "ordinal": 11,
+        "name": "clip: Json<Clip>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "files",
+            "name": "clip"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -138,6 +149,9 @@
     ],
     "parameters": {
       "Left": [
+        "UuidArray",
+        "Uuid",
+        "Uuid",
         "Uuid"
       ]
     },
@@ -153,8 +167,9 @@
       true,
       true,
       true,
+      true,
       false
     ]
   },
-  "hash": "522c9c10074096624ad60f582dd3c38ca0b2e6f7e5e5936db3f00cf589b5b854"
+  "hash": "d5b3a1bb45edcdd0914ebaa6a37ce27ce4632dafd5a6dfb787e2fb118949ad1b"
 }

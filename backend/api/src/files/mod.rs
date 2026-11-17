@@ -1,3 +1,4 @@
+pub mod clips;
 pub mod extractor;
 pub mod imaging;
 pub mod models;

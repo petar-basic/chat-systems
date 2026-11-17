@@ -108,6 +108,13 @@ instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   screen too, through a see-through, click-through window over a shared display. They can
   turn drawing off from the control bar. Nothing is recorded.
 
+- Clips: the clapperboard in the composer records your voice, your camera, or your screen
+  with your voice and, if you like, your camera in a bubble, for up to five minutes. You see
+  the clip before it goes, record it again or put it in the message, and send it with text like
+  any file. A video clip plays over its first frame and opens in the gallery with the images;
+  an audio clip shows its waveform. Both play at 1×, 1.5× or 2× and seek without loading the
+  whole clip. Clips are kept, erased, exported and found like the files they are.
+
 ### Changed
 
 - A guest is invited by email, never by a shared link, and the invite says which channels

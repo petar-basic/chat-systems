@@ -1,7 +1,51 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use sqlx::types::Json;
 use utoipa::ToSchema;
 use uuid::Uuid;
+
+pub const CLIP_MAX_MS: u32 = 5 * 60 * 1000;
+pub const WAVEFORM_PEAKS: usize = 100;
+pub const WAVEFORM_TOP: u8 = 100;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ClipKind {
+    Audio,
+    Video,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Clip {
+    pub kind: ClipKind,
+    pub duration_ms: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub waveform: Option<Vec<u8>>,
+}
+
+impl Clip {
+    pub fn problem(&self) -> Option<String> {
+        if self.duration_ms == 0 || self.duration_ms > CLIP_MAX_MS {
+            return Some(format!(
+                "A clip lasts between a moment and {} minutes",
+                CLIP_MAX_MS / 60_000
+            ));
+        }
+        match (self.kind, &self.waveform) {
+            (ClipKind::Video, Some(_)) => Some("Only an audio clip has a waveform".into()),
+            (ClipKind::Audio, None) => Some("An audio clip needs its waveform".into()),
+            (ClipKind::Audio, Some(peaks))
+                if peaks.len() != WAVEFORM_PEAKS || peaks.iter().any(|p| *p > WAVEFORM_TOP) =>
+            {
+                Some(format!(
+                    "A waveform is {WAVEFORM_PEAKS} peaks from 0 to {WAVEFORM_TOP}"
+                ))
+            }
+            _ => None,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct FileRecord {
@@ -16,6 +60,8 @@ pub struct FileRecord {
     pub thumbnail_key: Option<String>,
     pub width: Option<i32>,
     pub height: Option<i32>,
+    #[schema(value_type = Option<Clip>)]
+    pub clip: Option<Json<Clip>>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -32,6 +78,8 @@ pub struct Attachment {
     pub width: Option<i32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub height: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clip: Option<Clip>,
 }
 
 #[derive(Debug, Deserialize, utoipa::IntoParams)]
@@ -50,6 +98,7 @@ pub struct FileUploadResponse {
     pub thumbnail_url: Option<String>,
     pub width: Option<i32>,
     pub height: Option<i32>,
+    pub clip: Option<Clip>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]

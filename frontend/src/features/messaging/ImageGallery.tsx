@@ -125,18 +125,31 @@ export function ImageGallery({ items, index, onIndexChange, onClose }: Props) {
           if (moved < -SWIPE_DISTANCE && hasNext) onIndexChange(index + 1);
         }}
       >
-        <img
-          key={attachment.id}
-          src={attachment.url}
-          alt={attachment.filename}
-          data-qa="gallery-image"
-          onClick={() => setZoomedId(zoomed ? null : attachment.id)}
-          className={
-            zoomed
-              ? 'max-w-none cursor-zoom-out'
-              : 'max-h-[80dvh] max-w-full cursor-zoom-in rounded-lg object-contain'
-          }
-        />
+        {attachment.clip ? (
+          <video
+            key={attachment.id}
+            src={attachment.url}
+            poster={attachment.thumbnail_url ?? undefined}
+            controls
+            autoPlay
+            playsInline
+            data-qa="gallery-clip"
+            className="max-h-[80dvh] max-w-full rounded-lg bg-black object-contain"
+          />
+        ) : (
+          <img
+            key={attachment.id}
+            src={attachment.url}
+            alt={attachment.filename}
+            data-qa="gallery-image"
+            onClick={() => setZoomedId(zoomed ? null : attachment.id)}
+            className={
+              zoomed
+                ? 'max-w-none cursor-zoom-out'
+                : 'max-h-[80dvh] max-w-full cursor-zoom-in rounded-lg object-contain'
+            }
+          />
+        )}
         {hasPrevious && (
           <button
             type="button"

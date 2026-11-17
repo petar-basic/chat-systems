@@ -1,8 +1,9 @@
-import { AlertCircle, RotateCw, X } from 'lucide-react';
+import { AlertCircle, Mic, Play, RotateCw, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatBytes } from '@/lib/fileSize';
 import type { PendingAttachment } from './useComposerAttachments';
 import { fileKind, kindOf } from '@/lib/fileKinds';
+import { clipClock } from '@/features/clips';
 
 interface Props {
   items: PendingAttachment[];
@@ -54,7 +55,24 @@ function TrayItem({
       className="group/tray relative flex h-16 shrink-0 items-center gap-2 overflow-hidden rounded-lg border border-line bg-raised/40"
       data-tooltip={item.name}
     >
-      {item.previewUrl ? (
+      {item.clip ? (
+        <div
+          className="relative flex h-16 w-24 items-center justify-center bg-black/60 text-white"
+          data-qa="attachment-tray-clip"
+        >
+          {item.posterUrl && (
+            <img src={item.posterUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          )}
+          {item.clip.kind === 'audio' ? (
+            <Mic className="relative h-5 w-5" />
+          ) : (
+            <Play className="relative h-5 w-5" />
+          )}
+          <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1 text-3xs tabular-nums">
+            {clipClock(item.clip.duration_ms)}
+          </span>
+        </div>
+      ) : item.previewUrl ? (
         <img src={item.previewUrl} alt="" className="h-16 w-16 object-cover" />
       ) : (
         <div className="flex w-52 items-center gap-2 px-2">

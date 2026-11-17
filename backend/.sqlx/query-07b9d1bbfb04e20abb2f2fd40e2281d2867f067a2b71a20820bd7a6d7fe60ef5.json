@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT f.id, f.message_id, f.user_id, f.workspace_id, f.filename, f.storage_key,\n                   f.mime_type, f.size_bytes, f.thumbnail_key, f.width, f.height, f.created_at\n              FROM files f\n              JOIN messages m ON m.id = f.message_id\n             WHERE m.channel_id = $1\n               AND m.deleted_at IS NULL\n               AND CASE $2::text\n                       WHEN 'image' THEN f.mime_type LIKE 'image/%'\n                       WHEN 'video' THEN f.mime_type LIKE 'video/%'\n                       WHEN 'audio' THEN f.mime_type LIKE 'audio/%'\n                       WHEN 'document' THEN NOT (f.mime_type LIKE 'image/%'\n                                                 OR f.mime_type LIKE 'video/%'\n                                                 OR f.mime_type LIKE 'audio/%')\n                       ELSE TRUE\n                   END\n               AND ($3::uuid IS NULL\n                    OR (f.created_at, f.id) < (SELECT c.created_at, c.id FROM files c WHERE c.id = $3))\n             ORDER BY f.created_at DESC, f.id DESC\n             LIMIT $4\n            ",
+  "query": "DELETE FROM files WHERE id IN (\n                 SELECT id FROM files\n                  WHERE draft_until < NOW() AND message_id IS NULL\n                  ORDER BY draft_until\n                  LIMIT $1\n             )\n             RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, clip AS \"clip: Json<Clip>\", created_at",
   "describe": {
     "columns": [
       {
@@ -126,6 +126,17 @@
       },
       {
         "ordinal": 11,
+        "name": "clip: Json<Clip>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "files",
+            "name": "clip"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -138,9 +149,6 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Text",
-        "Uuid",
         "Int8"
       ]
     },
@@ -156,8 +164,9 @@
       true,
       true,
       true,
+      true,
       false
     ]
   },
-  "hash": "f28c9e76fc3ebe16506ef9f012a9d38929e763f4dc6b57b9ff4487304bf14886"
+  "hash": "07b9d1bbfb04e20abb2f2fd40e2281d2867f067a2b71a20820bd7a6d7fe60ef5"
 }

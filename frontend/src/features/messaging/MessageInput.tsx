@@ -56,6 +56,7 @@ import {
   useCreatePoll,
 } from '@/features/polls';
 import { ShortcutMenu } from '@/features/workflows';
+import { ClipButton } from '@/features/clips';
 
 const MentionNode = Mention.extend({
   addStorage() {
@@ -516,6 +517,12 @@ export default function MessageInput({
               >
                 <Paperclip className="w-3.5 h-3.5" />
               </FilePicker>
+            )}
+            {attachments && !editing && (
+              <ClipButton
+                onClip={attachments.addClip}
+                className="p-1 text-muted hover:text-fg-soft transition cursor-pointer rounded hover:bg-raised/60"
+              />
             )}
             {pollTarget && !editing && (
               <button

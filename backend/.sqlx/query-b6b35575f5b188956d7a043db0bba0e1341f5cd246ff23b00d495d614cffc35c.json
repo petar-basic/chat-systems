@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "DELETE FROM files WHERE id IN (\n                 SELECT id FROM files\n                  WHERE draft_until < NOW() AND message_id IS NULL\n                  ORDER BY draft_until\n                  LIMIT $1\n             )\n             RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at",
+  "query": "DELETE FROM files WHERE id = $1 RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, clip AS \"clip: Json<Clip>\", created_at",
   "describe": {
     "columns": [
       {
@@ -126,6 +126,17 @@
       },
       {
         "ordinal": 11,
+        "name": "clip: Json<Clip>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "files",
+            "name": "clip"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -138,7 +149,7 @@
     ],
     "parameters": {
       "Left": [
-        "Int8"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -153,8 +164,9 @@
       true,
       true,
       true,
+      true,
       false
     ]
   },
-  "hash": "e9ae84a85663180c2b1e0ac52e41173f424c2c7083091cad0fc00236fe87aa30"
+  "hash": "b6b35575f5b188956d7a043db0bba0e1341f5cd246ff23b00d495d614cffc35c"
 }

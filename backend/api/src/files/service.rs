@@ -25,6 +25,7 @@ pub fn attachment(state: &AppState, record: &FileRecord) -> Attachment {
             .map(|key| state.file_storage.public_url(key)),
         width: record.width,
         height: record.height,
+        clip: record.clip.as_ref().map(|clip| clip.0.clone()),
     }
 }
 
@@ -92,6 +93,37 @@ pub async fn store_image(
         mime_type: kind.mime().to_string(),
         size_bytes,
         thumbnail_key,
+        width: i32::try_from(processed.width).ok(),
+        height: i32::try_from(processed.height).ok(),
+    })
+}
+
+pub struct StoredPoster {
+    pub key: String,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+}
+
+pub async fn store_poster(
+    state: &AppState,
+    workspace_id: Uuid,
+    bytes: axum::body::Bytes,
+) -> AppResult<StoredPoster> {
+    let kind = imaging::sniff(&bytes).ok_or_else(|| {
+        AppError::Validation("A clip's poster is a PNG, JPEG, GIF or WebP picture".into())
+    })?;
+    let processed = tokio::task::spawn_blocking(move || imaging::process(kind, bytes))
+        .await
+        .map_err(|e| AppError::Internal(format!("poster processing did not finish: {e}")))?
+        .map_err(|e| AppError::Validation(format!("The poster could not be read: {e}")))?;
+    let (bytes, mime, extension) = match processed.thumbnail {
+        Some(thumbnail) => (thumbnail.bytes, thumbnail.mime, thumbnail.extension),
+        None => (processed.original, kind.mime(), kind.extension()),
+    };
+    let key = object_key(workspace_id, &format!("poster.{extension}"));
+    state.file_storage.upload(&key, bytes, mime).await?;
+    Ok(StoredPoster {
+        key,
         width: i32::try_from(processed.width).ok(),
         height: i32::try_from(processed.height).ok(),
     })
@@ -259,6 +291,7 @@ pub async fn record_copies_in(
                         thumbnail_key: copy.thumbnail_key.as_deref(),
                         width: copy.source.width,
                         height: copy.source.height,
+                        clip: copy.source.clip.as_deref(),
                     },
                 )
                 .await?,

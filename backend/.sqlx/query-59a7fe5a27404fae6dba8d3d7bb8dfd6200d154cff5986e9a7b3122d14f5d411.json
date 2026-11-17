@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "DELETE FROM files WHERE message_id = $1 AND NOT (id = ANY($2))\n              RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at",
+  "query": "DELETE FROM files WHERE message_id = $1 RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, clip AS \"clip: Json<Clip>\", created_at",
   "describe": {
     "columns": [
       {
@@ -126,6 +126,17 @@
       },
       {
         "ordinal": 11,
+        "name": "clip: Json<Clip>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "files",
+            "name": "clip"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -138,8 +149,7 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "UuidArray"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -154,8 +164,9 @@
       true,
       true,
       true,
+      true,
       false
     ]
   },
-  "hash": "896620bef68a13bfc94700e2fc03d8167bd49d17983540dd468670f966fe26f7"
+  "hash": "59a7fe5a27404fae6dba8d3d7bb8dfd6200d154cff5986e9a7b3122d14f5d411"
 }

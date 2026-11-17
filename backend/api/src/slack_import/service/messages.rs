@@ -365,6 +365,7 @@ impl Import<'_> {
                     thumbnail_key: stored.thumbnail_key.as_deref(),
                     width: stored.width,
                     height: stored.height,
+                    clip: None,
                 })
                 .await
             {

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at FROM files WHERE storage_key = $1 OR thumbnail_key = $1",
+  "query": "SELECT id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, clip AS \"clip: Json<Clip>\", created_at FROM files WHERE storage_key = $1 OR thumbnail_key = $1",
   "describe": {
     "columns": [
       {
@@ -126,6 +126,17 @@
       },
       {
         "ordinal": 11,
+        "name": "clip: Json<Clip>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "files",
+            "name": "clip"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -153,8 +164,9 @@
       true,
       true,
       true,
+      true,
       false
     ]
   },
-  "hash": "db9d954c206f58324b4391cc453574b84cba94eaaaa0edaa8f3399aebcab7f54"
+  "hash": "026c3a5836095dcf64cf15ab61dd06d797b83a4d69cb79eccfc523211e67a9fa"
 }

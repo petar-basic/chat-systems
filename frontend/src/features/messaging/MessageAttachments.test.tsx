@@ -49,6 +49,25 @@ describe('MessageAttachments', () => {
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
   });
 
+  it('plays a recorded clip in its own player, and other video as it is', () => {
+    const clip = {
+      id: 'clip-1',
+      filename: 'Clip 2026-11-17 09.05.07.mp4',
+      mime_type: 'video/mp4',
+      size_bytes: 4_000_000,
+      url: 'https://chat.test/api/files/download/ws/7/Clip.mp4',
+      thumbnail_url: 'https://chat.test/api/files/download/ws/7/poster.jpg',
+      width: 1280,
+      height: 720,
+      clip: { kind: 'video' as const, duration_ms: 20_000 },
+    };
+    const movie = { ...clip, id: 'movie-1', filename: 'holiday.mp4', clip: null };
+    render(<MessageAttachments attachments={[clip, movie]} />);
+    expect(screen.getByTestId('clip-player')).toHaveAttribute('data-kind', 'video');
+    expect(screen.getByTestId('clip-duration')).toHaveTextContent('0:20');
+    expect(screen.getByTestId('attachment-video')).toHaveTextContent('holiday.mp4');
+  });
+
   it('lets an edit drop a file', () => {
     const onRemove = vi.fn();
     render(<MessageAttachments attachments={[image(1), pdf]} onRemove={onRemove} />);
