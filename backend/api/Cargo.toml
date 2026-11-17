@@ -78,6 +78,7 @@ base64 = { workspace = true }
 # Serialization
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_path_to_error = { workspace = true }
 utoipa = { workspace = true }
 utoipa-axum = { workspace = true }
 garde = { workspace = true }

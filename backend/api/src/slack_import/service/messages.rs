@@ -6,10 +6,10 @@ use shared_common::errors::{AppError, AppResult};
 use uuid::Uuid;
 
 use super::super::models::*;
-use super::super::mrkdwn;
 use super::super::source::{read_json, ExportSource};
 use super::{attachment_slack_ts, parse_ts, MAX_ATTACHMENT_BYTES};
 use super::{Import, Target};
+use crate::blocks::{self, models::Composed, mrkdwn};
 use crate::files::imaging;
 use crate::files::models::FileRecord;
 use crate::files::repo::NewFile;
@@ -104,31 +104,41 @@ impl Import<'_> {
             return Ok(());
         }
 
-        let Some(slack_user_id) = message.user.as_deref() else {
-            // An integration posted it. There is no account here to attribute it
-            // to, and inventing one would put a stranger in the member list.
-            let why =
-                if message.bot_id.is_some() || message.subtype.as_deref() == Some("bot_message") {
-                    "posted by an integration, which has no account here"
-                } else {
-                    "no author in the export"
+        let from_integration =
+            message.bot_id.is_some() || message.subtype.as_deref() == Some("bot_message");
+        let author = message
+            .user
+            .as_deref()
+            .and_then(|slack_id| self.users.get(slack_id))
+            .map(|(id, _)| *id);
+        let mut laid_out = None;
+        let (user_id, content) = match author {
+            Some(user_id) => (user_id, mrkdwn::convert(&message.text, &self.users)),
+            None if from_integration => {
+                let Some((content, metadata)) = self.integration_post(message).await else {
+                    self.report.skip(
+                        format!("message {}", message.ts),
+                        "posted by an integration, which has no account here",
+                    );
+                    return Ok(());
                 };
-            self.report.skip(format!("message {}", message.ts), why);
-            return Ok(());
-        };
-        let Some(user_id) = self.users.get(slack_user_id).map(|(id, _)| *id) else {
-            self.report.skip(
-                format!("message {}", message.ts),
-                format!("author {slack_user_id} was not imported"),
-            );
-            return Ok(());
+                laid_out = Some(metadata);
+                (self.owner_id, content)
+            }
+            None => {
+                let why = match message.user.as_deref() {
+                    Some(slack_user_id) => format!("author {slack_user_id} was not imported"),
+                    None => "no author in the export".to_string(),
+                };
+                self.report.skip(format!("message {}", message.ts), why);
+                return Ok(());
+            }
         };
         if self.erased.contains(&user_id) {
             self.report.messages_by_erased += 1;
             return Ok(());
         }
 
-        let content = mrkdwn::convert(&message.text, &self.users);
         let created_at = parse_ts(&message.ts).ok_or_else(|| {
             AppError::BadRequest(format!("message {} has an unreadable ts", message.ts))
         })?;
@@ -172,6 +182,13 @@ impl Import<'_> {
             )
             .await?;
         by_slack_ts.insert(message.ts.clone(), stored_id);
+        if let Some(metadata) = &laid_out {
+            let mut conn = self.state.pool.acquire().await?;
+            self.state
+                .message_repo
+                .merge_layout_in(&mut conn, stored_id, metadata)
+                .await?;
+        }
 
         self.import_reactions(stored_id, message).await?;
 
@@ -184,6 +201,43 @@ impl Import<'_> {
             .await;
 
         Ok(())
+    }
+
+    async fn integration_post(
+        &self,
+        message: &SlackMessage,
+    ) -> Option<(String, serde_json::Value)> {
+        let (mut layout, images) =
+            blocks::parse::layout(message.blocks.as_ref(), message.attachments.as_ref()).ok()?;
+        if layout.is_empty() {
+            return None;
+        }
+        blocks::check_images(&images).await.ok()?;
+        let channels = HashMap::new();
+        blocks::convert(
+            &mut layout,
+            &mrkdwn::Names {
+                users: &self.users,
+                channels: &channels,
+            },
+        );
+        let text = mrkdwn::convert(&message.text, &self.users);
+        let composed = Composed::finish(Some(&text), layout);
+        let profile = message.bot_profile.as_ref();
+        let name = message
+            .username
+            .clone()
+            .or_else(|| profile.and_then(|p| p.name.clone()))
+            .unwrap_or_else(|| "Integration".to_string());
+        let icon_url = message
+            .icons
+            .as_ref()
+            .or_else(|| profile.and_then(|p| p.icons.as_ref()))
+            .and_then(|icons| icons.image_48.clone());
+        let metadata = composed.merged_into(serde_json::json!({
+            "bot": { "name": name, "icon_url": icon_url }
+        }));
+        Some((composed.content, metadata))
     }
 
     async fn write_message(
@@ -282,7 +336,7 @@ impl Import<'_> {
     }
 
     fn reaction_emoji(&mut self, name: &str) -> String {
-        if let Some(native) = crate::slack_import::shortcodes::standard(name) {
+        if let Some(native) = crate::blocks::shortcodes::standard(name) {
             return native.to_string();
         }
         let base = name.split("::").next().unwrap_or(name);

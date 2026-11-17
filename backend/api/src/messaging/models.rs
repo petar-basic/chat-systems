@@ -48,6 +48,9 @@ pub struct MessageMetadata {
     pub also_in_channel: Option<bool>,
     pub forwarded_from: Option<ForwardedFrom>,
     pub gif: Option<crate::gifs::models::Gif>,
+    pub blocks: Option<Vec<crate::blocks::models::Block>>,
+    pub legacy_attachments: Option<Vec<crate::blocks::models::LegacyAttachment>>,
+    pub flattened: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
@@ -133,6 +136,7 @@ pub struct Reaction {
 #[garde(allow_unvalidated)]
 pub struct SendMessageRequest {
     #[garde(custom(shared_common::validation::rules::message_body))]
+    #[serde(default)]
     pub content: String,
     pub thread_parent_id: Option<Uuid>,
     #[serde(default)]
@@ -145,14 +149,23 @@ pub struct SendMessageRequest {
     pub attachment_ids: Vec<Uuid>,
     pub forwarded_from: Option<Uuid>,
     pub gif: Option<crate::gifs::models::Gif>,
+    #[schema(value_type = Option<Vec<crate::blocks::models::Block>>)]
+    pub blocks: Option<serde_json::Value>,
+    #[schema(value_type = Option<Vec<Object>>)]
+    pub attachments: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize, garde::Validate, ToSchema)]
 #[garde(allow_unvalidated)]
 pub struct UpdateMessageRequest {
     #[garde(custom(shared_common::validation::rules::message_body))]
+    #[serde(default)]
     pub content: String,
     pub attachment_ids: Option<Vec<Uuid>>,
+    #[schema(value_type = Option<Vec<crate::blocks::models::Block>>)]
+    pub blocks: Option<serde_json::Value>,
+    #[schema(value_type = Option<Vec<Object>>)]
+    pub attachments: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize, garde::Validate, ToSchema)]

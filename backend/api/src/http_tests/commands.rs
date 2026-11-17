@@ -994,3 +994,117 @@ async fn a_command_without_channels_is_refused_as_a_command(pool: PgPool) {
         );
     }
 }
+
+const BLOCKS_ANSWER: &str = r#"{
+  "response_type": "in_channel",
+  "blocks": [
+    { "type": "section", "text": { "type": "mrkdwn", "text": "*prod* is deploying" },
+      "accessory": { "type": "button", "text": { "type": "plain_text", "text": "Watch" }, "url": "https://ci.example.com/runs/7" } }
+  ]
+}"#;
+
+async fn laid_out_messages(c: &Commanded) -> Vec<serde_json::Value> {
+    sqlx::query_scalar(
+        "SELECT metadata FROM messages WHERE channel_id = $1 AND metadata ? 'bot' ORDER BY created_at",
+    )
+    .bind(c.ch_id)
+    .fetch_all(&c.state.pool)
+    .await
+    .expect("bot messages")
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_command_answers_inline_with_blocks(pool: PgPool) {
+    let (url, _) = scripted_command_endpoint(vec![(200, BLOCKS_ANSWER)]).await;
+    let c = commanded(pool, &url).await;
+
+    let (status, body) = run(&c).await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    assert_eq!(body["response_type"], "in_channel");
+    assert_eq!(
+        bot_messages(&c).await,
+        vec!["**prod** is deploying".to_string()]
+    );
+    let metadata = &laid_out_messages(&c).await[0];
+    assert_eq!(
+        metadata["blocks"][0]["accessory"]["url"],
+        "https://ci.example.com/runs/7"
+    );
+    assert_eq!(metadata["flattened"], true);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_command_whose_blocks_are_wrong_says_where(pool: PgPool) {
+    let (url, _) = scripted_command_endpoint(vec![(
+        200,
+        r#"{ "response_type": "in_channel", "blocks": [{ "type": "carousel" }] }"#,
+    )])
+    .await;
+    let c = commanded(pool, &url).await;
+
+    let (status, body) = run(&c).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body:?}");
+    assert_eq!(
+        body["error"],
+        "/deploy answered with blocks[0].type: unknown block type `carousel`"
+    );
+    assert!(bot_messages(&c).await.is_empty());
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_response_url_takes_blocks_and_attachments(pool: PgPool) {
+    let (url, calls) = scripted_command_endpoint(vec![(200, "")]).await;
+    let c = commanded(pool, &url).await;
+    run(&c).await;
+    let response_url = response_url_of(&calls);
+
+    assert_eq!(
+        answer_later(
+            &c,
+            &response_url,
+            json!({
+                "response_type": "in_channel",
+                "text": "Deploy finished",
+                "blocks": [{ "type": "header", "text": { "type": "plain_text", "text": "Deployed" } }],
+                "attachments": [{ "color": "good", "fields": [{ "title": "Took", "value": "3m" }] }]
+            })
+        )
+        .await,
+        StatusCode::OK
+    );
+    assert_eq!(bot_messages(&c).await, vec!["Deploy finished".to_string()]);
+    let metadata = &laid_out_messages(&c).await[0];
+    assert_eq!(metadata["blocks"][0]["text"]["text"], "Deployed");
+    assert_eq!(metadata["legacy_attachments"][0]["color"], "#2eb886");
+
+    assert_eq!(
+        answer_later(
+            &c,
+            &response_url,
+            json!({
+                "response_type": "in_channel",
+                "replace_original": true,
+                "attachments": [{ "color": "danger", "text": "Rolled back" }]
+            })
+        )
+        .await,
+        StatusCode::OK
+    );
+    assert_eq!(bot_messages(&c).await, vec!["Rolled back".to_string()]);
+    let metadata = &laid_out_messages(&c).await[0];
+    assert!(
+        metadata.get("blocks").is_none(),
+        "the new answer replaces the layout"
+    );
+    assert_eq!(metadata["legacy_attachments"][0]["color"], "#a30200");
+
+    assert_eq!(
+        answer_later(
+            &c,
+            &response_url,
+            json!({ "blocks": [{ "type": "image", "image_url": "http://127.0.0.1/x.png", "alt_text": "x" }] })
+        )
+        .await,
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+}

@@ -6,6 +6,8 @@ import { FormCard, FormAnswers, introOf } from '@/features/workflows';
 import { LinkPreviews } from './LinkPreviews';
 import { AppConnectPrompt } from './AppConnectPrompt';
 import { GifMessage } from '@/features/gifs';
+import { BlockMessage } from './blocks/BlockMessage';
+import { hasBlocks } from './blocks/layout';
 
 interface Props {
   message: Message;
@@ -29,7 +31,8 @@ export function MessageBody({
   const answers = message.deleted_at ? null : (message.metadata?.fields ?? null);
   const intro = answers ? introOf(message.content, answers) : null;
   const attachments = message.metadata?.attachments ?? [];
-  const plain = !poll && !(form && !message.deleted_at) && !(answers && intro !== null);
+  const laidOut = !message.deleted_at && hasBlocks(message);
+  const plain = !poll && !(form && !message.deleted_at) && !laidOut && !(answers && intro !== null);
 
   return (
     <>
@@ -37,6 +40,8 @@ export function MessageBody({
         <PollCard message={message} poll={poll} currentUserId={currentUserId} keyVoteRef={pollKeyVote} />
       ) : form && !message.deleted_at ? (
         <FormCard form={form} currentUserId={currentUserId} />
+      ) : laidOut ? (
+        <BlockMessage message={message} />
       ) : answers && intro !== null ? (
         <>
           <RichTextDisplay content={intro} attachments={attachments} />

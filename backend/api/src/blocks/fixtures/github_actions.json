@@ -1,0 +1,30 @@
+{
+  "text": "GitHub Action build result: success",
+  "blocks": [
+    {
+      "type": "header",
+      "text": { "type": "plain_text", "text": ":white_check_mark: Build passed", "emoji": true }
+    },
+    {
+      "type": "section",
+      "fields": [
+        { "type": "mrkdwn", "text": "*Repository:*\n<https://github.com/acme/api|acme/api>" },
+        { "type": "mrkdwn", "text": "*Branch:*\nmain" },
+        { "type": "mrkdwn", "text": "*Commit:*\n<https://github.com/acme/api/commit/4f2a9c1|4f2a9c1>" },
+        { "type": "mrkdwn", "text": "*Triggered by:*\noctocat" }
+      ]
+    },
+    { "type": "divider" },
+    {
+      "type": "actions",
+      "elements": [
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "View run" },
+          "url": "https://github.com/acme/api/actions/runs/9201",
+          "style": "primary"
+        }
+      ]
+    }
+  ]
+}

@@ -56,7 +56,7 @@ async fn unfurl_delivery(state: &AppState, delivery: &Delivery) {
         .get("unfurls_hidden")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
-    if !target.previews_enabled || hidden {
+    if !target.previews_enabled || hidden || crate::blocks::has_layout(&target.metadata) {
         return;
     }
 

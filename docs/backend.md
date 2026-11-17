@@ -541,8 +541,8 @@ Sends and manages messages, threads, reactions, pins, read tracking, and search.
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/channels/:ch_id/messages` | Query: `limit=50, cursor?, mark_read?` | `{ data: Message[], unread_notifications?, last_read_before?, last_read_before_at? }` — with `mark_read=true` and no cursor, the newest message becomes the caller's read position (as `POST /channels/:ch_id/read`), `unread_notifications` is the workspace's count afterwards, and `last_read_before` is the message the caller had read up to when anything after it was unread (where the *New* line goes), read at `last_read_before_at` |
-| POST | `/channels/:ch_id/messages` | `{ content, thread_parent_id?, also_to_channel?, client_message_id?, attachment_ids?, forwarded_from?, gif? }` | `Message` — the one send path; a `thread_parent_id` makes it a reply (one level deep, same channel; 404 once the root is deleted and has no replies left), `also_to_channel` shows that reply in the channel too (`metadata.also_in_channel`), and `client_message_id` makes a retry idempotent. `attachment_ids` (at most 10, the sender's own drafts) are linked in the message's transaction and listed in `metadata.attachments`; `content` may then be empty. `forwarded_from` (a forward) copies that message's files, if the sender can read it, and records `metadata.forwarded_from`; the quoted lines (`>`) of a forward neither mention nor broadcast, only the sender's own words do. `gif` is a GIPHY GIF (see *gifs*), recorded as `metadata.gif` |
-| PATCH | `/messages/:msg_id` | `{ content, attachment_ids? }` | `Message` — `attachment_ids` is the set of files to keep; the rest are deleted |
+| POST | `/channels/:ch_id/messages` | `{ content, thread_parent_id?, also_to_channel?, client_message_id?, attachment_ids?, forwarded_from?, gif?, blocks?, attachments? }` | `Message` — the one send path; a `thread_parent_id` makes it a reply (one level deep, same channel; 404 once the root is deleted and has no replies left), `also_to_channel` shows that reply in the channel too (`metadata.also_in_channel`), and `client_message_id` makes a retry idempotent. `attachment_ids` (at most 10, the sender's own drafts) are linked in the message's transaction and listed in `metadata.attachments`; `content` may then be empty. `forwarded_from` (a forward) copies that message's files, if the sender can read it, and records `metadata.forwarded_from`; the quoted lines (`>`) of a forward neither mention nor broadcast, only the sender's own words do. `gif` is a GIPHY GIF (see *gifs*), recorded as `metadata.gif`. `blocks` and `attachments` (Slack's layout, see [bot-api.md](./bot-api.md#blocks)) are taken from a bot token only, 403 from a person; `content` may then be empty |
+| PATCH | `/messages/:msg_id` | `{ content, attachment_ids?, blocks?, attachments? }` | `Message` — `attachment_ids` is the set of files to keep; the rest are deleted. A bot that sends `blocks` or `attachments` replaces the message's layout, and one that sends only `content` keeps it; a person cannot edit a message built from blocks (403) |
 | DELETE | `/messages/:msg_id` | — | `{ status: "deleted" }` |
 | DELETE | `/messages/:msg_id/unfurls` | — | `Message` — the author removes its link previews; they stay removed across edits |
 
@@ -759,7 +759,7 @@ Incoming/outgoing webhooks, bots and slash commands. A background task executes 
 | POST | `/hooks/:hook_id/reveal` | — | `{ hook_id, hook_type, config, incoming_url }` — config unredacted, written to `audit_log` |
 | POST | `/hooks/:hook_id/rotate` | — | same shape, after minting a fresh `token` (incoming) or `secret` (outgoing); the previous value stops working immediately |
 | DELETE | `/hooks/:hook_id` | — | `{ status: "deleted" }` |
-| POST | `/hooks/incoming/:token` | `{ text }` | `{ status: "ok", message_id }` |
+| POST | `/hooks/incoming/:token` | `{ text?, blocks?, attachments?, username?, icon_url? }` | `{ status: "ok", message_id }` — `text` is required unless `blocks` or `attachments` are sent ([bot-api.md](./bot-api.md#blocks)) |
 | GET | `/channels/:ch_id/integrations` | — | `{ incoming_webhooks, outgoing_webhooks, slash_commands, workflows, can_add_webhook }` — what touches the channel, for anyone with access to it: incoming webhooks bound to it, outgoing webhooks and commands whose `channel_ids` include it, workflows whose trigger listens to it or whose `send_message` step posts into it; names and authors only, never a URL, token or secret |
 
 Hook types: `incoming_webhook`, `outgoing_webhook`, `slash_command`. An outgoing webhook and a
@@ -802,9 +802,14 @@ somebody else). Each is audited, `hook.disabled`, `workflow.disabled`, `bot_app.
 Activating the account again turns nothing back on.
 Creating an `incoming_webhook` requires `config.channel_id`, and the server mints a
 `config.token`. **`POST /hooks/incoming/:token` is authenticated by that URL token,
-not a session** (Slack-compatible `{ "text": ... }`); it posts to the bound channel
+not a session** (Slack-compatible `{ "text", "blocks", "attachments" }`); it posts to the bound channel
 under the hook's creator's id with `metadata.bot = { hook_id, name, icon_url }`, and is
-rate-limited per token. The creator is notified of it like any other member, and a
+rate-limited per token. Blocks go to `metadata.blocks`, Slack's legacy attachments to
+`metadata.legacy_attachments`; `crate::blocks` checks them against Slack's limits, turns their
+`mrkdwn` into this app's markdown, and refuses an image on an address that is not public. Without
+`text`, `content` is the text flattened from them and `metadata.flattened` is `true`; `content`
+is what search, notifications, email and the edit history read. A message with either skips
+link previews. The creator is notified of it like any other member, and a
 notification about it names the bot as its sender.
 
 **Slash commands:**
@@ -813,22 +818,22 @@ notification about it names the bot as its sender.
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/commands` | — | `{ data: CommandInfo[] }` — built-in and registered commands the caller can run |
 | POST | `/channels/:ch_id/commands` | `{ command, text, thread_parent_id? }` | `CommandResponse` — `{ response_type: "ephemeral" \| "in_channel" \| "pending", text }`; `thread_parent_id` runs it from that thread of the channel, a reply standing for its root (422 for a thread of another channel) |
-| POST | `/commands/responses/:token` | `{ text, response_type?, replace_original? }` | `{ status: "ok" }` — authenticated by the token in the URL, not a session |
+| POST | `/commands/responses/:token` | `{ text?, blocks?, attachments?, response_type?, replace_original? }` | `{ status: "ok" }` — authenticated by the token in the URL, not a session; `text` is required unless `blocks` or `attachments` are sent |
 
 A registered command is a `slash_command` hook whose `config.url` receives a signed POST
 (`X-ChatSystems-Signature`, the outgoing-webhook HMAC) with `{ command, text, channel_id,
 thread_parent_id, workspace_id, user_id, request_id, response_url }`, `thread_parent_id` being
 the thread it was typed in or null, as Slack's `thread_ts`, and the header `X-Chat-Request-Id` equal to
-`request_id`. The app has three seconds. A body of `{ text, response_type }` is the answer
-there and then; an empty 2xx body acknowledges, and the caller sees */deploy is working on it…*
+`request_id`. The app has three seconds. A body of `{ text, blocks, attachments, response_type }` is the answer
+there and then (blocks that break the rules are a 400 naming the path); an empty 2xx body acknowledges, and the caller sees */deploy is working on it…*
 until the app answers through `response_url`. That URL takes up to five answers within 30
 minutes (`command_invocations.uses_left`, `expires_at`); after that, or with a forged token, it
 is a 404. It is `{PUBLIC_URL}/api/commands/responses/{id}.{mac}`, the mac an HMAC of the
 invocation id under the `command-responses` key of `SECRETS_KEYS`, so the token itself is never
 stored. `in_channel` posts a bot message as the caller, if they may post there, as a reply when
 the command came from a thread (`command_invocations.thread_parent_id`), and
-`replace_original` edits the one the invocation posted before; `ephemeral` (the default) goes
-as a `command.response` frame, carrying `thread_parent_id`, to the caller's sockets only. An answer still needs the caller to
+`replace_original` edits the one the invocation posted before, blocks and attachments included; `ephemeral` (the default) goes
+as a `command.response` frame, with the text flattened from any blocks, carrying `thread_parent_id`, to the caller's sockets only. An answer still needs the caller to
 read the channel and the hook to be on (403 otherwise).
 
 A connection error, a timeout or a 502–504 is retried by the worker's `command_retrier` after 2

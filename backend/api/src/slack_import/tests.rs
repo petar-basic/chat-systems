@@ -2198,3 +2198,96 @@ async fn imported_history_is_counted_once_and_a_leaver_is_not_a_member(pool: PgP
         .sum();
     assert_eq!(messages, 9, "while everything they wrote still counts");
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_integrations_blocks_and_attachments_come_over_under_its_name(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, _) = seed_and_login(&app, &state, "import-blocks", false).await;
+    let ws = seed_workspace(&state, owner_id, "Imported blocks").await;
+    let fixture = Fixture::write();
+    let day = json!([
+        {
+            "type": "message",
+            "subtype": "bot_message",
+            "bot_id": "B1",
+            "username": "GitHub",
+            "text": "Build passed",
+            "ts": "1700300000.000100",
+            "blocks": [
+                { "type": "header", "text": { "type": "plain_text", "text": "Build passed" } },
+                { "type": "section", "text": { "type": "mrkdwn", "text": "*main* by <@U1>" } }
+            ]
+        },
+        {
+            "type": "message",
+            "bot_id": "B2",
+            "user": "U9BOT",
+            "text": "",
+            "ts": "1700300100.000100",
+            "bot_profile": { "name": "Jenkins", "icons": { "image_48": "https://avatars.slack-edge.com/jenkins_48.png" } },
+            "attachments": [{ "color": "good", "text": "api-deploy #42 Success" }]
+        },
+        {
+            "type": "message",
+            "subtype": "bot_message",
+            "bot_id": "B3",
+            "text": "a layout from the future",
+            "ts": "1700300200.000100",
+            "blocks": [{ "type": "rich_text", "elements": [] }]
+        }
+    ]);
+    std::fs::write(
+        fixture.root.join("general-chat").join("2023-11-18.json"),
+        serde_json::to_vec_pretty(&day).expect("day json"),
+    )
+    .expect("write day");
+
+    let report = import(&state, ws, &fixture.root, false).await;
+    assert_eq!(
+        report.messages_imported, 10,
+        "the fixture's eight and the two integrations whose layout is known"
+    );
+    assert!(
+        report
+            .skipped
+            .iter()
+            .any(|s| s.what == "message 1700300200.000100" && s.why.contains("integration")),
+        "a layout this app does not know keeps the old reason: {:?}",
+        report.skipped
+    );
+
+    let rows: Vec<(Uuid, String, serde_json::Value)> = sqlx::query_as(
+        "SELECT m.user_id, m.content, m.metadata FROM messages m
+           JOIN channels c ON c.id = m.channel_id
+          WHERE c.workspace_id = $1 AND m.metadata ? 'bot'
+          ORDER BY m.created_at",
+    )
+    .bind(ws)
+    .fetch_all(&state.pool)
+    .await
+    .expect("integration messages");
+    assert_eq!(rows.len(), 2, "{rows:?}");
+
+    let (author, content, metadata) = &rows[0];
+    assert_eq!(*author, owner_id, "posted under the owner, as a hook is");
+    assert_eq!(content, "Build passed");
+    assert_eq!(metadata["bot"]["name"], "GitHub");
+    assert_eq!(metadata["blocks"][0]["type"], "header");
+    let ana = user_with_email(&state, "ana@dev.local").await;
+    assert_eq!(
+        metadata["blocks"][1]["text"]["text"],
+        format!("**main** by @[Ana Marić]({ana})")
+    );
+
+    let (_, content, metadata) = &rows[1];
+    assert_eq!(
+        content, "api-deploy #42 Success",
+        "flattened from the attachment"
+    );
+    assert_eq!(metadata["bot"]["name"], "Jenkins");
+    assert_eq!(
+        metadata["bot"]["icon_url"],
+        "https://avatars.slack-edge.com/jenkins_48.png"
+    );
+    assert_eq!(metadata["legacy_attachments"][0]["color"], "#2eb886");
+}

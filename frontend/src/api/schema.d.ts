@@ -4021,6 +4021,93 @@ export interface components {
             provider: string;
             summary: string;
         };
+        Block: {
+            block_id?: string | null;
+            text: components["schemas"]["BlockText"];
+            /** @enum {string} */
+            type: "header";
+        } | {
+            accessory?: components["schemas"]["BlockElement"] | null;
+            block_id?: string | null;
+            fields?: components["schemas"]["BlockText"][];
+            text?: components["schemas"]["BlockText"] | null;
+            /** @enum {string} */
+            type: "section";
+        } | {
+            block_id?: string | null;
+            /** @enum {string} */
+            type: "divider";
+        } | {
+            alt_text: string;
+            block_id?: string | null;
+            image_url: string;
+            title?: components["schemas"]["BlockText"] | null;
+            /** @enum {string} */
+            type: "image";
+        } | {
+            block_id?: string | null;
+            elements: components["schemas"]["ContextElement"][];
+            /** @enum {string} */
+            type: "context";
+        } | {
+            block_id?: string | null;
+            elements: components["schemas"]["BlockElement"][];
+            /** @enum {string} */
+            type: "actions";
+        };
+        BlockElement: {
+            action_id?: string | null;
+            style?: components["schemas"]["ButtonStyle"] | null;
+            text: components["schemas"]["BlockText"];
+            /** @enum {string} */
+            type: "button";
+            url?: string | null;
+            value?: string | null;
+        } | {
+            action_id?: string | null;
+            initial_option?: components["schemas"]["BlockOption"] | null;
+            options?: components["schemas"]["BlockOption"][];
+            placeholder?: components["schemas"]["BlockText"] | null;
+            /** @enum {string} */
+            type: "static_select";
+        } | {
+            action_id?: string | null;
+            initial_user?: string | null;
+            placeholder?: components["schemas"]["BlockText"] | null;
+            /** @enum {string} */
+            type: "users_select";
+        } | {
+            action_id?: string | null;
+            initial_conversation?: string | null;
+            placeholder?: components["schemas"]["BlockText"] | null;
+            /** @enum {string} */
+            type: "conversations_select";
+        } | {
+            action_id?: string | null;
+            options?: components["schemas"]["BlockOption"][];
+            /** @enum {string} */
+            type: "overflow";
+        } | {
+            action_id?: string | null;
+            initial_date?: string | null;
+            placeholder?: components["schemas"]["BlockText"] | null;
+            /** @enum {string} */
+            type: "datepicker";
+        } | {
+            alt_text: string;
+            image_url: string;
+            /** @enum {string} */
+            type: "image";
+        };
+        BlockOption: {
+            text: components["schemas"]["BlockText"];
+            url?: string | null;
+            value?: string;
+        };
+        BlockText: {
+            text: string;
+            type: components["schemas"]["TextKind"];
+        };
         BotApp: {
             /** Format: uuid */
             bot_user_id: string;
@@ -4081,6 +4168,8 @@ export interface components {
         };
         /** @enum {string} */
         BuiltinSection: "channels" | "dms" | "people";
+        /** @enum {string} */
+        ButtonStyle: "primary" | "danger";
         CellValue: {
             /** Format: uuid */
             column_id: string;
@@ -4317,9 +4406,11 @@ export interface components {
             column_ids: string[];
         };
         CommandAnswer: {
+            attachments?: Record<string, never>[] | null;
+            blocks?: components["schemas"]["Block"][] | null;
             replace_original?: boolean;
             response_type?: string | null;
-            text: string;
+            text?: string | null;
         };
         CommandInfo: {
             builtin: boolean;
@@ -4362,6 +4453,20 @@ export interface components {
         };
         ConnectAppResponse: {
             authorize_url: string;
+        };
+        ContextElement: {
+            text: string;
+            /** @enum {string} */
+            type: "plain_text";
+        } | {
+            text: string;
+            /** @enum {string} */
+            type: "mrkdwn";
+        } | {
+            alt_text: string;
+            image_url: string;
+            /** @enum {string} */
+            type: "image";
         };
         Conversation: {
             /** Format: date-time */
@@ -5776,8 +5881,10 @@ export interface components {
             status: string;
         };
         IncomingWebhookPayload: {
+            attachments?: Record<string, never>[] | null;
+            blocks?: components["schemas"]["Block"][] | null;
             icon_url?: string | null;
-            text: string;
+            text?: string | null;
             /**
              * @description Slack-compatible overrides. A CI hook that posts as "CI" and a release
              *     hook that posts as "Releases" are the same integration mechanism with
@@ -5923,6 +6030,27 @@ export interface components {
         };
         /** @enum {string} */
         LaterStatus: "in_progress" | "completed" | "archived";
+        LegacyAttachment: {
+            author_link?: string | null;
+            author_name?: string | null;
+            blocks?: components["schemas"]["Block"][];
+            color?: string | null;
+            fields?: components["schemas"]["LegacyField"][];
+            footer?: string | null;
+            image_url?: string | null;
+            pretext?: string | null;
+            text?: string | null;
+            thumb_url?: string | null;
+            title?: string | null;
+            title_link?: string | null;
+            /** Format: int64 */
+            ts?: number | null;
+        };
+        LegacyField: {
+            short: boolean;
+            title: string;
+            value: string;
+        };
         List: {
             /** Format: uuid */
             channel_id?: string | null;
@@ -6119,10 +6247,12 @@ export interface components {
             also_in_channel?: boolean | null;
             app_prompts?: string[] | null;
             attachments?: components["schemas"]["Attachment"][] | null;
+            blocks?: components["schemas"]["Block"][] | null;
             bot?: components["schemas"]["BotIdentity"] | null;
             /** Format: date-time */
             ended_at?: string | null;
             fields?: components["schemas"]["MessageField"][] | null;
+            flattened?: boolean | null;
             form?: components["schemas"]["FormRequest"] | null;
             forwarded_from?: components["schemas"]["ForwardedFrom"] | null;
             gif?: components["schemas"]["Gif"] | null;
@@ -6131,6 +6261,7 @@ export interface components {
             /** Format: uuid */
             initiator_id?: string | null;
             kind?: string | null;
+            legacy_attachments?: components["schemas"]["LegacyAttachment"][] | null;
             participant_ids?: string[] | null;
             poll?: components["schemas"]["PollSummary"] | null;
             unfurls?: components["schemas"]["Unfurl"][] | null;
@@ -6643,13 +6774,15 @@ export interface components {
         SendMessageRequest: {
             also_to_channel?: boolean;
             attachment_ids?: string[];
+            attachments?: Record<string, never>[] | null;
+            blocks?: components["schemas"]["Block"][] | null;
             /**
              * Format: uuid
              * @description The sender's own id for this send, used only to make a retry idempotent.
              *     It is not the message id — the server owns that.
              */
             client_message_id?: string | null;
-            content: string;
+            content?: string;
             /** Format: uuid */
             forwarded_from?: string | null;
             gif?: components["schemas"]["Gif"] | null;
@@ -6826,6 +6959,8 @@ export interface components {
         };
         /** @enum {string} */
         SystemNotice: "workflow_stopped" | "app_requested" | "not_delivered" | "guest_ending" | "invite_requested" | "invite_request_approved" | "invite_request_declined" | "invite_request_expired";
+        /** @enum {string} */
+        TextKind: "plain_text" | "mrkdwn";
         /** @enum {string} */
         TextSize: "90" | "100" | "112" | "125";
         Theme: {
@@ -7045,7 +7180,9 @@ export interface components {
         };
         UpdateMessageRequest: {
             attachment_ids?: string[] | null;
-            content: string;
+            attachments?: Record<string, never>[] | null;
+            blocks?: components["schemas"]["Block"][] | null;
+            content?: string;
         };
         UpdatePreferences: {
             clock?: components["schemas"]["Clock"] | null;

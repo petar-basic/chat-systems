@@ -1,0 +1,10 @@
+{
+  "attachments": [
+    {
+      "color": "good",
+      "text": "api-deploy - #42 Success after 3 min 12 sec (<https://ci.example.com/job/api-deploy/42/|Open>)",
+      "fallback": "api-deploy - #42 Success after 3 min 12 sec",
+      "mrkdwn_in": ["pretext", "text", "fields"]
+    }
+  ]
+}

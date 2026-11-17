@@ -5,6 +5,7 @@ pub mod app_events;
 pub mod audit;
 pub mod auth;
 pub mod authz;
+pub mod blocks;
 pub mod bots;
 pub mod channel_context;
 pub mod channel_integrations;
@@ -137,6 +138,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
     let profile_field_repo = profile_fields::repo::ProfileFieldRepo::new(pool.clone());
     let custom_response_repo = custom_responses::repo::CustomResponseRepo::new(pool.clone());
     let workspace_bot_repo = workspace_bots::repo::WorkspaceBotRepo::new(pool.clone());
+    let block_repo = blocks::repo::BlockRepo::new(pool.clone());
     let poll_repo = polls::repo::PollRepo::new(pool.clone());
     let list_repo = lists::repo::ListRepo::new(pool.clone());
     let thread_repo = threads::repo::ThreadRepo::new(pool.clone());
@@ -193,6 +195,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
         profile_field_repo,
         custom_response_repo,
         workspace_bot_repo,
+        block_repo,
         poll_repo,
         list_repo,
         thread_repo,

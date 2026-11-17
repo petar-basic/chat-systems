@@ -32,6 +32,7 @@ import { MessageEditor } from './MessageEditor';
 import { MessageReactions } from './MessageReactions';
 import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
 import { TIME, formatClock } from '@/lib/datetime';
+import { hasBlocks } from './blocks/layout';
 
 interface MessageItemProps {
   message: Message;
@@ -102,7 +103,8 @@ function MessageItem({
   const archived = useChannelArchived(message.channel_id);
   const isOwn = currentUserId === message.user_id;
   const isEdited = message.updated_at !== message.created_at;
-  const canEdit = isOwn && !archived && !message.metadata?.poll && !message.metadata?.form;
+  const canEdit =
+    isOwn && !archived && !message.metadata?.poll && !message.metadata?.form && !hasBlocks(message);
   const pollKeyVote = useRef<PollKeyVote | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);

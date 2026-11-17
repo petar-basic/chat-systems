@@ -25,6 +25,7 @@ mod apps;
 mod audit;
 mod auth;
 mod avatar;
+mod blocks;
 mod bots;
 mod broadcast_mentions;
 mod channel_context;

@@ -97,6 +97,30 @@ pub struct SlackMessage {
     pub files: Vec<SlackFile>,
     #[serde(default)]
     pub pinned_to: Vec<String>,
+    #[serde(default)]
+    pub username: Option<String>,
+    #[serde(default)]
+    pub bot_profile: Option<SlackBotProfile>,
+    #[serde(default)]
+    pub icons: Option<SlackIcons>,
+    #[serde(default)]
+    pub blocks: Option<serde_json::Value>,
+    #[serde(default)]
+    pub attachments: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct SlackBotProfile {
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub icons: Option<SlackIcons>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct SlackIcons {
+    #[serde(default)]
+    pub image_48: Option<String>,
 }
 
 impl SlackMessage {
