@@ -266,7 +266,12 @@ async fn store_recording(
 ) -> AppResult<(String, service::StoredObject)> {
     let mut field = expect_field(multipart, "media").await?;
     let filename = names::display_name(field.file_name().unwrap_or("Clip"));
-    let declared = field.content_type().unwrap_or_default().to_string();
+    let declared = field
+        .headers()
+        .get(header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default()
+        .to_string();
     let (mime_type, container) = clips::media_type(&declared, clip.kind).ok_or_else(|| {
         AppError::Validation("A clip is recorded as MP4 or WebM of its own kind".into())
     })?;
