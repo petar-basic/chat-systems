@@ -134,6 +134,14 @@
         "updated": "プロフィール項目を変更",
         "deleted": "プロフィール項目を削除"
       },
+      "custom_response": {
+        "created": "カスタムレスポンスを追加",
+        "updated": "カスタムレスポンスを変更",
+        "deleted": "カスタムレスポンスを削除"
+      },
+      "workspace_bot": {
+        "renamed": "ボットの名前を変更"
+      },
       "hook": {
         "created": "連携を作成",
         "deleted": "連携を削除",
