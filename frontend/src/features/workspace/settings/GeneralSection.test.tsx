@@ -43,7 +43,7 @@ describe('GeneralSection', () => {
   });
 
   it('uploads an icon to the workspace, not as a file of it', async () => {
-    render(<GeneralSection workspace={workspace} onDeleted={vi.fn()} />, { wrapper });
+    render(<GeneralSection workspace={workspace} onDeleted={vi.fn()} canDelete />, { wrapper });
     const icon = new File([new Uint8Array([1])], 'logo.png', { type: 'image/png' });
     fireEvent.change(screen.getByLabelText('Workspace icon'), { target: { files: [icon] } });
     await waitFor(() => expect(upload).toHaveBeenCalledOnce());
@@ -53,7 +53,7 @@ describe('GeneralSection', () => {
   });
 
   it('saves a renamed workspace when the field is left, and only the name', async () => {
-    render(<GeneralSection workspace={workspace} onDeleted={vi.fn()} />, { wrapper });
+    render(<GeneralSection workspace={workspace} onDeleted={vi.fn()} canDelete />, { wrapper });
     const field = screen.getByLabelText(/Workspace name/);
     fireEvent.change(field, { target: { value: '  Platform  ' } });
     fireEvent.blur(field);
@@ -63,7 +63,7 @@ describe('GeneralSection', () => {
   });
 
   it('saves nothing when a field is left unchanged, and puts back an emptied name', () => {
-    render(<GeneralSection workspace={workspace} onDeleted={vi.fn()} />, { wrapper });
+    render(<GeneralSection workspace={workspace} onDeleted={vi.fn()} canDelete />, { wrapper });
     fireEvent.blur(screen.getByLabelText(/Description/));
     const field = screen.getByLabelText(/Workspace name/);
     fireEvent.change(field, { target: { value: '   ' } });
@@ -73,7 +73,7 @@ describe('GeneralSection', () => {
   });
 
   it('saves a switch the moment it changes', async () => {
-    render(<GeneralSection workspace={workspace} onDeleted={vi.fn()} />, { wrapper });
+    render(<GeneralSection workspace={workspace} onDeleted={vi.fn()} canDelete />, { wrapper });
     fireEvent.change(screen.getByTestId('workspace-workflow-builders'), { target: { value: 'admins' } });
     await waitFor(() => expect(patch).toHaveBeenCalledOnce());
     expect(bodyOf(0)).toEqual({ workflow_builders: 'admins' });
@@ -84,6 +84,7 @@ describe('GeneralSection', () => {
       <GeneralSection
         workspace={{ ...workspace, settings: { private_channel_creators: 'admins' } }}
         onDeleted={vi.fn()}
+        canDelete
       />,
       { wrapper },
     );
@@ -101,6 +102,28 @@ describe('GeneralSection', () => {
     expect(bodyOf(1)).toEqual({ public_channel_creators: 'admins' });
     expect(screen.getByTestId('workspace-broadcast-mentions')).toHaveValue('admins');
   });
+
+  it('keeps the danger zone from an admin who cannot delete the workspace', () => {
+    render(<GeneralSection workspace={workspace} onDeleted={vi.fn()} canDelete={false} />, { wrapper });
+    expect(screen.getByLabelText(/Workspace name/)).toHaveValue('Dev Team');
+    expect(screen.queryByText('Danger zone')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Delete workspace' })).not.toBeInTheDocument();
+  });
+
+  it('offers to restore a soft-deleted workspace only to someone who can delete it', () => {
+    const deleted = { ...workspace, deleted_at: '2026-11-17T09:00:00Z' };
+    const { rerender } = render(
+      <GeneralSection workspace={deleted} onDeleted={vi.fn()} canDelete={false} />,
+      {
+        wrapper,
+      },
+    );
+    expect(screen.queryByRole('button', { name: 'Restore workspace' })).not.toBeInTheDocument();
+
+    rerender(<GeneralSection workspace={deleted} onDeleted={vi.fn()} canDelete />);
+    expect(screen.getByRole('button', { name: 'Restore workspace' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Delete workspace' })).not.toBeInTheDocument();
+  });
 });
 
 describe('GeneralSection in Japanese', () => {
@@ -117,7 +140,7 @@ describe('GeneralSection in Japanese', () => {
   });
 
   it('names every setting and who may use each permission', () => {
-    render(<GeneralSection workspace={workspace} onDeleted={vi.fn()} />, { wrapper });
+    render(<GeneralSection workspace={workspace} onDeleted={vi.fn()} canDelete />, { wrapper });
 
     expect(screen.getByLabelText(/ワークスペース名/)).toHaveValue('Dev Team');
     expect(screen.getByText('リンクのプレビュー')).toBeInTheDocument();
@@ -137,20 +160,20 @@ describe('GeneralSection in Japanese', () => {
   });
 
   it('says when a change is saved', async () => {
-    render(<GeneralSection workspace={workspace} onDeleted={vi.fn()} />, { wrapper });
+    render(<GeneralSection workspace={workspace} onDeleted={vi.fn()} canDelete />, { wrapper });
     fireEvent.change(screen.getByTestId('workspace-inviters'), { target: { value: 'admins' } });
     expect(await screen.findByText('保存しました')).toBeInTheDocument();
   });
 
   it('says in Japanese when saving fails without a reason', async () => {
     patch.mockRejectedValue(new Error(''));
-    render(<GeneralSection workspace={workspace} onDeleted={vi.fn()} />, { wrapper });
+    render(<GeneralSection workspace={workspace} onDeleted={vi.fn()} canDelete />, { wrapper });
     fireEvent.change(screen.getByTestId('workspace-inviters'), { target: { value: 'admins' } });
     expect(await screen.findByText('設定を保存できませんでした')).toBeInTheDocument();
   });
 
   it('asks how to delete, naming the workspace as text', () => {
-    render(<GeneralSection workspace={{ ...workspace, name: hostile }} onDeleted={vi.fn()} />, {
+    render(<GeneralSection workspace={{ ...workspace, name: hostile }} onDeleted={vi.fn()} canDelete />, {
       wrapper,
     });
     fireEvent.click(screen.getByRole('button', { name: 'ワークスペースを削除' }));

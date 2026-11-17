@@ -4,7 +4,9 @@ import { cleanup, render, screen, fireEvent } from '@testing-library/react';
 import { WorkspaceSettingsModal } from './WorkspaceSettingsModal';
 import type { Workspace, WorkspaceRole } from '@/stores/workspace';
 
-vi.mock('./GeneralSection', () => ({ GeneralSection: () => <p>general body</p> }));
+vi.mock('./GeneralSection', () => ({
+  GeneralSection: ({ canDelete }: { canDelete: boolean }) => <p>general body {String(canDelete)}</p>,
+}));
 vi.mock('./MembersSection', () => ({
   MembersSection: ({ openInvite }: { openInvite: boolean }) => <p>members body {String(openInvite)}</p>,
 }));
@@ -59,9 +61,17 @@ describe('WorkspaceSettingsModal', () => {
       'Slack import',
       'Audit log',
     ]);
-    expect(screen.getByText('general body')).toBeInTheDocument();
+    expect(screen.getByText('general body false')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('tab', { name: 'Audit log' }));
     expect(screen.getByText('audit body')).toBeInTheDocument();
+  });
+
+  it('lets only the owner or an instance admin delete the workspace from General', () => {
+    renderModal('owner', 'general');
+    expect(screen.getByText('general body true')).toBeInTheDocument();
+    cleanup();
+    renderModal('admin', 'general', true);
+    expect(screen.getByText('general body true')).toBeInTheDocument();
   });
 
   it('gives a member only what they can use', () => {
