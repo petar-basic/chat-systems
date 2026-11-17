@@ -67,7 +67,7 @@ test('a command opens the app’s modal, and its message’s buttons reach the a
     await expect.poll(() => output, { timeout: 15_000 }).toContain('connected as app');
 
     await page.goto(`/app/${workspace.id}/${channel.id}`);
-    await expect(page.locator('[data-qa="message-list"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId('channel-header-name')).toHaveText(channel.name, { timeout: 20_000 });
     await send(page, '/request');
 
     const modal = page.locator('[data-qa="app-view"]');

@@ -167,7 +167,7 @@ describe('AppViewHost', () => {
     fireEvent.change(screen.getByLabelText('Why'), { target: { value: 'Load tests' } });
 
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-    expect(calls.post).toHaveBeenCalledWith('/views/{view_id}/close', { all: false });
+    await waitFor(() => expect(calls.post).toHaveBeenCalledWith('/views/{view_id}/close', { all: false }));
     expect(screen.getByRole('heading', { name: 'Request' })).toBeInTheDocument();
     expect(screen.getByLabelText('What')).toHaveValue('A staging box');
     expect(screen.getByLabelText('Mobile')).toBeChecked();
