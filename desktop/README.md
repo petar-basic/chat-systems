@@ -75,6 +75,22 @@ Every server's page is loaded at start and keeps running while it is hidden
 (`background_throttling` is off), so a server you are not looking at still raises
 notifications and keeps its unread count on the rail and the Dock.
 
+Sharing a whole screen in a huddle opens a see-through window over that display
+(`ui/overlay.html`), and the others' strokes are drawn on it, so you see them on the real
+screen as well as in the huddle window:
+- The window ignores the mouse (`set_ignore_cursor_events`), so clicks go through to whatever
+  is under it. Tauri does this on macOS and on Windows alike, so neither falls back to the
+  huddle window alone.
+- It stays on top and on every Space, and it is kept out of screen captures
+  (`content_protected`), so the viewers do not get each stroke a second time inside the video.
+- The display is the monitor whose size in pixels matches the shared video, or else the one the
+  app's window is on.
+- Only the server page that opened the window may draw on it or close it. It takes `#rrggbb`
+  colours and points from 0 to 1, nothing else.
+- It closes when the share ends or that page is reloaded or left.
+
+A shared window or tab shows the strokes only in the huddle window.
+
 Closing the window hides it and the app keeps running, so notifications still arrive; the
 tray menu opens it again, turns *Open at Login* on or off, and quits. Opened at login, the
 app starts with its window hidden.

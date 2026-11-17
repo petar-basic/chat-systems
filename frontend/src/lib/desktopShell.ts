@@ -30,6 +30,15 @@ export interface DesktopRailHint {
   animate: boolean;
 }
 
+export interface DesktopOverlayStroke {
+  key: string;
+  color: string;
+  name: string;
+  points: [number, number][];
+  fade_at: number;
+  fade_ms: number;
+}
+
 export type DesktopCommand =
   | { kind: 'open-workspace'; workspaceId: string }
   | { kind: 'leave-workspace'; workspaceId: string }
@@ -46,6 +55,9 @@ export interface DesktopShell {
   reportTheme?: (theme: 'light' | 'dark') => void;
   reportColours?: (colours: DesktopColours | null) => void;
   reportCreation?: (allowed: boolean) => void;
+  openDrawOverlay?: (width: number, height: number) => void;
+  drawOnOverlay?: (stroke: DesktopOverlayStroke) => void;
+  closeDrawOverlay?: () => void;
   onCommand: (handler: (command: DesktopCommand) => void) => () => void;
 }
 

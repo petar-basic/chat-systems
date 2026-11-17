@@ -14,6 +14,8 @@ import {
   Sparkles,
   UserPlus,
   MessageSquare,
+  Pencil,
+  PencilOff,
 } from 'lucide-react';
 import { useHuddleStore, type ActiveHuddle } from '@/stores/huddle';
 import { displayNameOf } from '@/lib/userHelpers';
@@ -43,6 +45,7 @@ export function HuddleControlBar({ controls, active, thread }: Props) {
   const localMuted = useHuddleStore((s) => s.localMuted);
   const localCameraOn = useHuddleStore((s) => s.localCameraOn);
   const localSharing = useHuddleStore((s) => s.localSharing);
+  const localDrawing = useHuddleStore((s) => s.localDrawing);
   const localHandRaised = useHuddleStore((s) => s.localHandRaised);
   const background = useHuddleStore((s) => s.background);
 
@@ -71,6 +74,17 @@ export function HuddleControlBar({ controls, active, thread }: Props) {
         label={localSharing ? t('controls.stopSharing') : t('controls.share')}
         highlight={localSharing}
       />
+      {localSharing && (
+        <ControlButton
+          active={localDrawing}
+          onClick={controls.toggleDrawing}
+          on={<Pencil className="w-4 h-4" />}
+          off={<PencilOff className="w-4 h-4" />}
+          label={localDrawing ? t('controls.drawingOff') : t('controls.drawingOn')}
+          highlight={localDrawing}
+          qa="huddle-drawing-toggle"
+        />
+      )}
       <ControlButton
         active={localHandRaised}
         onClick={controls.toggleHand}
@@ -111,9 +125,10 @@ interface ControlButtonProps {
   label: string;
   danger?: boolean;
   highlight?: boolean;
+  qa?: string;
 }
 
-function ControlButton({ active, onClick, on, off, label, danger, highlight }: ControlButtonProps) {
+function ControlButton({ active, onClick, on, off, label, danger, highlight, qa }: ControlButtonProps) {
   const tone = danger
     ? 'bg-red-600/20 text-danger hover:bg-red-600/30'
     : highlight
@@ -125,6 +140,7 @@ function ControlButton({ active, onClick, on, off, label, danger, highlight }: C
       aria-label={label}
       data-tooltip={label}
       aria-pressed={active}
+      data-qa={qa}
       className={`p-2.5 rounded-full transition ${tone}`}
     >
       {active ? on : off}

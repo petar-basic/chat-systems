@@ -13,7 +13,7 @@ use shared_events::frames::{HuddleTransport, Presence, PresenceEntry, ServerFram
 use crate::connection_manager::{Audience, HuddleJoin};
 use uuid::Uuid;
 
-use crate::connection_manager::{ConnectionManager, WRITER_CHANNEL_CAP};
+use crate::connection_manager::{ConnectionManager, DRAW_MAX_POINTS, WRITER_CHANNEL_CAP};
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(30);
 const PONG_TIMEOUT: Duration = Duration::from_secs(90);
@@ -163,7 +163,8 @@ pub async fn handle_ws(socket: WebSocket, claims: crate::Claims, cm: Arc<Connect
                 match maybe_msg {
                     Some(Ok(Message::Text(text))) => {
                         last_pong = Instant::now();
-                        if !inbound.allow() {
+                        let handled = handle_client_message(text.as_str(), &conn_id, user_id, &cm, &mut inbound).await;
+                        if handled == Inbound::Flooded {
                             metrics::counter!("realtime_inbound_dropped_total").increment(1);
                             warn!(
                                 "WS inbound flood, closing connection user={} conn={}",
@@ -175,7 +176,6 @@ pub async fn handle_ws(socket: WebSocket, claims: crate::Claims, cm: Arc<Connect
                             })));
                             break;
                         }
-                        handle_client_message(text.as_str(), &conn_id, user_id, &cm, &mut inbound).await;
                     }
                     Some(Ok(Message::Pong(_))) => {
                         last_pong = Instant::now();
@@ -286,23 +286,55 @@ fn exp_to_deadline(exp: i64) -> Instant {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Inbound {
+    Handled,
+    Flooded,
+}
+
 pub(crate) async fn handle_client_message(
     text: &str,
     conn_id: &Uuid,
     user_id: Uuid,
     cm: &Arc<ConnectionManager>,
     inbound: &mut InboundState,
-) {
+) -> Inbound {
     let msg: serde_json::Value = match serde_json::from_str(text) {
         Ok(v) => v,
         Err(_) => {
+            if !inbound.allow() {
+                return Inbound::Flooded;
+            }
             warn!("Invalid JSON from client: {}", text);
-            return;
+            return Inbound::Handled;
         }
     };
 
     let msg_type = msg.get("type").and_then(|v| v.as_str()).unwrap_or("");
 
+    if msg_type == "huddle.draw" {
+        if cm.allow_draw(user_id) {
+            relay_draw(&msg, user_id, cm).await;
+        } else {
+            metrics::counter!("realtime_draw_dropped_total").increment(1);
+        }
+        return Inbound::Handled;
+    }
+    if !inbound.allow() {
+        return Inbound::Flooded;
+    }
+    route_client_message(&msg, msg_type, conn_id, user_id, cm, inbound).await;
+    Inbound::Handled
+}
+
+async fn route_client_message(
+    msg: &serde_json::Value,
+    msg_type: &str,
+    conn_id: &Uuid,
+    user_id: Uuid,
+    cm: &Arc<ConnectionManager>,
+    inbound: &mut InboundState,
+) {
     match msg_type {
         "subscribe" => {
             if let Some(ws_id) = msg.get("workspace_id").and_then(|v| v.as_str()) {
@@ -416,7 +448,7 @@ pub(crate) async fn handle_client_message(
             }
         }
         "typing.start" => {
-            if let Some(ch_id) = msg_uuid(&msg, "channel_id") {
+            if let Some(ch_id) = msg_uuid(msg, "channel_id") {
                 if !inbound.should_publish_typing(ch_id) {
                     return;
                 }
@@ -431,7 +463,7 @@ pub(crate) async fn handle_client_message(
             }
         }
         "typing.stop" => {
-            if let Some(ch_id) = msg_uuid(&msg, "channel_id") {
+            if let Some(ch_id) = msg_uuid(msg, "channel_id") {
                 inbound.forget_typing(ch_id);
                 if !cm.is_subscribed_to_channel(conn_id, ch_id) {
                     warn!(
@@ -444,7 +476,7 @@ pub(crate) async fn handle_client_message(
             }
         }
         "huddle.join" => {
-            let Some(huddle_id) = msg_uuid(&msg, "huddle_id") else {
+            let Some(huddle_id) = msg_uuid(msg, "huddle_id") else {
                 return;
             };
             if !cm.may_join_huddle(huddle_id, user_id).await {
@@ -497,7 +529,7 @@ pub(crate) async fn handle_client_message(
             info!("User {} joined huddle {}", user_id, huddle_id);
         }
         "huddle.leave" => {
-            let Some(huddle_id) = msg_uuid(&msg, "huddle_id") else {
+            let Some(huddle_id) = msg_uuid(msg, "huddle_id") else {
                 return;
             };
             cm.leave_huddle(conn_id, huddle_id);
@@ -514,7 +546,7 @@ pub(crate) async fn handle_client_message(
         }
         "huddle.offer" | "huddle.answer" | "huddle.ice" => {
             let (Some(huddle_id), Some(to_user_id)) =
-                (msg_uuid(&msg, "huddle_id"), msg_uuid(&msg, "to_user_id"))
+                (msg_uuid(msg, "huddle_id"), msg_uuid(msg, "to_user_id"))
             else {
                 return;
             };
@@ -541,7 +573,7 @@ pub(crate) async fn handle_client_message(
             cm.publish_huddle(msg_type, payload).await;
         }
         "huddle.mute" => {
-            let Some(huddle_id) = msg_uuid(&msg, "huddle_id") else {
+            let Some(huddle_id) = msg_uuid(msg, "huddle_id") else {
                 return;
             };
             if !cm.huddle_redis_is_member(huddle_id, user_id).await {
@@ -562,7 +594,7 @@ pub(crate) async fn handle_client_message(
             .await;
         }
         "huddle.camera" => {
-            let Some(huddle_id) = msg_uuid(&msg, "huddle_id") else {
+            let Some(huddle_id) = msg_uuid(msg, "huddle_id") else {
                 return;
             };
             if !cm.huddle_redis_is_member(huddle_id, user_id).await {
@@ -583,7 +615,7 @@ pub(crate) async fn handle_client_message(
             .await;
         }
         "huddle.screenshare" => {
-            let Some(huddle_id) = msg_uuid(&msg, "huddle_id") else {
+            let Some(huddle_id) = msg_uuid(msg, "huddle_id") else {
                 return;
             };
             if !cm.huddle_redis_is_member(huddle_id, user_id).await {
@@ -593,6 +625,7 @@ pub(crate) async fn handle_client_message(
                 .get("sharing")
                 .and_then(serde_json::Value::as_bool)
                 .unwrap_or(false);
+            cm.huddle_redis_screen(huddle_id, user_id, sharing).await;
             cm.publish_huddle(
                 "huddle.screenshare",
                 serde_json::json!({
@@ -604,7 +637,7 @@ pub(crate) async fn handle_client_message(
             .await;
         }
         "huddle.reaction" => {
-            let Some(huddle_id) = msg_uuid(&msg, "huddle_id") else {
+            let Some(huddle_id) = msg_uuid(msg, "huddle_id") else {
                 return;
             };
             let Some(emoji) = msg.get("emoji").and_then(|v| v.as_str()) else {
@@ -624,7 +657,7 @@ pub(crate) async fn handle_client_message(
             .await;
         }
         "huddle.hand" => {
-            let Some(huddle_id) = msg_uuid(&msg, "huddle_id") else {
+            let Some(huddle_id) = msg_uuid(msg, "huddle_id") else {
                 return;
             };
             if !cm.huddle_redis_is_member(huddle_id, user_id).await {
@@ -644,6 +677,30 @@ pub(crate) async fn handle_client_message(
             )
             .await;
         }
+        "huddle.drawing" => {
+            let Some(huddle_id) = msg_uuid(msg, "huddle_id") else {
+                return;
+            };
+            let Some(enabled) = msg.get("enabled").and_then(serde_json::Value::as_bool) else {
+                return;
+            };
+            if !cm.huddle_redis_is_member(huddle_id, user_id).await
+                || !cm
+                    .huddle_redis_set_drawing(huddle_id, user_id, enabled)
+                    .await
+            {
+                return;
+            }
+            cm.publish_huddle(
+                "huddle.drawing",
+                serde_json::json!({
+                    "huddle_id": huddle_id,
+                    "user_id": user_id,
+                    "enabled": enabled,
+                }),
+            )
+            .await;
+        }
         "activity" => {
             let active = msg.get("active").and_then(|v| v.as_bool()).unwrap_or(false);
             inbound.active = active;
@@ -658,6 +715,66 @@ pub(crate) async fn handle_client_message(
             warn!("Unknown client message type: {}", msg_type);
         }
     }
+}
+
+async fn relay_draw(msg: &serde_json::Value, user_id: Uuid, cm: &Arc<ConnectionManager>) {
+    let (Some(huddle_id), Some(sharer_id)) =
+        (msg_uuid(msg, "huddle_id"), msg_uuid(msg, "sharer_id"))
+    else {
+        return;
+    };
+    let Some(stroke) = msg
+        .get("stroke")
+        .and_then(serde_json::Value::as_u64)
+        .and_then(|n| u32::try_from(n).ok())
+    else {
+        return;
+    };
+    let done = msg
+        .get("done")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
+    let Some(points) = msg.get("points").and_then(draw_points) else {
+        return;
+    };
+    if points.is_empty() && !done {
+        return;
+    }
+    if !cm
+        .huddle_redis_may_draw(huddle_id, user_id, sharer_id)
+        .await
+    {
+        return;
+    }
+    cm.publish_huddle(
+        "huddle.draw",
+        serde_json::json!({
+            "huddle_id": huddle_id,
+            "user_id": user_id,
+            "sharer_id": sharer_id,
+            "stroke": stroke,
+            "points": points,
+            "done": done,
+        }),
+    )
+    .await;
+}
+
+fn draw_points(value: &serde_json::Value) -> Option<Vec<[f64; 2]>> {
+    let raw = value.as_array()?;
+    if raw.len() > DRAW_MAX_POINTS {
+        return None;
+    }
+    raw.iter()
+        .map(|point| {
+            let pair = point.as_array()?;
+            let [x, y] = pair.as_slice() else {
+                return None;
+            };
+            let unit = |v: &serde_json::Value| v.as_f64().filter(|n| (0.0..=1.0).contains(n));
+            Some([unit(x)?, unit(y)?])
+        })
+        .collect()
 }
 
 fn msg_uuid(msg: &serde_json::Value, key: &str) -> Option<Uuid> {

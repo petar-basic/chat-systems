@@ -1017,7 +1017,9 @@ it says how long the huddle lasted and who was in it, and it links the replies l
 `HuddleController` carries the media over a `HuddleTransport` (`features/huddle/lib`) and
 sees nothing else of it: set a microphone, camera or screen track, mute, add or drop a peer,
 start over after a reconnect, close. `MeshManager` is the peer-to-peer one and does its own
-offer, answer and ICE signalling over the gateway. `SfuTransport` joins the huddle's LiveKit
+offer, answer and ICE signalling over the gateway. Chrome answers an offer on new transceivers
+of its own, so `slotOf` names an arriving track by what it is: audio is the microphone, and the
+other side's first video is the camera and its second the screen. `SfuTransport` joins the huddle's LiveKit
 room with a token from `POST /huddles/{id}/sfu-token`, through the same ICE servers, and is
 loaded only when it is used. Mute, camera, screen share, raised hand and reactions still go
 over the gateway on both, so nothing else cares which one carries the media. Who is speaking
@@ -1032,6 +1034,31 @@ held back, and the mesh keeps playing, until it has the audio of everybody it wa
 or eight seconds pass for someone who never arrives; then it closes the mesh and plays the
 held tracks in the same moment. Nobody new is meshed with once the move has started. A browser
 that cannot reach the SFU keeps its mesh with whoever is still on it and says so.
+
+**Drawing on a shared screen.** A remote screen tile has a pen (`data-qa="huddle-pen"`) while its
+sharer lets people draw. With the pen up, `DrawLayer`, a canvas over the tile's video, turns the
+pointer into strokes:
+- `lib/drawing.ts` maps between the tile and the video. `contentRect` finds where an
+  `object-contain` video sits inside its tile, letterbox included, and `toVideo` / `toBox` convert
+  a point to 0–1 on each axis of the video and back. A stroke therefore lands on the same spot at
+  every tile size.
+- `StrokeBatcher` sends `huddle.draw` every 50 ms, or at once at 64 points, and ends a stroke with
+  `done: true`.
+- `drawBoard` keeps every sharer's strokes outside React. Echoes of your own frames are ignored,
+  because your strokes go on the board as you draw them. A stroke starts to fade three seconds
+  after it ends, or ten seconds after its last point if its end never came. It is gone half a
+  second later.
+- Each stroke is in the drawer's avatar colour (`strokeColorFor`, from `avatarIndexFor`), with
+  their name at its start.
+- Esc or the pen button puts the pen down. So does the sharer turning drawing off or stopping the
+  share.
+
+The sharer's own screen tile shows the strokes too, and the control bar's pencil
+(`data-qa="huddle-drawing-toggle"`, shown only while sharing) sends `huddle.drawing`.
+`announceLocalState` re-sends that switch when it is off, so a late joiner gets no pen. In the
+desktop app a whole-screen share (`displaySurface: "monitor"`) also opens the shell's drawing
+overlay over that display. `lib/drawOverlay.ts` hands it each stroke of the sharer's board
+(`window.chatSystemsDesktop.openDrawOverlay` / `drawOnOverlay` / `closeDrawOverlay`).
 
 ---
 
@@ -1120,6 +1147,7 @@ typing, and `notification` events are handled separately — by `usePresenceStor
 | `workspace.updated` | Invalidate single workspace + workspaces list |
 | `conversation.created` | Invalidate the conversation list and join the new channel on the socket |
 | `huddle.started` / `huddle.ended` | Set/clear the channel's active-huddle entry in `useWorkspaceStore` |
+| `huddle.draw` / `huddle.drawing` | Put another person's stroke on the sharer's `drawBoard`; take the pen away when the sharer turns drawing off |
 | `list.upserted` / `list.deleted` | Patch or refetch the list, refetch the lists menus (`features/lists/listSync.ts`) |
 | `list.columns_changed` | Replace the columns; refetch the items when `items_rewritten` |
 | `list.views_changed` | Replace the views |

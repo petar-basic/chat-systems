@@ -1,6 +1,7 @@
 mod colours;
 mod navigation;
 mod notifications;
+mod overlay;
 mod servers;
 mod sso;
 mod titlebar;
@@ -371,6 +372,9 @@ fn load_server<R: Runtime>(
                 .permission("allow-report-creation")
                 .permission("allow-open-link")
                 .permission("allow-press-menu-keys")
+                .permission("allow-open-draw-overlay")
+                .permission("allow-draw-on-overlay")
+                .permission("allow-close-draw-overlay")
                 .permission("core:window:allow-start-dragging")
                 .permission("core:window:allow-internal-toggle-maximize"),
         );
@@ -790,6 +794,31 @@ fn report_workspaces(
 }
 
 #[tauri::command]
+fn open_draw_overlay(
+    app: AppHandle,
+    webview: Webview,
+    width: u32,
+    height: u32,
+) -> Result<(), String> {
+    server_of(&app, &webview)?;
+    overlay::open(&app, webview.label(), width, height)
+}
+
+#[tauri::command]
+fn draw_on_overlay(
+    app: AppHandle,
+    webview: Webview,
+    stroke: overlay::Stroke,
+) -> Result<(), String> {
+    overlay::draw(&app, webview.label(), stroke)
+}
+
+#[tauri::command]
+fn close_draw_overlay(app: AppHandle, webview: Webview) {
+    overlay::close_for(&app, webview.label());
+}
+
+#[tauri::command]
 fn report_creation(app: AppHandle, webview: Webview, allowed: bool) -> Result<(), String> {
     let server = server_of(&app, &webview)?;
     app.state::<Creation>()
@@ -1116,7 +1145,10 @@ pub fn run() {
             open_workspace,
             start_sso,
             start_passkey,
-            press_menu_keys
+            press_menu_keys,
+            open_draw_overlay,
+            draw_on_overlay,
+            close_draw_overlay
         ])
         .setup(|app| {
             let dir = app.path().app_config_dir()?;
@@ -1127,6 +1159,7 @@ pub fn run() {
             app.manage(Palettes::default());
             app.manage(Creation::default());
             app.manage(PendingSso::default());
+            app.manage(overlay::Owner::default());
             let links = app.handle().clone();
             app.deep_link().on_open_url(move |event| {
                 for link in event.urls() {

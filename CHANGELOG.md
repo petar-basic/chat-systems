@@ -102,6 +102,11 @@ instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   write in that thread, and nowhere else in the channel, until they leave. When the huddle
   ends, its message says how long it lasted and who was in it, and links its replies. A DM
   huddle now posts its message, and keeps its thread, in the two people's DM.
+- Anyone in a huddle can draw on a shared screen: the pen on the screen's tile draws in their
+  colour with their name at the start, and each stroke fades three seconds after it ends. The
+  person sharing sees the strokes on their own preview, and in the desktop app on the real
+  screen too, through a see-through, click-through window over a shared display. They can
+  turn drawing off from the control bar. Nothing is recorded.
 
 ### Changed
 
@@ -117,6 +122,9 @@ instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - An email address with a second `@` or a space in it, which is what two addresses typed
   without a comma between them look like, was accepted, and an invite went to it. It is now
   refused wherever an address is entered.
+- In a huddle on the mesh, another person's camera or screen could take the place of their
+  sound, and a shared screen did not show. Each track now goes where it belongs. This was
+  broken since 2.0.0.
 
 ## [4.7.2] — 2026-11-13
 

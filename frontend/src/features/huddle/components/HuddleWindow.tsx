@@ -18,6 +18,7 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
   const localMuted = useHuddleStore((s) => s.localMuted);
   const localCameraOn = useHuddleStore((s) => s.localCameraOn);
   const localSharing = useHuddleStore((s) => s.localSharing);
+  const localDrawing = useHuddleStore((s) => s.localDrawing);
   const localHandRaised = useHuddleStore((s) => s.localHandRaised);
   const localVideoStream = useHuddleStore((s) => s.localVideoStream);
   const localScreenStream = useHuddleStore((s) => s.localScreenStream);
@@ -48,6 +49,7 @@ export function HuddleWindow({ controls }: { controls: HuddleControls }) {
       muted: localMuted,
       cameraOn: localCameraOn,
       sharing: localSharing,
+      drawing: localDrawing,
       handRaised: localHandRaised,
     },
     remotes,

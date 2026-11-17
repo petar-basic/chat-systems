@@ -213,6 +213,21 @@ pub enum ServerFrame {
         user_id: Uuid,
         raised: bool,
     },
+    #[serde(rename = "huddle.draw")]
+    HuddleDraw {
+        huddle_id: Uuid,
+        user_id: Uuid,
+        sharer_id: Uuid,
+        stroke: u32,
+        points: Vec<[f64; 2]>,
+        done: bool,
+    },
+    #[serde(rename = "huddle.drawing")]
+    HuddleDrawing {
+        huddle_id: Uuid,
+        user_id: Uuid,
+        enabled: bool,
+    },
     #[serde(rename = "huddle.offer")]
     HuddleOffer {
         huddle_id: Uuid,

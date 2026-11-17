@@ -9,6 +9,7 @@ export interface TileProps {
   muted: boolean;
   cameraOn: boolean;
   sharing: boolean;
+  drawing: boolean;
   handRaised: boolean;
   isSelf: boolean;
 }
@@ -20,6 +21,7 @@ interface Local {
   muted: boolean;
   cameraOn: boolean;
   sharing: boolean;
+  drawing: boolean;
   handRaised: boolean;
 }
 
@@ -37,6 +39,7 @@ export function buildTiles(local: Local, remotes: HuddleParticipant[]): TileProp
       muted: local.muted,
       cameraOn: local.cameraOn,
       sharing: local.sharing,
+      drawing: false,
       handRaised: local.handRaised,
       isSelf: true,
     },
@@ -51,6 +54,7 @@ export function buildTiles(local: Local, remotes: HuddleParticipant[]): TileProp
             muted: local.muted,
             cameraOn: local.cameraOn,
             sharing: true,
+            drawing: local.drawing,
             handRaised: false,
             isSelf: true,
           },
@@ -66,6 +70,7 @@ export function buildTiles(local: Local, remotes: HuddleParticipant[]): TileProp
         muted: p.audioMuted,
         cameraOn: p.cameraOn,
         sharing: p.sharing,
+        drawing: false,
         handRaised: p.handRaised,
         isSelf: false,
       },
@@ -80,6 +85,7 @@ export function buildTiles(local: Local, remotes: HuddleParticipant[]): TileProp
               muted: p.audioMuted,
               cameraOn: p.cameraOn,
               sharing: true,
+              drawing: p.drawingEnabled,
               handRaised: false,
               isSelf: false,
             },

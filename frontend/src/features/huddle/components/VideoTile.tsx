@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
-import { MicOff, Pin } from 'lucide-react';
+import { MicOff, Pencil, Pin } from 'lucide-react';
 import { useHuddleStore } from '@/stores/huddle';
 import { useUserCache } from '@/stores/users';
 import { displayNameOf } from '@/lib/userHelpers';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { logger } from '@/lib/logger';
 import type { TileProps } from './huddleTiles';
+import { DrawLayer } from './DrawLayer';
 
 type VideoTileProps = TileProps & {
   speaking: boolean;
@@ -24,6 +25,7 @@ export function VideoTile({
   audioStream,
   muted,
   sharing,
+  drawing,
   handRaised,
   isSelf,
   speaking,
@@ -38,6 +40,8 @@ export function VideoTile({
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const isScreen = kind === 'screen';
+  const penOn = useHuddleStore((s) => isScreen && s.penOn === userId);
+  const canDraw = isScreen && !isSelf && drawing;
 
   const subscribeVideo = useCallback(
     (onChange: () => void) => {
@@ -96,6 +100,15 @@ export function VideoTile({
   }, [hasVideo]);
 
   useEffect(() => {
+    if (!penOn) return;
+    const stop = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') useHuddleStore.getState().setPen(null);
+    };
+    window.addEventListener('keydown', stop);
+    return () => window.removeEventListener('keydown', stop);
+  }, [penOn]);
+
+  useEffect(() => {
     const a = audioRef.current as SinkAudio | null;
     if (a?.setSinkId && speakerId) {
       void a.setSinkId(speakerId).catch((e) => logger.warn('VideoTile', 'setSinkId', String(e)));
@@ -117,6 +130,7 @@ export function VideoTile({
           hasVideo ? '' : 'hidden'
         } ${isSelf && !isScreen ? 'scale-x-[-1]' : ''}`}
       />
+      {isScreen && hasVideo && <DrawLayer sharerId={userId} video={videoRef} pen={penOn} />}
       {!isSelf && audioStream && <audio ref={audioRef} autoPlay />}
       {!hasVideo &&
         (isScreen ? (
@@ -154,6 +168,21 @@ export function VideoTile({
         )}
         {muted && !isScreen && <MicOff className="w-3 h-3 text-danger shrink-0" />}
       </div>
+
+      {canDraw && (
+        <button
+          onClick={() => useHuddleStore.getState().setPen(penOn ? null : userId)}
+          aria-label={penOn ? t('tile.stopDrawing') : t('tile.draw')}
+          data-tooltip={penOn ? t('tile.stopDrawing') : t('tile.draw')}
+          aria-pressed={penOn}
+          data-qa="huddle-pen"
+          className={`absolute top-1 right-1 p-1 rounded-md transition ${
+            penOn ? 'bg-purple-600 text-white' : 'bg-black/40 text-slate-200'
+          }`}
+        >
+          <Pencil className="w-3 h-3" />
+        </button>
+      )}
 
       {!isSelf && !isScreen && (
         <button

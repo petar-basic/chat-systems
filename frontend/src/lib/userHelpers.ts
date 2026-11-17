@@ -17,9 +17,12 @@ export const AVATAR_COLORS = [
   'bg-rose-600',
 ];
 
+export function avatarIndexFor(userId: string): number {
+  return userId.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0) % AVATAR_COLORS.length;
+}
+
 export function avatarColorFor(userId: string): string {
-  const index = userId.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0) % AVATAR_COLORS.length;
-  return AVATAR_COLORS[index];
+  return AVATAR_COLORS[avatarIndexFor(userId)];
 }
 
 export function initialOf(name: string | null | undefined): string {

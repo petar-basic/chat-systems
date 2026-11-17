@@ -3667,3 +3667,70 @@ The check found one fault, fixed here. The window asked for the thread as soon a
 became active, before the worker had recorded the join, so an outsider got 403, and with no
 retry the button never appeared. It now asks once the join has gone out and retries with
 backoff.
+
+### [CS-132] Drawing on a shared screen ✅ shipped
+Somebody sharing a screen in a huddle could only be pointed at with words. Now anyone in the
+huddle can draw on a shared screen, and the strokes fade on their own.
+
+A remote screen tile has a pen while its sharer allows drawing. `DrawLayer`, a canvas laid
+over the tile's video, turns the pointer or a finger into strokes:
+- Points are 0 to 1 on each axis of the video, not of the tile. `contentRect` works out where
+  the `object-contain` video sits inside its tile, letterbox included, so a stroke lands on
+  the same spot at every tile size.
+- `StrokeBatcher` sends a `huddle.draw` frame every 50 ms, or at once when it holds 64 points.
+- Each stroke is in the drawer's avatar colour with their name at its start. It fades three
+  seconds after it ends, or ten seconds after its last point if its end never arrived.
+- Esc or the pen button puts the pen down, and so does the sharer turning drawing off or
+  stopping the share.
+- The sharer's preview tile shows the strokes too, and their control bar has a pencil to turn
+  drawing off and on. A late joiner hears that switch with the rest of the sharer's state.
+
+The frames go through the gateway like reactions, so a huddle draws the same way on the mesh
+and on the SFU. The gateway keeps each share in `huddle:{id}:screens` (sharer → `on` or
+`off`):
+- A new share starts with drawing on. The write is `HSETNX`, so the screenshare frame every
+  client re-sends when somebody joins does not undo the sharer's choice.
+- The entry goes when the share stops or the sharer leaves.
+- A stroke is relayed only from someone in the room, only onto a screen whose entry says `on`,
+  and only with at most 64 points inside the video.
+- Drawing at 20 frames a second would have tripped the socket's flood guard, which closes the
+  socket, within a few seconds. Draw frames therefore bypass it and go through a bucket of
+  their own per person on each node (30 a second). Frames past it are dropped and counted in
+  `realtime_draw_dropped_total`, and the socket stays open.
+
+In the desktop app, sharing a whole screen also opens a see-through window over that display,
+and the sharer sees the strokes on the real screen. Before building it I checked tao's source:
+`set_ignore_cursor_events` is implemented on macOS (`setIgnoresMouseEvents`) and on Windows
+(`WS_EX_TRANSPARENT`), so neither OS falls back to the huddle window alone. The window:
+- stays on top and on every Space;
+- is kept out of screen captures (`content_protected`), so the strokes are not sent back
+  inside the video;
+- covers the monitor whose pixel size matches the shared video;
+- draws only strokes from the server page that opened it, and closes when that page is
+  reloaded or left (`pagehide` in the bridge).
+
+Checking it in Docker turned up a fault older than this feature. Since 2.0.0 each end of a
+mesh call has made its three transceivers (microphone, camera, screen) before any offer, with
+`addTransceiver`. Chrome reuses a transceiver for a remote offer only when `addTrack` made it,
+so the answering end gets three new transceivers for the other person's media, next to its own
+three. `ontrack` named a slot only by matching our own transceivers, so all three arriving
+tracks were taken for the microphone: the video replaced the sound, and a shared screen never
+got a tile. `slotOf` now names our own transceivers as before, and otherwise goes by what
+arrives: audio is the microphone, the first of the other side's video transceivers is the
+camera and the second is the screen.
+
+QA: a script on three sockets checked the gateway rules (19 of 19): a stroke from outside the
+huddle, onto a screen nobody shares, after the sharer turned drawing off, past 64 points or
+outside the video, and past the per-person bucket, is dropped; the rest is relayed to everyone
+in the huddle. In the browser, with Alice sharing a canvas stream:
+- Charlie's stroke shows on her preview in his colour with his name, stays three seconds and
+  is gone half a second later;
+- after the `slotOf` fix Bob gets her screen tile with a pen, and his audio element holds her
+  audio track;
+- Esc puts Bob's pen down, Alice's pencil takes it away and gives it back, and stopping the
+  share removes the tile, the layer and the pencil;
+- someone joining later hears that drawing is off, and their stroke is dropped;
+- a stroke at the edge keeps its name label inside the tile.
+Two tabs in one pane do not connect over ICE, so Bob's mouse drawing on the video and Alice
+seeing it are left to the E2E test, which runs two browser contexts with a fake screen. The
+desktop overlay is built and linted, not run.

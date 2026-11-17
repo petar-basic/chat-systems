@@ -13,6 +13,7 @@
   };
   window.addEventListener('click', openElsewhere);
   window.addEventListener('auxclick', openElsewhere);
+  window.addEventListener('pagehide', () => invoke('close_draw_overlay'));
 
   Object.defineProperty(window, 'chatSystemsDesktop', {
     value: Object.freeze({
@@ -24,6 +25,9 @@
       reportTheme: (theme) => invoke('report_theme', { theme }),
       reportColours: (colours) => invoke('report_colours', { colours }),
       reportCreation: (allowed) => invoke('report_creation', { allowed }),
+      openDrawOverlay: (width, height) => invoke('open_draw_overlay', { width, height }),
+      drawOnOverlay: (stroke) => invoke('draw_on_overlay', { stroke }),
+      closeDrawOverlay: () => invoke('close_draw_overlay'),
       onCommand: (handler) => {
         handlers.add(handler);
         return () => handlers.delete(handler);

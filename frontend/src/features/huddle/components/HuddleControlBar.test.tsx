@@ -60,3 +60,33 @@ describe('HuddleControlBar in Japanese', () => {
     expect(screen.getAllByRole('option', { name: 'デバイスがありません' })).toHaveLength(2);
   });
 });
+
+describe('HuddleControlBar drawing switch', () => {
+  beforeEach(() => {
+    useHuddleStore.setState({
+      localMuted: false,
+      localSharing: false,
+      localDrawing: true,
+      participants: {},
+    });
+  });
+
+  it('shows only while sharing and says what a press will do', () => {
+    const toggleDrawing = vi.fn();
+    const withDrawing = { ...controls, toggleDrawing } as HuddleControls;
+    const { rerender } = render(<HuddleControlBar controls={withDrawing} active={active} />);
+    expect(screen.queryByTestId('huddle-drawing-toggle')).toBeNull();
+
+    useHuddleStore.setState({ localSharing: true });
+    rerender(<HuddleControlBar controls={withDrawing} active={active} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Stop others drawing on your screen' }));
+    expect(toggleDrawing).toHaveBeenCalledOnce();
+
+    useHuddleStore.setState({ localDrawing: false });
+    rerender(<HuddleControlBar controls={withDrawing} active={active} />);
+    expect(screen.getByRole('button', { name: 'Let others draw on your screen' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+  });
+});

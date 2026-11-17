@@ -726,3 +726,212 @@ async fn someone_in_the_huddle_from_outside_hears_its_thread_and_nothing_else(po
     crate::event_consumer::handle_event("message.created", &events[0].1, &cm).await;
     assert!(frame_types(&mut outsider_rx).is_empty());
 }
+
+async fn send(
+    cm: &std::sync::Arc<crate::connection_manager::ConnectionManager>,
+    conn_id: &Uuid,
+    user: Uuid,
+    msg: Value,
+) {
+    crate::ws_handler::handle_client_message(&msg.to_string(), conn_id, user, cm, &mut inbound())
+        .await;
+}
+
+fn stroke(huddle: Uuid, sharer: Uuid, stroke: u32) -> Value {
+    json!({
+        "type": "huddle.draw",
+        "huddle_id": huddle,
+        "sharer_id": sharer,
+        "stroke": stroke,
+        "points": [[0.25, 0.5], [0.3, 0.55]],
+        "done": false,
+    })
+}
+
+fn drawn_strokes(events: &[Value]) -> Vec<u64> {
+    events
+        .iter()
+        .filter(|e| e["event_type"] == "huddle.draw")
+        .filter_map(|e| e["payload"]["stroke"].as_u64())
+        .collect()
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn only_a_member_draws_and_only_on_a_screen_being_shared(pool: PgPool) {
+    let cm = manager(pool).await;
+    let sharer = seed_user(cm.db()).await;
+    let viewer = seed_user(cm.db()).await;
+    let outsider = seed_user(cm.db()).await;
+    let huddle = Uuid::new_v4();
+    cm.huddle_redis_join(huddle, sharer).await;
+    cm.huddle_redis_join(huddle, viewer).await;
+    let (sharer_conn, _sharer_rx) = fake_conn(&cm, sharer);
+    let (viewer_conn, _viewer_rx) = fake_conn(&cm, viewer);
+    let (outsider_conn, _outsider_rx) = fake_conn(&cm, outsider);
+
+    let signal = tokio::spawn(collect_on(
+        "events:huddle-signal",
+        huddle,
+        Duration::from_millis(400),
+    ));
+    settle().await;
+
+    send(&cm, &viewer_conn, viewer, stroke(huddle, sharer, 1)).await;
+    send(
+        &cm,
+        &sharer_conn,
+        sharer,
+        json!({ "type": "huddle.screenshare", "huddle_id": huddle, "sharing": true }),
+    )
+    .await;
+    send(&cm, &viewer_conn, viewer, stroke(huddle, sharer, 2)).await;
+    send(&cm, &outsider_conn, outsider, stroke(huddle, sharer, 3)).await;
+    send(&cm, &viewer_conn, viewer, stroke(huddle, viewer, 4)).await;
+    let mut too_long = stroke(huddle, sharer, 5);
+    too_long["points"] = json!(vec![[0.5, 0.5]; 65]);
+    send(&cm, &viewer_conn, viewer, too_long).await;
+    let mut off_screen = stroke(huddle, sharer, 6);
+    off_screen["points"] = json!([[1.5, 0.5]]);
+    send(&cm, &viewer_conn, viewer, off_screen).await;
+    let mut lifted = stroke(huddle, sharer, 7);
+    lifted["points"] = json!([]);
+    lifted["done"] = json!(true);
+    send(&cm, &viewer_conn, viewer, lifted).await;
+
+    let events = signal.await.expect("signal task");
+    assert_eq!(drawn_strokes(&events), [2, 7]);
+    let relayed = events
+        .iter()
+        .find(|e| e["event_type"] == "huddle.draw")
+        .expect("a relayed stroke");
+    assert_eq!(relayed["payload"]["user_id"], json!(viewer));
+    assert_eq!(
+        relayed["payload"]["points"],
+        json!([[0.25, 0.5], [0.3, 0.55]])
+    );
+
+    empty(&cm, huddle).await;
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn the_sharer_turning_drawing_off_drops_strokes_until_it_is_back_on(pool: PgPool) {
+    let cm = manager(pool).await;
+    let sharer = seed_user(cm.db()).await;
+    let viewer = seed_user(cm.db()).await;
+    let huddle = Uuid::new_v4();
+    cm.huddle_redis_join(huddle, sharer).await;
+    cm.huddle_redis_join(huddle, viewer).await;
+    let (sharer_conn, _sharer_rx) = fake_conn(&cm, sharer);
+    let (viewer_conn, _viewer_rx) = fake_conn(&cm, viewer);
+    let share = |sharing: bool| json!({ "type": "huddle.screenshare", "huddle_id": huddle, "sharing": sharing });
+    let drawing = |enabled: bool| json!({ "type": "huddle.drawing", "huddle_id": huddle, "enabled": enabled });
+
+    let signal = tokio::spawn(collect_on(
+        "events:huddle-signal",
+        huddle,
+        Duration::from_millis(500),
+    ));
+    settle().await;
+
+    send(&cm, &viewer_conn, viewer, drawing(false)).await;
+    send(&cm, &sharer_conn, sharer, share(true)).await;
+    send(&cm, &sharer_conn, sharer, drawing(false)).await;
+    send(&cm, &viewer_conn, viewer, stroke(huddle, sharer, 1)).await;
+    send(&cm, &sharer_conn, sharer, share(true)).await;
+    send(&cm, &viewer_conn, viewer, stroke(huddle, sharer, 2)).await;
+    send(&cm, &sharer_conn, sharer, drawing(true)).await;
+    send(&cm, &viewer_conn, viewer, stroke(huddle, sharer, 3)).await;
+    send(&cm, &sharer_conn, sharer, drawing(false)).await;
+    send(&cm, &sharer_conn, sharer, share(false)).await;
+    send(&cm, &sharer_conn, sharer, share(true)).await;
+    send(&cm, &viewer_conn, viewer, stroke(huddle, sharer, 4)).await;
+    cm.huddle_redis_leave(huddle, sharer).await;
+    cm.huddle_redis_join(huddle, sharer).await;
+    send(&cm, &viewer_conn, viewer, stroke(huddle, sharer, 5)).await;
+
+    let events = signal.await.expect("signal task");
+    assert_eq!(
+        drawn_strokes(&events),
+        [3, 4],
+        "a re-announced share keeps drawing off; a new share starts with it on"
+    );
+    let switches: Vec<(Value, Value)> = events
+        .iter()
+        .filter(|e| e["event_type"] == "huddle.drawing")
+        .map(|e| {
+            (
+                e["payload"]["user_id"].clone(),
+                e["payload"]["enabled"].clone(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        switches,
+        [
+            (json!(sharer), json!(false)),
+            (json!(sharer), json!(true)),
+            (json!(sharer), json!(false)),
+        ],
+        "only someone sharing a screen switches its drawing"
+    );
+
+    empty(&cm, huddle).await;
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_flood_of_strokes_is_cut_to_the_per_person_rate_without_closing_the_socket(pool: PgPool) {
+    use crate::connection_manager::{DRAW_BURST, DRAW_PER_SEC};
+    let cm = manager(pool).await;
+    let sharer = seed_user(cm.db()).await;
+    let viewer = seed_user(cm.db()).await;
+    let huddle = Uuid::new_v4();
+    cm.huddle_redis_join(huddle, sharer).await;
+    cm.huddle_redis_join(huddle, viewer).await;
+    let (sharer_conn, _sharer_rx) = fake_conn(&cm, sharer);
+    let (viewer_conn, _viewer_rx) = fake_conn(&cm, viewer);
+    let (second_conn, _second_rx) = fake_conn(&cm, viewer);
+    send(
+        &cm,
+        &sharer_conn,
+        sharer,
+        json!({ "type": "huddle.screenshare", "huddle_id": huddle, "sharing": true }),
+    )
+    .await;
+
+    let signal = tokio::spawn(collect_on(
+        "events:huddle-signal",
+        huddle,
+        Duration::from_millis(1_500),
+    ));
+    settle().await;
+
+    let sent = 200u32;
+    let mut inbound = inbound();
+    let started = std::time::Instant::now();
+    for n in 0..sent {
+        let conn = if n % 2 == 0 {
+            &viewer_conn
+        } else {
+            &second_conn
+        };
+        let handled = crate::ws_handler::handle_client_message(
+            &stroke(huddle, sharer, n).to_string(),
+            conn,
+            viewer,
+            &cm,
+            &mut inbound,
+        )
+        .await;
+        assert_eq!(handled, crate::ws_handler::Inbound::Handled);
+    }
+    let elapsed = started.elapsed().as_secs_f32();
+
+    let relayed = drawn_strokes(&signal.await.expect("signal task")).len() as f32;
+    assert!(relayed >= DRAW_BURST, "the burst passes, got {relayed}");
+    assert!(
+        relayed <= DRAW_BURST + elapsed * DRAW_PER_SEC + 1.0,
+        "{relayed} strokes in {elapsed}s is past the per-person rate"
+    );
+
+    empty(&cm, huddle).await;
+}
