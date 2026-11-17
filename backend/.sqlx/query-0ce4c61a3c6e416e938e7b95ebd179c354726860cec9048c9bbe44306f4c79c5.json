@@ -1,0 +1,53 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE app_triggers SET used_at = NOW()\n              WHERE id = $1 AND app_id = $2 AND used_at IS NULL AND expires_at > NOW()\n             RETURNING user_id, stack_id, invocation_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "app_triggers",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "stack_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "app_triggers",
+            "name": "stack_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "invocation_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "app_triggers",
+            "name": "invocation_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "0ce4c61a3c6e416e938e7b95ebd179c354726860cec9048c9bbe44306f4c79c5"
+}

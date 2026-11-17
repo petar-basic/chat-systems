@@ -22,7 +22,7 @@ against a seeded instance.
 the instance and takes the app's events there.
 
 1. Create an app with `chat:write` and `channels:history`. Open its page in the directory,
-   tick `app_mention` and *Socket mode*, *Save events*, then *Make an app-level token* and
+   tick `app_mention` and *Socket mode*, *Save*, then *Make an app-level token* and
    copy it.
 2. Add the bot to a channel, then run:
 

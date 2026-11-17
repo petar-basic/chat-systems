@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, workspace_id, bot_user_id, name, description, icon_url, scopes, events,\n                     request_url, socket_mode,\n                     (app_token_hash IS NOT NULL) AS \"has_app_token!\",\n                     (SELECT COUNT(*) FROM app_sockets s\n                       WHERE s.app_id = bot_apps.id AND s.connected_at IS NOT NULL\n                         AND s.seen_at > NOW() - INTERVAL '30 seconds') AS \"connected_sockets!\",\n                     failing_since, last_failure, disabled_at, disabled_reason,\n                     created_by, created_at, updated_at\n                FROM bot_apps WHERE workspace_id = $1 ORDER BY lower(name), id",
+  "query": "SELECT id, workspace_id, bot_user_id, name, description, icon_url, scopes, events,\n                     request_url, socket_mode, interactivity,\n                     (app_token_hash IS NOT NULL) AS \"has_app_token!\",\n                     (SELECT COUNT(*) FROM app_sockets s\n                       WHERE s.app_id = bot_apps.id AND s.connected_at IS NOT NULL\n                         AND s.seen_at > NOW() - INTERVAL '30 seconds') AS \"connected_sockets!\",\n                     failing_since, last_failure, disabled_at, disabled_reason,\n                     created_by, created_at, updated_at\n                FROM bot_apps WHERE workspace_id = $1 ORDER BY lower(name), id",
   "describe": {
     "columns": [
       {
@@ -115,18 +115,29 @@
       },
       {
         "ordinal": 10,
+        "name": "interactivity",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "interactivity"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
         "name": "has_app_token!",
         "type_info": "Bool",
         "origin": "Expression"
       },
       {
-        "ordinal": 11,
+        "ordinal": 12,
         "name": "connected_sockets!",
         "type_info": "Int8",
         "origin": "Expression"
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "failing_since",
         "type_info": "Timestamptz",
         "origin": {
@@ -137,7 +148,7 @@
         }
       },
       {
-        "ordinal": 13,
+        "ordinal": 14,
         "name": "last_failure",
         "type_info": "Text",
         "origin": {
@@ -148,7 +159,7 @@
         }
       },
       {
-        "ordinal": 14,
+        "ordinal": 15,
         "name": "disabled_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -159,7 +170,7 @@
         }
       },
       {
-        "ordinal": 15,
+        "ordinal": 16,
         "name": "disabled_reason",
         "type_info": "Text",
         "origin": {
@@ -170,7 +181,7 @@
         }
       },
       {
-        "ordinal": 16,
+        "ordinal": 17,
         "name": "created_by",
         "type_info": "Uuid",
         "origin": {
@@ -181,7 +192,7 @@
         }
       },
       {
-        "ordinal": 17,
+        "ordinal": 18,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -192,7 +203,7 @@
         }
       },
       {
-        "ordinal": 18,
+        "ordinal": 19,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -219,6 +230,7 @@
       false,
       true,
       false,
+      false,
       null,
       null,
       true,
@@ -230,5 +242,5 @@
       false
     ]
   },
-  "hash": "406f0d91be28bd43853b8255d494483cb50d232252c7f732734fec4d8182fb26"
+  "hash": "6b3a79412e4d6dcda1990f2cef8735a1fcf72e5e62fd5cf660b50acb390104eb"
 }

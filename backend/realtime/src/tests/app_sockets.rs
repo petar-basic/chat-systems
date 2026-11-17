@@ -159,10 +159,50 @@ async fn an_event_comes_back_until_it_is_acknowledged(pool: PgPool) {
     );
     assert_eq!(again[0]["retry_attempt"], 1);
 
-    apps.ack(s.app_id, id).await;
+    apps.ack(s.app_id, id, None).await;
     assert!(delivered(&pool, id).await);
     expire_leases(&pool).await;
     assert_eq!(apps.deliver_once().await, 0, "an ack settles it");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_interaction_skips_the_queue_and_keeps_the_apps_answer(pool: PgPool) {
+    let apps = AppSockets::new(pool.clone());
+    let s = seed_app(&pool).await;
+    let (_, mut rx) = connect(&apps, &pool, s.app_id).await;
+    queue(&pool, s.app_id, s.channel, "waiting").await;
+    let id: Uuid = sqlx::query_scalar(
+        "INSERT INTO app_deliveries (app_id, event_id, channel_id, kind, body, expires_at) \
+         VALUES ($1, gen_random_uuid(), gen_random_uuid(), 'interactive', $2, NOW() + INTERVAL '3 seconds') \
+         RETURNING id",
+    )
+    .bind(s.app_id)
+    .bind(json!({ "type": "view_submission" }))
+    .fetch_one(&pool)
+    .await
+    .expect("queue an interaction");
+
+    assert_eq!(apps.deliver_once().await, 2);
+    let sent = frames(&mut rx);
+    let interactive = sent
+        .iter()
+        .find(|frame| frame["envelope_id"] == json!(id))
+        .expect("the interaction went out beside the event");
+    assert_eq!(interactive["type"], "interactive");
+    assert_eq!(interactive["accepts_response_payload"], true);
+    assert!(sent
+        .iter()
+        .any(|frame| frame["accepts_response_payload"] == false));
+
+    let answer = json!({ "response_action": "errors", "errors": { "why": "Say why" } });
+    apps.ack(s.app_id, id, Some(&answer)).await;
+    let stored: Option<Value> =
+        sqlx::query_scalar("SELECT response FROM app_deliveries WHERE id = $1")
+            .bind(id)
+            .fetch_one(&pool)
+            .await
+            .expect("response");
+    assert_eq!(stored, Some(answer));
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
@@ -178,7 +218,7 @@ async fn a_channel_is_delivered_in_order(pool: PgPool) {
     assert_eq!(sent.len(), 1, "the second waits behind the first");
     assert_eq!(sent[0]["envelope_id"], json!(first));
 
-    apps.ack(s.app_id, first).await;
+    apps.ack(s.app_id, first, None).await;
     apps.deliver_once().await;
     assert_eq!(frames(&mut rx)[0]["envelope_id"], json!(second));
 }
@@ -202,7 +242,7 @@ async fn an_ack_for_another_app_settles_nothing(pool: PgPool) {
     let apps = AppSockets::new(pool.clone());
     let s = seed_app(&pool).await;
     let id = queue(&pool, s.app_id, s.channel, "mine").await;
-    apps.ack(Uuid::new_v4(), id).await;
+    apps.ack(Uuid::new_v4(), id, None).await;
     assert!(!delivered(&pool, id).await);
 }
 

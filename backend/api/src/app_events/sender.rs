@@ -215,6 +215,9 @@ pub async fn sweep(state: &AppState) {
     if let Err(e) = state.app_event_repo.purge(KEEP_SETTLED_SECS).await {
         warn!("App events: failed to purge settled deliveries: {e}");
     }
+    if let Err(e) = state.interaction_repo.purge().await {
+        warn!("Interactions: failed to purge spent triggers and views: {e}");
+    }
 }
 
 pub async fn start_sender(state: Arc<AppState>) {

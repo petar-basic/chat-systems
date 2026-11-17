@@ -124,6 +124,19 @@ impl CommandRepo {
         .await
     }
 
+    pub async fn find(&self, id: Uuid) -> sqlx::Result<Option<Invocation>> {
+        sqlx::query_as!(
+            Invocation,
+            "SELECT id, hook_id, workspace_id, channel_id, user_id, command, payload, attempts,
+                    answer_message_id, thread_parent_id
+               FROM command_invocations
+              WHERE id = $1",
+            id
+        )
+        .fetch_optional(&self.pool)
+        .await
+    }
+
     pub async fn exists(&self, id: Uuid) -> sqlx::Result<bool> {
         sqlx::query_scalar!(
             r#"SELECT EXISTS (SELECT 1 FROM command_invocations WHERE id = $1) AS "exists!""#,

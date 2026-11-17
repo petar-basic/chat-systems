@@ -3641,6 +3641,49 @@
         ]
       }
     },
+    "/interactions/responses/{token}": {
+      "post": {
+        "tags": [
+          "interactions"
+        ],
+        "summary": "A `block_actions` payload's `response_url`: up to five answers within\nthirty minutes. `replace_original` and `delete_original` act on the message\nthe element was in, `in_channel` posts a new message as the app, and\nanything else is shown only to whoever used the element.",
+        "operationId": "answer_interaction",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InteractionAnswer"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
     "/invites/{token}/accept": {
       "post": {
         "tags": [
@@ -4570,6 +4613,47 @@
             ]
           }
         ]
+      }
+    },
+    "/messages/{msg_id}/actions": {
+      "post": {
+        "tags": [
+          "interactions"
+        ],
+        "summary": "Somebody used a button, menu or date picker in a message. It reaches the\napp that posted the message, if that app has turned interactivity on, as a\n`block_actions` payload; the app has three seconds to acknowledge it.",
+        "operationId": "act_on_message",
+        "parameters": [
+          {
+            "name": "msg_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/messages/{msg_id}/history": {
@@ -5996,6 +6080,237 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ExportCreated"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/views/open": {
+      "post": {
+        "tags": [
+          "interactions",
+          "bot"
+        ],
+        "summary": "Opens a modal for whoever caused `trigger_id`: somebody who used an element\nor ran one of the app's commands, in the last three seconds. A trigger\nopens one view.",
+        "operationId": "open_app_view",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenViewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppView"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bot": []
+          }
+        ]
+      }
+    },
+    "/views/push": {
+      "post": {
+        "tags": [
+          "interactions",
+          "bot"
+        ],
+        "summary": "Puts a view on top of the open one, with a `trigger_id` from inside it. At\nmost three views are stacked.",
+        "operationId": "push_app_view",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenViewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppView"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bot": []
+          }
+        ]
+      }
+    },
+    "/views/update": {
+      "post": {
+        "tags": [
+          "interactions",
+          "bot"
+        ],
+        "summary": "Replaces a view the app opened, found by `view_id` or `external_id`. With\n`hash`, a view that changed since the app last saw it is left alone.",
+        "operationId": "update_app_view",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAppViewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppView"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bot": []
+          }
+        ]
+      }
+    },
+    "/views/{view_id}/actions": {
+      "post": {
+        "tags": [
+          "interactions"
+        ],
+        "summary": "A button, menu or date picker inside a view. The payload carries the view\nwith what its inputs hold now, and a `trigger_id` that can push a view.",
+        "operationId": "act_in_app_view",
+        "parameters": [
+          {
+            "name": "view_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ViewActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/views/{view_id}/close": {
+      "post": {
+        "tags": [
+          "interactions"
+        ],
+        "summary": "Goes back one view, or with `all` closes the stack. When the view asked\nfor it with `notify_on_close`, the app is told with `view_closed`, but\nnobody waits for its answer.",
+        "operationId": "close_app_view",
+        "parameters": [
+          {
+            "name": "view_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseViewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/views/{view_id}/submit": {
+      "post": {
+        "tags": [
+          "interactions"
+        ],
+        "summary": "Submits the view on top of the stack. A required input left empty is\nrefused here without asking the app; otherwise the app's answer decides:\nnothing closes the view, `errors` shows its messages under the inputs,\n`update` and `push` change the stack, and `clear` closes all of it.",
+        "operationId": "submit_app_view",
+        "parameters": [
+          {
+            "name": "view_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitViewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmitOutcome"
                 }
               }
             }
@@ -8667,6 +8982,37 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Workspace"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/interactive-apps": {
+      "get": {
+        "tags": [
+          "interactions"
+        ],
+        "summary": "The apps whose buttons and menus work, so the client knows which messages\nto draw them live in: a message by one of their bot users, or posted\nthrough one of their hooks or commands.",
+        "operationId": "list_interactive_apps",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_InteractiveApp"
                 }
               }
             }
@@ -11389,6 +11735,28 @@
           }
         }
       },
+      "ActionRequest": {
+        "type": "object",
+        "required": [
+          "block_id",
+          "action_id"
+        ],
+        "properties": {
+          "action_id": {
+            "type": "string"
+          },
+          "block_id": {
+            "type": "string"
+          },
+          "value": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The chosen option's value, person, conversation or `YYYY-MM-DD` date;\nnothing for a button."
+          }
+        }
+      },
       "ActiveHuddle": {
         "type": "object",
         "required": [
@@ -11710,6 +12078,46 @@
             "type": "string"
           }
         }
+      },
+      "AppView": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/View"
+          },
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "app_id",
+              "root_view_id",
+              "hash"
+            ],
+            "properties": {
+              "app_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "hash": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "previous_view_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uuid"
+              },
+              "root_view_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        ]
       },
       "AppointOwnerRequest": {
         "type": "object",
@@ -12168,6 +12576,47 @@
                 ]
               }
             }
+          },
+          {
+            "type": "object",
+            "required": [
+              "label",
+              "element",
+              "type"
+            ],
+            "properties": {
+              "block_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "element": {
+                "$ref": "#/components/schemas/BlockElement"
+              },
+              "hint": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/BlockText"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "label": {
+                "$ref": "#/components/schemas/BlockText"
+              },
+              "optional": {
+                "type": "boolean"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "input"
+                ]
+              }
+            }
           }
         ]
       },
@@ -12420,6 +12869,129 @@
                 ]
               }
             }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "action_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "initial_value": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "max_length": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int32",
+                "minimum": 0
+              },
+              "min_length": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int32",
+                "minimum": 0
+              },
+              "multiline": {
+                "type": "boolean"
+              },
+              "placeholder": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/BlockText"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "plain_text_input"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "action_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "initial_options": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/BlockOption"
+                }
+              },
+              "options": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/BlockOption"
+                }
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "checkboxes"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "action_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "initial_option": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/BlockOption"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "options": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/BlockOption"
+                }
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "radio_buttons"
+                ]
+              }
+            }
           }
         ]
       },
@@ -12468,6 +13040,7 @@
           "scopes",
           "events",
           "socket_mode",
+          "interactivity",
           "has_app_token",
           "connected_sockets",
           "created_at",
@@ -12537,6 +13110,9 @@
           "id": {
             "type": "string",
             "format": "uuid"
+          },
+          "interactivity": {
+            "type": "boolean"
           },
           "last_failure": {
             "type": [
@@ -13469,6 +14045,15 @@
           "h24",
           "h12"
         ]
+      },
+      "CloseViewRequest": {
+        "type": "object",
+        "properties": {
+          "all": {
+            "type": "boolean",
+            "description": "Close every view in the stack rather than going back one."
+          }
+        }
       },
       "CodeRequest": {
         "type": "object",
@@ -14890,6 +15475,7 @@
                 "scopes",
                 "events",
                 "socket_mode",
+                "interactivity",
                 "has_app_token",
                 "connected_sockets",
                 "created_at",
@@ -14959,6 +15545,9 @@
                 "id": {
                   "type": "string",
                   "format": "uuid"
+                },
+                "interactivity": {
+                  "type": "boolean"
                 },
                 "last_failure": {
                   "type": [
@@ -15909,6 +16498,42 @@
                 "workspace_id": {
                   "type": "string",
                   "format": "uuid"
+                }
+              }
+            }
+          }
+        }
+      },
+      "DataList_InteractiveApp": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "app_id",
+                "bot_user_id",
+                "hook_ids"
+              ],
+              "properties": {
+                "app_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "bot_user_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "hook_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
                 }
               }
             }
@@ -19256,6 +19881,73 @@
           }
         }
       },
+      "InteractionAnswer": {
+        "type": "object",
+        "properties": {
+          "attachments": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "object"
+            }
+          },
+          "blocks": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Block"
+            }
+          },
+          "delete_original": {
+            "type": "boolean"
+          },
+          "replace_original": {
+            "type": "boolean"
+          },
+          "response_type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`in_channel` posts a new message; anything else is shown only to\nwhoever used the element."
+          },
+          "text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "InteractiveApp": {
+        "type": "object",
+        "required": [
+          "app_id",
+          "bot_user_id",
+          "hook_ids"
+        ],
+        "properties": {
+          "app_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "bot_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "hook_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
       "InviteAccepted": {
         "type": "object",
         "required": [
@@ -20986,6 +21678,22 @@
           "where_left",
           "newest"
         ]
+      },
+      "OpenViewRequest": {
+        "type": "object",
+        "required": [
+          "trigger_id",
+          "view"
+        ],
+        "properties": {
+          "trigger_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "view": {
+            "$ref": "#/components/schemas/View"
+          }
+        }
       },
       "OptionVoters": {
         "type": "object",
@@ -22932,6 +23640,62 @@
           }
         }
       },
+      "SubmitOutcome": {
+        "type": "object",
+        "required": [
+          "outcome",
+          "errors"
+        ],
+        "properties": {
+          "errors": {
+            "type": "object",
+            "description": "The message to show under each input, by `block_id`.",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/Submitted"
+          }
+        }
+      },
+      "SubmitViewRequest": {
+        "type": "object",
+        "properties": {
+          "values": {
+            "type": "object",
+            "description": "Each input's value by `block_id` and `action_id`: one item for a single\nchoice, every chosen value for checkboxes, none when it is empty.",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "propertyNames": {
+                "type": "string"
+              }
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "Submitted": {
+        "type": "string",
+        "enum": [
+          "closed",
+          "updated",
+          "pushed",
+          "cleared",
+          "errors"
+        ]
+      },
       "SubscribeRequest": {
         "type": "object",
         "required": [
@@ -23576,6 +24340,37 @@
           }
         }
       },
+      "UpdateAppViewRequest": {
+        "type": "object",
+        "required": [
+          "view"
+        ],
+        "properties": {
+          "external_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hash": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The `hash` the app last saw; the update is refused when the view has\nchanged since."
+          },
+          "view": {
+            "$ref": "#/components/schemas/View"
+          },
+          "view_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
       "UpdateBotAppRequest": {
         "type": "object",
         "properties": {
@@ -23597,6 +24392,12 @@
           "icon_url": {
             "type": [
               "string",
+              "null"
+            ]
+          },
+          "interactivity": {
+            "type": [
+              "boolean",
               "null"
             ]
           },
@@ -24560,6 +25361,112 @@
           }
         }
       },
+      "View": {
+        "type": "object",
+        "required": [
+          "type",
+          "title",
+          "blocks"
+        ],
+        "properties": {
+          "blocks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Block"
+            }
+          },
+          "callback_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "clear_on_close": {
+            "type": "boolean"
+          },
+          "close": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BlockText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "external_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "notify_on_close": {
+            "type": "boolean"
+          },
+          "private_metadata": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "submit": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BlockText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "$ref": "#/components/schemas/BlockText"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ViewType"
+          }
+        }
+      },
+      "ViewActionRequest": {
+        "type": "object",
+        "required": [
+          "block_id",
+          "action_id"
+        ],
+        "properties": {
+          "action_id": {
+            "type": "string"
+          },
+          "block_id": {
+            "type": "string"
+          },
+          "value": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "values": {
+            "type": "object",
+            "description": "What the inputs hold now, by `block_id` and `action_id`.",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "propertyNames": {
+                "type": "string"
+              }
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "ViewConfig": {
         "type": "object",
         "properties": {
@@ -24605,6 +25512,12 @@
             }
           }
         }
+      },
+      "ViewType": {
+        "type": "string",
+        "enum": [
+          "modal"
+        ]
       },
       "VoteRequest": {
         "type": "object",
@@ -25426,6 +26339,10 @@
     {
       "name": "app-directory",
       "description": "Everything connected to a workspace, and requests for more"
+    },
+    {
+      "name": "interactions",
+      "description": "Buttons, menus and modals that reach the app that sent them"
     },
     {
       "name": "bot",

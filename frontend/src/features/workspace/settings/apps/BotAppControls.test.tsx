@@ -42,6 +42,7 @@ const app = (over: Partial<BotApp> = {}): BotApp => ({
   events: [],
   request_url: null,
   socket_mode: false,
+  interactivity: false,
   has_app_token: false,
   connected_sockets: 0,
   failing_since: null,

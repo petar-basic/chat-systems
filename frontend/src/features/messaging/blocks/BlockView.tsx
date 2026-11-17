@@ -3,6 +3,7 @@ import { CachedImage } from '@/shared/components/Image/CachedImage';
 import MessageContent from '../MessageContent';
 import { BlockElementView } from './BlockElementView';
 import { BlockTextView } from './BlockTextView';
+import { useBlockActions } from './blockActions';
 
 type Block = components['schemas']['Block'];
 
@@ -11,6 +12,14 @@ interface Props {
 }
 
 export function BlockView({ block }: Props) {
+  const actions = useBlockActions();
+  const failure =
+    actions?.failure && block.block_id && actions.failure.blockId === block.block_id ? (
+      <p role="alert" className="text-xs text-danger" data-qa="block-failure">
+        {actions.failure.text}
+      </p>
+    ) : null;
+
   switch (block.type) {
     case 'header':
       return (
@@ -59,12 +68,17 @@ export function BlockView({ block }: Props) {
       );
     case 'actions':
       return (
-        <div className="flex flex-wrap items-center gap-2" data-qa="block-actions">
-          {block.elements.map((element, index) => (
-            <BlockElementView key={index} element={element} />
-          ))}
+        <div className="flex flex-col gap-1">
+          <div className="flex flex-wrap items-center gap-2" data-qa="block-actions">
+            {block.elements.map((element, index) => (
+              <BlockElementView key={index} element={element} blockId={block.block_id} />
+            ))}
+          </div>
+          {failure}
         </div>
       );
+    case 'input':
+      return null;
     case 'section':
       return (
         <div className="flex items-start gap-3" data-qa="block-section">
@@ -77,8 +91,9 @@ export function BlockView({ block }: Props) {
                 ))}
               </div>
             )}
+            {failure}
           </div>
-          {block.accessory && <BlockElementView element={block.accessory} />}
+          {block.accessory && <BlockElementView element={block.accessory} blockId={block.block_id} />}
         </div>
       );
   }

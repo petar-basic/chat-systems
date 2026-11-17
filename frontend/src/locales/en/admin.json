@@ -168,6 +168,7 @@
         "token_rotated": "App token replaced",
         "removed": "App deleted",
         "called": "App called the API",
+        "interaction": "Button, menu or form sent to the app",
         "disabled": "App turned off",
         "enabled": "App turned back on"
       },

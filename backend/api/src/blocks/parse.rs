@@ -8,10 +8,11 @@ use shared_common::errors::{AppError, AppResult};
 
 use super::models::{
     Block, BlockElement, BlockOption, BlockText, ContextElement, Layout, LegacyAttachment,
-    LegacyField, TextKind,
+    LegacyField, TextKind, View,
 };
 
 pub const MAX_BLOCKS: usize = 50;
+pub const MAX_VIEW_BLOCKS: usize = 100;
 pub const MAX_ATTACHMENTS: usize = 20;
 const MAX_FIELDS: usize = 10;
 const MAX_ATTACHMENT_FIELDS: usize = 20;
@@ -23,9 +24,25 @@ const MAX_URL: usize = 3000;
 const MAX_ID: usize = 255;
 const MAX_ATTACHMENT_TEXT: usize = 8000;
 const MAX_ATTACHMENT_LINE: usize = 3000;
+const MAX_CHOICES: usize = 10;
+const MAX_INPUT: u32 = 3000;
+const MAX_VIEW_TITLE: usize = 24;
+const MAX_PRIVATE_METADATA: usize = 3000;
 
 const BLOCK_TYPES: [&str; 6] = [
     "header", "section", "divider", "image", "context", "actions",
+];
+const VIEW_BLOCK_TYPES: [&str; 7] = [
+    "header", "section", "divider", "image", "context", "actions", "input",
+];
+const INPUT_TYPES: [&str; 7] = [
+    "plain_text_input",
+    "checkboxes",
+    "radio_buttons",
+    "static_select",
+    "users_select",
+    "conversations_select",
+    "datepicker",
 ];
 const ACTION_TYPES: [&str; 6] = [
     "button",
@@ -46,6 +63,28 @@ const ACCESSORY_TYPES: [&str; 7] = [
 ];
 const CONTEXT_TYPES: [&str; 3] = ["plain_text", "mrkdwn", "image"];
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Surface {
+    Message,
+    View,
+}
+
+impl Surface {
+    fn block_types(self) -> &'static [&'static str] {
+        match self {
+            Surface::Message => &BLOCK_TYPES,
+            Surface::View => &VIEW_BLOCK_TYPES,
+        }
+    }
+
+    fn max_blocks(self) -> usize {
+        match self {
+            Surface::Message => MAX_BLOCKS,
+            Surface::View => MAX_VIEW_BLOCKS,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImageRef {
     pub path: String,
@@ -63,19 +102,135 @@ pub fn layout(
     let mut images = Vec::new();
     let blocks = match blocks {
         None | Some(Value::Null) => Vec::new(),
-        Some(value) => blocks_at(value, "blocks", &mut images)?,
+        Some(value) => blocks_at(value, "blocks", Surface::Message, &mut images)?,
     };
     let legacy_attachments = match attachments {
         None | Some(Value::Null) => Vec::new(),
         Some(value) => attachments_at(value, &mut images)?,
     };
-    Ok((
-        Layout {
-            blocks,
-            legacy_attachments,
-        },
-        images,
-    ))
+    let layout = Layout {
+        blocks,
+        legacy_attachments,
+    };
+    let mut seen = Vec::new();
+    unique_ids(&layout.blocks, "blocks", &mut seen)?;
+    for (i, attachment) in layout.legacy_attachments.iter().enumerate() {
+        unique_ids(
+            &attachment.blocks,
+            &format!("attachments[{i}].blocks"),
+            &mut seen,
+        )?;
+    }
+    Ok((layout, images))
+}
+
+pub fn view(value: &Value) -> AppResult<(View, Vec<ImageRef>)> {
+    if !value.is_object() {
+        return Err(refuse("view", "must be an object"));
+    }
+    type_at(value, "view", &["modal"], "view")?;
+    let mut images = Vec::new();
+    let blocks = blocks_at(
+        value
+            .get("blocks")
+            .ok_or_else(|| refuse("view.blocks", "missing"))?,
+        "view.blocks",
+        Surface::View,
+        &mut images,
+    )?;
+    let mut view: View = typed(value, "view")?;
+    view.blocks = blocks;
+    plain(&view.title, "view.title", MAX_VIEW_TITLE)?;
+    for (name, label) in [("submit", &view.submit), ("close", &view.close)] {
+        if let Some(label) = label {
+            plain(label, &format!("view.{name}"), MAX_VIEW_TITLE)?;
+        }
+    }
+    let has_inputs = view
+        .blocks
+        .iter()
+        .any(|block| matches!(block, Block::Input { .. }));
+    if has_inputs && view.submit.is_none() {
+        return Err(refuse(
+            "view.submit",
+            "a view with inputs needs a submit label",
+        ));
+    }
+    optional(
+        view.private_metadata.as_ref(),
+        "view.private_metadata",
+        MAX_PRIVATE_METADATA,
+    )?;
+    optional(view.callback_id.as_ref(), "view.callback_id", MAX_ID)?;
+    optional(view.external_id.as_ref(), "view.external_id", MAX_ID)?;
+    unique_ids(&view.blocks, "view.blocks", &mut Vec::new())?;
+    Ok((view, images))
+}
+
+pub fn block_id(block: &Block) -> Option<&String> {
+    match block {
+        Block::Header { block_id, .. }
+        | Block::Section { block_id, .. }
+        | Block::Divider { block_id }
+        | Block::Image { block_id, .. }
+        | Block::Context { block_id, .. }
+        | Block::Actions { block_id, .. }
+        | Block::Input { block_id, .. } => block_id.as_ref(),
+    }
+}
+
+pub fn action_id(element: &BlockElement) -> Option<&String> {
+    match element {
+        BlockElement::Button { action_id, .. }
+        | BlockElement::StaticSelect { action_id, .. }
+        | BlockElement::UsersSelect { action_id, .. }
+        | BlockElement::ConversationsSelect { action_id, .. }
+        | BlockElement::Overflow { action_id, .. }
+        | BlockElement::Datepicker { action_id, .. }
+        | BlockElement::PlainTextInput { action_id, .. }
+        | BlockElement::Checkboxes { action_id, .. }
+        | BlockElement::RadioButtons { action_id, .. } => action_id.as_ref(),
+        BlockElement::Image { .. } => None,
+    }
+}
+
+pub fn elements(block: &Block) -> Vec<&BlockElement> {
+    match block {
+        Block::Section {
+            accessory: Some(element),
+            ..
+        }
+        | Block::Input { element, .. } => vec![element],
+        Block::Actions { elements, .. } => elements.iter().collect(),
+        _ => Vec::new(),
+    }
+}
+
+fn unique_ids(blocks: &[Block], path: &str, seen: &mut Vec<String>) -> AppResult<()> {
+    for (i, block) in blocks.iter().enumerate() {
+        if let Some(id) = block_id(block) {
+            if seen.contains(id) {
+                return Err(refuse(
+                    &format!("{path}[{i}].block_id"),
+                    format!("`{id}` is used by another block"),
+                ));
+            }
+            seen.push(id.clone());
+        }
+        let mut actions: Vec<&String> = Vec::new();
+        for element in elements(block) {
+            if let Some(id) = action_id(element) {
+                if actions.contains(&id) {
+                    return Err(refuse(
+                        &format!("{path}[{i}]"),
+                        format!("action_id `{id}` is used twice in this block"),
+                    ));
+                }
+                actions.push(id);
+            }
+        }
+    }
+    Ok(())
 }
 
 fn list<'a>(value: &'a Value, path: &str) -> AppResult<&'a Vec<Value>> {
@@ -108,20 +263,31 @@ fn type_at<'a>(value: &'a Value, path: &str, known: &[&str], what: &str) -> AppR
     Ok(kind)
 }
 
-fn blocks_at(value: &Value, path: &str, images: &mut Vec<ImageRef>) -> AppResult<Vec<Block>> {
+fn blocks_at(
+    value: &Value,
+    path: &str,
+    surface: Surface,
+    images: &mut Vec<ImageRef>,
+) -> AppResult<Vec<Block>> {
     let items = list(value, path)?;
-    if items.len() > MAX_BLOCKS {
-        return Err(refuse(path, format!("at most {MAX_BLOCKS} blocks")));
+    let max = surface.max_blocks();
+    if items.len() > max {
+        return Err(refuse(path, format!("at most {max} blocks")));
     }
     items
         .iter()
         .enumerate()
-        .map(|(i, item)| block_at(item, &format!("{path}[{i}]"), images))
+        .map(|(i, item)| block_at(item, &format!("{path}[{i}]"), surface, images))
         .collect()
 }
 
-fn block_at(value: &Value, path: &str, images: &mut Vec<ImageRef>) -> AppResult<Block> {
-    match type_at(value, path, &BLOCK_TYPES, "block")? {
+fn block_at(
+    value: &Value,
+    path: &str,
+    surface: Surface,
+    images: &mut Vec<ImageRef>,
+) -> AppResult<Block> {
+    match type_at(value, path, surface.block_types(), "block")? {
         "section" => {
             if let Some(accessory) = value.get("accessory") {
                 type_at(
@@ -134,6 +300,12 @@ fn block_at(value: &Value, path: &str, images: &mut Vec<ImageRef>) -> AppResult<
         }
         "actions" => nested_types(value, path, &ACTION_TYPES)?,
         "context" => nested_types(value, path, &CONTEXT_TYPES)?,
+        "input" => {
+            let element = value
+                .get("element")
+                .ok_or_else(|| refuse(&format!("{path}.element"), "missing"))?;
+            type_at(element, &format!("{path}.element"), &INPUT_TYPES, "element")?;
+        }
         _ => {}
     }
     let block: Block = typed(value, path)?;
@@ -292,6 +464,20 @@ fn check_block(block: &Block, path: &str, images: &mut Vec<ImageRef>) -> AppResu
             }
             block_id
         }
+        Block::Input {
+            label,
+            element,
+            hint,
+            block_id,
+            ..
+        } => {
+            plain(label, &format!("{path}.label"), 2000)?;
+            if let Some(hint) = hint {
+                plain(hint, &format!("{path}.hint"), 2000)?;
+            }
+            check_element(element, &format!("{path}.element"), images)?;
+            block_id
+        }
     };
     optional(block_id.as_ref(), &format!("{path}.block_id"), MAX_ID)
 }
@@ -318,6 +504,24 @@ fn check_options(options: &[BlockOption], path: &str, min: usize, max: usize) ->
         check_option(option, &format!("{at}[{i}]"))?;
     }
     Ok(())
+}
+
+fn check_choices(options: &[BlockOption], path: &str) -> AppResult<()> {
+    let at = format!("{path}.options");
+    count(options.len(), &at, 1, MAX_CHOICES, "options")?;
+    for (i, option) in options.iter().enumerate() {
+        any_text(&option.text, &format!("{at}[{i}].text"), 75)?;
+        length(&option.value, &format!("{at}[{i}].value"), 150, false)?;
+    }
+    Ok(())
+}
+
+fn one_of(chosen: &BlockOption, options: &[BlockOption], path: &str) -> AppResult<()> {
+    if options.iter().any(|option| option.value == chosen.value) {
+        Ok(())
+    } else {
+        Err(refuse(path, "must be one of the options"))
+    }
 }
 
 fn check_element(element: &BlockElement, path: &str, images: &mut Vec<ImageRef>) -> AppResult<()> {
@@ -389,6 +593,57 @@ fn check_element(element: &BlockElement, path: &str, images: &mut Vec<ImageRef>)
             image(image_url, &format!("{path}.image_url"), images)?;
             length(alt_text, &format!("{path}.alt_text"), 2000, true)?;
             return Ok(());
+        }
+        BlockElement::PlainTextInput {
+            placeholder,
+            initial_value,
+            min_length,
+            max_length,
+            action_id,
+            ..
+        } => {
+            check_placeholder(placeholder.as_ref(), path)?;
+            let max = max_length.unwrap_or(MAX_INPUT);
+            if max == 0 || max > MAX_INPUT {
+                return Err(refuse(
+                    &format!("{path}.max_length"),
+                    format!("must be 1 to {MAX_INPUT}"),
+                ));
+            }
+            if min_length.is_some_and(|min| min > max) {
+                return Err(refuse(
+                    &format!("{path}.min_length"),
+                    "cannot be more than max_length",
+                ));
+            }
+            optional(
+                initial_value.as_ref(),
+                &format!("{path}.initial_value"),
+                max as usize,
+            )?;
+            action_id
+        }
+        BlockElement::Checkboxes {
+            options,
+            initial_options,
+            action_id,
+        } => {
+            check_choices(options, path)?;
+            for (i, chosen) in initial_options.iter().enumerate() {
+                one_of(chosen, options, &format!("{path}.initial_options[{i}]"))?;
+            }
+            action_id
+        }
+        BlockElement::RadioButtons {
+            options,
+            initial_option,
+            action_id,
+        } => {
+            check_choices(options, path)?;
+            if let Some(chosen) = initial_option {
+                one_of(chosen, options, &format!("{path}.initial_option"))?;
+            }
+            action_id
         }
     };
     optional(action_id.as_ref(), &format!("{path}.action_id"), MAX_ID)
@@ -516,7 +771,7 @@ fn attachment_at(
     }
     let blocks = match &raw.blocks {
         None | Some(Value::Null) => Vec::new(),
-        Some(blocks) => blocks_at(blocks, &format!("{path}.blocks"), images)?,
+        Some(blocks) => blocks_at(blocks, &format!("{path}.blocks"), Surface::Message, images)?,
     };
     Ok(LegacyAttachment {
         color: colour(raw.color.as_deref()),

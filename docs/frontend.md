@@ -325,7 +325,8 @@ threadParentId, instanceUrl)` is the command branch they share: it runs the comm
 sending it, from a thread with that thread's id, and `CommandAnswer` shows the answer above the
 composer. Answers live in `useCommandAnswerStore`, one per place (`answerPlace`: the channel or
 DM id, or `thread:{root}`), so a second command elsewhere does not replace the first one's
-answer. A final answer goes away after ten seconds. A pending one turns into *No answer from
+answer. A final answer goes away after ten seconds. A pending one goes when the app opens a
+modal with the command's trigger (`response_type: "modal"`), and turns into *No answer from
 /x* once the response URL's 30 minutes are up, and on any reconnect, since a `command.response`
 frame sent while the socket was down is lost.
 
@@ -462,15 +463,35 @@ server built it (`metadata.flattened`).
 - `BlockView` draws `header`, `section` (text, a grid of `fields`, an accessory on the right),
   `divider`, `image`, `context` and `actions`.
 - `BlockElementView` draws the elements. A `button` with a `url` is a link that opens in a new
-  tab. Every other button, select, overflow and datepicker is drawn with its initial value or
-  placeholder but is `aria-disabled`, with a tooltip saying the app has not set up
-  interactivity.
+  tab. The others are live when the message belongs to an app with interactivity on
+  (`useInteractiveApps` lists the apps with their bot users and command hooks;
+  `postedByInteractiveApp` matches the author or `metadata.bot.hook_id`) and the element has
+  its ids: `LiveElement` draws a button, the shared `Select`, a `Combobox` of members or
+  channels, a date `TextInput`, or an overflow menu, and each use goes to
+  `POST /messages/{id}/actions` through the `BlockActionsContext` that `useMessageActions`
+  provides. A refusal shows under its block, *The app did not respond* for a 503. Otherwise the
+  element is drawn with its initial value or placeholder but is `aria-disabled`, with a tooltip
+  saying the app has not set up interactivity.
 - `LegacyAttachmentView` draws an attachment: its `pretext`, then a bar in its colour with the
   author, title, text, `fields` (short ones two to a row), blocks, image and a footer with its
   time.
 
 `safeLink` keeps only `http` and `https` links and `safeColour` only hex colours, although the
 server refuses anything else; images load through `CachedImage` without a referrer.
+
+### `blocks/views/AppViewHost`
+An app's modals. `views.changed` replaces the person's stack for that workspace in
+`useAppViewsStore` (`stores/appViews.ts`), and `WorkspacePage` mounts `AppViewHost`, which
+shows the top view in the shared `Modal`, keyed by the stack's root so a push or an update
+changes it in place. `ViewInput` draws each `input` block with the shared form components
+(`TextInput`/`TextArea`, `Select`, `Combobox`, `Checkbox`es, `RadioCards`, a date input);
+other blocks go through `BlockView`, with a `BlockActionsContext` that posts to
+`/views/{id}/actions` with what the inputs hold. What is typed is kept in the store by view id,
+so it survives a push, a *Back* and an update, and is dropped with the view. Submitting posts
+`/views/{id}/submit`: `errors` shows each message under its input until that input changes,
+`closed` and `cleared` drop the view or the stack at once, and `updated` and `pushed` wait
+for the `views.changed` that follows. *Back* (header arrow or the close label on a pushed
+view) closes the top view; the corner closes them all.
 
 ---
 
@@ -1205,6 +1226,7 @@ typing, and `notification` events are handled separately — by `usePresenceStor
 | `list.upserted` / `list.deleted` | Patch or refetch the list, refetch the lists menus (`features/lists/listSync.ts`) |
 | `list.columns_changed` | Replace the columns; refetch the items when `items_rewritten` |
 | `list.views_changed` | Replace the views |
+| `views.changed` | Replace the person's stack of app modals for that workspace (`useAppViewsStore`) |
 | `list.item_upserted` / `list.item_deleted` | Place the row by rank, or drop it |
 | `list.comment_upserted` / `list.comment_deleted` | Place or drop the comment in an open item's thread |
 

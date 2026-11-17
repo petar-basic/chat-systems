@@ -633,41 +633,7 @@ async fn delete_message(
 
     let channel = authz::find_channel(&state, existing.channel_id).await?;
     authz::require_not_archived(&channel)?;
-    if let Err(e) = state
-        .message_repo
-        .drop_unread_for_message(existing.channel_id, msg_id, existing.user_id)
-        .await
-    {
-        tracing::warn!(
-            "failed to adjust unread counts for a deleted message: {}",
-            e
-        );
-    }
-    let mut tx = state.pool.begin().await?;
-    let parent = state
-        .message_repo
-        .soft_delete_message_in(&mut tx, msg_id)
-        .await?;
-    let staged = state
-        .publisher
-        .stage_message_deleted(&mut tx, &existing, channel.workspace_id)
-        .await?;
-    let parent_staged = match &parent {
-        Some(parent) => Some(
-            state
-                .publisher
-                .stage_message_updated(&mut tx, parent, channel.workspace_id)
-                .await?,
-        ),
-        None => None,
-    };
-    tx.commit().await?;
-
-    files::delete_for_channel_message(&state, msg_id).await;
-    state.publisher.dispatch(staged).await;
-    if let Some(staged) = parent_staged {
-        state.publisher.dispatch(staged).await;
-    }
+    remove_message(&state, &existing, channel.workspace_id).await?;
 
     audit::record(
         &state,
@@ -684,6 +650,49 @@ async fn delete_message(
     .await;
 
     Ok(Json(StatusResponse { status: "deleted" }))
+}
+
+pub async fn remove_message(
+    state: &AppState,
+    existing: &Message,
+    workspace_id: Uuid,
+) -> AppResult<()> {
+    if let Err(e) = state
+        .message_repo
+        .drop_unread_for_message(existing.channel_id, existing.id, existing.user_id)
+        .await
+    {
+        tracing::warn!(
+            "failed to adjust unread counts for a deleted message: {}",
+            e
+        );
+    }
+    let mut tx = state.pool.begin().await?;
+    let parent = state
+        .message_repo
+        .soft_delete_message_in(&mut tx, existing.id)
+        .await?;
+    let staged = state
+        .publisher
+        .stage_message_deleted(&mut tx, existing, workspace_id)
+        .await?;
+    let parent_staged = match &parent {
+        Some(parent) => Some(
+            state
+                .publisher
+                .stage_message_updated(&mut tx, parent, workspace_id)
+                .await?,
+        ),
+        None => None,
+    };
+    tx.commit().await?;
+
+    files::delete_for_channel_message(state, existing.id).await;
+    state.publisher.dispatch(staged).await;
+    if let Some(staged) = parent_staged {
+        state.publisher.dispatch(staged).await;
+    }
+    Ok(())
 }
 
 #[utoipa::path(post, path = "/messages/{msg_id}/pin", tag = "messages",

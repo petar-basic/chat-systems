@@ -4,7 +4,7 @@ import { answerPlace, useCommandAnswerStore } from '@/stores/commandAnswer';
 export function applyCommandResponse(event: EventOfType<'command.response'>) {
   const answers = useCommandAnswerStore.getState();
   const place = answerPlace(event.channel_id, event.thread_parent_id);
-  if (event.response_type === 'in_channel') {
+  if (event.response_type === 'in_channel' || event.response_type === 'modal') {
     answers.settle(place);
     return;
   }

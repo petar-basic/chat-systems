@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM app_deliveries\n              WHERE kind = 'interactive' AND expires_at < NOW() - INTERVAL '1 minute'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "1d9ee1db9f3e39f6bb08ae7ce8a940befdb5d30ed32c7ffe1358c9ed5127cd77"
+}

@@ -1,11 +1,79 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { ReactElement } from 'react';
+import { fireEvent, render as rtlRender, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ApiError } from '@/lib/errors';
+import { useWorkspaceStore, type Workspace } from '@/stores/workspace';
 import { BlockMessage } from './BlockMessage';
 import { everyElement, githubActions, grafana, jenkins, laidOut, sentry } from './fixtures';
 
 vi.mock('@/features/instance/hooks/useAuth', () => ({
   useCurrentUser: () => ({ data: { id: 'u-self' } }),
 }));
+
+const calls = { get: vi.fn(), post: vi.fn() };
+vi.mock('@/shared/hooks/useCurrentApi', async () => {
+  const { typedApiMock } = await import('@/test/typedApiMock');
+  const api = () =>
+    typedApiMock({
+      get: (...args) => calls.get(...args),
+      post: (...args) => calls.post(...args),
+    });
+  return { useCurrentApi: api, getApiForInstance: api };
+});
+
+function render(ui: ReactElement) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return rtlRender(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+}
+
+const DEPLOYER = { app_id: 'app-1', bot_user_id: 'u-hook', hook_ids: ['hook-1'] };
+
+function appsAre(apps: (typeof DEPLOYER)[]) {
+  calls.get.mockImplementation(async (path: string) =>
+    path === '/workspaces/{ws_id}/interactive-apps' ? { data: apps } : [],
+  );
+}
+
+const deploy = (over: Partial<ReturnType<typeof laidOut>> = {}) => ({
+  ...laidOut('', {
+    blocks: [
+      { type: 'section', block_id: 'what', text: { type: 'mrkdwn', text: 'Deploy **api** to production?' } },
+      {
+        type: 'actions',
+        block_id: 'deploy',
+        elements: [
+          {
+            type: 'button',
+            action_id: 'approve',
+            value: 'v2',
+            text: { type: 'plain_text', text: 'Approve' },
+          },
+          {
+            type: 'static_select',
+            action_id: 'region',
+            placeholder: { type: 'plain_text', text: 'Region' },
+            options: [
+              { text: { type: 'plain_text', text: 'Europe' }, value: 'eu' },
+              { text: { type: 'plain_text', text: 'America' }, value: 'us' },
+            ],
+          },
+        ],
+      },
+    ],
+  }),
+  ...over,
+});
+
+beforeEach(() => {
+  calls.get.mockReset();
+  calls.post.mockReset();
+  appsAre([]);
+  calls.post.mockResolvedValue({ status: 'ok' });
+  useWorkspaceStore.setState({
+    currentWorkspace: { id: 'ws-1', instanceUrl: 'http://localhost:8080' } as Workspace,
+  });
+});
 
 const INERT = 'This app has not set up interactivity';
 
@@ -139,5 +207,67 @@ describe('BlockMessage', () => {
     );
     expect(screen.getByText('**not bold**')).toBeInTheDocument();
     expect(document.querySelector('strong')).toBeNull();
+  });
+});
+
+describe('BlockMessage from an app with interactivity on', () => {
+  const live = (name: string) =>
+    waitFor(() => expect(screen.getByRole('button', { name })).not.toHaveAttribute('aria-disabled'));
+
+  it('sends a button to the app by its block and action ids', async () => {
+    appsAre([DEPLOYER]);
+    render(<BlockMessage message={deploy()} />);
+    await live('Approve');
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    await waitFor(() => expect(calls.post).toHaveBeenCalledOnce());
+    expect(calls.post).toHaveBeenCalledWith('/messages/{msg_id}/actions', {
+      block_id: 'deploy',
+      action_id: 'approve',
+      value: undefined,
+    });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('sends the option somebody picks', async () => {
+    appsAre([DEPLOYER]);
+    render(<BlockMessage message={deploy()} />);
+    await live('Approve');
+    fireEvent.change(screen.getByLabelText('Region'), { target: { value: 'us' } });
+    await waitFor(() => expect(calls.post).toHaveBeenCalledOnce());
+    expect(calls.post.mock.calls[0][1]).toEqual({ block_id: 'deploy', action_id: 'region', value: 'us' });
+  });
+
+  it('says so under the block when the app does not answer', async () => {
+    appsAre([DEPLOYER]);
+    calls.post.mockRejectedValue(new ApiError(503, 'The app did not respond'));
+    render(<BlockMessage message={deploy()} />);
+    await live('Approve');
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    const failure = await screen.findByTestId('block-failure');
+    expect(failure).toHaveTextContent('The app did not respond');
+    expect(failure).toHaveAttribute('role', 'alert');
+    expect(screen.getByRole('button', { name: 'Approve' })).not.toBeDisabled();
+  });
+
+  it('is live for an answer the app posted through its command', async () => {
+    appsAre([DEPLOYER]);
+    const answered = deploy({ user_id: 'u-ana' });
+    answered.metadata = {
+      ...answered.metadata,
+      bot: { name: 'Deployer', icon_url: null, hook_id: 'hook-1' },
+    };
+    render(<BlockMessage message={answered} />);
+    await live('Approve');
+  });
+
+  it('stays inert for a message the app did not post', async () => {
+    appsAre([DEPLOYER]);
+    render(<BlockMessage message={deploy({ user_id: 'u-ana' })} />);
+    await waitFor(() => expect(calls.get).toHaveBeenCalled());
+    const approve = screen.getByRole('button', { name: 'Approve' });
+    expect(approve).toHaveAttribute('aria-disabled', 'true');
+    expect(approve).toHaveAttribute('data-tooltip', INERT);
+    fireEvent.click(approve);
+    expect(calls.post).not.toHaveBeenCalled();
   });
 });

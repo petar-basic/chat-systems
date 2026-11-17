@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO app_deliveries (app_id, event_id, channel_id, kind, body, expires_at)\n             VALUES ($1, gen_random_uuid(), gen_random_uuid(), 'interactive', $2,\n                     NOW() + make_interval(secs => $3))\n             RETURNING id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "app_deliveries",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Jsonb",
+        "Float8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "2c17bc0c37b592c3a7ed32cfb057ce8fd0ce65f0858dae4c34d2e24f4934d5b2"
+}

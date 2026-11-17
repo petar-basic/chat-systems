@@ -37,6 +37,7 @@ import { PeopleView } from '@/features/people';
 import { ListView } from '@/features/lists';
 import { canBuild, workflowBuildersOf } from '@/features/workflows';
 import ForwardMessageModal from '@/features/messaging/ForwardMessageModal';
+import { AppViewHost } from '@/features/messaging/blocks/views/AppViewHost';
 import AddInstancePanel from '@/features/instance/AddInstancePanel';
 import {
   EditProfileModal,
@@ -484,6 +485,8 @@ export default function WorkspacePage() {
         )}
 
         {c.shortcutsOpen && <KeyboardShortcutsDialog onClose={() => c.setShortcutsOpen(false)} />}
+
+        {currentWorkspace && <AppViewHost workspaceId={currentWorkspace.id} />}
       </div>
     </div>
   );

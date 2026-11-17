@@ -16,7 +16,7 @@ use shared_common::errors::{AppError, AppResult};
 
 use crate::hooks::ssrf;
 use crate::state::AppState;
-use models::{Block, BlockElement, BlockText, Composed, ContextElement, Layout, TextKind};
+use models::{Block, BlockElement, BlockText, Composed, ContextElement, Layout, TextKind, View};
 use mrkdwn::Names;
 use parse::{refuse, ImageRef};
 
@@ -126,7 +126,82 @@ pub async fn compose(
         return Ok(Composed::plain(input.text.unwrap_or_default()));
     }
     check_images(&images).await?;
-    let (user_ids, channel_ids) = referenced(&mut layout);
+    assign_ids(&mut layout);
+    localize(state, workspace_id, &mut layout).await?;
+    Ok(Composed::finish(input.text, layout))
+}
+
+pub async fn compose_view(state: &AppState, workspace_id: Uuid, value: &Value) -> AppResult<View> {
+    let (view, images) = parse::view(value)?;
+    check_images(&images).await?;
+    let mut layout = Layout {
+        blocks: view.blocks,
+        legacy_attachments: Vec::new(),
+    };
+    assign_ids(&mut layout);
+    localize(state, workspace_id, &mut layout).await?;
+    Ok(View {
+        blocks: layout.blocks,
+        ..view
+    })
+}
+
+fn short_id() -> String {
+    Uuid::new_v4().simple().to_string()[..8].to_string()
+}
+
+fn action_id_slot(element: &mut BlockElement) -> Option<&mut Option<String>> {
+    match element {
+        BlockElement::Image { .. } | BlockElement::Button { url: Some(_), .. } => None,
+        BlockElement::Button { action_id, .. }
+        | BlockElement::StaticSelect { action_id, .. }
+        | BlockElement::UsersSelect { action_id, .. }
+        | BlockElement::ConversationsSelect { action_id, .. }
+        | BlockElement::Overflow { action_id, .. }
+        | BlockElement::Datepicker { action_id, .. }
+        | BlockElement::PlainTextInput { action_id, .. }
+        | BlockElement::Checkboxes { action_id, .. }
+        | BlockElement::RadioButtons { action_id, .. } => Some(action_id),
+    }
+}
+
+fn assign_block_ids(block: &mut Block) {
+    let (block_id, elements): (&mut Option<String>, Vec<&mut BlockElement>) = match block {
+        Block::Section {
+            accessory: Some(element),
+            block_id,
+            ..
+        }
+        | Block::Input {
+            element, block_id, ..
+        } => (block_id, vec![element]),
+        Block::Actions { elements, block_id } => (block_id, elements.iter_mut().collect()),
+        _ => return,
+    };
+    let mut interactive = false;
+    for element in elements {
+        if let Some(slot) = action_id_slot(element) {
+            interactive = true;
+            slot.get_or_insert_with(short_id);
+        }
+    }
+    if interactive {
+        block_id.get_or_insert_with(short_id);
+    }
+}
+
+pub fn assign_ids(layout: &mut Layout) {
+    let attached = layout
+        .legacy_attachments
+        .iter_mut()
+        .flat_map(|attachment| attachment.blocks.iter_mut());
+    for block in layout.blocks.iter_mut().chain(attached) {
+        assign_block_ids(block);
+    }
+}
+
+async fn localize(state: &AppState, workspace_id: Uuid, layout: &mut Layout) -> AppResult<()> {
+    let (user_ids, channel_ids) = referenced(layout);
     let users: HashMap<String, (Uuid, String)> = if user_ids.is_empty() {
         HashMap::new()
     } else {
@@ -150,13 +225,13 @@ pub async fn compose(
             .collect()
     };
     convert(
-        &mut layout,
+        layout,
         &Names {
             users: &users,
             channels: &channels,
         },
     );
-    Ok(Composed::finish(input.text, layout))
+    Ok(())
 }
 
 pub async fn check_images(images: &[ImageRef]) -> AppResult<()> {
@@ -210,6 +285,29 @@ fn each_element_text(element: &mut BlockElement, f: &mut dyn FnMut(&TextKind, &m
                 each_text_object(&mut option.text, f);
             }
         }
+        BlockElement::PlainTextInput { placeholder, .. } => {
+            if let Some(placeholder) = placeholder {
+                each_text_object(placeholder, f);
+            }
+        }
+        BlockElement::Checkboxes {
+            options,
+            initial_options,
+            ..
+        } => {
+            for option in options.iter_mut().chain(initial_options.iter_mut()) {
+                each_text_object(&mut option.text, f);
+            }
+        }
+        BlockElement::RadioButtons {
+            options,
+            initial_option,
+            ..
+        } => {
+            for option in options.iter_mut().chain(initial_option.iter_mut()) {
+                each_text_object(&mut option.text, f);
+            }
+        }
         BlockElement::Image { .. } => {}
     }
 }
@@ -249,6 +347,17 @@ fn each_block_text(block: &mut Block, f: &mut dyn FnMut(&TextKind, &mut String))
             for element in elements {
                 each_element_text(element, f);
             }
+        }
+        Block::Input {
+            label,
+            element,
+            hint,
+            ..
+        } => {
+            for text in std::iter::once(label).chain(hint.iter_mut()) {
+                each_text_object(text, f);
+            }
+            each_element_text(element, f);
         }
     }
 }
@@ -339,7 +448,7 @@ fn block_lines(block: &Block, lines: &mut Vec<String>) {
                 .collect();
             lines.push(words.join(" "));
         }
-        Block::Divider { .. } | Block::Actions { .. } => {}
+        Block::Divider { .. } | Block::Actions { .. } | Block::Input { .. } => {}
     }
 }
 

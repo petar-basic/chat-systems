@@ -191,6 +191,7 @@ async fn invoke(
             Place {
                 channel_id: ch_id,
                 thread_parent_id,
+                hook_id: None,
             },
             auth.user_id,
             &command,
@@ -246,6 +247,21 @@ async fn invoke(
     }
 
     let request_id = Uuid::new_v4();
+    let trigger_id = match hook.app_id {
+        Some(app_id) => Some(
+            state
+                .interaction_repo
+                .create_trigger(
+                    app_id,
+                    auth.user_id,
+                    None,
+                    Some(request_id),
+                    crate::interactions::TRIGGER_TTL_SECS,
+                )
+                .await?,
+        ),
+        None => None,
+    };
     let payload = serde_json::json!({
         "command": command,
         "text": req.text,
@@ -253,6 +269,7 @@ async fn invoke(
         "thread_parent_id": thread_parent_id,
         "workspace_id": channel.workspace_id,
         "user_id": auth.user_id,
+        "trigger_id": trigger_id,
     });
     state
         .command_repo
@@ -331,6 +348,7 @@ async fn invoke(
         Place {
             channel_id: ch_id,
             thread_parent_id,
+            hook_id: Some(hook.id),
         },
         auth.user_id,
         &command,
@@ -392,6 +410,7 @@ async fn respond(
 struct Place {
     channel_id: Uuid,
     thread_parent_id: Option<Uuid>,
+    hook_id: Option<Uuid>,
 }
 
 async fn finish(
@@ -414,10 +433,13 @@ async fn finish(
     if !response.text.trim().is_empty() || response.layout.is_some() {
         let message_id = delivery::post_in_channel(
             state,
-            place.channel_id,
-            place.thread_parent_id,
-            user_id,
-            command,
+            delivery::Answering {
+                channel_id: place.channel_id,
+                thread_parent_id: place.thread_parent_id,
+                user_id,
+                command,
+                hook_id: place.hook_id,
+            },
             &response.posted(),
             None,
         )

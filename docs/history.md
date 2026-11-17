@@ -3918,3 +3918,69 @@ Not in this ticket:
   select, are refused or not read.
 - A mention inside a block notifies only when it is in the text: one in a flattened layout
   does, one in blocks beside the app's own `text` does not.
+
+### [CS-135] Buttons, menus and modals that reach the app ✅ shipped
+CS-134 drew an app's buttons and menus but left them inert: a deploy bot could post *Approve*
+and *Reject*, and nobody could press them. Slack's interactivity is what most bots are built
+on, so an app copied from Slack wants the same payloads, the same answers and the same modals.
+
+**Payloads.** An app turns on *Interactivity* on its page in *Apps*. A button, menu or date
+picker in its message then sends Slack's `block_actions`, a modal's submit button
+`view_submission`, and closing a modal that asks for it `view_closed`, each with the person,
+the channel and message or the view with what its inputs hold, the element's `block_id`,
+`action_id` and value, a `trigger_id` and, from a message, a `response_url`. Elements that
+come without ids get short generated ones when the message is composed, so each can be told
+apart. A payload goes over the app's own transport, a signed `POST` or a socket frame with
+`accepts_response_payload`, once, with three seconds to answer; the socket's ack now carries a
+`payload`, stored on the delivery for the API to read. An element reaches only the app whose
+message it is in: the bot's own messages, and the answers to its commands, which now carry
+the command's hook.
+
+**Answers.** A submission is answered in the acknowledgement with Slack's `response_action`:
+`errors` by `block_id`, `update`, `push` or `clear`; nothing closes the view. Required inputs
+and text lengths are checked before the app is asked, as Slack's client does. `response_url`
+takes five answers in 30 minutes: replace or delete the message, post in the channel as the
+bot, or answer only the person who clicked. Its token is signed with the same
+`sealed::sign_id` the command response URLs now share.
+
+**Modals.** `views.open`, `views.push` and `views.update` take a view with a title, blocks and
+`input` blocks holding the CS-134 selects and date picker or a `plain_text_input`,
+`checkboxes` or `radio_buttons`, and submit and close labels. A trigger is good for three
+seconds and one view; a slash command owned by the app gets one, and opening a modal with it
+clears the command's *working on it…*. At most three views stack. The person's stack is sent
+to their client as `views.changed`, and the client shows the top view in the shared `Modal`,
+its inputs drawn with the shared form components. What was typed in each view is kept by view
+id in the client, so a push, *Back* and an update keep it.
+
+**Audit.** Each payload sent is written as `bot_app.interaction`, English only for now.
+
+[`examples/deploy-approval`](../examples/deploy-approval/) is a socket-mode app that does all
+of it, and the end-to-end suite runs it: `/request` opens its modal, a bad service name comes
+back as the app's error, *Add release notes* pushes a view and *Keep* returns to the first with
+what was typed, and *Approve* on the posted request is replaced with *Approved by …*.
+
+**QA** on the Docker stack, with the example app on a socket and Alice in Dev Team:
+- `/request` opened *Request a deploy* and cleared the command's line. *Request* with nothing
+  typed said the service is required; *The API* came back with the app's own error under it.
+- *Add release notes* pushed *Release notes*; *Keep* went back with *The API* still typed.
+  `api` and *Production* closed the modal, and the bot posted the request with the notes.
+- *Approve* replaced the message with *Approved by Alice Johnson*.
+- With interactivity turned off the app left `interactive-apps`, its button became inert with
+  the tooltip, and both a click and `views.open` were refused with `409`. A made-up trigger
+  was refused with `422`.
+- With the app stopped, *Ping* showed *The app did not respond* under its block after three
+  seconds.
+- Every click was in the audit log as `bot_app.interaction`, with Alice, the message and the
+  `action_id`.
+
+The QA found two bugs. Realtime did not subscribe to `events:views`, so no modal reached a
+client; it does now, with a test. The example acknowledged before its answer was ready, so
+every submission closed the view. The HTTP transport and `response_url`'s limits are covered
+by `http_tests` only: compose refuses private targets, so an app on the host would not be
+called.
+
+Not in this ticket:
+- `view_closed` is sent only when the view asks for it with `notify_on_close`.
+- An `ephemeral` answer through `response_url` shows only its text, like a command's.
+- `external_select`, `multi_*` selects, `rich_text_input` and the other Slack inputs are
+  refused.
