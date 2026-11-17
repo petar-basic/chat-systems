@@ -61,6 +61,10 @@ export function isWorkspaceAdmin(role: WorkspaceRole | null) {
   return role === 'admin' || role === 'owner';
 }
 
+export function canDeleteWorkspace(viewer: Viewer) {
+  return viewer.role === 'owner' || viewer.isInstanceAdmin;
+}
+
 function sees(viewer: Viewer, audience: Audience) {
   switch (audience) {
     case 'everyone':
