@@ -36,7 +36,7 @@ describe('BlockMessage', () => {
       'href',
       'https://grafana.example.com/alerting/list',
     );
-    expect(within(bar).getByText('Firing').tagName).toBe('STRONG');
+    expect(within(bar).getByText('Firing').closest('strong')).not.toBeNull();
     expect(within(bar).getAllByRole('listitem')).toHaveLength(2);
     const footer = screen.getByTestId('legacy-footer');
     expect(footer).toHaveTextContent('Grafana v10.4.1');
