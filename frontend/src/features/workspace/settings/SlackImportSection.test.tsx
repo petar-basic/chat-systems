@@ -1,7 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import i18n from '@/lib/i18n';
 import { SlackImportSection } from './SlackImportSection';
+
+const hostile = '<img src=x onerror="alert(1)"> {{name}}';
 
 const get = vi.fn();
 const post = vi.fn();
@@ -108,5 +111,91 @@ describe('SlackImportSection', () => {
     );
     expect(screen.queryByRole('button', { name: 'Start again' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Discard' })).not.toBeInTheDocument();
+  });
+});
+
+describe('SlackImportSection in Japanese', () => {
+  beforeEach(async () => {
+    get.mockReset();
+    del.mockReset().mockResolvedValue({ data: run({ status: 'failed' }) });
+    await i18n.changeLanguage('ja');
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('reports a run, and names its export as text', async () => {
+    get.mockResolvedValue({
+      data: [
+        run({
+          source: hostile,
+          dry_run: true,
+          status: 'failed',
+          retryable: true,
+          report: {
+            messages_imported: 2,
+            users_suspended: 1,
+            skipped: [
+              { what: '#random', why: 'no access' },
+              { what: 'a.pdf', why: 'too big' },
+            ],
+          },
+        }),
+      ],
+    });
+    renderSection();
+
+    const row = await screen.findByTestId('slack-import-run');
+    expect(within(row).getByTestId('slack-import-source').textContent).toBe(hostile);
+    expect(within(row).getByTestId('slack-import-status')).toHaveTextContent('失敗');
+    expect(within(row).getByText('ドライラン')).toBeInTheDocument();
+    expect(row).toHaveTextContent('メッセージ 2件');
+    expect(row).toHaveTextContent('Slack を退出済み 1人');
+    expect(within(row).getByText('取り込まなかったもの: 2件')).toBeInTheDocument();
+    expect(within(row).getByRole('button', { name: 'やり直す' })).toBeInTheDocument();
+
+    fireEvent.click(within(row).getByRole('button', { name: '破棄' }));
+    expect(screen.getByText('このエクスポートを破棄しますか?')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        `${hostile} を今すぐサーバーから削除します。この取り込みはやり直せなくなります。取り込みを終えるには、エクスポートをもう一度アップロードしてください。`,
+      ),
+    ).toBeInTheDocument();
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
+
+  it('says why a run whose export is gone cannot start again', async () => {
+    get.mockResolvedValue({
+      data: [run({ status: 'failed', archive_deleted_at: '2026-10-28T10:00:00Z' })],
+    });
+    renderSection();
+
+    expect(await screen.findByTestId('slack-import-archive-gone')).toHaveTextContent(
+      'この取り込みはやり直せません。取り込みを終えるには、もう一度アップロードしてください。',
+    );
+  });
+
+  it('explains the form, and asks for the export first', async () => {
+    get.mockResolvedValue({ data: [] });
+    renderSection();
+
+    expect(
+      await screen.findByText(
+        '取り込みはまだありません。先にドライランをすると、変換できないものを手軽に確かめられます。',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('ワークスペースのデータのエクスポート').parentElement).toHaveTextContent(
+      'Slack のワークスペースのデータのエクスポートで作った .zip ファイルです。',
+    );
+    expect(screen.getByLabelText('Slack のエクスポート')).toBeInTheDocument();
+    expect(screen.getByLabelText('ドライラン')).toBeChecked();
+
+    fireEvent.click(screen.getByRole('button', { name: 'エクスポートを確認' }));
+    expect(screen.getByTestId('slack-import-form-error')).toHaveTextContent(
+      'Slack から受け取った .zip ファイルを選んでください',
+    );
+    fireEvent.click(screen.getByLabelText('ドライラン'));
+    expect(screen.getByRole('button', { name: '取り込む' })).toBeInTheDocument();
   });
 });

@@ -1,4 +1,6 @@
 import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Trans } from '@/shared/components/Trans/Trans';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { Button } from '@/shared/components/Button/Button';
 import { toUserMessage } from '@/lib/errors';
@@ -24,20 +26,20 @@ interface Props {
   instanceUrl?: string;
 }
 
-const COUNTS: { key: keyof Omit<SlackImportReport, 'skipped' | 'notes'>; label: string }[] = [
-  { key: 'messages_imported', label: 'messages' },
-  { key: 'channels_created', label: 'channels' },
-  { key: 'conversations_created', label: 'DMs' },
-  { key: 'users_created', label: 'accounts created' },
-  { key: 'users_matched', label: 'accounts matched' },
-  { key: 'guests', label: 'guests' },
-  { key: 'users_suspended', label: 'who left Slack' },
-  { key: 'channels_archived', label: 'archived' },
-  { key: 'threads_resolved', label: 'in threads' },
-  { key: 'reactions', label: 'reactions' },
-  { key: 'files_imported', label: 'files' },
-  { key: 'emoji_imported', label: 'emoji' },
-];
+const COUNTS = [
+  'messages_imported',
+  'channels_created',
+  'conversations_created',
+  'users_created',
+  'users_matched',
+  'guests',
+  'users_suspended',
+  'channels_archived',
+  'threads_resolved',
+  'reactions',
+  'files_imported',
+  'emoji_imported',
+] as const satisfies readonly (keyof Omit<SlackImportReport, 'skipped' | 'notes'>)[];
 
 interface RunRowProps {
   run: SlackImportRun;
@@ -47,6 +49,7 @@ interface RunRowProps {
 }
 
 function RunRow({ run, retrying, onRetry, onDiscard }: RunRowProps) {
+  const { t } = useTranslation('workspace');
   const report = reportOf(run);
   const skipped = report.skipped ?? [];
   const notes = report.notes ?? [];
@@ -63,18 +66,23 @@ function RunRow({ run, retrying, onRetry, onDiscard }: RunRowProps) {
         </span>
         {run.dry_run && (
           <span className="px-1.5 py-0.5 rounded bg-raised text-3xs uppercase tracking-wide text-fg-dim">
-            dry run
+            {t('settings.slackImport.dryRunTag')}
           </span>
         )}
         <span className="ml-auto text-xs text-muted" data-qa="slack-import-status">
-          {run.status}
+          {t(`settings.jobStatus.${run.status}`, { defaultValue: run.status })}
         </span>
       </div>
 
       <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted">
-        {COUNTS.filter(({ key }) => report[key] > 0).map(({ key, label }) => (
+        {COUNTS.filter((key) => report[key] > 0).map((key) => (
           <span key={key}>
-            <span className="text-fg-soft tabular-nums">{report[key]}</span> {label}
+            <Trans
+              t={t}
+              i18nKey={`settings.slackImport.counts.${key}`}
+              values={{ n: report[key] }}
+              components={{ n: <span className="text-fg-soft tabular-nums" /> }}
+            />
           </span>
         ))}
       </div>
@@ -104,7 +112,7 @@ function RunRow({ run, retrying, onRetry, onDiscard }: RunRowProps) {
             disabled={retrying}
             data-qa="slack-import-retry"
           >
-            Start again
+            {t('settings.slackImport.startAgain')}
           </Button>
           <Button
             size="sm"
@@ -113,22 +121,21 @@ function RunRow({ run, retrying, onRetry, onDiscard }: RunRowProps) {
             disabled={retrying}
             data-qa="slack-import-discard"
           >
-            Discard
+            {t('settings.slackImport.discard')}
           </Button>
         </div>
       )}
 
       {run.status === 'failed' && run.archive_deleted_at && (
         <p className="mt-1.5 text-2xs text-muted" data-qa="slack-import-archive-gone">
-          The export was deleted {formatDateTime(run.archive_deleted_at)}, so this run can&apos;t be started
-          again. Upload it again to finish the import.
+          {t('settings.slackImport.archiveGone', { date: formatDateTime(run.archive_deleted_at) })}
         </p>
       )}
 
       {skipped.length > 0 && (
         <details className="mt-1.5">
           <summary className="text-xs text-muted cursor-pointer hover:text-fg-soft">
-            {skipped.length} not imported
+            {t('settings.slackImport.notImported', { count: skipped.length })}
           </summary>
           <ul className="mt-1 space-y-0.5" data-qa="slack-import-skipped">
             {skipped.slice(0, 50).map((item, i) => (
@@ -144,6 +151,7 @@ function RunRow({ run, retrying, onRetry, onDiscard }: RunRowProps) {
 }
 
 export function SlackImportSection({ workspaceId, instanceUrl }: Props) {
+  const { t } = useTranslation('workspace');
   const { data: runs = [], isLoading } = useSlackImports(workspaceId, instanceUrl);
   const start = useStartSlackImport(workspaceId, instanceUrl);
   const retry = useRetrySlackImport(workspaceId, instanceUrl);
@@ -160,11 +168,11 @@ export function SlackImportSection({ workspaceId, instanceUrl }: Props) {
 
   const submit = async () => {
     if (!archive) {
-      setError('Choose the .zip Slack gave you');
+      setError(t('settings.slackImport.chooseZip'));
       return;
     }
     if (intoNew && mayCreate && !newName.trim()) {
-      setError('Name the workspace to import into');
+      setError(t('settings.slackImport.nameRequired'));
       return;
     }
     setError(null);
@@ -177,7 +185,7 @@ export function SlackImportSection({ workspaceId, instanceUrl }: Props) {
       setArchive(null);
       if (fileRef.current) fileRef.current.value = '';
     } catch (e) {
-      setError(toUserMessage(e, 'Failed to start that import'));
+      setError(toUserMessage(e, t('settings.slackImport.startFailed')));
     }
   };
 
@@ -185,8 +193,11 @@ export function SlackImportSection({ workspaceId, instanceUrl }: Props) {
     <div className="-mx-4 flex flex-col" data-qa="slack-import-panel">
       <div className="px-4 py-3 border-b border-line/40 space-y-2">
         <p className="text-xs text-muted">
-          The .zip from Slack&apos;s <span className="text-fg-dim">Export workspace data</span>. Imported
-          messages keep their original dates, so nobody is notified about a conversation from two years ago.
+          <Trans
+            t={t}
+            i18nKey="settings.slackImport.intro"
+            components={{ slack: <span className="text-fg-dim" /> }}
+          />
         </p>
 
         <input
@@ -200,14 +211,14 @@ export function SlackImportSection({ workspaceId, instanceUrl }: Props) {
             // else, so that is where the suggestion comes from.
             if (file && !newName.trim()) setNewName(workspaceNameFrom(file.name));
           }}
-          aria-label="Slack export"
+          aria-label={t('settings.slackImport.file')}
           data-qa="slack-import-file"
           className="w-full text-xs text-fg-dim file:mr-2 file:px-2 file:py-1 file:rounded file:border-0 file:bg-raised file:text-fg-soft hover:file:bg-elevated file:cursor-pointer"
         />
 
         {mayCreate && (
           <Checkbox
-            label="Import into a new workspace"
+            label={t('settings.slackImport.intoNew')}
             checked={intoNew}
             onChange={setIntoNew}
             dataQa="slack-import-into-new"
@@ -216,18 +227,18 @@ export function SlackImportSection({ workspaceId, instanceUrl }: Props) {
 
         {intoNew && mayCreate && (
           <TextInput
-            label="New workspace name"
+            label={t('settings.slackImport.newName')}
             labelHidden
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            placeholder="Workspace name"
+            placeholder={t('settings.slackImport.newNamePlaceholder')}
             dataQa="slack-import-workspace-name"
           />
         )}
 
         <Checkbox
-          label="Dry run"
-          description="Report what would happen, write nothing."
+          label={t('settings.slackImport.dryRun')}
+          description={t('settings.slackImport.dryRunHint')}
           checked={dryRun}
           onChange={setDryRun}
           dataQa="slack-import-dry-run"
@@ -247,7 +258,11 @@ export function SlackImportSection({ workspaceId, instanceUrl }: Props) {
             disabled={start.isPending}
             data-qa="slack-import-start"
           >
-            {start.isPending ? 'Uploading…' : dryRun ? 'Check the export' : 'Import'}
+            {start.isPending
+              ? t('settings.slackImport.uploading')
+              : dryRun
+                ? t('settings.slackImport.check')
+                : t('settings.slackImport.import')}
           </Button>
         </div>
       </div>
@@ -259,7 +274,7 @@ export function SlackImportSection({ workspaceId, instanceUrl }: Props) {
           </div>
         ) : runs.length === 0 ? (
           <div className="text-center py-10 px-6 text-sm text-muted" data-qa="slack-import-empty">
-            No imports yet. A dry run first is the cheap way to see what will not convert.
+            {t('settings.slackImport.empty')}
           </div>
         ) : (
           runs.map((run) => (
@@ -269,7 +284,7 @@ export function SlackImportSection({ workspaceId, instanceUrl }: Props) {
               retrying={retry.isPending && retry.variables === run.id}
               onRetry={() =>
                 retry.mutate(run.id, {
-                  onError: (e) => setError(toUserMessage(e, 'Could not start that import again')),
+                  onError: (e) => setError(toUserMessage(e, t('settings.slackImport.retryFailed'))),
                 })
               }
               onDiscard={() => setDiscarding(run)}
@@ -280,14 +295,14 @@ export function SlackImportSection({ workspaceId, instanceUrl }: Props) {
 
       {discarding && (
         <ConfirmDialog
-          title="Discard this export?"
-          description={`This deletes ${discarding.source} from the server now. The run can't be started again; to finish the import, upload the export again.`}
-          confirmLabel="Discard"
+          title={t('settings.slackImport.discardTitle')}
+          description={t('settings.slackImport.discardDescription', { source: discarding.source })}
+          confirmLabel={t('settings.slackImport.discard')}
           onConfirm={async () => {
             try {
               await discard.mutateAsync(discarding.id);
             } catch (e) {
-              throw new Error(toUserMessage(e, 'Could not discard that export'), { cause: e });
+              throw new Error(toUserMessage(e, t('settings.slackImport.discardFailed')), { cause: e });
             }
           }}
           onClose={() => setDiscarding(null)}

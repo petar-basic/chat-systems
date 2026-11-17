@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { Button } from '@/shared/components/Button/Button';
 import { Trash2, Plus, Check } from 'lucide-react';
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export function UserGroupsSection({ workspaceId, instanceUrl, members, isAdmin }: Props) {
+  const { t } = useTranslation('workspace');
   const { data: groups, isLoading } = useUserGroups(workspaceId, instanceUrl);
   const createGroup = useCreateGroup(workspaceId, instanceUrl);
   const deleteGroup = useDeleteGroup(workspaceId, instanceUrl);
@@ -84,11 +86,11 @@ export function UserGroupsSection({ workspaceId, instanceUrl, members, isAdmin }
         <form onSubmit={handleCreate} className="px-3 py-3 border-b border-line/30 space-y-2">
           <div className="flex gap-2">
             <TextInput
-              label="Group handle"
+              label={t('settings.userGroups.handle')}
               labelHidden
               value={handle}
               onChange={(e) => setHandle(e.target.value)}
-              placeholder="handle (used as @handle)"
+              placeholder={t('settings.userGroups.handlePlaceholder')}
               dataQa="group-handle"
               className="flex-1"
             />
@@ -122,15 +124,15 @@ export function UserGroupsSection({ workspaceId, instanceUrl, members, isAdmin }
                   >
                     <span className="text-sm text-fg-soft">@{group.handle}</span>
                     <span className="ml-2 text-xs text-subtle">
-                      {group.member_count} {group.member_count === 1 ? 'person' : 'people'}
+                      {t('settings.userGroups.people', { count: group.member_count })}
                     </span>
                   </button>
                   {isAdmin && (
                     <button
                       type="button"
                       onClick={() => deleteGroup.mutate(group.id)}
-                      aria-label={`Delete @${group.handle}`}
-                      data-tooltip={`Delete @${group.handle}`}
+                      aria-label={t('settings.userGroups.deleteNamed', { handle: group.handle })}
+                      data-tooltip={t('settings.userGroups.deleteNamed', { handle: group.handle })}
                       className="text-muted hover:text-danger transition cursor-pointer"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -166,9 +168,7 @@ export function UserGroupsSection({ workspaceId, instanceUrl, members, isAdmin }
             ))}
           </ul>
         ) : (
-          <p className="text-center py-8 text-muted text-sm">
-            No groups yet. A group gives a team one handle to mention.
-          </p>
+          <p className="text-center py-8 text-muted text-sm">{t('settings.userGroups.empty')}</p>
         )}
       </div>
     </div>

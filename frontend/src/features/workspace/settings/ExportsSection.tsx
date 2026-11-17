@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AlertTriangle, CheckCircle2, Download, Loader2, PackageOpen } from 'lucide-react';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { Button } from '@/shared/components/Button/Button';
@@ -20,11 +21,14 @@ interface Props {
 }
 
 function ExportRow({ row, fetched, onFetch }: { row: ExportDetail; fetched: boolean; onFetch: () => void }) {
+  const { t } = useTranslation('workspace');
   const job = row.export;
   const running = job.status === 'pending' || job.status === 'running';
   const person = useUserCache((s) => (job.subject_user_id ? s.getUser(job.subject_user_id) : undefined));
   const subject =
-    job.scope === 'user' && job.subject_user_id ? displayNameOf(person?.display_name) : 'Whole workspace';
+    job.scope === 'user' && job.subject_user_id
+      ? displayNameOf(person?.display_name)
+      : t('settings.exports.wholeWorkspace');
 
   return (
     <div className="flex items-center gap-3 px-4 py-3 border-b border-line/40" data-qa="export-row">
@@ -36,12 +40,13 @@ function ExportRow({ row, fetched, onFetch }: { row: ExportDetail; fetched: bool
           {subject}
           {job.include_dms && job.scope === 'workspace' && (
             <span className="ml-2 px-1.5 py-0.5 rounded bg-raised text-3xs uppercase tracking-wide text-fg-dim">
-              with DMs
+              {t('settings.exports.withDms')}
             </span>
           )}
         </div>
         <div className="text-xs text-muted">
-          {formatDateTime(job.created_at)} · <span data-qa="export-status">{job.status}</span>
+          {formatDateTime(job.created_at)} ·{' '}
+          <span data-qa="export-status">{t(`settings.jobStatus.${job.status}`)}</span>
           {job.error && <span className="text-danger"> · {job.error}</span>}
         </div>
       </div>
@@ -54,12 +59,12 @@ function ExportRow({ row, fetched, onFetch }: { row: ExportDetail; fetched: bool
           className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-raised hover:bg-elevated text-fg transition"
         >
           <Download className="w-4 h-4" />
-          Download
+          {t('settings.exports.download')}
         </a>
       ) : (
         job.status === 'complete' && (
           <span className="text-xs text-muted" data-qa="export-link-gone">
-            {fetched ? 'Downloaded' : 'Link used or expired'}
+            {fetched ? t('settings.exports.downloaded') : t('settings.exports.linkGone')}
           </span>
         )
       )}
@@ -68,6 +73,7 @@ function ExportRow({ row, fetched, onFetch }: { row: ExportDetail; fetched: bool
 }
 
 export function ExportsSection({ workspaceId, instanceUrl, isOwner }: Props) {
+  const { t } = useTranslation('workspace');
   const { data: rows = [], isLoading, error } = useExports(workspaceId, instanceUrl);
   const start = useStartWorkspaceExport(workspaceId, instanceUrl);
   const [includeDms, setIncludeDms] = useState(false);
@@ -76,15 +82,12 @@ export function ExportsSection({ workspaceId, instanceUrl, isOwner }: Props) {
   return (
     <div className="-mx-4 flex flex-col" data-qa="exports-section">
       <div className="px-4 pb-4 border-b border-line/50 space-y-3">
-        <p className="text-sm text-muted">
-          An export is a tar archive of the workspace in JSON lines. Its download link works once and expires
-          after a day.
-        </p>
+        <p className="text-sm text-muted">{t('settings.exports.intro')}</p>
         {isOwner ? (
           <>
             <Checkbox
-              label="Include direct messages"
-              description="Private conversations between members. Asking for them is recorded in the audit log."
+              label={t('settings.exports.includeDms')}
+              description={t('settings.exports.includeDmsHint')}
               checked={includeDms}
               onChange={setIncludeDms}
               dataQa="export-include-dms"
@@ -96,16 +99,16 @@ export function ExportsSection({ workspaceId, instanceUrl, isOwner }: Props) {
               onClick={() => start.mutate(includeDms)}
               data-qa="export-start"
             >
-              Export workspace
+              {t('settings.exports.start')}
             </Button>
             {start.isError && (
               <p role="alert" className="text-sm text-danger">
-                {toUserMessage(start.error, 'Failed to start the export')}
+                {toUserMessage(start.error, t('settings.exports.startFailed'))}
               </p>
             )}
           </>
         ) : (
-          <p className="text-sm text-muted">Only the workspace owner can export the whole workspace.</p>
+          <p className="text-sm text-muted">{t('settings.exports.ownerOnly')}</p>
         )}
       </div>
 
@@ -114,9 +117,11 @@ export function ExportsSection({ workspaceId, instanceUrl, isOwner }: Props) {
           <Spinner className="text-accent" />
         </div>
       ) : error ? (
-        <p className="px-4 py-6 text-sm text-danger">{toUserMessage(error, 'Failed to load exports')}</p>
+        <p className="px-4 py-6 text-sm text-danger">
+          {toUserMessage(error, t('settings.exports.loadFailed'))}
+        </p>
       ) : rows.length === 0 ? (
-        <p className="px-4 py-6 text-sm text-muted text-center">No exports yet.</p>
+        <p className="px-4 py-6 text-sm text-muted text-center">{t('settings.exports.empty')}</p>
       ) : (
         rows.map((row) => (
           <ExportRow

@@ -1,11 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { ExportsSection } from './ExportsSection';
 import type { ExportDetail } from '@/features/workspace/hooks/useExports';
 import { useUserCache } from '@/stores/users';
+import i18n from '@/lib/i18n';
 
 const startMutate = vi.fn();
 let rows: ExportDetail[] = [];
+const hostile = '<img src=x onerror="alert(1)"> {{name}}';
 
 vi.mock('@/features/workspace/hooks/useExports', () => ({
   useExports: () => ({ data: rows, isLoading: false, error: null }),
@@ -81,5 +83,64 @@ describe('ExportsSection', () => {
     render(<ExportsSection workspaceId="ws-1" isOwner={false} />);
     expect(screen.queryByTestId('export-start')).not.toBeInTheDocument();
     expect(screen.getByText('No exports yet.')).toBeInTheDocument();
+  });
+});
+
+describe('ExportsSection in Japanese', () => {
+  beforeEach(async () => {
+    rows = [];
+    useUserCache.setState({
+      users: new Map([
+        ['bob-1', { id: 'bob-1', email: '', display_name: hostile, avatar_url: null, left: true }],
+      ]),
+    });
+    await i18n.changeLanguage('ja');
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('lists the exports, and names a person as text', () => {
+    rows = [
+      row({ id: 'exp-2', status: 'running', include_dms: true }),
+      row({}, 'http://localhost:3000/api/exports/download/tok'),
+      row({ id: 'exp-3', scope: 'user', workspace_id: null, subject_user_id: 'bob-1', status: 'failed' }),
+    ];
+    render(<ExportsSection workspaceId="ws-1" isOwner />);
+
+    expect(
+      screen.getByText(
+        'エクスポートは、ワークスペースの内容を JSON Lines 形式で収めた tar アーカイブです。ダウンロードのリンクは1回だけ使え、1日で期限が切れます。',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('ダイレクトメッセージを含める')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'ワークスペースをエクスポート' })).toBeInTheDocument();
+
+    const [running, ready, person] = screen.getAllByTestId('export-row');
+    expect(within(running).getByTestId('export-subject')).toHaveTextContent('ワークスペース全体DM を含む');
+    expect(within(running).getByTestId('export-status')).toHaveTextContent('実行中');
+    expect(within(ready).getByTestId('export-status')).toHaveTextContent('完了');
+    expect(within(person).getByTestId('export-status')).toHaveTextContent('失敗');
+    expect(within(person).getByTestId('export-subject').textContent).toBe(hostile);
+
+    fireEvent.click(within(ready).getByRole('link', { name: 'ダウンロード' }));
+    expect(within(ready).getByTestId('export-link-gone')).toHaveTextContent('ダウンロード済み');
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
+
+  it('tells others that only the owner exports', () => {
+    rows = [row({}), row({ id: 'exp-4' })];
+    render(<ExportsSection workspaceId="ws-1" isOwner={false} />);
+
+    expect(
+      screen.getByText('ワークスペース全体をエクスポートできるのは、オーナーだけです。'),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText('リンクは使用済みか期限切れです')).toHaveLength(2);
+  });
+
+  it('says when there are none', () => {
+    render(<ExportsSection workspaceId="ws-1" isOwner />);
+    expect(screen.getByText('エクスポートはまだありません。')).toBeInTheDocument();
   });
 });
