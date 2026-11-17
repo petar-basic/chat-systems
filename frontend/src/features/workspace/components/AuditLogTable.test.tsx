@@ -5,13 +5,6 @@ import AuditLogTable, { type AuditEntry } from './AuditLogTable';
 
 const hostile = '<img src=x onerror="alert(1)"> {{name}}';
 
-const AWAITING_JAPANESE = [
-  'actions.custom_response.created',
-  'actions.custom_response.updated',
-  'actions.custom_response.deleted',
-  'actions.workspace_bot.renamed',
-];
-
 const entry = (id: string, action: string, actor: Partial<AuditEntry> = {}): AuditEntry => ({
   id,
   action,
@@ -70,6 +63,8 @@ describe('AuditLogTable in Japanese', () => {
           entry('2', 'totp.failed', { actor_email: 'ana@example.com' }),
           entry('3', 'webhook.fired'),
           entry('4', 'invite_request.declined'),
+          entry('5', 'custom_response.updated'),
+          entry('6', 'workspace_bot.renamed'),
         ]}
         loading={false}
         showWorkspace
@@ -82,6 +77,8 @@ describe('AuditLogTable in Japanese', () => {
       '2要素認証に失敗',
       'Webhook fired',
       '招待のリクエストを却下',
+      'カスタムレスポンスを変更',
+      'ボットの名前を変更',
     ]);
     const [first, , third] = screen.getAllByTestId('audit-log-row');
     expect(within(first).getByText(hostile)).toBeInTheDocument();
@@ -106,12 +103,10 @@ describe('AuditLogTable in Japanese', () => {
     expect(screen.getByTestId('audit-log-empty')).toHaveTextContent('まだ記録はありません。');
   });
 
-  it('has Japanese for every action but the ones awaiting it', () => {
+  it('has Japanese for every action', () => {
     const english = leaves(i18n.getResource('en', 'admin', 'audit'));
     const japanese = leaves(i18n.getResource('ja', 'admin', 'audit'));
     expect(english).toHaveLength(101);
-    expect(english).toEqual(expect.arrayContaining(AWAITING_JAPANESE));
-    expect(japanese.filter((key) => AWAITING_JAPANESE.includes(key))).toEqual([]);
-    expect(japanese).toEqual(english.filter((key) => !AWAITING_JAPANESE.includes(key)));
+    expect(japanese).toEqual(english);
   });
 });
