@@ -3,7 +3,13 @@ import { useTranslation } from 'react-i18next';
 import type { Channel, Workspace, WorkspaceMember } from '@/stores/workspace';
 import type { AppRef } from '@/features/workspace/hooks/useAppDirectory';
 import { SectionedModal } from '@/shared/components/Modal/SectionedModal';
-import { isWorkspaceAdmin, sectionsFor, type SettingsSection, type Viewer } from './sections';
+import {
+  canDeleteWorkspace,
+  isWorkspaceAdmin,
+  sectionsFor,
+  type SettingsSection,
+  type Viewer,
+} from './sections';
 import { GeneralSection } from './GeneralSection';
 import { MembersSection } from './MembersSection';
 import { UserGroupsSection } from './UserGroupsSection';
@@ -60,7 +66,9 @@ export function WorkspaceSettingsModal({
       size="full"
       qaPrefix="workspace-settings"
     >
-      {active === 'general' && <GeneralSection workspace={workspace} onDeleted={onClose} />}
+      {active === 'general' && (
+        <GeneralSection workspace={workspace} onDeleted={onClose} canDelete={canDeleteWorkspace(viewer)} />
+      )}
       {active === 'members' && (
         <MembersSection workspaceId={id} openInvite={inviting} isInstanceAdmin={viewer.isInstanceAdmin} />
       )}

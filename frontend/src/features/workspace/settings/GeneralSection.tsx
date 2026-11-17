@@ -40,9 +40,10 @@ const PERMISSIONS: WorkspaceRule[] = [
 interface Props {
   workspace: Workspace;
   onDeleted: () => void;
+  canDelete: boolean;
 }
 
-export function GeneralSection({ workspace, onDeleted }: Props) {
+export function GeneralSection({ workspace, onDeleted, canDelete }: Props) {
   const { t } = useTranslation(['workspace', 'common']);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -274,44 +275,46 @@ export function GeneralSection({ workspace, onDeleted }: Props) {
           ))}
         </fieldset>
 
-        <div className="border border-red-500/30 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-danger mb-2 flex items-center gap-1.5">
-            <AlertTriangle className="w-4 h-4" />
-            {t('settings.general.dangerZone')}
-          </h3>
-          {workspace.deleted_at ? (
-            <>
-              <p className="text-xs text-muted mb-3">{t('settings.general.softDeleted')}</p>
-              <button
-                type="button"
-                onClick={handleRestore}
-                disabled={restoreMutation.isPending}
-                className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-green-600/20 hover:bg-green-600/40 border border-green-500/40 text-success text-sm rounded-lg transition cursor-pointer disabled:cursor-not-allowed"
-              >
-                {restoreMutation.isPending ? (
-                  <Spinner size="sm" className="text-success" />
-                ) : (
-                  <>
-                    <RotateCcw className="w-4 h-4" />
-                    {t('settings.general.restore')}
-                  </>
-                )}
-              </button>
-            </>
-          ) : (
-            <>
-              <p className="text-xs text-muted mb-3">{t('settings.general.deleteExplain')}</p>
-              <button
-                type="button"
-                onClick={() => setDeleteModal(true)}
-                className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-600/20 hover:bg-red-600/40 border border-red-500/40 text-danger text-sm rounded-lg transition cursor-pointer"
-              >
-                <Trash2 className="w-4 h-4" />
-                {t('settings.general.delete')}
-              </button>
-            </>
-          )}
-        </div>
+        {canDelete && (
+          <div className="border border-red-500/30 rounded-lg p-4">
+            <h3 className="text-sm font-semibold text-danger mb-2 flex items-center gap-1.5">
+              <AlertTriangle className="w-4 h-4" />
+              {t('settings.general.dangerZone')}
+            </h3>
+            {workspace.deleted_at ? (
+              <>
+                <p className="text-xs text-muted mb-3">{t('settings.general.softDeleted')}</p>
+                <button
+                  type="button"
+                  onClick={handleRestore}
+                  disabled={restoreMutation.isPending}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-green-600/20 hover:bg-green-600/40 border border-green-500/40 text-success text-sm rounded-lg transition cursor-pointer disabled:cursor-not-allowed"
+                >
+                  {restoreMutation.isPending ? (
+                    <Spinner size="sm" className="text-success" />
+                  ) : (
+                    <>
+                      <RotateCcw className="w-4 h-4" />
+                      {t('settings.general.restore')}
+                    </>
+                  )}
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-muted mb-3">{t('settings.general.deleteExplain')}</p>
+                <button
+                  type="button"
+                  onClick={() => setDeleteModal(true)}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-600/20 hover:bg-red-600/40 border border-red-500/40 text-danger text-sm rounded-lg transition cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  {t('settings.general.delete')}
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {deleteModal && (

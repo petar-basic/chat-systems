@@ -13,6 +13,7 @@ import {
   WorkspaceSettingsModal,
   LeaveWorkspaceDialog,
   WorkspaceChecklist,
+  canDeleteWorkspace,
   useCurrentWorkspaceRole,
   useSettingsDialog,
   useWorkspaceController,
@@ -76,6 +77,7 @@ export default function WorkspacePage() {
   } = useChannelModeration(currentChannel?.id ?? null, currentChannel?.settings);
   const { role } = useCurrentWorkspaceRole();
   const isAdmin = role === 'admin' || role === 'owner';
+  const viewer = { role, isInstanceAdmin: user?.instance_role === 'admin' };
   const mayBuildWorkflows = canBuild(role, workflowBuildersOf(currentWorkspace?.settings));
   const settings = useSettingsDialog();
   const [addingBookmark, setAddingBookmark] = useState(false);
@@ -256,19 +258,21 @@ export default function WorkspacePage() {
                   <p className="text-sm text-warning">
                     This workspace has been soft-deleted and is not visible to regular members.
                   </p>
-                  <button
-                    onClick={() => {
-                      if (!currentWorkspace.instanceUrl) return;
-                      c.restoreWorkspace.mutate({
-                        workspaceId: currentWorkspace.id,
-                        instanceUrl: currentWorkspace.instanceUrl,
-                      });
-                    }}
-                    disabled={c.restoreWorkspace.isPending}
-                    className="ml-4 px-3 py-1 text-xs bg-yellow-500/20 hover:bg-yellow-500/40 border border-yellow-500/40 text-warning rounded-lg transition cursor-pointer disabled:opacity-50 shrink-0"
-                  >
-                    {c.restoreWorkspace.isPending ? 'Restoring…' : 'Restore workspace'}
-                  </button>
+                  {canDeleteWorkspace(viewer) && (
+                    <button
+                      onClick={() => {
+                        if (!currentWorkspace.instanceUrl) return;
+                        c.restoreWorkspace.mutate({
+                          workspaceId: currentWorkspace.id,
+                          instanceUrl: currentWorkspace.instanceUrl,
+                        });
+                      }}
+                      disabled={c.restoreWorkspace.isPending}
+                      className="ml-4 px-3 py-1 text-xs bg-yellow-500/20 hover:bg-yellow-500/40 border border-yellow-500/40 text-warning rounded-lg transition cursor-pointer disabled:opacity-50 shrink-0"
+                    >
+                      {c.restoreWorkspace.isPending ? 'Restoring…' : 'Restore workspace'}
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -452,7 +456,7 @@ export default function WorkspacePage() {
         {settings.dialog && currentWorkspace && (
           <WorkspaceSettingsModal
             workspace={currentWorkspace}
-            viewer={{ role, isInstanceAdmin: user?.instance_role === 'admin' }}
+            viewer={viewer}
             initial={settings.dialog.section}
             inviting={settings.dialog.inviting}
             app={settings.dialog.app}
