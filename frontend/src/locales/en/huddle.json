@@ -12,6 +12,12 @@
     "fullScreenTip": "Full screen",
     "collapseTip": "Collapse"
   },
+  "thread": {
+    "open": "Open the huddle's thread",
+    "close": "Close the huddle's thread",
+    "unread_one": "{{count}} unread reply",
+    "unread_other": "{{count}} unread replies"
+  },
   "controls": {
     "mute": "Mute",
     "unmute": "Unmute",
@@ -50,7 +56,15 @@
   },
   "system": {
     "started": "<name>{{name}}</name> started a huddle",
-    "join": "Join"
+    "join": "Join",
+    "lasted": "Lasted {{duration}}",
+    "underMinute": "less than a minute",
+    "minutes_one": "{{count}} minute",
+    "minutes_other": "{{count}} minutes",
+    "hours": "{{hours}} h {{minutes}} min",
+    "with": "with {{names}}",
+    "others_one": "{{count}} other",
+    "others_other": "{{count}} others"
   },
   "errors": {
     "micBlocked": "Your browser blocked the microphone. Allow it for this site and try again.",

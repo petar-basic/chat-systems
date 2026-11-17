@@ -586,7 +586,7 @@ async fn require_file_access(
 ) -> AppResult<()> {
     if let Some(message_id) = record.message_id {
         if let Some(channel_id) = state.file_repo.channel_id_for_message(message_id).await? {
-            authz::require_channel_access(state, channel_id, user_id).await?;
+            authz::require_message_access(state, channel_id, message_id, user_id).await?;
             return Ok(());
         }
     }

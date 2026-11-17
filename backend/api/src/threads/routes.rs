@@ -76,7 +76,7 @@ async fn thread_root(
             .ok_or_else(|| AppError::NotFound("Thread not found".into()))?,
         None => message,
     };
-    let access = authz::require_channel_access(state, root.channel_id, user_id).await?;
+    let access = authz::require_message_access(state, root.channel_id, root.id, user_id).await?;
     Ok((root, access.channel.workspace_id))
 }
 

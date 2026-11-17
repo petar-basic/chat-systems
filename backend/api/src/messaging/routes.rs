@@ -164,7 +164,7 @@ async fn send_message(
     req.validate()?;
     files::check_attachment_ids(&req.attachment_ids)?;
 
-    let channel = authz::require_channel_post_as(&state, ch_id, &auth)
+    let channel = authz::require_thread_post_as(&state, ch_id, req.thread_parent_id, &auth)
         .await?
         .channel;
     let addressed = addressed_text(&req.content, req.forwarded_from.is_some());
@@ -593,7 +593,7 @@ async fn delete_message(
         .await?;
     let staged = state
         .publisher
-        .stage_message_deleted(&mut tx, msg_id, existing.channel_id, channel.workspace_id)
+        .stage_message_deleted(&mut tx, &existing, channel.workspace_id)
         .await?;
     let parent_staged = match &parent {
         Some(parent) => Some(
@@ -784,7 +784,8 @@ async fn list_thread(
         .await?
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?
         .channel_id;
-    let access = authz::require_channel_access(&state, channel_id, caller.user_id()).await?;
+    let access =
+        authz::require_message_access(&state, channel_id, msg_id, caller.user_id()).await?;
     caller.scoped(bots::history_scope(&access.channel))?;
     let limit = params.limit.unwrap_or(50).clamp(1, 200);
     let messages = state
@@ -840,7 +841,7 @@ async fn list_reactions(
         .await?
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?
         .channel_id;
-    authz::require_channel_access(&state, channel_id, auth.user_id).await?;
+    authz::require_message_access(&state, channel_id, msg_id, auth.user_id).await?;
     let reactions = state.message_repo.list_reactions(msg_id).await?;
     Ok(Json(reactions.into()))
 }
@@ -865,7 +866,8 @@ async fn add_reaction(
         .await?
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
 
-    let access = authz::require_channel_access(&state, msg.channel_id, auth.user_id).await?;
+    let access =
+        authz::require_message_access(&state, msg.channel_id, msg.id, auth.user_id).await?;
     authz::require_not_archived(&access.channel)?;
     if let Some(name) = shared_common::validation::custom_emoji_name(&req.emoji) {
         state
@@ -891,12 +893,7 @@ async fn add_reaction(
         })?;
     let staged = state
         .publisher
-        .stage_reaction_added(
-            &mut tx,
-            &reaction,
-            msg.channel_id,
-            access.channel.workspace_id,
-        )
+        .stage_reaction_added(&mut tx, &reaction, &msg, access.channel.workspace_id)
         .await?;
     tx.commit().await?;
     state.publisher.dispatch(staged).await;
@@ -921,7 +918,8 @@ async fn remove_reaction(
         .await?
         .ok_or_else(|| AppError::NotFound("Message not found".into()))?;
 
-    let access = authz::require_channel_access(&state, msg.channel_id, auth.user_id).await?;
+    let access =
+        authz::require_message_access(&state, msg.channel_id, msg.id, auth.user_id).await?;
     authz::require_not_archived(&access.channel)?;
 
     let mut tx = state.pool.begin().await?;
@@ -933,8 +931,7 @@ async fn remove_reaction(
         .publisher
         .stage_reaction_removed(
             &mut tx,
-            msg_id,
-            msg.channel_id,
+            &msg,
             access.channel.workspace_id,
             auth.user_id,
             &emoji,

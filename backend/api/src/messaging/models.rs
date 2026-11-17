@@ -35,6 +35,8 @@ pub struct MessageMetadata {
     pub kind: Option<String>,
     pub huddle_id: Option<Uuid>,
     pub initiator_id: Option<Uuid>,
+    pub ended_at: Option<DateTime<Utc>>,
+    pub participant_ids: Option<Vec<Uuid>>,
     pub bot: Option<BotIdentity>,
     pub unfurls: Option<Vec<Unfurl>>,
     pub unfurls_hidden: Option<bool>,

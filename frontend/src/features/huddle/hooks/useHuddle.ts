@@ -40,3 +40,16 @@ export const useInviteToHuddle = (workspaceId: string, huddleId: string, instanc
       ),
     onError: (err) => logger.error('useInviteToHuddle', 'mutationFn', err),
   });
+
+export const useHuddleThread = (huddleId: string, instanceUrl?: string, enabled = true) =>
+  useQuery({
+    queryKey: QUERY_KEYS.huddleThread(huddleId),
+    queryFn: () =>
+      getApiForInstance(instanceUrl).typed((c) =>
+        c.GET('/huddles/{huddle_id}/thread', { params: { path: { huddle_id: huddleId } } }),
+      ),
+    enabled,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    retry: 4,
+  });

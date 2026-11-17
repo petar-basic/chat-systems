@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use axum::extract::ws::{CloseFrame, Message};
 use dashmap::DashMap;
@@ -86,6 +86,13 @@ pub struct Connection {
     pub subscribed_workspaces: HashSet<Uuid>,
     pub subscribed_channels: HashSet<Uuid>,
     pub subscribed_huddles: HashSet<Uuid>,
+    pub huddle_threads: HashMap<Uuid, HuddleThread>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HuddleThread {
+    pub channel_id: Uuid,
+    pub root_id: Uuid,
 }
 
 /// Who a delivery is for. `Everyone` is the live path; `Connection` is a replay
@@ -217,6 +224,7 @@ impl ConnectionManager {
                 subscribed_workspaces: HashSet::new(),
                 subscribed_channels: HashSet::new(),
                 subscribed_huddles: HashSet::new(),
+                huddle_threads: HashMap::new(),
             },
         );
         let mut entry = self.user_connections.entry(user_id).or_default();
@@ -305,6 +313,35 @@ impl ConnectionManager {
     pub fn leave_huddle(&self, conn_id: &Uuid, huddle_id: Uuid) {
         if let Some(mut conn) = self.connections.get_mut(conn_id) {
             conn.subscribed_huddles.remove(&huddle_id);
+            conn.huddle_threads.remove(&huddle_id);
+        }
+    }
+
+    pub fn hear_huddle_thread(&self, conn_id: &Uuid, huddle_id: Uuid, thread: HuddleThread) {
+        if let Some(mut conn) = self.connections.get_mut(conn_id) {
+            if conn.subscribed_huddles.contains(&huddle_id) {
+                conn.huddle_threads.insert(huddle_id, thread);
+            }
+        }
+    }
+
+    pub async fn huddle_thread(&self, huddle_id: Uuid) -> Option<HuddleThread> {
+        match sqlx::query_as!(
+            HuddleThread,
+            r#"SELECT m.channel_id, m.id AS root_id
+                 FROM huddle_sessions h
+                 JOIN messages m ON m.id = h.message_id
+                WHERE h.id = $1"#,
+            huddle_id
+        )
+        .fetch_optional(&self.db)
+        .await
+        {
+            Ok(thread) => thread,
+            Err(e) => {
+                warn!("huddle_thread DB error huddle={}: {}", huddle_id, e);
+                None
+            }
         }
     }
 
@@ -383,6 +420,21 @@ impl ConnectionManager {
     pub async fn broadcast_to_channel(&self, audience: Audience, channel_id: Uuid, message: &str) {
         self.fan_out_to(audience, message, |c| {
             c.subscribed_channels.contains(&channel_id)
+        });
+    }
+
+    pub async fn broadcast_to_channel_or_thread(
+        &self,
+        audience: Audience,
+        channel_id: Uuid,
+        thread_ids: &[Uuid],
+        message: &str,
+    ) {
+        self.fan_out_to(audience, message, |c| {
+            c.subscribed_channels.contains(&channel_id)
+                || c.huddle_threads.values().any(|thread| {
+                    thread.channel_id == channel_id && thread_ids.contains(&thread.root_id)
+                })
         });
     }
 

@@ -1387,6 +1387,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/huddles/{huddle_id}/thread": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["huddle_thread"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/instance/info": {
         parameters: {
             query?: never;
@@ -5687,6 +5703,12 @@ export interface components {
         HuddleStarted: {
             /** Format: uuid */
             huddle_id: string;
+            /** Format: uuid */
+            message_id: string;
+        };
+        HuddleThread: {
+            in_channel: boolean;
+            message: components["schemas"]["Message"];
         };
         IceServer: {
             credential?: string | null;
@@ -6070,6 +6092,8 @@ export interface components {
             app_prompts?: string[] | null;
             attachments?: components["schemas"]["Attachment"][] | null;
             bot?: components["schemas"]["BotIdentity"] | null;
+            /** Format: date-time */
+            ended_at?: string | null;
             fields?: components["schemas"]["MessageField"][] | null;
             form?: components["schemas"]["FormRequest"] | null;
             forwarded_from?: components["schemas"]["ForwardedFrom"] | null;
@@ -6079,6 +6103,7 @@ export interface components {
             /** Format: uuid */
             initiator_id?: string | null;
             kind?: string | null;
+            participant_ids?: string[] | null;
             poll?: components["schemas"]["PollSummary"] | null;
             unfurls?: components["schemas"]["Unfurl"][] | null;
             unfurls_hidden?: boolean | null;
@@ -9635,6 +9660,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SfuToken"];
+                };
+            };
+        };
+    };
+    huddle_thread: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                huddle_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HuddleThread"];
                 };
             };
         };
