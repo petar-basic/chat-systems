@@ -32,6 +32,7 @@ mod channel_edits;
 mod channel_integrations;
 mod channel_privacy;
 mod channels;
+mod clips;
 mod commands;
 mod conversation_convert;
 mod conversations;

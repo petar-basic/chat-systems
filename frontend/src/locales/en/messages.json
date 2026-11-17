@@ -277,5 +277,43 @@
     "huddle": "Huddle",
     "left": "No longer in this workspace",
     "viewProfile": "View full profile"
+  },
+  "clips": {
+    "record": "Record a clip",
+    "title": "Record a clip",
+    "what": "What to record",
+    "modes": {
+      "audio": "Audio",
+      "audioHint": "Just your voice",
+      "camera": "Camera",
+      "cameraHint": "You on camera, with your voice",
+      "screen": "Screen",
+      "screenHint": "Your screen, with your voice"
+    },
+    "bubble": "Show my camera in a bubble",
+    "bubbleHint": "In a corner of the screen recording",
+    "start": "Start recording",
+    "stop": "Stop recording",
+    "elapsed": "{{elapsed}} of {{limit}}",
+    "left": "{{left}} left",
+    "processing": "Getting your clip ready…",
+    "again": "Record again",
+    "use": "Use this clip",
+    "useHint": "The clip goes into your message. Add text if you like, then send it.",
+    "tryAgain": "Try again",
+    "errors": {
+      "screenDenied": "Sharing your screen was not allowed, so nothing was recorded.",
+      "cameraDenied": "Your browser blocked the camera. Allow it for this site and try again.",
+      "cameraMissing": "No camera found. Plug one in and try again.",
+      "unsupported": "This browser cannot record clips.",
+      "failed": "The recording stopped with an error, so nothing was kept."
+    },
+    "player": {
+      "speed": "Playback speed {{rate}}×",
+      "play": "Play",
+      "pause": "Pause",
+      "seek": "Seek",
+      "expand": "Open {{name}} in the gallery"
+    }
   }
 }

@@ -8,6 +8,7 @@ import { useGallery } from './galleryContext';
 import { fileKind, isRenderableImage, kindOf, playableMedia } from '@/lib/fileKinds';
 import { CollapsedPreview } from './CollapsedPreview';
 import { CachedImage } from '@/shared/components/Image/CachedImage';
+import { ClipPlayer } from '@/features/clips';
 
 type Attachment = components['schemas']['Attachment'];
 
@@ -75,6 +76,21 @@ export function MessageAttachments({ attachments, compact = false, onRemove }: P
         </CollapsedPreview>
       )}
       {files.map((attachment) => {
+        if (attachment.clip && !onRemove) {
+          const { clip } = attachment;
+          return (
+            <ClipPlayer
+              key={attachment.id}
+              url={attachment.url}
+              clip={clip}
+              filename={attachment.filename}
+              posterUrl={attachment.thumbnail_url}
+              width={attachment.width}
+              height={attachment.height}
+              onExpand={gallery && clip.kind === 'video' ? () => gallery.open(attachment.id) : undefined}
+            />
+          );
+        }
         const media = onRemove ? null : playableMedia(attachment.mime_type);
         if (media) return <MediaPlayer key={attachment.id} attachment={attachment} kind={media} />;
         return (

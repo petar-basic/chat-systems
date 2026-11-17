@@ -8,9 +8,11 @@ import { toUserMessage } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { formatBytes } from '@/lib/fileSize';
 import { ErrorLabels, MAX_ATTACHMENTS } from '@/shared/constants';
+import type { RecordedClip } from '@/features/clips';
 
 type Uploaded = components['schemas']['FileUploadResponse'];
 export type Attachment = components['schemas']['Attachment'];
+type Clip = components['schemas']['Clip'];
 
 export interface PendingAttachment {
   localId: string;
@@ -25,6 +27,9 @@ export interface PendingAttachment {
   url: string | null;
   width: number | null;
   height: number | null;
+  clip?: Clip | null;
+  posterUrl?: string | null;
+  thumbnailUrl?: string | null;
 }
 
 export interface ComposerAttachments {
@@ -33,6 +38,7 @@ export interface ComposerAttachments {
   failed: boolean;
   hasReady: boolean;
   add: (files: File[]) => void;
+  addClip: (clip: RecordedClip) => void;
   remove: (localId: string) => void;
   retry: (localId: string) => void;
   take: () => PendingAttachment[];
@@ -49,6 +55,7 @@ export function asAttachments(items: PendingAttachment[]): Attachment[] {
       url: item.previewUrl ?? item.url ?? '',
       width: item.width,
       height: item.height,
+      ...(item.clip ? { clip: item.clip, thumbnail_url: item.posterUrl ?? item.thumbnailUrl ?? null } : {}),
     }));
 }
 
@@ -64,6 +71,7 @@ interface Trays {
 
 const useTrays = create<Trays>(() => ({ trays: {} }));
 const files = new Map<string, File>();
+const clips = new Map<string, Pick<RecordedClip, 'poster' | 'clip'>>();
 const controllers = new Map<string, AbortController>();
 const EMPTY: PendingAttachment[] = [];
 
@@ -79,6 +87,7 @@ function forget(localId: string) {
   controllers.get(localId)?.abort();
   controllers.delete(localId);
   files.delete(localId);
+  clips.delete(localId);
 }
 
 export function restoreAttachments(scope: string, attachments: Attachment[]) {
@@ -98,6 +107,8 @@ export function restoreAttachments(scope: string, attachments: Attachment[]) {
       url: attachment.url,
       width: attachment.width ?? null,
       height: attachment.height ?? null,
+      clip: attachment.clip ?? null,
+      thumbnailUrl: attachment.thumbnail_url ?? null,
     })),
   ]);
 }
@@ -114,15 +125,33 @@ export function useComposerAttachments({ workspaceId, instanceUrl, resetKey }: A
       const controller = new AbortController();
       controllers.set(localId, controller);
       patch(scope, localId, { status: 'uploading', progress: 0, error: null });
+      const recorded = clips.get(localId);
       const form = new FormData();
-      form.append('file', file);
+      if (recorded) {
+        form.append('clip', JSON.stringify(recorded.clip));
+        if (recorded.poster) form.append('poster', recorded.poster, 'poster.jpg');
+        form.append('media', file);
+      } else {
+        form.append('file', file);
+      }
+      const onProgress = (progress: number) => patch(scope, localId, { progress });
+      const api = getApiForInstance(instanceUrl);
       try {
-        const [stored] = await getApiForInstance(instanceUrl).uploadWithProgress<Uploaded[]>(
-          `/files/upload/${workspaceId}?draft=true`,
-          form,
-          (progress) => patch(scope, localId, { progress }),
-          controller.signal,
-        );
+        const stored = recorded
+          ? await api.uploadWithProgress<Uploaded>(
+              `/files/clip/${workspaceId}?draft=true`,
+              form,
+              onProgress,
+              controller.signal,
+            )
+          : (
+              await api.uploadWithProgress<Uploaded[]>(
+                `/files/upload/${workspaceId}?draft=true`,
+                form,
+                onProgress,
+                controller.signal,
+              )
+            )[0];
         patch(scope, localId, {
           status: 'ready',
           progress: 1,
@@ -130,8 +159,10 @@ export function useComposerAttachments({ workspaceId, instanceUrl, resetKey }: A
           url: stored.url,
           width: stored.width ?? null,
           height: stored.height ?? null,
+          thumbnailUrl: stored.thumbnail_url ?? null,
         });
         files.delete(localId);
+        clips.delete(localId);
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') return;
         logger.error('useComposerAttachments', 'upload', err);
@@ -185,6 +216,41 @@ export function useComposerAttachments({ workspaceId, instanceUrl, resetKey }: A
     [scope, items.length, maxBytes, upload],
   );
 
+  const addClip = useCallback(
+    (recorded: RecordedClip) => {
+      if (items.length >= MAX_ATTACHMENTS) {
+        toast.error(`A message can carry at most ${MAX_ATTACHMENTS} files`);
+        return;
+      }
+      if (maxBytes !== undefined && recorded.file.size > maxBytes) {
+        toast.error(`${recorded.file.name} is larger than ${formatBytes(maxBytes)}`);
+        return;
+      }
+      const item: PendingAttachment = {
+        localId: crypto.randomUUID(),
+        name: recorded.file.name,
+        size: recorded.file.size,
+        mimeType: recorded.file.type,
+        previewUrl: recorded.previewUrl,
+        progress: 0,
+        status: 'uploading',
+        error: null,
+        fileId: null,
+        url: null,
+        width: null,
+        height: null,
+        clip: recorded.clip,
+        posterUrl: recorded.posterUrl,
+        thumbnailUrl: null,
+      };
+      update(scope, (current) => [...current, item]);
+      files.set(item.localId, recorded.file);
+      clips.set(item.localId, { poster: recorded.poster, clip: recorded.clip });
+      void upload(item.localId, recorded.file);
+    },
+    [scope, items.length, maxBytes, upload],
+  );
+
   const retry = useCallback(
     (localId: string) => {
       const file = files.get(localId);
@@ -199,6 +265,7 @@ export function useComposerAttachments({ workspaceId, instanceUrl, resetKey }: A
       forget(localId);
       update(scope, (current) => current.filter((candidate) => candidate.localId !== localId));
       if (item?.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      if (item?.posterUrl) URL.revokeObjectURL(item.posterUrl);
       const fileId = item?.fileId;
       if (fileId) {
         void getApiForInstance(instanceUrl)
@@ -222,6 +289,7 @@ export function useComposerAttachments({ workspaceId, instanceUrl, resetKey }: A
     failed: items.some((item) => item.status === 'failed'),
     hasReady: items.some((item) => item.status === 'ready'),
     add,
+    addClip,
     remove,
     retry,
     take,

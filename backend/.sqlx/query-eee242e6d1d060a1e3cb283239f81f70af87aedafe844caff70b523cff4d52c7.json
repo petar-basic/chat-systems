@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "DELETE FROM files WHERE id = $1 RETURNING id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, created_at",
+  "query": "SELECT id, message_id, user_id, workspace_id, filename, storage_key, mime_type, size_bytes, thumbnail_key, width, height, clip AS \"clip: Json<Clip>\", created_at FROM files WHERE user_id = $1",
   "describe": {
     "columns": [
       {
@@ -126,6 +126,17 @@
       },
       {
         "ordinal": 11,
+        "name": "clip: Json<Clip>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "files",
+            "name": "clip"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -153,8 +164,9 @@
       true,
       true,
       true,
+      true,
       false
     ]
   },
-  "hash": "ea3e3a6df1fcffc983e1c14c9a3cf542035b5738cff4c80c6ef5220bbc523a1a"
+  "hash": "eee242e6d1d060a1e3cb283239f81f70af87aedafe844caff70b523cff4d52c7"
 }

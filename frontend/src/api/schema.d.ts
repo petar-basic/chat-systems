@@ -1259,6 +1259,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/files/clip/{ws_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["upload_clip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/files/upload/{ws_id}": {
         parameters: {
             query?: never;
@@ -3959,6 +3975,7 @@ export interface components {
             reason?: string | null;
         };
         Attachment: {
+            clip?: components["schemas"]["Clip"] | null;
             filename: string;
             /** Format: int32 */
             height?: number | null;
@@ -4263,6 +4280,14 @@ export interface components {
             id?: string | null;
             label: string;
         };
+        Clip: {
+            /** Format: int32 */
+            duration_ms: number;
+            kind: components["schemas"]["ClipKind"];
+            waveform?: number[] | null;
+        };
+        /** @enum {string} */
+        ClipKind: "audio" | "video";
         /** @enum {string} */
         Clock: "h24" | "h12";
         CodeRequest: {
@@ -4803,6 +4828,7 @@ export interface components {
         };
         DataList_FileRecord: {
             data: {
+                clip?: components["schemas"]["Clip"] | null;
                 /** Format: date-time */
                 created_at: string;
                 filename: string;
@@ -5537,6 +5563,7 @@ export interface components {
             url: string;
         };
         FileRecord: {
+            clip?: components["schemas"]["Clip"] | null;
             /** Format: date-time */
             created_at: string;
             filename: string;
@@ -5572,6 +5599,7 @@ export interface components {
             user_id: string;
         };
         FileUploadResponse: {
+            clip?: components["schemas"]["Clip"] | null;
             filename: string;
             /** Format: int32 */
             height?: number | null;
@@ -9411,6 +9439,34 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExportDetail"];
+                };
+            };
+        };
+    };
+    upload_clip: {
+        parameters: {
+            query?: {
+                draft?: boolean;
+            };
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        /** @description `clip` (the clip's metadata as JSON), `poster` (a video clip's first frame) and `media` (the recording), in that order */
+        requestBody: {
+            content: {
+                "multipart/form-data": string;
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileUploadResponse"];
                 };
             };
         };

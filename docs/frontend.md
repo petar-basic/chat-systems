@@ -329,6 +329,37 @@ answer. A final answer goes away after ten seconds. A pending one turns into *No
 /x* once the response URL's 30 minutes are up, and on any reconnect, since a `command.response`
 frame sent while the socket was down is lost.
 
+Wherever it has a tray, and the browser has `MediaRecorder`, a clapperboard next to the
+paperclip records a clip (`features/clips`). `ClipRecorderDialog` is loaded only when it opens:
+- **Choosing.** Audio, camera, or screen (where `getDisplayMedia` exists), and for the screen
+  the camera in a bubble.
+- **Recording.** `ClipSession` opens the screen first, while the click still counts as a user
+  gesture, then the microphone, then the camera, through `lib/media.ts`, the helpers the huddle
+  uses too. Each refusal says what was refused and lets go of what was already open, and
+  nothing is recorded. The bubble is drawn with the screen onto a canvas (`compose.ts`), ticked
+  from a worker, whose timers a hidden tab does not slow down to once a second. An audio clip's levels are read every 100 ms
+  from an `AnalyserNode`. The dialog shows the time against five minutes, counts down the last
+  thirty seconds, and stops at five minutes. A screen share ended from the browser's own bar
+  stops it too.
+- **Ready.** `finishClip` copies the recording into a seekable file (`remux.ts`, below), takes
+  a video clip's poster from half a second in (`poster.ts`), and makes an audio clip's 100
+  peaks (`peaksOf`). The clip plays back in the dialog, where it can be recorded again or used.
+  A used clip goes into the tray (`addClip`), which uploads it to `/files/clip` with its
+  metadata and poster, and it is sent with the text like any file.
+
+The recorder asks for MP4 (H.264 and AAC) first and WebM (VP8 and Opus) after
+(`recordingType`). Neither container comes out of `MediaRecorder` with a duration or an index,
+so a browser could not seek in one without reading everything before the point.
+`makeSeekable` therefore copies the packets into a new file with `mediabunny`, without
+re-encoding: an MP4 with its `moov` first, or a WebM with its cues. If that fails, the
+recording goes up as it was.
+
+`ClipPlayer` plays an attachment that has `clip`. A video clip plays in a `<video>` over its
+poster, in the poster's shape, and its expand button opens it in the conversation's gallery,
+where video clips sit with the images (`galleryItems`). An audio clip has a play button and its
+waveform, which is a slider: click or use the arrows to seek. Both show the length and step
+through 1×, 1.5× and 2×.
+
 ---
 
 ## Components

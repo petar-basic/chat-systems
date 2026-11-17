@@ -500,7 +500,7 @@ later* list that day.
 |---|---|---|
 | CS-131 ✅ | A huddle's own thread | backend · frontend · realtime |
 | CS-132 ✅ | Drawing on a shared screen | frontend · realtime · desktop |
-| CS-133 | Clips: recorded audio, video and screen | frontend · backend · desktop |
+| CS-133 ✅ | Clips: recorded audio, video and screen | frontend · backend · desktop |
 
 ### Wave 36 — Apps that do more
 
@@ -606,13 +606,13 @@ Tickets that touch the same files, and the order that avoids rework:
 | channel type changes, `authz` channel access and the realtime channel scope | CS-122 ✅ → CS-123 ✅ → CS-124 ✅ → CS-131 ✅ |
 | invites, `accept_invite` and *Workspace settings → Members* | CS-124 ✅ → CS-125 ✅ |
 | `workspace_members` profile and the *People* directory | CS-126 ✅ |
-| `MessageInput.tsx` and the composer's buttons | CS-127 ✅ → CS-129 ✅ → CS-133 |
+| `MessageInput.tsx` and the composer's buttons | CS-127 ✅ → CS-129 ✅ → CS-133 ✅ |
 | *You* menu and `DraftsPanel` | CS-127 ✅ |
 | `SearchPanel` and `SearchFilterBar` | CS-128 ✅ |
 | `commands/builtin.rs` | CS-129 ✅ |
 | built-in bot users and the message stream consumers in `chat-worker` | CS-130 ✅ → CS-140 |
 | huddle window, `HuddleControlBar` and huddle realtime frames | CS-131 ✅ → CS-132 ✅ |
-| `files/` upload metadata and `MessageAttachments.tsx` | CS-133 |
+| `files/` upload metadata and `MessageAttachments.tsx` | CS-133 ✅ |
 | message `metadata`, the static renderer and `hooks/models.rs` payloads | CS-134 → CS-135 → CS-137 |
 | `app_events`, `bots/models.rs` and the app's page in *Apps* | CS-134 → CS-135 → CS-136 → CS-137 → CS-139 |
 | `ShortcutMenu.tsx` and message *More actions* | CS-136 |

@@ -3734,3 +3734,85 @@ in the huddle. In the browser, with Alice sharing a canvas stream:
 Two tabs in one pane do not connect over ICE, so Bob's mouse drawing on the video and Alice
 seeing it are left to the E2E test, which runs two browser contexts with a fake screen. The
 desktop overlay is built and linted, not run.
+
+### [CS-133] Clips: recorded audio, video and screen ✅ shipped
+Showing a bug used to take a huddle someone had to join right then, or a recording made in
+another app and uploaded. Now the composer records a clip, and it goes out as a file of the
+message. Clips had been under *left for much later* in ROADMAP; they were chosen for this
+release on 2026-11-13.
+
+**Which format plays everywhere.** The ticket asked for this to be checked before anything was
+built. What the browsers record:
+- Chrome since 126, and so Edge and WebView2, records MP4 with H.264 and AAC. AAC needs the
+  operating system's encoder, so an open-source Chromium build does not offer it.
+- Safari since 14.1, and so WKWebView, records MP4 with H.264 and AAC.
+- Firefox records only WebM, with VP8 and Opus; Mozilla has no MP4 muxer.
+
+What they play:
+- MP4 with H.264 and AAC plays in all five places the app runs: Chrome, Firefox, Safari, and
+  the desktop app on macOS and on Windows.
+- WebM with VP8 and Opus plays in Chrome, Firefox and WebView2. Safari has played WebM since
+  14.1, but Opus inside it only since Safari 17.
+
+So the recorder asks for MP4 first and takes WebM only where MP4 is not offered, which in
+practice is Firefox. A clip recorded in Firefox therefore will not play in a Safari or macOS
+desktop app older than Safari 17.
+
+**Seeking.** Neither recording seeks well as it comes out of `MediaRecorder`:
+- Chrome's and Safari's MP4 is fragmented, and every duration in its `moov` is zero.
+- Chrome's and Firefox's WebM has no duration and no cues.
+
+A player can only find the middle of such a file by reading up to it. Fixing that on the server
+would have meant ffmpeg in the image, which CS-055 had already decided against. Instead the
+browser copies the packets into a new file with `mediabunny` (MPL-2.0, no dependencies, loaded
+only with the recorder), without re-encoding:
+- an MP4 with its `moov` first and real durations;
+- a WebM with its duration and cues.
+
+Range requests (`files/ranges.rs`) then fetch only what is played. If the copy fails, the
+recording is uploaded as it was, still playable, just not seekable.
+
+**Server.** A clip is a row in `files` with `clip` set (migration 120). It is uploaded through
+its own route, `POST /files/clip/{ws}`, with three parts in order:
+- `clip`, the metadata, checked first;
+- `poster`, which goes through the same image pipeline as uploads (decoded, stripped, cut
+  to 720 px) and becomes the file's thumbnail;
+- `media`, the recording, checked by declared type and by its first bytes, then streamed under
+  the upload cap.
+
+Putting the recording last means nothing is streamed to storage for a clip whose metadata is
+already wrong. Because the poster is the thumbnail, retention, erasing a person, deleting a
+message and forwarding needed nothing new: they already delete or copy a file's thumbnail with
+it. Forwarding copies `clip` with the file.
+
+**Browser.**
+- Screen, microphone and camera are opened in that order. The screen comes first because
+  `getDisplayMedia` needs the click's user gesture, which a permission prompt for the
+  microphone would use up.
+- The camera bubble is drawn with the screen onto a canvas. The canvas is ticked from a worker,
+  because a hidden tab, which is where someone recording their screen usually is, runs the
+  page's own timers once a second.
+- `lib/media.ts` moved out of the huddle so both features use it.
+- A clip goes into the composer's tray rather than straight into a message, so text goes with
+  it the way it goes with any file.
+
+**QA** on the Docker stack, in the pane's Chromium 156, with the microphone, camera and screen
+stubbed by an oscillator and canvas streams:
+- The recorder picked MP4, H.264 with AAC.
+- A 10 s audio clip came out as `.m4a`, its length known at `loadedmetadata`, and its waveform
+  showed the tone. It played at 2×, the arrow key moved it 5 s, and it went out with text.
+- A 27 s screen clip had the bubble bottom-left and a poster from half a second in. Played from
+  the server, its length (27.2 s) was known at once. Seeking to the middle buffered only
+  `0–1.3` and `10.6–15.9` s, over 206 responses. It opened in the gallery.
+- A camera recording left alone stopped at 5:00 after a "0:25 left" countdown. It previewed
+  as 299.99 s, uploaded and played from the server.
+- A denied screen said so and never asked for the microphone; a denied microphone said so.
+  Neither uploaded anything.
+- Bob's file search listed both clips with their metadata.
+
+The QA also fixed a 4:3 clip shown in a 16:9 box: the box is now as wide as the picture's shape
+allows within 480 × 320. Not checked by hand: Safari, Firefox and the two desktop apps (the
+format findings come from the vendors' notes), and the bubble while the tab is hidden. Another
+person playing a clip is checked by the E2E test.
+
+Not in this ticket: transcripts and captions, which need speech recognition beside the stack.

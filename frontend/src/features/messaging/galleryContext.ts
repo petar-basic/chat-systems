@@ -26,7 +26,7 @@ export function galleryItems(messages: Message[]): GalleryItem[] {
     .filter((message) => !message.deleted_at)
     .flatMap((message) =>
       (message.metadata?.attachments ?? [])
-        .filter((attachment) => isRenderableImage(attachment.mime_type))
+        .filter((attachment) => isRenderableImage(attachment.mime_type) || attachment.clip?.kind === 'video')
         .map((attachment) => ({ attachment, userId: message.user_id, createdAt: message.created_at })),
     );
 }

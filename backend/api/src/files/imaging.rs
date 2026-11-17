@@ -34,6 +34,15 @@ impl ImageKind {
         }
     }
 
+    pub fn extension(self) -> &'static str {
+        match self {
+            ImageKind::Png => "png",
+            ImageKind::Jpeg => "jpg",
+            ImageKind::Gif => "gif",
+            ImageKind::Webp => "webp",
+        }
+    }
+
     fn format(self) -> ImageFormat {
         match self {
             ImageKind::Png => ImageFormat::Png,

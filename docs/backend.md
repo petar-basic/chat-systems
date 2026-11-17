@@ -673,9 +673,28 @@ extension). The storage key uses an ASCII form of it (`files::names::storage_nam
 is always one safe path segment and keeps its extension. Downloads send both
 `filename="ascii fallback"` and `filename*=UTF-8''…` (RFC 6266 / 5987).
 
+**Clips.** A clip recorded in the composer is a file like any other, with `files.clip` (JSONB,
+migration 120) saying what it is: `{ kind: "audio" | "video", duration_ms, waveform? }`. It is
+uploaded through `POST /files/clip/:ws_id`, a multipart body whose parts come in a fixed order,
+so the recording can stream to storage after everything about it has been checked:
+- `clip`, the metadata as JSON (at most 8 KB). A clip lasts from 1 ms to five minutes. An audio
+  clip carries a waveform of exactly 100 peaks from 0 to 100, and a video clip carries none.
+  Unknown fields are refused.
+- `poster`, a video clip's first frame, which an audio clip must not send. It is at most 5 MB
+  and must decode as PNG, JPEG, GIF or WebP; metadata is stripped and a wide poster is cut to
+  720 px. It becomes the file's `thumbnail_key`, and its size the file's `width` and `height`.
+- `media`, the recording: `audio/` or `video/` matching the kind, MP4 or WebM by its declared
+  type and by its first bytes (`ftyp`, or the EBML header). The type is stored without its
+  codecs. It streams under `MAX_UPLOAD_BYTES` like any upload.
+
+Anything wrong is `422` and leaves nothing in storage. Retention, erasing a person, deleting a
+message, forwarding (which copies the clip's metadata with it), the export and file search treat
+a clip as the file it is; the poster goes wherever the file goes, as a thumbnail does.
+
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | POST | `/files/upload/:ws_id` | Query: `draft?`; multipart form (files) | `FileUploadResponse[]` |
+| POST | `/files/clip/:ws_id` | Query: `draft?`; multipart `clip`, `poster` (video only), `media`, in that order | `FileUploadResponse` with `clip` |
 | GET | `/files/:file_id` | — | `{ file: FileRecord, url: string }` |
 | GET | `/files/download/*key` | Header: `Range?` | The file, streamed from storage — a single `bytes=` range answers `206` with `Content-Range`, an unsatisfiable one `416`, several ranges the whole file; always `Accept-Ranges: bytes`. A custom emoji's image is served here too, to anyone in its workspace, an account photo (`avatars/{user_id}/…`) to its owner and anyone who shares a workspace with them, and a workspace photo (`avatars/{user_id}/{ws_id}/…`) to its owner and that workspace's members; anyone else gets `403` |
 | DELETE | `/files/:file_id` | — | `{ status: "deleted" }` |

@@ -14,10 +14,11 @@ use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
+use super::clips::{self, Container, CLIP_JSON_BYTES, POSTER_MAX_BYTES};
 use super::imaging;
 use super::models::{
-    ChannelFile, ChannelFilesQuery, FileRecord, FileSearchHit, FileSearchQuery, FileUploadResponse,
-    UploadQuery,
+    ChannelFile, ChannelFilesQuery, Clip, ClipKind, FileRecord, FileSearchHit, FileSearchQuery,
+    FileUploadResponse, UploadQuery,
 };
 use super::names;
 use super::ranges::ByteRange;
@@ -37,6 +38,7 @@ use crate::workspace::models::WorkspaceRole;
 pub fn router() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new()
         .routes(routes!(upload_file).layer(DefaultBodyLimit::disable()))
+        .routes(routes!(upload_clip).layer(DefaultBodyLimit::disable()))
         .routes(routes!(get_file_meta, delete_file))
         .routes(routes!(list_files))
         .routes(routes!(list_channel_files))
@@ -159,23 +161,180 @@ async fn upload_file(
                 thumbnail_key: stored.thumbnail_key.as_deref(),
                 width: stored.width,
                 height: stored.height,
+                clip: None,
             })
             .await?;
 
-        let attachment = service::attachment(&state, &record);
-        responses.push(FileUploadResponse {
-            id: record.id,
-            url: attachment.url,
-            filename: record.filename,
-            mime_type: record.mime_type,
-            size_bytes: record.size_bytes,
-            thumbnail_url: attachment.thumbnail_url,
-            width: record.width,
-            height: record.height,
-        });
+        responses.push(uploaded(&state, record));
     }
 
     Ok(Json(responses))
+}
+
+fn uploaded(state: &AppState, record: FileRecord) -> FileUploadResponse {
+    let attachment = service::attachment(state, &record);
+    FileUploadResponse {
+        id: record.id,
+        url: attachment.url,
+        filename: record.filename,
+        mime_type: record.mime_type,
+        size_bytes: record.size_bytes,
+        thumbnail_url: attachment.thumbnail_url,
+        width: record.width,
+        height: record.height,
+        clip: attachment.clip,
+    }
+}
+
+#[utoipa::path(post, path = "/files/clip/{ws_id}", tag = "files", params(UploadQuery), request_body(content = String, content_type = "multipart/form-data", description = "`clip` (the clip's metadata as JSON), `poster` (a video clip's first frame) and `media` (the recording), in that order"), responses((status = 200, body = FileUploadResponse)))]
+async fn upload_clip(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(ws_id): Path<Uuid>,
+    Query(query): Query<UploadQuery>,
+    mut multipart: Multipart,
+) -> AppResult<Json<FileUploadResponse>> {
+    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
+
+    let clip = {
+        let mut field = expect_field(&mut multipart, "clip").await?;
+        let text = read_capped(&mut field, CLIP_JSON_BYTES, "A clip's metadata").await?;
+        let clip: Clip = serde_json::from_slice(&text)
+            .map_err(|e| AppError::Validation(format!("The clip's metadata is not valid: {e}")))?;
+        if let Some(problem) = clip.problem() {
+            return Err(AppError::Validation(problem));
+        }
+        clip
+    };
+
+    let poster = match clip.kind {
+        ClipKind::Video => {
+            let mut field = expect_field(&mut multipart, "poster").await?;
+            let bytes = read_capped(&mut field, POSTER_MAX_BYTES, "A poster").await?;
+            drop(field);
+            Some(service::store_poster(&state, ws_id, bytes.into()).await?)
+        }
+        ClipKind::Audio => None,
+    };
+
+    let stored = store_recording(&state, ws_id, &clip, &mut multipart).await;
+    let stored = match stored {
+        Ok(stored) => stored,
+        Err(e) => {
+            if let Some(poster) = &poster {
+                let _ = state.file_storage.delete(&poster.key).await;
+            }
+            return Err(e);
+        }
+    };
+
+    let (filename, stored) = stored;
+    let created = state
+        .file_repo
+        .create(NewFile {
+            user_id: auth.user_id,
+            workspace_id: ws_id,
+            message_id: None,
+            filename: &filename,
+            storage_key: &stored.storage_key,
+            mime_type: &stored.mime_type,
+            size_bytes: stored.size_bytes,
+            draft_until: query.draft.then(service::draft_deadline),
+            thumbnail_key: poster.as_ref().map(|poster| poster.key.as_str()),
+            width: poster.as_ref().and_then(|poster| poster.width),
+            height: poster.as_ref().and_then(|poster| poster.height),
+            clip: Some(&clip),
+        })
+        .await;
+    match created {
+        Ok(record) => Ok(Json(uploaded(&state, record))),
+        Err(e) => {
+            let keys = std::iter::once(stored.storage_key).chain(poster.map(|poster| poster.key));
+            for key in keys {
+                let _ = state.file_storage.delete(&key).await;
+            }
+            Err(e.into())
+        }
+    }
+}
+
+async fn store_recording(
+    state: &AppState,
+    ws_id: Uuid,
+    clip: &Clip,
+    multipart: &mut Multipart,
+) -> AppResult<(String, service::StoredObject)> {
+    let mut field = expect_field(multipart, "media").await?;
+    let filename = names::display_name(field.file_name().unwrap_or("Clip"));
+    let declared = field
+        .headers()
+        .get(header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default()
+        .to_string();
+    let (mime_type, container) = clips::media_type(&declared, clip.kind).ok_or_else(|| {
+        AppError::Validation("A clip is recorded as MP4 or WebM of its own kind".into())
+    })?;
+    let mut head = Vec::new();
+    while head.len() < SNIFF_BYTES {
+        match next_chunk(&mut field).await? {
+            Some(chunk) => head.extend_from_slice(&chunk),
+            None => break,
+        }
+    }
+    if Container::sniff(&head) != Some(container) {
+        return Err(AppError::Validation(
+            "The recording is not the container it says it is".into(),
+        ));
+    }
+    let max_bytes = state.config.max_upload_bytes;
+    refuse_oversized(head.len(), max_bytes)?;
+    let stored = stream_rest(
+        state, ws_id, &filename, &mime_type, head, &mut field, max_bytes,
+    )
+    .await?;
+    drop(field);
+    let extra = multipart
+        .next_field()
+        .await
+        .map_err(|e| AppError::BadRequest(format!("Invalid multipart: {e}")))?
+        .is_some();
+    if extra {
+        let _ = state.file_storage.delete(&stored.storage_key).await;
+        return Err(AppError::Validation(
+            "A clip is its metadata, a poster and the recording, and nothing after".into(),
+        ));
+    }
+    Ok((filename, stored))
+}
+
+async fn expect_field<'a>(multipart: &'a mut Multipart, name: &str) -> AppResult<Field<'a>> {
+    let field = multipart
+        .next_field()
+        .await
+        .map_err(|e| AppError::BadRequest(format!("Invalid multipart: {e}")))?
+        .ok_or_else(|| AppError::Validation(format!("The clip has no `{name}`")))?;
+    if field.name() != Some(name) {
+        return Err(AppError::Validation(format!(
+            "Expected `{name}` next, not `{}`",
+            field.name().unwrap_or_default()
+        )));
+    }
+    Ok(field)
+}
+
+async fn read_capped(field: &mut Field<'_>, cap: usize, what: &str) -> AppResult<Vec<u8>> {
+    let mut bytes = Vec::new();
+    while let Some(chunk) = next_chunk(field).await? {
+        bytes.extend_from_slice(&chunk);
+        if bytes.len() > cap {
+            return Err(AppError::Validation(format!(
+                "{what} is at most {} KB",
+                cap / 1024
+            )));
+        }
+    }
+    Ok(bytes)
 }
 
 const SNIFF_BYTES: usize = 16;

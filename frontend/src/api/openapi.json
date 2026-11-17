@@ -3137,6 +3137,55 @@
         }
       }
     },
+    "/files/clip/{ws_id}": {
+      "post": {
+        "tags": [
+          "files"
+        ],
+        "operationId": "upload_clip",
+        "parameters": [
+          {
+            "name": "draft",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "`clip` (the clip's metadata as JSON), `poster` (a video clip's first frame) and `media` (the recording), in that order",
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileUploadResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/files/upload/{ws_id}": {
       "post": {
         "tags": [
@@ -11765,6 +11814,16 @@
           "url"
         ],
         "properties": {
+          "clip": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Clip"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "filename": {
             "type": "string"
           },
@@ -12887,6 +12946,42 @@
             "type": "string"
           }
         }
+      },
+      "Clip": {
+        "type": "object",
+        "required": [
+          "kind",
+          "duration_ms"
+        ],
+        "properties": {
+          "duration_ms": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ClipKind"
+          },
+          "waveform": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "ClipKind": {
+        "type": "string",
+        "enum": [
+          "audio",
+          "video"
+        ]
       },
       "Clock": {
         "type": "string",
@@ -14936,6 +15031,16 @@
                 "created_at"
               ],
               "properties": {
+                "clip": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Clip"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "created_at": {
                   "type": "string",
                   "format": "date-time"
@@ -17585,6 +17690,16 @@
           "created_at"
         ],
         "properties": {
+          "clip": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Clip"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "created_at": {
             "type": "string",
             "format": "date-time"
@@ -17706,6 +17821,16 @@
           "size_bytes"
         ],
         "properties": {
+          "clip": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Clip"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "filename": {
             "type": "string"
           },
