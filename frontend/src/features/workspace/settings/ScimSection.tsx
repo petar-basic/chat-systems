@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Trans } from '@/shared/components/Trans/Trans';
 import { KeyRound, RefreshCw, Trash2 } from 'lucide-react';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { Button } from '@/shared/components/Button/Button';
@@ -31,9 +33,10 @@ function TokenRow({
   onRotate: () => void;
   onRevoke: () => Promise<unknown>;
 }) {
+  const { t } = useTranslation('workspace');
   const [confirmRevoke, setConfirmRevoke] = useState(false);
   const revoked = !!token.revoked_at;
-  const name = token.description || 'Unnamed token';
+  const name = token.description || t('settings.scim.unnamed');
 
   return (
     <div className="flex items-center gap-3 px-4 py-3 border-b border-line/40" data-qa="scim-token-row">
@@ -44,10 +47,10 @@ function TokenRow({
         </div>
         <div className="text-xs text-muted" data-qa="scim-token-state">
           {revoked
-            ? `Revoked ${formatDateTime(token.revoked_at ?? '')}`
+            ? t('settings.scim.revokedAt', { date: formatDateTime(token.revoked_at ?? '') })
             : token.last_used_at
-              ? `Last used ${formatDateTime(token.last_used_at)}`
-              : `Created ${formatDateTime(token.created_at)}, never used`}
+              ? t('settings.scim.lastUsed', { date: formatDateTime(token.last_used_at) })
+              : t('settings.scim.neverUsed', { date: formatDateTime(token.created_at) })}
         </div>
       </div>
       {!revoked && (
@@ -55,8 +58,8 @@ function TokenRow({
           <button
             onClick={onRotate}
             disabled={busy}
-            aria-label={`Rotate ${name}`}
-            data-tooltip="Rotate"
+            aria-label={t('settings.scim.rotateNamed', { name })}
+            data-tooltip={t('settings.scim.rotate')}
             data-qa="scim-token-rotate"
             className="p-1.5 rounded text-muted hover:text-fg hover:bg-raised transition cursor-pointer disabled:opacity-50"
           >
@@ -65,8 +68,8 @@ function TokenRow({
           <button
             onClick={() => setConfirmRevoke(true)}
             disabled={busy}
-            aria-label={`Revoke ${name}`}
-            data-tooltip="Revoke"
+            aria-label={t('settings.scim.revokeNamed', { name })}
+            data-tooltip={t('settings.scim.revoke')}
             data-qa="scim-token-revoke"
             className="p-1.5 rounded text-muted hover:text-danger hover:bg-raised transition cursor-pointer disabled:opacity-50"
           >
@@ -76,9 +79,9 @@ function TokenRow({
       )}
       {confirmRevoke && (
         <ConfirmDialog
-          title={`Revoke ${name}?`}
-          description="The identity provider using it stops provisioning at once."
-          confirmLabel="Revoke token"
+          title={t('settings.scim.revokeTitle', { name })}
+          description={t('settings.scim.revokeDescription')}
+          confirmLabel={t('settings.scim.revokeConfirm')}
           onConfirm={async () => {
             await onRevoke();
           }}
@@ -91,6 +94,7 @@ function TokenRow({
 }
 
 export function ScimSection({ instanceUrl }: Props) {
+  const { t } = useTranslation('workspace');
   const { data: tokens = [], isLoading, error } = useScimTokens(instanceUrl);
   const mint = useMintScimToken(instanceUrl);
   const rotate = useRotateScimToken(instanceUrl);
@@ -114,12 +118,15 @@ export function ScimSection({ instanceUrl }: Props) {
     <div className="-mx-4 flex flex-col" data-qa="scim-section">
       <div className="px-4 pb-4 border-b border-line/50 space-y-3">
         <p className="text-sm text-muted">
-          An identity provider such as Okta or Entra ID creates, renames and deactivates accounts on this
-          instance through <code className="text-fg-soft">/api/scim/v2</code> with one of these tokens.
+          <Trans
+            t={t}
+            i18nKey="settings.scim.intro"
+            components={{ code: <code className="text-fg-soft" /> }}
+          />
         </p>
         <form onSubmit={submit} className="flex items-end gap-2">
           <TextInput
-            label="Token name"
+            label={t('settings.scim.tokenName')}
             optional
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -128,16 +135,14 @@ export function ScimSection({ instanceUrl }: Props) {
             className="flex-1"
           />
           <Button type="submit" variant="primary" loading={mint.isPending} data-qa="scim-token-mint">
-            Create token
+            {t('settings.scim.create')}
           </Button>
         </form>
         {minted && (
           <div className="rounded-lg border border-warning/40 bg-warning/5 p-3" data-qa="scim-token-minted">
-            <p className="text-sm text-fg-soft">
-              Copy this now. It is not shown again, and nobody can read it back later.
-            </p>
+            <p className="text-sm text-fg-soft">{t('settings.scim.copyNow')}</p>
             <CopyField
-              label={minted.description || 'SCIM token'}
+              label={minted.description || t('settings.scim.fallbackLabel')}
               value={minted.token}
               valueQa="scim-token-value"
               copyQa="scim-token-copy"
@@ -147,13 +152,13 @@ export function ScimSection({ instanceUrl }: Props) {
               data-qa="scim-token-dismiss"
               className="mt-2 text-xs text-muted hover:text-fg transition cursor-pointer"
             >
-              I have stored it
+              {t('settings.scim.stored')}
             </button>
           </div>
         )}
         {failure && (
           <p role="alert" className="text-sm text-danger">
-            {toUserMessage(failure, 'The token change failed')}
+            {toUserMessage(failure, t('settings.scim.changeFailed'))}
           </p>
         )}
       </div>
@@ -163,9 +168,9 @@ export function ScimSection({ instanceUrl }: Props) {
           <Spinner className="text-accent" />
         </div>
       ) : error ? (
-        <p className="px-4 py-6 text-sm text-danger">{toUserMessage(error, 'Failed to load tokens')}</p>
+        <p className="px-4 py-6 text-sm text-danger">{toUserMessage(error, t('settings.scim.loadFailed'))}</p>
       ) : tokens.length === 0 ? (
-        <p className="px-4 py-6 text-sm text-muted text-center">No tokens yet.</p>
+        <p className="px-4 py-6 text-sm text-muted text-center">{t('settings.scim.empty')}</p>
       ) : (
         tokens.map((token) => (
           <TokenRow

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { Button } from '@/shared/components/Button/Button';
 import { RadioCards } from '@/shared/components/Form/RadioCards';
@@ -35,23 +36,20 @@ function daysOf(period: Period): number | null | 'invalid' {
   return Number.isInteger(days) && days >= 1 ? days : 'invalid';
 }
 
-function plural(n: number, word: string) {
-  return `${n.toLocaleString()} ${word}${n === 1 ? '' : 's'}`;
-}
-
 function PeriodField({
   label,
-  noun,
+  daysLabel,
   period,
   onChange,
   qa,
 }: {
   label: string;
-  noun: string;
+  daysLabel: string;
   period: Period;
   onChange: (period: Period) => void;
   qa: string;
 }) {
+  const { t } = useTranslation('workspace');
   return (
     <div className="space-y-2" data-qa={qa}>
       <RadioCards
@@ -59,19 +57,19 @@ function PeriodField({
         value={period.keep}
         onChange={(keep) => onChange({ ...period, keep })}
         options={[
-          { value: 'forever', label: 'Forever', dataQa: `${qa}-forever` },
-          { value: 'days', label: 'For a number of days', dataQa: `${qa}-days` },
+          { value: 'forever', label: t('settings.retention.forever'), dataQa: `${qa}-forever` },
+          { value: 'days', label: t('settings.retention.forDays'), dataQa: `${qa}-days` },
         ]}
       />
       {period.keep === 'days' && (
         <TextInput
-          label={`Days to keep ${noun}`}
+          label={daysLabel}
           type="number"
           min={1}
           inputMode="numeric"
           value={period.days}
           onChange={(e) => onChange({ ...period, days: e.target.value })}
-          error={daysOf(period) === 'invalid' ? 'At least one day' : undefined}
+          error={daysOf(period) === 'invalid' ? t('settings.retention.atLeastOneDay') : undefined}
           dataQa={`${qa}-input`}
           className="max-w-48"
         />
@@ -87,6 +85,7 @@ function RetentionForm({
 }: Props & {
   policy: RetentionPolicy | null;
 }) {
+  const { t } = useTranslation('workspace');
   const [messages, setMessages] = useState(periodOf(policy?.message_days));
   const [files, setFiles] = useState(periodOf(policy?.file_days));
   const [channelOverrides, setChannelOverrides] = useState(policy?.channel_overrides ?? false);
@@ -123,23 +122,26 @@ function RetentionForm({
 
   return (
     <div className="space-y-5" data-qa="retention-section">
-      <p className="text-sm text-muted">
-        Messages and files older than the period are deleted for good by a nightly job. There is no undo, and
-        an export taken before the change is the only copy that remains.
-      </p>
+      <p className="text-sm text-muted">{t('settings.retention.intro')}</p>
 
       <PeriodField
-        label="Keep messages"
-        noun="messages"
+        label={t('settings.retention.keepMessages')}
+        daysLabel={t('settings.retention.daysMessages')}
         period={messages}
         onChange={setMessages}
         qa="retention-messages"
       />
-      <PeriodField label="Keep files" noun="files" period={files} onChange={setFiles} qa="retention-files" />
+      <PeriodField
+        label={t('settings.retention.keepFiles')}
+        daysLabel={t('settings.retention.daysFiles')}
+        period={files}
+        onChange={setFiles}
+        qa="retention-files"
+      />
 
       <Checkbox
-        label="Let channels keep messages for their own period"
-        description="A channel's admins can then set a shorter or longer period, or forever, in its settings. Files keep the workspace period."
+        label={t('settings.retention.channelOverrides')}
+        description={t('settings.retention.channelOverridesHint')}
         checked={channelOverrides}
         onChange={setChannelOverrides}
         dataQa="retention-channel-overrides"
@@ -147,15 +149,25 @@ function RetentionForm({
 
       <p aria-live="polite" className="min-h-5 text-sm" data-qa="retention-preview">
         {removesNothing ? (
-          <span className="text-muted">Nothing is removed while both are kept forever.</span>
+          <span className="text-muted">{t('settings.retention.nothingRemoved')}</span>
         ) : preview.isPending ? (
-          <span className="text-muted">Counting…</span>
+          <span className="text-muted">{t('settings.retention.counting')}</span>
         ) : preview.isError ? (
-          <span className="text-danger">{toUserMessage(preview.error, 'Could not count what would go')}</span>
+          <span className="text-danger">
+            {toUserMessage(preview.error, t('settings.retention.countFailed'))}
+          </span>
         ) : (
           <span className="text-warning">
-            About {plural(preview.data.messages, 'message')} and {plural(preview.data.files, 'file')} would be
-            removed now.
+            {t('settings.retention.removedNow', {
+              messages: t('settings.retention.messages', {
+                count: preview.data.messages,
+                n: preview.data.messages.toLocaleString(),
+              }),
+              files: t('settings.retention.files', {
+                count: preview.data.files,
+                n: preview.data.files.toLocaleString(),
+              }),
+            })}
           </span>
         )}
       </p>
@@ -168,13 +180,15 @@ function RetentionForm({
           loading={save.isPending}
           data-qa="retention-save"
         >
-          Save retention
+          {t('settings.retention.save')}
         </Button>
         <span aria-live="polite" className="text-xs" data-qa="retention-save-status">
           {save.isError ? (
-            <span className="text-danger">{toUserMessage(save.error, 'Failed to save retention')}</span>
+            <span className="text-danger">
+              {toUserMessage(save.error, t('settings.retention.saveFailed'))}
+            </span>
           ) : save.isSuccess && !changed ? (
-            <span className="text-success">Saved</span>
+            <span className="text-success">{t('settings.retention.saved')}</span>
           ) : null}
         </span>
       </div>
@@ -183,6 +197,7 @@ function RetentionForm({
 }
 
 export function RetentionSection({ workspaceId, instanceUrl }: Props) {
+  const { t } = useTranslation('workspace');
   const { data: policy, isLoading, error } = useRetentionPolicy(workspaceId, instanceUrl);
 
   if (isLoading) {
@@ -192,6 +207,7 @@ export function RetentionSection({ workspaceId, instanceUrl }: Props) {
       </div>
     );
   }
-  if (error) return <p className="text-sm text-danger">{toUserMessage(error, 'Failed to load retention')}</p>;
+  if (error)
+    return <p className="text-sm text-danger">{toUserMessage(error, t('settings.retention.loadFailed'))}</p>;
   return <RetentionForm workspaceId={workspaceId} instanceUrl={instanceUrl} policy={policy ?? null} />;
 }

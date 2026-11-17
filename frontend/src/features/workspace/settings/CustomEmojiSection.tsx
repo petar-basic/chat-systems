@@ -1,4 +1,6 @@
 import { useRef, useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Trans } from '@/shared/components/Trans/Trans';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { Button } from '@/shared/components/Button/Button';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
@@ -15,6 +17,7 @@ interface Props {
 }
 
 export function CustomEmojiSection({ workspaceId, instanceUrl }: Props) {
+  const { t } = useTranslation('workspace');
   const queryClient = useQueryClient();
   const { data: emojis, isLoading } = useCustomEmoji(workspaceId, instanceUrl);
   const [name, setName] = useState('');
@@ -55,7 +58,7 @@ export function CustomEmojiSection({ workspaceId, instanceUrl }: Props) {
       setFile(null);
       if (fileRef.current) fileRef.current.value = '';
       await refresh();
-      toast.success('Emoji added.');
+      toast.success(t('settings.customEmoji.added'));
     } catch (err) {
       setError(toUserMessage(err));
     } finally {
@@ -80,15 +83,15 @@ export function CustomEmojiSection({ workspaceId, instanceUrl }: Props) {
     <div className="-mx-4 flex flex-col">
       <form onSubmit={handleUpload} className="px-3 py-3 border-b border-line/30 space-y-2">
         <TextInput
-          label="Emoji name"
+          label={t('settings.customEmoji.name')}
           labelHidden
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="name (used as :name:)"
+          placeholder={t('settings.customEmoji.namePlaceholder')}
           dataQa="emoji-name"
         />
         <input
-          aria-label="Emoji image"
+          aria-label={t('settings.customEmoji.image')}
           ref={fileRef}
           type="file"
           accept="image/png,image/gif,image/webp,image/jpeg"
@@ -105,7 +108,7 @@ export function CustomEmojiSection({ workspaceId, instanceUrl }: Props) {
           data-qa="emoji-upload"
         >
           <Upload className="w-4 h-4" />
-          Add emoji
+          {t('settings.customEmoji.add')}
         </Button>
       </form>
 
@@ -127,8 +130,8 @@ export function CustomEmojiSection({ workspaceId, instanceUrl }: Props) {
                 <button
                   type="button"
                   onClick={() => handleDelete(emoji.id)}
-                  aria-label={`Remove :${emoji.name}:`}
-                  data-tooltip={`Remove :${emoji.name}:`}
+                  aria-label={t('settings.customEmoji.removeNamed', { name: emoji.name })}
+                  data-tooltip={t('settings.customEmoji.removeNamed', { name: emoji.name })}
                   className="text-muted hover:text-danger transition cursor-pointer"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -138,7 +141,7 @@ export function CustomEmojiSection({ workspaceId, instanceUrl }: Props) {
           </ul>
         ) : (
           <p className="text-center py-8 text-muted text-sm">
-            No custom emoji yet. Anything you add here can be typed as <code>:name:</code>.
+            <Trans t={t} i18nKey="settings.customEmoji.empty" components={{ code: <code /> }} />
           </p>
         )}
       </div>

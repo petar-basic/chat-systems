@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
+import i18n from '@/lib/i18n';
 import { ScimSection } from './ScimSection';
 import type { MintedScimToken, ScimToken } from '@/features/workspace/hooks/useScimTokens';
 
@@ -9,6 +10,7 @@ const mintMutate = vi.fn();
 const rotateMutate = vi.fn();
 const revokeMutate = vi.fn();
 let tokens: ScimToken[] = [];
+const hostile = '<img src=x onerror="alert(1)"> {{name}}';
 
 vi.mock('@/features/workspace/hooks/useScimTokens', () => ({
   useScimTokens: () => ({ data: tokens, isLoading: false, error: null }),
@@ -84,5 +86,66 @@ describe('ScimSection', () => {
 
     fireEvent.click(await screen.findByTestId('scim-revoke-dialog-confirm'));
     expect(revokeMutate).toHaveBeenCalledWith('tok-1');
+  });
+});
+
+describe('ScimSection in Japanese', () => {
+  beforeEach(async () => {
+    tokens = [];
+    mintMutate
+      .mockReset()
+      .mockImplementation((_description: string, options?: Options) =>
+        options?.onSuccess?.({ id: 'tok-2', description: null, token: 'secret-once' }),
+      );
+    await i18n.changeLanguage('ja');
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('explains tokens and hands a new one over once', () => {
+    render(<ScimSection />);
+
+    expect(screen.getByText('/api/scim/v2').tagName).toBe('CODE');
+    expect(screen.getByText('/api/scim/v2').parentElement).toHaveTextContent(
+      'Okta や Entra ID などの ID プロバイダーは、これらのトークンを使い、/api/scim/v2 を通じてこのサーバーのアカウントを作成・名前の変更・無効化します。',
+    );
+    expect(screen.getByText('トークンはまだありません。')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/トークンの名前/), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'トークンを作成' }));
+    expect(
+      screen.getByText('今すぐコピーしてください。二度と表示されず、あとから誰も読み出せません。'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('SCIM トークン')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '安全な場所に保存しました' })).toBeInTheDocument();
+  });
+
+  it('names each token as text, and asks before revoking it', async () => {
+    tokens = [
+      token({ description: hostile, last_used_at: '2026-10-20T00:00:00Z' }),
+      token({ id: 'tok-4', description: null }),
+      token({ id: 'tok-5', revoked_at: '2026-10-21T00:00:00Z' }),
+    ];
+    render(<ScimSection />);
+    const [used, unnamed, revoked] = screen.getAllByTestId('scim-token-row');
+
+    expect(within(used).getByText(hostile)).toBeInTheDocument();
+    expect(within(used).getByTestId('scim-token-state')).toHaveTextContent(/^最終使用: /);
+    expect(within(unnamed).getByText('名前のないトークン')).toBeInTheDocument();
+    expect(within(unnamed).getByTestId('scim-token-state')).toHaveTextContent(/ に作成、未使用$/);
+    expect(within(revoked).getByTestId('scim-token-state')).toHaveTextContent(/ に無効化$/);
+
+    expect(within(used).getByRole('button', { name: `${hostile} を再発行` })).toBeInTheDocument();
+    fireEvent.click(within(used).getByRole('button', { name: `${hostile} を無効化` }));
+    expect(await screen.findByText(`${hostile} を無効化しますか?`)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'このトークンを使っている ID プロバイダーは、すぐにプロビジョニングできなくなります。',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'トークンを無効化' })).toBeInTheDocument();
+    expect(document.querySelector('[onerror]')).toBeNull();
   });
 });
