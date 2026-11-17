@@ -15,6 +15,7 @@ use super::delivery::{self, Outcome};
 use super::repo::NewInvocation;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
+use crate::blocks::{self, models::Composed};
 use crate::dto::{DataList, StatusResponse};
 use crate::messaging::routes::thread_root;
 use crate::middleware::AuthUser;
@@ -46,46 +47,68 @@ pub struct CommandResponse {
     pub text: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub at: Option<chrono::DateTime<chrono::Utc>>,
+    #[serde(skip)]
+    pub layout: Option<Composed>,
 }
 
 impl CommandResponse {
-    pub fn ephemeral(text: impl Into<String>) -> Self {
+    fn new(response_type: &'static str, text: impl Into<String>) -> Self {
         Self {
-            response_type: "ephemeral",
+            response_type,
             text: text.into(),
             at: None,
+            layout: None,
         }
+    }
+
+    pub fn ephemeral(text: impl Into<String>) -> Self {
+        Self::new("ephemeral", text)
     }
 
     pub fn ephemeral_at(text: impl Into<String>, at: chrono::DateTime<chrono::Utc>) -> Self {
         Self {
-            response_type: "ephemeral",
-            text: text.into(),
             at: Some(at),
+            ..Self::new("ephemeral", text)
         }
     }
 
     pub fn pending(text: impl Into<String>) -> Self {
-        Self {
-            response_type: "pending",
-            text: text.into(),
-            at: None,
-        }
+        Self::new("pending", text)
     }
 
     pub fn in_channel(text: impl Into<String>) -> Self {
+        Self::new("in_channel", text)
+    }
+
+    pub fn answer(response_type: Option<&str>, composed: Composed) -> Self {
+        let response = match response_type {
+            Some("in_channel") => Self::in_channel(composed.content.clone()),
+            _ => Self::ephemeral(composed.content.clone()),
+        };
         Self {
-            response_type: "in_channel",
-            text: text.into(),
-            at: None,
+            layout: composed.layout.is_some().then_some(composed),
+            ..response
         }
+    }
+
+    pub fn posted(&self) -> Composed {
+        self.layout
+            .clone()
+            .unwrap_or_else(|| Composed::plain(&self.text))
     }
 }
 
 #[derive(Debug, Deserialize, garde::Validate, utoipa::ToSchema)]
 pub struct CommandAnswer {
-    #[garde(custom(shared_common::validation::rules::message_content))]
-    pub text: String,
+    #[garde(inner(custom(shared_common::validation::rules::message_body)))]
+    #[serde(default)]
+    pub text: Option<String>,
+    #[garde(skip)]
+    #[schema(value_type = Option<Vec<crate::blocks::models::Block>>)]
+    pub blocks: Option<serde_json::Value>,
+    #[garde(skip)]
+    #[schema(value_type = Option<Vec<Object>>)]
+    pub attachments: Option<serde_json::Value>,
     #[garde(skip)]
     #[serde(default)]
     pub response_type: Option<String>,
@@ -280,7 +303,15 @@ async fn invoke(
                 Outcome::Acknowledged => {
                     CommandResponse::pending(format!("/{command} is working on it…"))
                 }
-                Outcome::Answered(response) => response,
+                Outcome::Answered(reply) => reply
+                    .compose(&state, channel.workspace_id)
+                    .await
+                    .map_err(|e| match e {
+                        AppError::Validation(why) => {
+                            AppError::BadRequest(format!("/{command} answered with {why}"))
+                        }
+                        other => other,
+                    })?,
             }
         }
     };
@@ -336,10 +367,22 @@ async fn respond(
         .filter(|hook| hook.is_active)
         .ok_or_else(|| AppError::Forbidden("The command has been turned off".into()))?;
 
-    let response = match req.response_type.as_deref() {
-        Some("in_channel") => CommandResponse::in_channel(req.text),
-        _ => CommandResponse::ephemeral(req.text),
-    };
+    let composed = blocks::compose(
+        &state,
+        invocation.workspace_id,
+        blocks::Input {
+            text: req.text.as_deref(),
+            blocks: req.blocks.as_ref(),
+            attachments: req.attachments.as_ref(),
+        },
+    )
+    .await?;
+    if composed.content.trim().is_empty() && composed.layout.is_none() {
+        return Err(AppError::Validation(
+            "An answer needs text, blocks or attachments".into(),
+        ));
+    }
+    let response = CommandResponse::answer(req.response_type.as_deref(), composed);
     delivery::answer(&state, &invocation, &response, req.replace_original).await?;
     Ok(Json(StatusResponse::new("ok")))
 }
@@ -368,14 +411,14 @@ async fn finish(
     if !may_post {
         return Ok(Json(CommandResponse::ephemeral(response.text)));
     }
-    if !response.text.trim().is_empty() {
+    if !response.text.trim().is_empty() || response.layout.is_some() {
         let message_id = delivery::post_in_channel(
             state,
             place.channel_id,
             place.thread_parent_id,
             user_id,
             command,
-            &response.text,
+            &response.posted(),
             None,
         )
         .await?;

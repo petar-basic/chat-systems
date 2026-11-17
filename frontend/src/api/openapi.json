@@ -11985,6 +11985,479 @@
           }
         }
       },
+      "Block": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "text",
+              "type"
+            ],
+            "properties": {
+              "block_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "text": {
+                "$ref": "#/components/schemas/BlockText"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "header"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "accessory": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/BlockElement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "block_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/BlockText"
+                }
+              },
+              "text": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/BlockText"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "section"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "block_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "divider"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "image_url",
+              "alt_text",
+              "type"
+            ],
+            "properties": {
+              "alt_text": {
+                "type": "string"
+              },
+              "block_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "image_url": {
+                "type": "string"
+              },
+              "title": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/BlockText"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "image"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "elements",
+              "type"
+            ],
+            "properties": {
+              "block_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "elements": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ContextElement"
+                }
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "context"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "elements",
+              "type"
+            ],
+            "properties": {
+              "block_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "elements": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/BlockElement"
+                }
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "actions"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "BlockElement": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "text",
+              "type"
+            ],
+            "properties": {
+              "action_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "style": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ButtonStyle"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "text": {
+                "$ref": "#/components/schemas/BlockText"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "button"
+                ]
+              },
+              "url": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "value": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "action_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "initial_option": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/BlockOption"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "options": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/BlockOption"
+                }
+              },
+              "placeholder": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/BlockText"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "static_select"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "action_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "initial_user": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "placeholder": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/BlockText"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "users_select"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "action_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "initial_conversation": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "placeholder": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/BlockText"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "conversations_select"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "action_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "options": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/BlockOption"
+                }
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "overflow"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "action_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "initial_date": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "placeholder": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/BlockText"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "datepicker"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "image_url",
+              "alt_text",
+              "type"
+            ],
+            "properties": {
+              "alt_text": {
+                "type": "string"
+              },
+              "image_url": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "image"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "BlockOption": {
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "properties": {
+          "text": {
+            "$ref": "#/components/schemas/BlockText"
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
+      "BlockText": {
+        "type": "object",
+        "required": [
+          "type",
+          "text"
+        ],
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/TextKind"
+          }
+        }
+      },
       "BotApp": {
         "type": "object",
         "required": [
@@ -12215,6 +12688,13 @@
           "channels",
           "dms",
           "people"
+        ]
+      },
+      "ButtonStyle": {
+        "type": "string",
+        "enum": [
+          "primary",
+          "danger"
         ]
       },
       "CellValue": {
@@ -13110,10 +13590,25 @@
       },
       "CommandAnswer": {
         "type": "object",
-        "required": [
-          "text"
-        ],
         "properties": {
+          "attachments": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "object"
+            }
+          },
+          "blocks": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Block"
+            }
+          },
           "replace_original": {
             "type": "boolean"
           },
@@ -13124,7 +13619,10 @@
             ]
           },
           "text": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -13276,6 +13774,68 @@
             "type": "string"
           }
         }
+      },
+      "ContextElement": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "text",
+              "type"
+            ],
+            "properties": {
+              "text": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "plain_text"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "text",
+              "type"
+            ],
+            "properties": {
+              "text": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "mrkdwn"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "image_url",
+              "alt_text",
+              "type"
+            ],
+            "properties": {
+              "alt_text": {
+                "type": "string"
+              },
+              "image_url": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "image"
+                ]
+              }
+            }
+          }
+        ]
       },
       "Conversation": {
         "type": "object",
@@ -18458,10 +19018,25 @@
       },
       "IncomingWebhookPayload": {
         "type": "object",
-        "required": [
-          "text"
-        ],
         "properties": {
+          "attachments": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "object"
+            }
+          },
+          "blocks": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Block"
+            }
+          },
           "icon_url": {
             "type": [
               "string",
@@ -18469,7 +19044,10 @@
             ]
           },
           "text": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "username": {
             "type": [
@@ -18989,6 +19567,109 @@
           "completed",
           "archived"
         ]
+      },
+      "LegacyAttachment": {
+        "type": "object",
+        "properties": {
+          "author_link": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "author_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "blocks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Block"
+            }
+          },
+          "color": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LegacyField"
+            }
+          },
+          "footer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "image_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pretext": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "thumb_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title_link": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ts": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          }
+        }
+      },
+      "LegacyField": {
+        "type": "object",
+        "required": [
+          "title",
+          "value",
+          "short"
+        ],
+        "properties": {
+          "short": {
+            "type": "boolean"
+          },
+          "title": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
       },
       "List": {
         "type": "object",
@@ -19638,6 +20319,15 @@
               "$ref": "#/components/schemas/Attachment"
             }
           },
+          "blocks": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Block"
+            }
+          },
           "bot": {
             "oneOf": [
               {
@@ -19663,6 +20353,12 @@
             "items": {
               "$ref": "#/components/schemas/MessageField"
             }
+          },
+          "flattened": {
+            "type": [
+              "boolean",
+              "null"
+            ]
           },
           "form": {
             "oneOf": [
@@ -19713,6 +20409,15 @@
               "string",
               "null"
             ]
+          },
+          "legacy_attachments": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/LegacyAttachment"
+            }
           },
           "participant_ids": {
             "type": [
@@ -21567,9 +22272,6 @@
       },
       "SendMessageRequest": {
         "type": "object",
-        "required": [
-          "content"
-        ],
         "properties": {
           "also_to_channel": {
             "type": "boolean"
@@ -21579,6 +22281,24 @@
             "items": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          "attachments": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "object"
+            }
+          },
+          "blocks": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Block"
             }
           },
           "client_message_id": {
@@ -22271,6 +22991,13 @@
           "invite_request_approved",
           "invite_request_declined",
           "invite_request_expired"
+        ]
+      },
+      "TextKind": {
+        "type": "string",
+        "enum": [
+          "plain_text",
+          "mrkdwn"
         ]
       },
       "TextSize": {
@@ -23182,9 +23909,6 @@
       },
       "UpdateMessageRequest": {
         "type": "object",
-        "required": [
-          "content"
-        ],
         "properties": {
           "attachment_ids": {
             "type": [
@@ -23194,6 +23918,24 @@
             "items": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          "attachments": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "object"
+            }
+          },
+          "blocks": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Block"
             }
           },
           "content": {

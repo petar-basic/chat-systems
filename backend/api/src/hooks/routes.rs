@@ -592,11 +592,27 @@ async fn incoming_webhook(
     }
     authz::require_not_archived(&authz::find_channel(&state, channel_id).await?)?;
 
-    let metadata = serde_json::json!({ "bot": {
+    let composed = crate::blocks::compose(
+        &state,
+        hook.workspace_id,
+        crate::blocks::Input {
+            text: payload.text.as_deref(),
+            blocks: payload.blocks.as_ref(),
+            attachments: payload.attachments.as_ref(),
+        },
+    )
+    .await?;
+    if composed.content.trim().is_empty() && composed.layout.is_none() {
+        return Err(AppError::Validation(
+            "A webhook message needs text, blocks or attachments".into(),
+        ));
+    }
+
+    let metadata = composed.merged_into(serde_json::json!({ "bot": {
         "hook_id": hook.id,
         "name": payload.username.as_deref().unwrap_or(&hook.name),
         "icon_url": payload.icon_url,
-    } });
+    } }));
     let mut tx = state.pool.begin().await?;
     let msg = state
         .message_repo
@@ -604,7 +620,7 @@ async fn incoming_webhook(
             &mut tx,
             channel_id,
             hook.created_by,
-            &payload.text,
+            &composed.content,
             &metadata,
             &[],
         )
@@ -621,7 +637,7 @@ async fn incoming_webhook(
         .log_execution(
             hook.id,
             "incoming.message",
-            &serde_json::json!({ "text": payload.text }),
+            &serde_json::json!({ "text": composed.content }),
             Some(200),
             None,
         )

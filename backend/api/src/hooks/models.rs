@@ -69,8 +69,12 @@ pub struct UpdateHookRequest {
 #[derive(Debug, Deserialize, garde::Validate, ToSchema)]
 #[garde(allow_unvalidated)]
 pub struct IncomingWebhookPayload {
-    #[garde(custom(shared_common::validation::rules::message_content))]
-    pub text: String,
+    #[garde(inner(custom(shared_common::validation::rules::message_body)))]
+    pub text: Option<String>,
+    #[schema(value_type = Option<Vec<crate::blocks::models::Block>>)]
+    pub blocks: Option<serde_json::Value>,
+    #[schema(value_type = Option<Vec<Object>>)]
+    pub attachments: Option<serde_json::Value>,
     /// Slack-compatible overrides. A CI hook that posts as "CI" and a release
     /// hook that posts as "Releases" are the same integration mechanism with
     /// different faces, and callers already send these fields.

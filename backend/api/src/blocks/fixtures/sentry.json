@@ -1,0 +1,18 @@
+{
+  "attachments": [
+    {
+      "color": "#E03E2F",
+      "fallback": "[backend] TypeError: Cannot read properties of undefined",
+      "title": "TypeError: Cannot read properties of undefined (reading 'id')",
+      "title_link": "https://sentry.io/organizations/acme/issues/4512/?referrer=slack",
+      "text": "app/services/orders.ts in createOrder",
+      "fields": [
+        { "title": "Project", "value": "backend", "short": true },
+        { "title": "Environment", "value": "production", "short": true },
+        { "title": "Level", "value": "error", "short": true }
+      ],
+      "footer": "<https://sentry.io/organizations/acme/issues/4512/|BACKEND-3QZ>",
+      "ts": "1700000123"
+    }
+  ]
+}

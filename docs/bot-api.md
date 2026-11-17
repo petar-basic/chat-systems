@@ -63,8 +63,8 @@ at any time without a new token.
 | GET | `/workspaces/{ws_id}/channels` | `channels:read` | the channels the bot is in |
 | GET | `/channels/{ch_id}/messages` | `channels:history` or `groups:history` | newest first; `?limit=` up to 200, `?cursor=` a message id to page back from |
 | GET | `/messages/{msg_id}/thread` | `channels:history` or `groups:history` | the replies to a message |
-| POST | `/channels/{ch_id}/messages` | `chat:write` | `{ content, thread_parent_id?, attachment_ids?, client_message_id? }` |
-| PATCH | `/messages/{msg_id}` | `chat:write` | `{ content }`, its own messages only |
+| POST | `/channels/{ch_id}/messages` | `chat:write` | `{ content, thread_parent_id?, attachment_ids?, client_message_id?, blocks?, attachments? }`; `content` may be empty when [blocks](#blocks) are sent |
+| PATCH | `/messages/{msg_id}` | `chat:write` | `{ content, blocks?, attachments? }`, its own messages only |
 | DELETE | `/messages/{msg_id}` | `chat:write` | its own messages only |
 | POST | `/messages/{msg_id}/reactions` | `reactions:write` | `{ emoji }` |
 | DELETE | `/messages/{msg_id}/reactions/{emoji}` | `reactions:write` | |
@@ -75,6 +75,107 @@ at any time without a new token.
 
 `client_message_id` is a version 4 UUID the bot picks. Sending the same one twice posts once,
 so a bot that retries after a timeout does not double-post.
+
+## Blocks
+
+A bot can lay a message out with Slack's blocks instead of writing it as text. The same JSON
+works on `POST /channels/{ch_id}/messages` and `PATCH /messages/{msg_id}` with a bot token, on
+an incoming webhook, and in a slash command's answer, inline or through `response_url`. A
+payload written for Slack works unchanged:
+
+```bash
+curl -s https://chat.example.com/api/hooks/incoming/$HOOK_TOKEN \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "text": "Build 412 passed",
+    "blocks": [
+      { "type": "header", "text": { "type": "plain_text", "text": ":white_check_mark: Build 412 passed" } },
+      { "type": "section", "fields": [
+        { "type": "mrkdwn", "text": "*Branch:*\nmain" },
+        { "type": "mrkdwn", "text": "*Commit:*\n<https://github.com/acme/api/commit/4f2a9c1|4f2a9c1>" }
+      ] },
+      { "type": "actions", "elements": [
+        { "type": "button", "text": { "type": "plain_text", "text": "View run" },
+          "url": "https://github.com/acme/api/actions/runs/9201" }
+      ] }
+    ]
+  }'
+```
+
+| Block | Fields read |
+|-------|-------------|
+| `header` | `text` (`plain_text`, at most 150 characters) |
+| `section` | `text` (at most 3000), `fields` (at most 10, each at most 2000), `accessory` |
+| `divider` | — |
+| `image` | `image_url`, `alt_text`, `title` |
+| `context` | `elements`: text objects and `image` elements, 1 to 10 |
+| `actions` | `elements`: 1 to 25 of the elements below, except `image` |
+
+| Element | Fields read |
+|---------|-------------|
+| `button` | `text` (at most 75), `url`, `style` (`primary` or `danger`), `action_id`, `value` |
+| `static_select` | `placeholder`, `options` (1 to 100), `initial_option`, `action_id` |
+| `users_select` | `placeholder`, `initial_user`, `action_id` |
+| `conversations_select` | `placeholder`, `initial_conversation`, `action_id` |
+| `overflow` | `options` (1 to 5), `action_id` |
+| `datepicker` | `placeholder`, `initial_date` (`YYYY-MM-DD`), `action_id` |
+| `image` | `image_url`, `alt_text`, as a section's accessory |
+
+A message takes at most 50 blocks. `block_id` and `action_id` are kept, at most 255 characters.
+Any other type, a field of the wrong kind or a length past the limit is refused with `422` and
+the path of what is wrong, such as `blocks[3].text: too long, at most 3000 characters` or
+``blocks[1].type: unknown block type `rich_text` ``. A link (`url`, `title_link`) has to be
+`http` or `https`. An image has to be on a public address: one that is private, loopback or
+link-local is refused, so a block cannot make a reader's browser fetch from the network the
+instance sits in.
+
+A button with a `url` opens it in a new tab. Every other element is shown but cannot be used
+yet: its tooltip says the app has not set up interactivity.
+
+**Text objects.** `plain_text` is shown as it is, with emoji names such as `:tada:` turned into
+the emoji. `mrkdwn` is turned into this app's markdown:
+
+| Slack | Here |
+|-------|------|
+| `*bold*`, `_italic_`, `~strike~`, `` `code` ``, ```` ```block``` ````, `> quote` | the same marks |
+| `<@USER_ID>` | a mention, when the id is a member of the workspace; otherwise `@USER_ID` as text |
+| `<#CHANNEL_ID>` | `#name` for a public channel of the workspace, otherwise the label or the id |
+| `<https://…\|label>`, `<https://…>` | a link |
+| `<!here>`, `<!channel>`, `<!everyone>` | `@here`, `@channel`, `@everyone` |
+| `<!date^…\|fallback>` | the fallback |
+| `:emoji_name:` | the emoji; a name that is not a standard emoji is left for the workspace's own |
+| a line break | a line break |
+
+Ids are this app's: the `id` from `/workspaces/{ws_id}/members` and `/workspaces/{ws_id}/channels`.
+Mentions are read from the message's text below, so a mention inside a block notifies only
+when the text is flattened from the blocks, and only from a bot: a webhook's or a command's
+message notifies nobody it mentions, with or without blocks.
+
+**Legacy attachments.** `attachments`, Slack's older layout that CI tools still send, is read
+too: `color` (`good`, `warning`, `danger` or a hex colour) as the bar beside it, `pretext`,
+`author_name`, `author_link`, `title`, `title_link`, `text`, `fields` (`title`, `value`, `short`,
+at most 20), `image_url`, `thumb_url`, `footer`, `ts` and `blocks`. A message takes at most 20.
+`pretext`, `text`, a field's `value` and `footer` are `mrkdwn`; the rest are plain text.
+
+**The text.** `text` stays, and it is what notifications, email, search and the edit history
+read. It is required unless blocks or attachments are sent; without it, the text is flattened
+from them, a line for each header, section, field, image title and context, and cut at 4000
+bytes. With blocks, the message shows the blocks and not `text`; with attachments alone, it
+shows `text` above them, as Slack does. `text` itself is stored as it is sent, in this app's
+markdown, not converted from `mrkdwn`.
+
+**Editing.** `PATCH` with `blocks` or `attachments` replaces the layout, both parts at once;
+`"blocks": []` with no attachments takes it away. `PATCH` with only `content` keeps the layout
+and changes the text. People's own messages stay markdown: blocks from a person's session are
+refused with `403`, and a message built from blocks is edited only by the bot that sent it.
+
+**Slash commands.** An `in_channel` answer is posted with its blocks. An `ephemeral` answer is
+seen only by the person who ran the command, as the text flattened from them.
+
+**Slack import.** A message an integration posted in Slack comes over, under the workspace
+owner and with the integration's name and icon, when it carries blocks or attachments this
+app can show. One that carries only text, or a layout this app does not know, is skipped as
+before and listed in the report.
 
 ## Where a bot may go
 

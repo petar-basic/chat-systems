@@ -270,6 +270,14 @@
       "failed": "Could not convert this conversation"
     }
   },
+  "blocks": {
+    "notInteractive": "This app has not set up interactivity",
+    "more": "More options",
+    "select": "Select an option",
+    "selectPerson": "Select a person",
+    "selectConversation": "Select a conversation",
+    "selectDate": "Select a date"
+  },
   "hoverCard": {
     "paused": "Notifications paused until {{time}}",
     "localTime": "{{time}} local time",

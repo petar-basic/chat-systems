@@ -40,6 +40,7 @@ pub struct AppState {
     pub profile_field_repo: crate::profile_fields::repo::ProfileFieldRepo,
     pub custom_response_repo: crate::custom_responses::repo::CustomResponseRepo,
     pub workspace_bot_repo: crate::workspace_bots::repo::WorkspaceBotRepo,
+    pub block_repo: crate::blocks::repo::BlockRepo,
     pub poll_repo: crate::polls::repo::PollRepo,
     pub list_repo: crate::lists::repo::ListRepo,
     pub thread_repo: crate::threads::repo::ThreadRepo,

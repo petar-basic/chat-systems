@@ -1,0 +1,15 @@
+{
+  "username": "Grafana",
+  "attachments": [
+    {
+      "color": "#D63232",
+      "title": "[FIRING:1] High CPU (api-1)",
+      "title_link": "https://grafana.example.com/alerting/list",
+      "text": "**Firing**\n\nValue: A=97.2\nLabels:\n - alertname = High CPU\n - instance = api-1\n",
+      "fallback": "[FIRING:1] High CPU (api-1)",
+      "footer": "Grafana v10.4.1",
+      "footer_icon": "https://grafana.com/static/assets/img/fav32.png",
+      "ts": 1700000000
+    }
+  ]
+}

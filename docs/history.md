@@ -3816,3 +3816,105 @@ format findings come from the vendors' notes), and the bubble while the tab is h
 person playing a clip is checked by the E2E test.
 
 Not in this ticket: transcripts and captions, which need speech recognition beside the stack.
+
+### [CS-134] Messages built from blocks ✅ shipped
+The tools teams point at Slack send layout, not text: CI posts a build with its branch and a
+*View run* button, alerting sends fields beside a colour bar. Here an incoming hook required
+`text` and dropped `blocks` and `attachments`, so a hook copied from Slack that sent only
+blocks was refused and one that sent both lost its layout. Now bots, incoming hooks and slash
+command answers send Slack's blocks and legacy attachments in Slack's JSON, and the message
+shows them.
+
+**What is read.** The blocks `header`, `section`, `divider`, `image`, `context` and `actions`;
+the elements `button`, `static_select`, `users_select`, `conversations_select`, `overflow`,
+`datepicker` and `image`; and the legacy attachment with its colour, pretext, author, title,
+text, fields, image, footer, time and blocks. They are typed in `blocks/models.rs`, so the
+OpenAPI document and the generated TypeScript describe them too.
+
+**Refusals name the path.** `blocks/parse.rs` checks a payload in three passes:
+- each `type` first, so an unknown one reads ``blocks[1].type: unknown block type `rich_text` ``
+  rather than serde's list of variants;
+- then the shape, through `serde_path_to_error`, which gives the path of a missing field;
+- then Slack's limits: 50 blocks, 20 attachments, 10 fields, 25 actions, the text lengths,
+  `http` and `https` links only, a date as `YYYY-MM-DD`.
+
+Each refusal is a `422` with the path first, such as `blocks[0].text: too long, at most 3000
+characters`; a slash command's answer is relayed to the person as `/deploy answered with …`.
+
+**Images.** A block's image is loaded by every browser that shows the message, so a block
+could point browsers at a private address. Each distinct image URL is resolved through the
+unfurl fetcher's rules (`hooks::ssrf::resolve_outbound`) when the message is sent, all at
+once, and one on a private, loopback or link-local address is refused with its path. A host
+that later starts resolving to a private address is not caught; the browser fetches it, not
+the server, without a referrer.
+
+**Slack's mrkdwn becomes this app's markdown on the server.** The converter the Slack import
+had (`slack_import/mrkdwn.rs`) moved to `blocks/` so both use it:
+- `<@id>` becomes a mention when the id is a member of the workspace, and stays as text
+  otherwise. Slack's own `U…` ids are not ours, so they are left alone.
+- `<#id>` becomes `#name` for a public channel only, so a block cannot reveal a private
+  channel's name to whoever sees the message.
+- `<url|label>` becomes a link, `<!date^…|fallback>` its fallback, `*bold*` and `~strike~`
+  this app's `**` and `~~`, and `:emoji:` names the emoji, outside code.
+- A newline is a hard break, since this app's markdown joins lines, except inside code and
+  before lists, quotes and blank lines.
+
+Converting once, on the server, means search, notifications and email read the same markdown
+the message shows, and the renderer has one markdown to draw.
+
+**Storage.** The layout is in `metadata.blocks` and `metadata.legacy_attachments`. `text`
+stays what notifications, email, search and the edit history read; when it is not sent, it is
+flattened from the layout, a line for each header, section, field, image title and context,
+cut at 4000 bytes, and `metadata.flattened` says so. As in Slack, `text` beside blocks is only
+their fallback, so the message shows the blocks and not the text.
+
+**Who sends them.**
+- A bot with `chat:write`, on `POST /channels/{id}/messages` and `PATCH /messages/{id}`. A
+  `PATCH` with `blocks` or `attachments` replaces the layout; one with only `content` keeps it.
+- An incoming hook, which now needs text, blocks or attachments rather than text.
+- A slash command's answer, inline and on its `response_url`.
+
+People's messages stay markdown: blocks from a person's session are refused with `403`, a
+message built from blocks is edited only by its app, and blocks do not go with a GIF or a
+forward. A message with a layout gets no link previews, which would draw a second card under
+the app's own.
+
+**Rendering.** `features/messaging/blocks/` draws each block and element in the message. A
+button with a `url` is a link that opens in a new tab. Every other element is drawn with its
+initial value or placeholder, `aria-disabled`, with the tooltip *This app has not set up
+interactivity*, until CS-135. The renderer's tests check what the GitHub Actions, Grafana,
+Sentry and Jenkins fixtures show rather than snapshots, which pass whatever the markup becomes.
+
+**Slack import.** A message an integration posted, which used to be skipped because it has no
+account here, comes over when it carries blocks or attachments: under the workspace owner,
+with the integration's name and icon, and its mentions resolved against the people imported.
+
+**QA** on the Docker stack, through an incoming hook and a bot in Bob's Dev Team:
+- The four fixtures, posted unchanged, came out as their tools draw them. GitHub Actions had its
+  header, four fields with their line breaks, a divider and *View run*, a link to the run that
+  opens in a new tab. Grafana had its red bar, linked title, bullet list and footer; Sentry its
+  short fields side by side; Jenkins its green bar, with its flattened text shown once.
+- A message with every element: the two `url` buttons were links, and the seven other
+  elements were inert and showed the tooltip on hover. The GitHub images loaded without a
+  referrer, `<@Bob>` became a mention and `<#qa-134-builds>` a channel name.
+- Refused, each with its path: `rich_text`, a 51st block, `169.254.169.254`, the stack's own
+  `postgres` host, which resolves to a private address, a `javascript:` link, and a payload
+  with nothing in it.
+- A message of blocks alone was flattened, and search found the word only its field held. A
+  person's blocks were refused with `403`.
+- A bot posted a header and a section with no text. Its mention notified Bob. Editing the text
+  kept both blocks; new blocks without text were flattened again; the edit history held both
+  earlier texts; Bob could not edit it.
+
+The QA also fixed an attachment's time from another year, which showed without the year.
+Slash commands and the Slack import are covered by `http_tests` only: compose refuses private
+targets for webhooks, so a command endpoint on the host would not be called.
+
+Not in this ticket:
+- An `ephemeral` slash command answer is shown only as its text, flattened from the blocks when
+  it has none; the panel that shows it draws no blocks.
+- An integration's message with only text is still skipped on import.
+- `rich_text`, `input`, `file`, `video` and the other block types, and `option_groups` in a
+  select, are refused or not read.
+- A mention inside a block notifies only when it is in the text: one in a flattened layout
+  does, one in blocks beside the app's own `text` does not.

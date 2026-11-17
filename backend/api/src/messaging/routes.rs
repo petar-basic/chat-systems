@@ -13,6 +13,7 @@ use shared_common::errors::{AppError, AppResult};
 use super::models::*;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
+use crate::blocks::{self, models::Composed, models::Layout};
 use crate::bots::{self, models::Scope, Caller};
 use crate::drafts;
 use crate::files::service as files;
@@ -163,11 +164,30 @@ async fn send_message(
     let auth = caller.scoped(Scope::ChatWrite)?;
     req.validate()?;
     files::check_attachment_ids(&req.attachment_ids)?;
+    let input = blocks::Input {
+        text: Some(&req.content),
+        blocks: req.blocks.as_ref(),
+        attachments: req.attachments.as_ref(),
+    };
+    if input.lays_out() {
+        if auth.bot.is_none() {
+            return Err(AppError::Forbidden(
+                "Blocks and attachments are sent by apps".into(),
+            ));
+        }
+        if req.gif.is_some() || req.forwarded_from.is_some() {
+            return Err(AppError::Validation(
+                "Blocks are sent without a GIF or a forward".into(),
+            ));
+        }
+    }
 
     let channel = authz::require_thread_post_as(&state, ch_id, req.thread_parent_id, &auth)
         .await?
         .channel;
-    let addressed = addressed_text(&req.content, req.forwarded_from.is_some());
+    let composed = blocks::compose(&state, channel.workspace_id, input).await?;
+    let content = composed.content.as_str();
+    let addressed = addressed_text(content, req.forwarded_from.is_some());
     if mentions_everyone(&addressed) {
         authz::require_broadcast(&state, &channel, auth.user_id).await?;
     }
@@ -195,10 +215,11 @@ async fn send_message(
         }
         None => None,
     };
-    if req.content.trim().is_empty()
+    if content.trim().is_empty()
         && req.attachment_ids.is_empty()
         && forwarded.is_empty()
         && gif.is_none()
+        && composed.layout.is_none()
     {
         return Err(AppError::Validation(
             "Message content cannot be empty".into(),
@@ -225,7 +246,7 @@ async fn send_message(
             NewMessage {
                 channel_id: ch_id,
                 user_id: auth.user_id,
-                content: &req.content,
+                content,
                 thread_parent_id,
                 also_in_channel: req.also_to_channel,
                 forwarded_from: req.forwarded_from,
@@ -255,6 +276,14 @@ async fn send_message(
                     files::discard_copies(&state, &copied).await;
                     return Err(e);
                 }
+            };
+            let msg = if composed.layout.is_some() {
+                state
+                    .message_repo
+                    .merge_layout_in(&mut tx, msg.id, &composed.metadata().into())
+                    .await?
+            } else {
+                msg
             };
             if let Some(root) = &thread_root {
                 state
@@ -380,6 +409,27 @@ async fn update_message(
     if existing.metadata.get("poll").is_some() {
         return Err(AppError::Validation("A poll cannot be edited".into()));
     }
+    let input = blocks::Input {
+        text: Some(&req.content),
+        blocks: req.blocks.as_ref(),
+        attachments: req.attachments.as_ref(),
+    };
+    let laid_out = blocks::has_layout(&existing.metadata);
+    if auth.bot.is_none() && (input.lays_out() || laid_out) {
+        return Err(AppError::Forbidden(
+            "A message built from blocks is edited by the app that sent it".into(),
+        ));
+    }
+
+    let channel = authz::find_channel(&state, existing.channel_id).await?;
+    authz::require_not_archived(&channel)?;
+    let composed = if input.lays_out() {
+        blocks::compose(&state, channel.workspace_id, input).await?
+    } else if laid_out {
+        Composed::finish(Some(&req.content), Layout::of(&existing.metadata))
+    } else {
+        Composed::plain(&req.content)
+    };
 
     let current = files::attachments_in(&existing.metadata);
     let kept: Option<Vec<crate::files::models::Attachment>> =
@@ -391,20 +441,27 @@ async fn update_message(
                 .collect()
         });
     let remaining = kept.as_ref().map_or(current.len(), Vec::len);
-    if req.content.trim().is_empty() && remaining == 0 && existing.metadata.get("gif").is_none() {
+    if composed.content.trim().is_empty()
+        && remaining == 0
+        && existing.metadata.get("gif").is_none()
+        && composed.layout.is_none()
+    {
         return Err(AppError::Validation(
             "Message content cannot be empty".into(),
         ));
     }
 
-    let channel = authz::find_channel(&state, existing.channel_id).await?;
-    authz::require_not_archived(&channel)?;
-
     let mut tx = state.pool.begin().await?;
     let mut msg = state
         .message_repo
-        .update_message_in(&mut tx, msg_id, &req.content, auth.user_id)
+        .update_message_in(&mut tx, msg_id, &composed.content, auth.user_id)
         .await?;
+    if laid_out || composed.layout.is_some() {
+        msg = state
+            .message_repo
+            .merge_layout_in(&mut tx, msg_id, &composed.metadata().into())
+            .await?;
+    }
     let mut removed = Vec::new();
     if let Some(kept) = kept.filter(|kept| kept.len() != current.len()) {
         let keep_ids: Vec<Uuid> = kept.iter().map(|a| a.id).collect();

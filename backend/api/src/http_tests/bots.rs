@@ -655,3 +655,77 @@ async fn each_bot_token_has_a_read_budget_of_its_own(pool: PgPool) {
     let (status, _) = history(&app, &token, ch_id).await;
     assert_eq!(status, StatusCode::OK, "people's reads are not limited");
 }
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_bot_posts_blocks_and_edits_its_text_or_its_blocks(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner, _, token) = seed_and_login(&app, &state, "bot-blocks", false).await;
+    let ws_id = seed_workspace(&state, owner, "Bot blocks").await;
+    let ch_id = seed_channel(&state, ws_id, owner, "releases", false).await;
+    let bot = make_app(&app, &token, ws_id, "Releaser", &["chat:write"]).await;
+    add_to_channel(&app, &token, ch_id, bot.user_id).await;
+
+    let (status, posted) = post(
+        &app,
+        &bot.token,
+        ch_id,
+        json!({ "blocks": [
+            { "type": "header", "text": { "type": "plain_text", "text": "Release 4.8.0" } },
+            { "type": "actions", "elements": [
+                { "type": "button", "text": { "type": "plain_text", "text": "Notes" }, "url": "https://example.com/notes" },
+                { "type": "static_select", "placeholder": { "type": "plain_text", "text": "Roll out to" },
+                  "options": [{ "text": { "type": "plain_text", "text": "Everyone" }, "value": "all" }] }
+            ] }
+        ] }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{posted:?}");
+    assert_eq!(
+        posted["content"], "Release 4.8.0",
+        "flattened from the header"
+    );
+    assert_eq!(posted["metadata"]["flattened"], true);
+    let msg_id = posted["id"].as_str().expect("id").to_string();
+
+    let edit = |body: Value| {
+        let app = app.clone();
+        let token = bot.token.clone();
+        let path = format!("/api/messages/{msg_id}");
+        async move { send(&app, "PATCH", &path, Some(&token), Some(body)).await }
+    };
+
+    let (status, edited) = edit(json!({ "content": "Release 4.8.0 is out" })).await;
+    assert_eq!(status, StatusCode::OK, "{edited:?}");
+    assert_eq!(edited["content"], "Release 4.8.0 is out");
+    assert_eq!(
+        edited["metadata"]["blocks"].as_array().map(Vec::len),
+        Some(2),
+        "text alone keeps the blocks"
+    );
+    assert!(edited["metadata"].get("flattened").is_none());
+
+    let (status, edited) = edit(json!({
+        "blocks": [{ "type": "section", "text": { "type": "mrkdwn", "text": "*Rolled back*" } }]
+    }))
+    .await;
+    assert_eq!(status, StatusCode::OK, "{edited:?}");
+    assert_eq!(edited["content"], "**Rolled back**");
+    assert_eq!(edited["metadata"]["blocks"][0]["type"], "section");
+
+    let (status, edited) = edit(json!({ "content": "plain again", "blocks": [] })).await;
+    assert_eq!(status, StatusCode::OK, "{edited:?}");
+    assert!(edited["metadata"].get("blocks").is_none(), "{edited:?}");
+
+    let (status, body) = edit(json!({ "blocks": [{ "type": "video" }] })).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(refusal(&body), "blocks[0].type: unknown block type `video`");
+
+    let (status, _) = post(
+        &app,
+        &bot.token,
+        ch_id,
+        json!({ "content": "", "blocks": [] }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "nothing to show");
+}

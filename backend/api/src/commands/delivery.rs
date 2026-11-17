@@ -13,6 +13,7 @@ use shared_common::errors::{AppError, AppResult};
 use super::repo::Invocation;
 use super::routes::CommandResponse;
 use crate::authz;
+use crate::blocks::{self, models::Composed};
 use crate::hooks::models::Hook;
 use crate::hooks::{executor, ssrf};
 use crate::messaging::routes::thread_root;
@@ -34,8 +35,35 @@ const RETRY_LEASE_SECS: f64 = 60.0;
 const TICK: Duration = Duration::from_secs(1);
 const PURGE_EVERY_TICKS: u64 = 300;
 
+#[derive(Debug, Default, serde::Deserialize)]
+pub struct Reply {
+    pub text: Option<String>,
+    pub response_type: Option<String>,
+    pub blocks: Option<serde_json::Value>,
+    pub attachments: Option<serde_json::Value>,
+}
+
+impl Reply {
+    pub async fn compose(self, state: &AppState, workspace_id: Uuid) -> AppResult<CommandResponse> {
+        let composed = blocks::compose(
+            state,
+            workspace_id,
+            blocks::Input {
+                text: self.text.as_deref(),
+                blocks: self.blocks.as_ref(),
+                attachments: self.attachments.as_ref(),
+            },
+        )
+        .await?;
+        Ok(CommandResponse::answer(
+            self.response_type.as_deref(),
+            composed,
+        ))
+    }
+}
+
 pub enum Outcome {
-    Answered(CommandResponse),
+    Answered(Reply),
     Acknowledged,
     Unreachable,
     Refused(String),
@@ -140,19 +168,11 @@ pub async fn call(
     if text.trim().is_empty() {
         return Ok(Outcome::Acknowledged);
     }
-    let parsed: serde_json::Value = serde_json::from_str(&text).unwrap_or(serde_json::Value::Null);
-    let answer = parsed
-        .get("text")
-        .and_then(|v| v.as_str())
-        .map(str::to_string)
-        .unwrap_or_else(|| text.chars().take(1000).collect());
-
-    Ok(Outcome::Answered(
-        match parsed.get("response_type").and_then(|v| v.as_str()) {
-            Some("in_channel") => CommandResponse::in_channel(answer),
-            _ => CommandResponse::ephemeral(answer),
-        },
-    ))
+    let mut reply: Reply = serde_json::from_str(&text).unwrap_or_default();
+    if reply.text.is_none() && reply.blocks.is_none() && reply.attachments.is_none() {
+        reply.text = Some(text.chars().take(1000).collect());
+    }
+    Ok(Outcome::Answered(reply))
 }
 
 pub async fn post_in_channel(
@@ -161,7 +181,7 @@ pub async fn post_in_channel(
     thread_parent_id: Option<Uuid>,
     user_id: Uuid,
     command: &str,
-    text: &str,
+    answer: &Composed,
     replacing: Option<Uuid>,
 ) -> AppResult<Uuid> {
     let channel = authz::find_channel(state, channel_id).await?;
@@ -172,9 +192,13 @@ pub async fn post_in_channel(
     let mut tx = state.pool.begin().await?;
     let (message_id, staged) = match replacing {
         Some(message_id) => {
+            state
+                .message_repo
+                .update_message_in(&mut tx, message_id, &answer.content, user_id)
+                .await?;
             let msg = state
                 .message_repo
-                .update_message_in(&mut tx, message_id, text, user_id)
+                .merge_layout_in(&mut tx, message_id, &answer.metadata().into())
                 .await?;
             let staged = state
                 .publisher
@@ -183,8 +207,9 @@ pub async fn post_in_channel(
             (msg.id, staged)
         }
         None => {
-            let metadata =
-                serde_json::json!({ "bot": { "name": format!("/{command}"), "icon_url": null } });
+            let metadata = answer.merged_into(
+                serde_json::json!({ "bot": { "name": format!("/{command}"), "icon_url": null } }),
+            );
             let msg = state
                 .message_repo
                 .create_bot_reply_in(
@@ -192,7 +217,7 @@ pub async fn post_in_channel(
                     channel_id,
                     root.as_ref().map(|root| root.id),
                     user_id,
-                    text,
+                    &answer.content,
                     &metadata,
                     &[],
                 )
@@ -252,7 +277,7 @@ pub async fn answer(
         authz::require_channel_access(state, invocation.channel_id, invocation.user_id).await?;
     let posts = response.response_type == "in_channel"
         && authz::posting_blocked(state, &access).await?.is_none()
-        && !response.text.trim().is_empty();
+        && (!response.text.trim().is_empty() || response.layout.is_some());
     if !posts {
         tell(state, invocation, "ephemeral", &response.text).await;
         return Ok(());
@@ -264,7 +289,7 @@ pub async fn answer(
         invocation.thread_parent_id,
         invocation.user_id,
         &invocation.command,
-        &response.text,
+        &response.posted(),
         replacing,
     )
     .await?;
@@ -332,9 +357,16 @@ async fn retry(state: &AppState, invocation: &Invocation) {
             tell(state, invocation, "error", &unreachable).await;
         }
         Ok(Outcome::Acknowledged) => settle(state, invocation, attempt).await,
-        Ok(Outcome::Answered(response)) => {
+        Ok(Outcome::Answered(reply)) => {
             settle(state, invocation, attempt).await;
-            if let Err(e) = answer(state, invocation, &response, false).await {
+            let delivered = match reply.compose(state, invocation.workspace_id).await {
+                Ok(response) => answer(state, invocation, &response, false).await,
+                Err(e) => {
+                    tell(state, invocation, "error", &e.to_string()).await;
+                    return;
+                }
+            };
+            if let Err(e) = delivered {
                 warn!(invocation = %invocation.id, "Failed to deliver a command's answer: {e}");
             }
         }

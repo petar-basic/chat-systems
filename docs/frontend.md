@@ -451,6 +451,29 @@ POST `/polls/{id}/close`
 
 ---
 
+### `blocks/BlockMessage`
+A message whose `metadata` has `blocks` or `legacy_attachments` (`hasBlocks` in
+`blocks/layout.ts`) renders `BlockMessage` instead of its text, and cannot be edited by
+people: an app edits it. The server has already turned Slack's mrkdwn into the app's markdown,
+so a `mrkdwn` text goes through `MessageContent` like any message, and a `plain_text` one is
+shown as it is. As in Slack, an app's `text` beside blocks is only their fallback for search and
+notifications, so `content` is shown only above attachments without blocks, and never when the
+server built it (`metadata.flattened`).
+- `BlockView` draws `header`, `section` (text, a grid of `fields`, an accessory on the right),
+  `divider`, `image`, `context` and `actions`.
+- `BlockElementView` draws the elements. A `button` with a `url` is a link that opens in a new
+  tab. Every other button, select, overflow and datepicker is drawn with its initial value or
+  placeholder but is `aria-disabled`, with a tooltip saying the app has not set up
+  interactivity.
+- `LegacyAttachmentView` draws an attachment: its `pretext`, then a bar in its colour with the
+  author, title, text, `fields` (short ones two to a row), blocks, image and a footer with its
+  time.
+
+`safeLink` keeps only `http` and `https` links and `safeColour` only hex colours, although the
+server refuses anything else; images load through `CachedImage` without a referrer.
+
+---
+
 ### `lists/ListView`, `ListGrid`, `ListBoard`, `ItemPanel`
 `ChannelListsMenu` sits first in the channel's bookmark bar: the channel's lists, and *New
 list* (`NewListModal`, a title and a template from `templates.ts`) for whoever may post there.
