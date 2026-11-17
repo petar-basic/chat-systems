@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { Mail } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
@@ -13,12 +14,6 @@ import { inviteMessage } from './inviteMessage';
 import { GuestInviteFields } from './GuestInviteFields';
 import { endOfDay, NO_GUEST, type GuestInvite } from './guestTerms';
 
-const ROLE_LABEL: Partial<Record<WorkspaceRole, string>> = {
-  member: 'Member',
-  admin: 'Admin',
-  guest: 'Guest',
-};
-
 interface Props {
   workspaceId: string;
   instanceUrl?: string;
@@ -27,6 +22,7 @@ interface Props {
 }
 
 export function DirectInviteForm({ workspaceId, instanceUrl, roles, onClose }: Props) {
+  const { t } = useTranslation(['workspace', 'common']);
   const queryClient = useQueryClient();
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<WorkspaceRole>('member');
@@ -68,7 +64,7 @@ export function DirectInviteForm({ workspaceId, instanceUrl, roles, onClose }: P
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceMembers(workspaceId) });
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaceInvites(workspaceId) });
     } catch (err: unknown) {
-      setInviteError(toUserMessage(err, 'Failed to invite user'));
+      setInviteError(toUserMessage(err, t('settings.invites.failed')));
     } finally {
       setInviting(false);
     }
@@ -77,7 +73,7 @@ export function DirectInviteForm({ workspaceId, instanceUrl, roles, onClose }: P
   return (
     <form onSubmit={handleInvite} className="space-y-2">
       <TextInput
-        label="Email address to invite"
+        label={t('settings.invites.email')}
         labelHidden
         type="email"
         leading={<Mail className="w-4 h-4" />}
@@ -88,7 +84,7 @@ export function DirectInviteForm({ workspaceId, instanceUrl, roles, onClose }: P
         required
       />
       <Select
-        label="Invite role"
+        label={t('settings.invites.role')}
         labelHidden
         value={inviteRole}
         onChange={(e) => {
@@ -99,7 +95,7 @@ export function DirectInviteForm({ workspaceId, instanceUrl, roles, onClose }: P
       >
         {roles.map((r) => (
           <option key={r} value={r}>
-            {ROLE_LABEL[r] ?? r}
+            {t(`settings.members.roles.${r}`)}
           </option>
         ))}
       </Select>
@@ -117,7 +113,7 @@ export function DirectInviteForm({ workspaceId, instanceUrl, roles, onClose }: P
           <div className="text-xs text-fg-soft">{inviteResult.message}</div>
           {inviteResult.url && (
             <CopyField
-              label="Invite link"
+              label={t('settings.invites.link')}
               value={inviteResult.url}
               valueQa="invite-link-value"
               copyQa="invite-link-copy"
@@ -127,7 +123,7 @@ export function DirectInviteForm({ workspaceId, instanceUrl, roles, onClose }: P
       )}
       <div className="flex gap-2">
         <Button variant="ghost" className="flex-1" onClick={onClose}>
-          Cancel
+          {t('cancel', { ns: 'common' })}
         </Button>
         <Button
           variant="primary"
@@ -136,7 +132,7 @@ export function DirectInviteForm({ workspaceId, instanceUrl, roles, onClose }: P
           disabled={inviting || !inviteEmail.trim() || (inviteIsGuest && guestInvite.channelIds.length === 0)}
           data-qa="invite-submit"
         >
-          {inviting ? 'Inviting…' : 'Invite'}
+          {inviting ? t('settings.invites.inviting') : t('settings.invites.invite')}
         </Button>
       </div>
     </form>

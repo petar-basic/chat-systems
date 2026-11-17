@@ -82,7 +82,7 @@ function MemberRow({
   const [confirmErase, setConfirmErase] = useState(false);
   const [confirmStepDown, setConfirmStepDown] = useState(false);
   const [editGuest, setEditGuest] = useState(false);
-  const { t } = useTranslation('workspace');
+  const { t } = useTranslation(['workspace', 'common']);
 
   const actorLevel = actorRole ? (ROLE_LEVEL[actorRole] ?? 0) : 0;
   const targetLevel = ROLE_LEVEL[member.role] ?? 0;
@@ -105,8 +105,6 @@ function MemberRow({
     }
   };
 
-  const roleName = member.role.charAt(0).toUpperCase() + member.role.slice(1);
-
   return (
     <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-raised/30 rounded-lg" data-qa="member-row">
       <div className="relative">
@@ -124,7 +122,7 @@ function MemberRow({
               data-qa="member-app-tag"
               className="ml-1.5 px-1 py-0.5 text-3xs font-semibold uppercase tracking-wide bg-raised text-fg-dim rounded"
             >
-              App
+              {t('settings.members.app')}
             </span>
           )}
           {member.status_emoji && (
@@ -147,7 +145,7 @@ function MemberRow({
         <GuestTerms member={member} />
         {confirmRemove && (
           <div className="mt-1 flex items-center gap-2 text-xs">
-            <span className="text-danger">Remove from workspace?</span>
+            <span className="text-danger">{t('settings.members.removeConfirm')}</span>
             <button
               onClick={() => {
                 onRemove(member.user_id);
@@ -156,21 +154,19 @@ function MemberRow({
               data-qa="member-remove-confirm"
               className="px-2 py-0.5 bg-red-600 hover:bg-red-500 text-white rounded transition cursor-pointer"
             >
-              Remove
+              {t('settings.members.remove')}
             </button>
             <button
               onClick={() => setConfirmRemove(false)}
               className="text-muted hover:text-fg transition cursor-pointer"
             >
-              Cancel
+              {t('cancel', { ns: 'common' })}
             </button>
           </div>
         )}
         {confirmStepDown && (
           <div className="mt-1 flex items-center gap-2 text-xs">
-            <span className="text-fg-soft">
-              Step down to admin? Only an owner can make you an owner again.
-            </span>
+            <span className="text-fg-soft">{t('settings.members.stepDownConfirm')}</span>
             <Button
               variant="primary"
               size="sm"
@@ -180,13 +176,13 @@ function MemberRow({
               }}
               data-qa="member-step-down-confirm"
             >
-              Step down
+              {t('settings.members.stepDown')}
             </Button>
             <button
               onClick={() => setConfirmStepDown(false)}
               className="text-muted hover:text-fg transition cursor-pointer"
             >
-              Cancel
+              {t('cancel', { ns: 'common' })}
             </button>
           </div>
         )}
@@ -196,8 +192,8 @@ function MemberRow({
           <button
             onClick={() => onExport(member.user_id)}
             disabled={busy}
-            aria-label={`Export ${displayName}'s data`}
-            data-tooltip="Export their data"
+            aria-label={t('settings.members.exportNamed', { name: displayName })}
+            data-tooltip={t('settings.members.exportTooltip')}
             data-qa="member-export"
             className="p-1 text-muted hover:text-fg transition cursor-pointer disabled:opacity-50"
           >
@@ -206,8 +202,8 @@ function MemberRow({
           <button
             onClick={() => setConfirmErase(true)}
             disabled={busy}
-            aria-label={`Erase ${displayName}'s data`}
-            data-tooltip="Erase their data"
+            aria-label={t('settings.members.eraseNamed', { name: displayName })}
+            data-tooltip={t('settings.members.eraseTooltip')}
             data-qa="member-erase"
             className="p-1 text-muted hover:text-danger transition cursor-pointer disabled:opacity-50"
           >
@@ -247,7 +243,7 @@ function MemberRow({
             </button>
           )}
           <Select
-            label={`Role for ${displayName}`}
+            label={t('settings.members.roleFor', { name: displayName })}
             labelHidden
             compact
             value={member.role}
@@ -261,15 +257,15 @@ function MemberRow({
           >
             {grantable.map((r) => (
               <option key={r} value={r}>
-                {r.charAt(0).toUpperCase() + r.slice(1)}
+                {t(`settings.members.roles.${r}`)}
               </option>
             ))}
           </Select>
           <button
             onClick={() => setConfirmRemove(true)}
             disabled={busy}
-            aria-label={`Remove ${displayName}`}
-            data-tooltip={`Remove ${displayName}`}
+            aria-label={t('settings.members.removeNamed', { name: displayName })}
+            data-tooltip={t('settings.members.removeNamed', { name: displayName })}
             data-qa="member-remove"
             className="p-1 text-muted hover:text-danger transition cursor-pointer disabled:opacity-50"
           >
@@ -279,7 +275,7 @@ function MemberRow({
       ) : (
         <div className="flex items-center gap-1.5 text-xs text-muted">
           {roleIcon()}
-          <span>{roleName}</span>
+          <span>{t(`settings.members.roles.${member.role}`)}</span>
           {isSelf && canStepDown && !confirmStepDown && (
             <button
               onClick={() => setConfirmStepDown(true)}
@@ -287,7 +283,7 @@ function MemberRow({
               data-qa="member-step-down"
               className="ml-1 px-2 py-0.5 rounded text-xs text-muted hover:text-fg hover:bg-raised transition cursor-pointer disabled:opacity-50"
             >
-              Step down
+              {t('settings.members.stepDown')}
             </button>
           )}
         </div>
@@ -325,7 +321,7 @@ export function MembersSection({ workspaceId, openInvite, isInstanceAdmin }: Pro
       setManageError(null);
       refreshMembers();
     },
-    onError: (err: unknown) => setManageError(toUserMessage(err, 'Failed to change role')),
+    onError: (err: unknown) => setManageError(toUserMessage(err, t('settings.members.roleFailed'))),
   });
 
   const removeMember = useMutation({
@@ -339,7 +335,7 @@ export function MembersSection({ workspaceId, openInvite, isInstanceAdmin }: Pro
       setManageError(null);
       refreshMembers();
     },
-    onError: (err: unknown) => setManageError(toUserMessage(err, 'Failed to remove member')),
+    onError: (err: unknown) => setManageError(toUserMessage(err, t('settings.members.removeFailed'))),
   });
 
   const isAdmin = actorRole === 'admin' || actorRole === 'owner';
@@ -361,7 +357,7 @@ export function MembersSection({ workspaceId, openInvite, isInstanceAdmin }: Pro
           {!showInvite ? (
             <Button variant="primary" fullWidth onClick={() => setShowInvite(true)} data-qa="members-invite">
               <UserPlus className="w-4 h-4" />
-              Invite people
+              {t('settings.members.invitePeople')}
             </Button>
           ) : invitesDirectly ? (
             <DirectInviteForm
@@ -389,12 +385,12 @@ export function MembersSection({ workspaceId, openInvite, isInstanceAdmin }: Pro
             <Spinner className="text-accent" />
           </div>
         ) : members.length === 0 ? (
-          <div className="text-center text-muted text-sm py-8">No members found</div>
+          <div className="text-center text-muted text-sm py-8">{t('settings.members.empty')}</div>
         ) : (
           <>
             <div className="px-4 mb-1">
               <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                {members.length} member{members.length !== 1 ? 's' : ''}
+                {t('settings.members.count', { count: members.length })}
               </span>
             </div>
             {isAdmin && members.some((m) => m.guest_until) && (
@@ -414,9 +410,7 @@ export function MembersSection({ workspaceId, openInvite, isInstanceAdmin }: Pro
             )}
             {actorRole === 'owner' && (
               <div className="px-4 pb-2 text-xs text-muted" data-qa="owner-note">
-                {otherOwners > 0
-                  ? 'Another owner remains, so you can step down to admin or leave the workspace.'
-                  : "You're the only owner. To step down or leave, first make someone else an owner: pick Owner in their row."}
+                {otherOwners > 0 ? t('settings.members.otherOwners') : t('settings.members.onlyOwner')}
               </div>
             )}
             {manageError && <div className="px-4 pb-1 text-xs text-danger">{manageError}</div>}
@@ -443,15 +437,19 @@ export function MembersSection({ workspaceId, openInvite, isInstanceAdmin }: Pro
                     onSuccess: () => {
                       setManageError(null);
                       setNotice(
-                        `Export started for ${getUserDisplay(userId, members).displayName}. It appears under Exports.`,
+                        t('settings.members.exportStarted', {
+                          name: getUserDisplay(userId, members).displayName,
+                        }),
                       );
                     },
-                    onError: (err) => setManageError(toUserMessage(err, 'Failed to start the export')),
+                    onError: (err) => setManageError(toUserMessage(err, t('settings.members.exportFailed'))),
                   })
                 }
                 onErase={async (userId) => {
                   await erase.mutateAsync(userId);
-                  setNotice(`${getUserDisplay(userId, members).displayName}'s data was erased.`);
+                  setNotice(
+                    t('settings.members.erased', { name: getUserDisplay(userId, members).displayName }),
+                  );
                 }}
               />
             ))}
