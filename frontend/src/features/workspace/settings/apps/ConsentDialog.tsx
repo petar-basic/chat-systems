@@ -1,4 +1,5 @@
 import { Check } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog/ConfirmDialog';
 import type { AppPermission } from '@/features/workspace/hooks/useAppDirectory';
 
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export function ConsentDialog({ title, lead, permissions, confirmLabel, onConfirm, onClose }: Props) {
+  const { t } = useTranslation('workspace');
   return (
     <ConfirmDialog
       title={title}
@@ -23,7 +25,7 @@ export function ConsentDialog({ title, lead, permissions, confirmLabel, onConfir
       dataQa="app-consent"
     >
       {permissions.length === 0 ? (
-        <p className="text-sm text-muted">Nothing beyond being listed here.</p>
+        <p className="text-sm text-muted">{t('settings.apps.consentNothing')}</p>
       ) : (
         <ul className="space-y-1.5" data-qa="app-consent-permissions">
           {permissions.map((permission) => (

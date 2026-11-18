@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ExternalLink } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
 import { CopyField } from '@/shared/components/CopyField/CopyField';
@@ -24,16 +25,17 @@ export function ConnectedAppCard({
   permissions: AppPermission[];
   setupFirst?: boolean;
 }) {
+  const { t } = useTranslation('workspace');
   const actions = useAppActions(workspaceId);
   const [setupOpen, setSetupOpen] = useState(setupFirst && !app.configured && isAdmin);
   const usable = app.configured && app.enabled;
   const badge = app.connected_account
-    ? 'Connected'
+    ? t('settings.apps.card.connected')
     : !app.configured
-      ? 'Not set up'
+      ? t('settings.apps.card.notSetUp')
       : app.enabled
         ? null
-        : 'Off';
+        : t('settings.apps.card.off');
 
   return (
     <section className="rounded-lg border border-line/60 p-3" data-qa={`app-${app.provider}`}>
@@ -68,7 +70,7 @@ export function ConnectedAppCard({
                 disabled={actions.disconnect.isPending}
                 className="text-xs text-danger hover:underline shrink-0"
               >
-                Disconnect
+                {t('settings.apps.card.disconnect')}
               </button>
             </div>
           ) : (
@@ -79,7 +81,7 @@ export function ConnectedAppCard({
               disabled={actions.connect.isPending}
               data-qa="app-connect"
             >
-              Connect my account
+              {t('settings.apps.card.connect')}
             </Button>
           )}
           {app.prompts_off && !app.connected_account && (
@@ -87,23 +89,23 @@ export function ConnectedAppCard({
               className="flex items-center justify-between gap-2 text-xs text-muted"
               data-qa="app-prompts-off"
             >
-              <span>Prompts off</span>
+              <span>{t('settings.apps.card.promptsOff')}</span>
               <button
                 onClick={() => actions.prompts.mutate({ provider: app.provider, off: false })}
                 disabled={actions.prompts.isPending}
                 className="text-accent hover:underline"
               >
-                Turn on
+                {t('settings.apps.card.turnOn')}
               </button>
             </div>
           )}
         </div>
       )}
       {app.configured && !app.enabled && !isAdmin && (
-        <p className="mt-2 text-xs text-muted">An admin has turned this app off.</p>
+        <p className="mt-2 text-xs text-muted">{t('settings.apps.card.turnedOff')}</p>
       )}
       {!app.configured && !isAdmin && (
-        <p className="mt-2 text-xs text-muted">Ask a workspace admin to set this app up.</p>
+        <p className="mt-2 text-xs text-muted">{t('settings.apps.card.askAdmin')}</p>
       )}
 
       {isAdmin && (
@@ -112,7 +114,11 @@ export function ConnectedAppCard({
             onClick={() => setSetupOpen((open) => !open)}
             className="text-xs text-accent hover:underline"
           >
-            {setupOpen ? 'Hide setup' : app.configured ? 'Edit setup' : 'Set up'}
+            {setupOpen
+              ? t('settings.apps.card.hideSetup')
+              : app.configured
+                ? t('settings.apps.card.editSetup')
+                : t('settings.apps.card.setUp')}
           </button>
           {setupOpen && (
             <AppSetupForm
@@ -142,6 +148,7 @@ function AppSetupForm({
   permissions: AppPermission[];
   onDone: () => void;
 }) {
+  const { t } = useTranslation('workspace');
   const actions = useAppActions(workspaceId);
   const [clientId, setClientId] = useState(app.client_id ?? '');
   const [clientSecret, setClientSecret] = useState('');
@@ -178,15 +185,17 @@ function AppSetupForm({
         rel="noopener noreferrer"
         className="inline-flex items-center gap-1 text-xs text-accent hover:underline"
       >
-        Open the developer console <ExternalLink className="w-3 h-3" />
+        {t('settings.apps.setup.console')} <ExternalLink className="w-3 h-3" />
       </a>
-      <CopyField label="Callback URL" value={app.redirect_url} />
-      {app.scopes.length > 0 && <CopyField label="Scopes" value={app.scopes.join(' ')} />}
+      <CopyField label={t('settings.apps.setup.callbackUrl')} value={app.redirect_url} />
+      {app.scopes.length > 0 && (
+        <CopyField label={t('settings.apps.setup.scopes')} value={app.scopes.join(' ')} />
+      )}
 
       {reusable && (
         <Checkbox
-          label={`Use the ${reusable.name} app`}
-          description={`Add the ${app.name} API to it first.`}
+          label={t('settings.apps.setup.reuse', { name: reusable.name })}
+          description={t('settings.apps.setup.reuseHint', { api: app.name })}
           checked={reuse}
           onChange={setReuse}
           dataQa="app-reuse"
@@ -195,29 +204,29 @@ function AppSetupForm({
       {!reuse && (
         <>
           <TextInput
-            label="Client ID"
+            label={t('settings.apps.setup.clientId')}
             compact
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
             required
           />
           <TextInput
-            label="Secret"
+            label={t('settings.apps.setup.secret')}
             compact
             type="password"
             value={clientSecret}
             onChange={(e) => setClientSecret(e.target.value)}
             required={!app.configured}
-            placeholder={app.configured ? 'Stored — leave blank to keep it' : ''}
+            placeholder={app.configured ? t('settings.apps.setup.secretStored') : ''}
             autoComplete="off"
           />
         </>
       )}
-      <Checkbox label="On for this workspace" checked={enabled} onChange={setEnabled} />
+      <Checkbox label={t('settings.apps.setup.enabled')} checked={enabled} onChange={setEnabled} />
 
       <div className="flex items-center gap-2">
         <Button variant="primary" type="submit" disabled={actions.configure.isPending}>
-          Save
+          {t('settings.apps.setup.save')}
         </Button>
         {app.configured &&
           (confirmRemove ? (
@@ -226,7 +235,7 @@ function AppSetupForm({
               onClick={() => actions.remove.mutate(app.provider, { onSuccess: onDone })}
               className="text-xs text-danger hover:underline"
             >
-              Remove, and disconnect everyone
+              {t('settings.apps.setup.removeConfirm')}
             </button>
           ) : (
             <button
@@ -234,16 +243,16 @@ function AppSetupForm({
               onClick={() => setConfirmRemove(true)}
               className="text-xs text-muted hover:text-danger"
             >
-              Remove app
+              {t('settings.apps.setup.remove')}
             </button>
           ))}
       </div>
       {consenting && (
         <ConsentDialog
-          title={`Install ${app.name}?`}
-          lead="Nobody can connect an account until you agree. For each person who connects, it will be able to:"
+          title={t('settings.apps.setup.installTitle', { name: app.name })}
+          lead={t('settings.apps.setup.installLead')}
           permissions={permissions}
-          confirmLabel="Agree and install"
+          confirmLabel={t('settings.apps.setup.installConfirm')}
           onConfirm={async () => {
             await store();
           }}

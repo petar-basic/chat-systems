@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/shared/components/Button/Button';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { Checkbox } from '@/shared/components/Form/Checkbox';
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export function BuildAnApp({ workspaceId, scopes: offered }: Props) {
+  const { t } = useTranslation('workspace');
   const { create } = useBotAppActions(workspaceId);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -39,10 +41,7 @@ export function BuildAnApp({ workspaceId, scopes: offered }: Props) {
 
   return (
     <section className="space-y-3" data-qa="build-an-app">
-      <p className="text-xs text-muted">
-        An app has a bot user and a token of its own. It reads and writes only in the channels it is added to,
-        with the scopes given here. The API it calls is described in the bot API guide.
-      </p>
+      <p className="text-xs text-muted">{t('settings.apps.make.intro')}</p>
       {minted && <TokenReveal name={minted.name} token={minted.token} onDismiss={() => setMinted(null)} />}
       <form
         onSubmit={submit}
@@ -50,21 +49,21 @@ export function BuildAnApp({ workspaceId, scopes: offered }: Props) {
         data-qa="bot-app-form"
       >
         <TextInput
-          label="App name"
+          label={t('settings.apps.make.name')}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Deploy bot"
+          placeholder={t('settings.apps.make.namePlaceholder')}
           dataQa="bot-app-name"
         />
         <TextInput
-          label="Description"
+          label={t('settings.apps.make.description')}
           optional
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           dataQa="bot-app-description"
         />
         <fieldset className="space-y-2">
-          <legend className="mb-1 text-xs font-medium text-fg-dim">Scopes</legend>
+          <legend className="mb-1 text-xs font-medium text-fg-dim">{t('settings.apps.make.scopes')}</legend>
           {offered.map(({ key, text }) => (
             <Checkbox
               key={key}
@@ -83,20 +82,20 @@ export function BuildAnApp({ workspaceId, scopes: offered }: Props) {
           disabled={!name.trim()}
           data-qa="bot-app-create"
         >
-          Create app
+          {t('settings.apps.make.create')}
         </Button>
       </form>
       {create.error && (
         <p role="alert" className="text-sm text-danger">
-          {toUserMessage(create.error, 'The app could not be made')}
+          {toUserMessage(create.error, t('settings.apps.make.failed'))}
         </p>
       )}
       {consenting && (
         <ConsentDialog
-          title={`Install ${name.trim()}?`}
-          lead="Its token is made when you agree. With it, the app will be able to:"
+          title={t('settings.apps.make.consentTitle', { name: name.trim() })}
+          lead={t('settings.apps.make.consentLead')}
           permissions={offered.filter((p) => scopes.includes(p.key as BotScope))}
-          confirmLabel="Agree and make the token"
+          confirmLabel={t('settings.apps.make.consentConfirm')}
           onConfirm={make}
           onClose={() => setConsenting(false)}
         />
