@@ -17,6 +17,7 @@ struct BotAppRow {
     request_url: Option<String>,
     socket_mode: bool,
     interactivity: bool,
+    home_enabled: bool,
     has_app_token: bool,
     connected_sockets: i64,
     failing_since: Option<DateTime<Utc>>,
@@ -42,6 +43,7 @@ impl From<BotAppRow> for BotApp {
             request_url: row.request_url,
             socket_mode: row.socket_mode,
             interactivity: row.interactivity,
+            home_enabled: row.home_enabled,
             has_app_token: row.has_app_token,
             connected_sockets: row.connected_sockets,
             failing_since: row.failing_since,
@@ -99,6 +101,7 @@ pub struct BotAppChanges<'a> {
     pub request_url: Option<&'a str>,
     pub socket_mode: Option<bool>,
     pub interactivity: Option<bool>,
+    pub home_enabled: Option<bool>,
 }
 
 pub struct SealedSecret {
@@ -148,7 +151,7 @@ impl BotRepo {
                                      signing_secret_encrypted, signing_secret_nonce, signing_secret_key_id)
               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
               RETURNING id, workspace_id, bot_user_id, name, description, icon_url, scopes, events,
-                        request_url, socket_mode, interactivity,
+                        request_url, socket_mode, interactivity, home_enabled,
                         (app_token_hash IS NOT NULL) AS "has_app_token!",
                         (SELECT COUNT(*) FROM app_sockets s
                           WHERE s.app_id = bot_apps.id AND s.connected_at IS NOT NULL
@@ -176,7 +179,7 @@ impl BotRepo {
         let rows = sqlx::query_as!(
             BotAppRow,
             r#"SELECT id, workspace_id, bot_user_id, name, description, icon_url, scopes, events,
-                     request_url, socket_mode, interactivity,
+                     request_url, socket_mode, interactivity, home_enabled,
                      (app_token_hash IS NOT NULL) AS "has_app_token!",
                      (SELECT COUNT(*) FROM app_sockets s
                        WHERE s.app_id = bot_apps.id AND s.connected_at IS NOT NULL
@@ -195,7 +198,7 @@ impl BotRepo {
         let row = sqlx::query_as!(
             BotAppRow,
             r#"SELECT id, workspace_id, bot_user_id, name, description, icon_url, scopes, events,
-                     request_url, socket_mode, interactivity,
+                     request_url, socket_mode, interactivity, home_enabled,
                      (app_token_hash IS NOT NULL) AS "has_app_token!",
                      (SELECT COUNT(*) FROM app_sockets s
                        WHERE s.app_id = bot_apps.id AND s.connected_at IS NOT NULL
@@ -229,12 +232,13 @@ impl BotRepo {
                      request_url = CASE WHEN $7::text IS NULL THEN request_url ELSE NULLIF($7, '') END,
                      socket_mode = COALESCE($8, socket_mode),
                      interactivity = COALESCE($9, interactivity),
+                     home_enabled = COALESCE($10, home_enabled),
                      failing_since = CASE WHEN $7::text IS NULL AND $8::bool IS NULL THEN failing_since END,
                      last_failure = CASE WHEN $7::text IS NULL AND $8::bool IS NULL THEN last_failure END,
                      updated_at = NOW()
                WHERE id = $1
               RETURNING id, workspace_id, bot_user_id, name, description, icon_url, scopes, events,
-                        request_url, socket_mode, interactivity,
+                        request_url, socket_mode, interactivity, home_enabled,
                         (app_token_hash IS NOT NULL) AS "has_app_token!",
                         (SELECT COUNT(*) FROM app_sockets s
                           WHERE s.app_id = bot_apps.id AND s.connected_at IS NOT NULL
@@ -249,7 +253,8 @@ impl BotRepo {
             events.as_deref(),
             changes.request_url,
             changes.socket_mode,
-            changes.interactivity
+            changes.interactivity,
+            changes.home_enabled
         )
         .fetch_optional(&mut *tx)
         .await?;
@@ -324,7 +329,7 @@ impl BotRepo {
                      failing_since = NULL, last_failure = NULL, updated_at = NOW()
                WHERE id = $1 AND disabled_at IS NOT NULL
               RETURNING id, workspace_id, bot_user_id, name, description, icon_url, scopes, events,
-                        request_url, socket_mode, interactivity,
+                        request_url, socket_mode, interactivity, home_enabled,
                         (app_token_hash IS NOT NULL) AS "has_app_token!",
                         0::bigint AS "connected_sockets!",
                         failing_since, last_failure, disabled_at, disabled_reason,

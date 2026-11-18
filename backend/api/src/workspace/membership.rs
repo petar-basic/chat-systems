@@ -193,6 +193,12 @@ pub async fn stand_down(
                 tracing::warn!("could not turn off the apps of a stopped creator: {}", e);
                 Vec::new()
             });
+        let mut touched: Vec<Uuid> = apps.iter().map(|app| app.workspace_id).collect();
+        touched.sort_unstable();
+        touched.dedup();
+        for workspace_id in touched {
+            crate::bots::announce_apps(state, workspace_id).await;
+        }
         let invites = state
             .workspace_service
             .repo

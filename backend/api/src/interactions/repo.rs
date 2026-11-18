@@ -1,7 +1,7 @@
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use super::models::{InteractiveApp, StoredView, Trigger, UsedInteraction};
+use super::models::{ActiveAppRow, StoredView, Trigger, UsedInteraction};
 
 pub const MAX_STACK: i64 = 3;
 
@@ -36,15 +36,16 @@ impl InteractionRepo {
         .await
     }
 
-    pub async fn interactive_apps(&self, workspace_id: Uuid) -> sqlx::Result<Vec<InteractiveApp>> {
+    pub async fn active_apps(&self, workspace_id: Uuid) -> sqlx::Result<Vec<ActiveAppRow>> {
         sqlx::query_as!(
-            InteractiveApp,
-            r#"SELECT b.id AS app_id, b.bot_user_id,
+            ActiveAppRow,
+            r#"SELECT b.id AS app_id, b.bot_user_id, b.name, b.description, b.icon_url,
+                      (b.interactivity AND (b.socket_mode OR b.request_url IS NOT NULL)) AS "interactive!",
+                      b.home_enabled AS home,
                       ARRAY(SELECT h.id FROM hooks h WHERE h.app_id = b.id ORDER BY h.id) AS "hook_ids!"
                  FROM bot_apps b
-                WHERE b.workspace_id = $1 AND b.interactivity AND b.disabled_at IS NULL
-                  AND (b.socket_mode OR b.request_url IS NOT NULL)
-                ORDER BY b.id"#,
+                WHERE b.workspace_id = $1 AND b.disabled_at IS NULL
+                ORDER BY b.name"#,
             workspace_id
         )
         .fetch_all(&self.pool)

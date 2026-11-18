@@ -1456,13 +1456,15 @@ writes one is [bot-api.md](./bot-api.md).
 | POST | `/workspaces/:ws_id/bot-apps` | `{ name, description?, icon_url?, scopes }` | `BotApp & { token }` — admin; 409 for a name the workspace already has |
 | GET | `/bot-apps/me` | bot token | `BotApp` — the app the token belongs to |
 | GET | `/bot-apps/:app_id` | — | `BotApp` — admin of its workspace |
-| PATCH | `/bot-apps/:app_id` | `{ name?, description?, icon_url?, scopes?, events?, request_url?, socket_mode?, interactivity? }` | `BotApp` — admin; the bot user's name and photo follow; a new `request_url` must answer the challenge first, `""` clears it |
+| PATCH | `/bot-apps/:app_id` | `{ name?, description?, icon_url?, scopes?, events?, request_url?, socket_mode?, interactivity?, home_enabled? }` | `BotApp` — admin; the bot user's name and photo follow; a new `request_url` must answer the challenge first, `""` clears it |
 | POST | `/bot-apps/:app_id/rotate` | — | `BotApp & { token }` — admin; the old token stops at once |
 | POST | `/bot-apps/:app_id/enable` | — | `BotApp & { token }` — admin, for an app that stopped with its creator; a new bot token (shown once) and signing secret, no app-level token, and the admin becomes `created_by`; `bot_app.enabled` is audited; 409 for an app that is on |
 | DELETE | `/bot-apps/:app_id` | — | `{ status: "deleted" }` — admin |
 | GET | `/bot-apps/:app_id/signing-secret` | — | `{ app_id, signing_secret }` — admin |
 | POST | `/bot-apps/:app_id/app-token` | — | `{ app_id, app_token }` — admin; replaces the last one and closes its sockets |
 | DELETE | `/bot-apps/:app_id/app-token` | — | `{ status: "revoked" }` — admin |
+| GET | `/bot-apps/:app_id/shortcuts` | — | `{ data: AppShortcut[] }` — admin |
+| PUT | `/bot-apps/:app_id/shortcuts` | `{ shortcuts: [{ kind: global\|message, name, description, callback_id }] }` | `{ data: AppShortcut[] }` — admin; the whole list, at most five of each kind, `callback_id` unique in the app; audited as `bot_app.updated` |
 | POST | `/apps/connections.open` | `capp-` app-level token | `{ url }` — a `ws(s)://…/ws/apps?ticket=` good once, for 30 seconds; 403 while socket mode is off |
 
 Creating an app inserts a `users` row with `is_bot = true`, an address under `bots.invalid`,
@@ -1533,13 +1535,19 @@ are in, when its `bot_apps.interactivity` is on and it has a request URL or sock
 
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
-| GET | `/workspaces/:ws_id/interactive-apps` | — | `{ data: [{ app_id, bot_user_id, hook_ids }] }` — member; which messages may be used |
+| GET | `/workspaces/:ws_id/active-apps` | — | `{ data: ActiveApp[] }` — member; every app that is on, with `interactive` (its elements may be used), `home`, `hook_ids` and its global `shortcuts` (none for a guest) |
 | POST | `/messages/:msg_id/actions` | `{ block_id, action_id, value? }` | `{ status: "ok" }` — reader of the channel; 404 for an element not in the message, 409 while the app's interactivity is off, 503 *The app did not respond* |
 | POST | `/views/:view_id/actions` | `{ block_id, action_id, value?, values }` | `{ status: "ok" }` — the view's person |
 | POST | `/views/:view_id/submit` | `{ values }` | `{ outcome: closed\|updated\|pushed\|cleared\|errors, errors }` — the top view only (409 otherwise) |
 | POST | `/views/:view_id/close` | `{ all? }` | `{ status: "closed" }` — back one view, or all of them |
 | POST | `/views/open`, `/views/push`, `/views/update` | bot token; `{ trigger_id, view }` or `{ view_id\|external_id, hash?, view }` | `AppView` — 422 for a used or expired trigger or a fourth view, 409 for a stale `hash` |
-| POST | `/interactions/responses/:token` | no session; `{ text?, blocks?, attachments?, response_type?, replace_original?, delete_original? }` | `{ status: deleted\|replaced\|posted\|shown }` — five uses in 30 minutes |
+| POST | `/interactions/responses/:token` | no session; `{ text?, blocks?, attachments?, response_type?, replace_original?, delete_original? }` | `{ status: deleted\|replaced\|posted\|shown }` — five uses in 30 minutes; 403 for `replace_original` or `delete_original` on a message the app does not own |
+| GET | `/channels/:ch_id/message-shortcuts` | — | `{ data: AppShortcut[] }` — reader; the message shortcuts of the interactive apps whose bot is a member, none for a guest; also in the channel context as `message_shortcuts` |
+| POST | `/app-shortcuts/:shortcut_id/run` | `{ channel_id?, message_id? }` | `{ status: "ok" }` — member, not a guest (403); a message shortcut needs `message_id` (422) in a channel the bot is in (403); 409 while the app's interactivity is off, 503 *The app did not respond* |
+| GET | `/apps/:app_id/home` | — | `HomeTab { app_id, home: AppHome\|null }` — member, the caller's own Home; 404 while the app's Home tab is off or the app is off |
+| POST | `/apps/:app_id/home/opened` | `{ channel_id }` | `{ status: queued\|ok }` — the caller's DM with the bot (422 otherwise); queues `app_home_opened` when the app subscribes and has a URL or socket |
+| POST | `/apps/:app_id/home/actions` | `{ block_id, action_id, value? }` | `{ status: "ok" }` — an element in the caller's Home |
+| POST | `/views/publish` | bot token; `{ user_id, view, hash? }` | `AppHome` — 403 for a person's token, 401 for an app that is off (its token no longer authenticates), 409 while its Home tab is off or for a stale `hash`, 422 for a `user_id` that is not a person in the workspace |
 
 A message belongs to an app when its author is the app's bot user, or when its
 `metadata.bot.hook_id` names a hook whose `app_id` is the app: a command's answer carries the
@@ -1563,6 +1571,23 @@ that user as `ServerFrame::ViewsChanged`. A submission is checked first (require
 lengths, members and channels the person may name); a refusal is answered without asking the
 app. A trigger made for a command carries its invocation, so opening a modal with it tells the
 person's client the command is done (`command.response` with `response_type: "modal"`).
+
+**Home and shortcuts** (`app_home`, `app_shortcuts`). `app_homes` keeps one row per app and
+person, `(app_id, user_id)` unique. `views.publish` parses the view with `parse::home` (the
+message blocks on `Surface::Home`, up to 100, no `input`), upserts it with a fresh `hash`, and
+when a `hash` is sent the `ON CONFLICT … DO UPDATE` carries `WHERE app_homes.hash = $6`, so a
+stale one changes nothing and answers 409. It publishes an ephemeral `views.home_changed` that
+the gateway sends only to that person. `app_home_opened` is an `app_deliveries` row of kind
+`event`, keyed by a fresh source event, on the DM's channel.
+
+`app_shortcuts` holds both kinds, `(app_id, callback_id)` unique; saving the list deletes the
+callback IDs it no longer has and upserts the rest, so a shortcut keeps its id. A shortcut's
+payload goes through `interactions::exchange` like an element's: a trigger, and for a message
+shortcut an `app_interactions` row on that message for the `response_url`. Because that message
+may be anybody's, `respond` refuses to replace or delete a message whose app is not the one
+answering. Every change to an app (its settings, its shortcuts, turning it on, removing it,
+`stand_down`) publishes `workspace.apps_changed`, which the gateway broadcasts to the
+workspace; clients drop their app list, Homes and message shortcuts on it.
 
 ### app_directory
 

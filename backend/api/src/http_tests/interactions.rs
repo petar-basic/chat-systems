@@ -13,14 +13,14 @@ use crate::state::AppState;
 type Seen = Arc<Mutex<Vec<(HeaderMap, String)>>>;
 type Reply = Arc<Mutex<(u16, Value)>>;
 
-struct FakeApp {
-    url: String,
+pub(super) struct FakeApp {
+    pub(super) url: String,
     seen: Seen,
     reply: Reply,
 }
 
 impl FakeApp {
-    fn payloads(&self) -> Vec<Value> {
+    pub(super) fn payloads(&self) -> Vec<Value> {
         self.seen
             .lock()
             .expect("seen")
@@ -30,16 +30,16 @@ impl FakeApp {
             .collect()
     }
 
-    fn last(&self) -> Value {
+    pub(super) fn last(&self) -> Value {
         self.payloads().pop().expect("the app was called")
     }
 
-    fn answer(&self, status: u16, body: Value) {
+    pub(super) fn answer(&self, status: u16, body: Value) {
         *self.reply.lock().expect("reply") = (status, body);
     }
 }
 
-async fn fake_app() -> FakeApp {
+pub(super) async fn fake_app() -> FakeApp {
     let seen: Seen = Arc::new(Mutex::new(Vec::new()));
     let reply: Reply = Arc::new(Mutex::new((200, Value::Null)));
     let (recorded, replying) = (seen.clone(), reply.clone());
@@ -74,20 +74,20 @@ async fn fake_app() -> FakeApp {
     FakeApp { url, seen, reply }
 }
 
-struct Setup {
-    app: axum::Router,
-    state: Arc<AppState>,
-    owner_token: String,
-    ws_id: Uuid,
-    ch_id: Uuid,
-    app_id: Uuid,
-    bot_user_id: Uuid,
-    bot_token: String,
-    member_id: Uuid,
-    member_token: String,
+pub(super) struct Setup {
+    pub(super) app: axum::Router,
+    pub(super) state: Arc<AppState>,
+    pub(super) owner_token: String,
+    pub(super) ws_id: Uuid,
+    pub(super) ch_id: Uuid,
+    pub(super) app_id: Uuid,
+    pub(super) bot_user_id: Uuid,
+    pub(super) bot_token: String,
+    pub(super) member_id: Uuid,
+    pub(super) member_token: String,
 }
 
-async fn setup(pool: PgPool) -> Setup {
+pub(super) async fn setup(pool: PgPool) -> Setup {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "act-owner", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Interactive").await;
@@ -163,7 +163,7 @@ fn request_view(title: &str) -> Value {
 }
 
 impl Setup {
-    async fn add(&self, user_id: Uuid) {
+    pub(super) async fn add(&self, user_id: Uuid) {
         let (status, body) = send(
             &self.app,
             "POST",
@@ -175,7 +175,7 @@ impl Setup {
         assert_eq!(status, StatusCode::OK, "{body:?}");
     }
 
-    async fn configure(&self, settings: Value) {
+    pub(super) async fn configure(&self, settings: Value) {
         let (status, body) = send(
             &self.app,
             "PATCH",
@@ -187,12 +187,12 @@ impl Setup {
         assert_eq!(status, StatusCode::OK, "{body:?}");
     }
 
-    async fn connect(&self, to: &FakeApp) {
+    pub(super) async fn connect(&self, to: &FakeApp) {
         self.configure(json!({ "request_url": to.url, "interactivity": true }))
             .await;
     }
 
-    async fn post_deploy(&self) -> Uuid {
+    pub(super) async fn post_deploy(&self) -> Uuid {
         let (status, body) = send(
             &self.app,
             "POST",
@@ -221,11 +221,11 @@ impl Setup {
         .await
     }
 
-    async fn as_bot(&self, path: &str, body: Value) -> (StatusCode, Value) {
+    pub(super) async fn as_bot(&self, path: &str, body: Value) -> (StatusCode, Value) {
         send(&self.app, "POST", path, Some(&self.bot_token), Some(body)).await
     }
 
-    async fn as_member(&self, path: &str, body: Value) -> (StatusCode, Value) {
+    pub(super) async fn as_member(&self, path: &str, body: Value) -> (StatusCode, Value) {
         send(
             &self.app,
             "POST",
@@ -236,14 +236,14 @@ impl Setup {
         .await
     }
 
-    async fn respond(&self, response_url: &str, body: Value) -> (StatusCode, Value) {
+    pub(super) async fn respond(&self, response_url: &str, body: Value) -> (StatusCode, Value) {
         let path = response_url
             .strip_prefix("http://localhost")
             .expect("a response URL on this instance");
         send(&self.app, "POST", path, None, Some(body)).await
     }
 
-    async fn message(&self, msg_id: Uuid) -> Option<(String, Value)> {
+    pub(super) async fn message(&self, msg_id: Uuid) -> Option<(String, Value)> {
         sqlx::query_as::<_, (String, Value)>(
             "SELECT content, metadata FROM messages WHERE id = $1 AND deleted_at IS NULL",
         )
@@ -459,7 +459,7 @@ async fn elements_reach_nobody_while_interactivity_is_off(pool: PgPool) {
             let (status, body) = send(
                 &app,
                 "GET",
-                &format!("/api/workspaces/{ws_id}/interactive-apps"),
+                &format!("/api/workspaces/{ws_id}/active-apps"),
                 Some(&token),
                 None,
             )
@@ -468,7 +468,9 @@ async fn elements_reach_nobody_while_interactivity_is_off(pool: PgPool) {
             body["data"].as_array().expect("data").clone()
         }
     };
-    assert!(listed(&s).await.is_empty());
+    let apps = listed(&s).await;
+    assert_eq!(apps.len(), 1, "the app is on");
+    assert_eq!(apps[0]["interactive"], false);
 
     let (status, body) = s.press(msg_id, "approve", None).await;
     assert_eq!(status, StatusCode::CONFLICT, "{body:?}");
@@ -478,6 +480,7 @@ async fn elements_reach_nobody_while_interactivity_is_off(pool: PgPool) {
     s.configure(json!({ "interactivity": true })).await;
     let apps = listed(&s).await;
     assert_eq!(apps.len(), 1);
+    assert_eq!(apps[0]["interactive"], true);
     assert_eq!(apps[0]["bot_user_id"], json!(s.bot_user_id));
 
     let (status, person) = send(

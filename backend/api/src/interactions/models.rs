@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
+use crate::app_shortcuts::models::AppShortcut;
 use crate::blocks::models::View;
 
 pub type Values = HashMap<String, HashMap<String, Vec<String>>>;
@@ -97,9 +98,29 @@ pub struct AppView {
 }
 
 #[derive(Debug, Serialize, ToSchema)]
-pub struct InteractiveApp {
+pub struct ActiveApp {
     pub app_id: Uuid,
     pub bot_user_id: Uuid,
+    pub name: String,
+    pub description: Option<String>,
+    pub icon_url: Option<String>,
+    /// Its buttons, menus and shortcuts reach it.
+    pub interactive: bool,
+    /// Its conversation has a Home tab.
+    pub home: bool,
+    pub hook_ids: Vec<Uuid>,
+    /// Its global shortcuts; a guest gets none.
+    pub shortcuts: Vec<AppShortcut>,
+}
+
+pub struct ActiveAppRow {
+    pub app_id: Uuid,
+    pub bot_user_id: Uuid,
+    pub name: String,
+    pub description: Option<String>,
+    pub icon_url: Option<String>,
+    pub interactive: bool,
+    pub home: bool,
     pub hook_ids: Vec<Uuid>,
 }
 

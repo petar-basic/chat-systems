@@ -171,6 +171,13 @@ it: they are left out of the list, and *Add* opens the group of all of them thro
 is one; the conversation you were in stays as it is.
 `workspace.members_changed` refetches the conversation list, so a departure or a return shows
 at once.
+A DM with an app whose Home tab is on (`useAppOfUser` finds the partner among
+`useActiveApps`) gets *Home* and *Messages* tabs under the header, and opens on *Home*.
+`AppHomeTab` tells the server it was opened (POST `/apps/{id}/home/opened`), reads the
+person's Home (GET `/apps/{id}/home`) and draws its blocks with `BlockView`, whose elements
+post to `/apps/{id}/home/actions`; until the app publishes one it shows the app's photo, name
+and description. On *Home* the message list, typing indicator and composer are not mounted.
+`views.home_changed` replaces the Home in place.
 
 - **`features/workspace/hooks/useWorkspaceController`** — composes the page's hooks and
   returns one object the view consumes: `useWorkspaceData` (queries, store hydration,
@@ -464,7 +471,8 @@ server built it (`metadata.flattened`).
   `divider`, `image`, `context` and `actions`.
 - `BlockElementView` draws the elements. A `button` with a `url` is a link that opens in a new
   tab. The others are live when the message belongs to an app with interactivity on
-  (`useInteractiveApps` lists the apps with their bot users and command hooks;
+  (`useActiveApps` lists the apps that are on, with their bot users, command hooks and
+  `interactive`;
   `postedByInteractiveApp` matches the author or `metadata.bot.hook_id`) and the element has
   its ids: `LiveElement` draws a button, the shared `Select`, a `Combobox` of members or
   channels, a date `TextInput`, or an overflow menu, and each use goes to
@@ -600,8 +608,14 @@ A message with `metadata.form` renders `FormCard` instead of its text: the title
 recipient a *Fill in* button opening `FormDialog`, a `Modal` of shared fields (a text input,
 text area, select of the choices or of the workspace's people, or a date input); everyone else
 reads who it waits for, and once answered or expired it says so. A channel's composer shows
-`ShortcutMenu`, a ⚡ button listing the channel's shortcuts, when it has any; picking one starts
-it. `/workflow <name>` goes to the server like any other command.
+`ShortcutMenu`, a ⚡ button listing the channel's shortcuts and the apps' global shortcuts
+(`useGlobalShortcuts`, from `useActiveApps`), when there are any; picking a workflow starts
+it, and picking an app's runs it with the channel (POST `/app-shortcuts/{id}/run`). The quick
+switcher lists the global shortcuts that match what is typed, between channels and people, and
+runs one with no channel. An app's message shortcuts (`useMessageShortcuts`, the channel
+context's `message_shortcuts`, or GET `/channels/{id}/message-shortcuts` after a change) are
+listed at the end of a message's *More actions* and its mobile action sheet, under
+*Shortcuts*. `/workflow <name>` goes to the server like any other command.
 
 **API calls:** `/workspaces/{id}/workflows`, `/workflows/{id}` (with `/enable`, `/disable`,
 `/runs`, `/start`), `/channels/{id}/workflow-shortcuts`, `/workflow-runs/{id}/forms/{position}`
@@ -730,7 +744,10 @@ An integration that stopped with its creator says why on its page in *Apps* and 
 *Integrations*. Turning a webhook back on (*Reinstall* in `HookControls`, *Turn on* in
 *Integrations*) shows the new URL or signing secret the server minted, once, since the old one
 no longer works. A stopped app has *Turn on* in place of *Rotate token* (`BotAppControls`),
-which shows its new token once in `TokenReveal`.
+which shows its new token once in `TokenReveal`. An app's page has a *Home tab* checkbox
+beside its events (`BotAppEvents`), and `BotAppShortcuts` edits its shortcuts: where each
+goes (*Global* or *On a message*), its callback ID, name and description, saved together
+with PUT `/bot-apps/{id}/shortcuts`.
 
 **API calls:** PATCH `/workspaces/{id}`, DELETE `/workspaces/{id}` (optionally `?hard=true`),
 POST `/workspaces/{id}/invites` `{ email, role }`, and each section's own.
@@ -1227,6 +1244,8 @@ typing, and `notification` events are handled separately — by `usePresenceStor
 | `list.columns_changed` | Replace the columns; refetch the items when `items_rewritten` |
 | `list.views_changed` | Replace the views |
 | `views.changed` | Replace the person's stack of app modals for that workspace (`useAppViewsStore`) |
+| `views.home_changed` | Put the app's new Home for this person in its query (`appSync.ts`) |
+| `workspace.apps_changed` | An app changed, was turned on or off, or was removed: invalidate the workspace's apps, every Home and every channel's message shortcuts (`appSync.ts`), so tabs and shortcuts come and go without a reload |
 | `list.item_upserted` / `list.item_deleted` | Place the row by rank, or drop it |
 | `list.comment_upserted` / `list.comment_deleted` | Place or drop the comment in an open item's thread |
 

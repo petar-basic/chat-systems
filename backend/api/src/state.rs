@@ -30,6 +30,8 @@ pub struct AppState {
     pub bot_repo: crate::bots::repo::BotRepo,
     pub app_event_repo: crate::app_events::repo::AppEventRepo,
     pub interaction_repo: crate::interactions::repo::InteractionRepo,
+    pub app_shortcut_repo: crate::app_shortcuts::repo::AppShortcutRepo,
+    pub app_home_repo: crate::app_home::repo::AppHomeRepo,
     pub app_directory_repo: crate::app_directory::repo::AppDirectoryRepo,
     pub notification_repo: NotificationRepo,
     pub conversation_repo: ConversationRepo,

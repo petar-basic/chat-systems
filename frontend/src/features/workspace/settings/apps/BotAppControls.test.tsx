@@ -14,6 +14,18 @@ const removeMutate = vi.fn();
 const setScopesMutate = vi.fn();
 const configureMutate = vi.fn();
 const makeAppTokenMutate = vi.fn();
+const saveShortcutsMutate = vi.fn();
+const shortcuts = vi.hoisted(() => ({ listed: [] as Array<Record<string, unknown>> }));
+
+vi.mock('@/features/apps', () => ({
+  useBotAppShortcuts: () => ({ data: shortcuts.listed, dataUpdatedAt: 1 }),
+  useSaveBotAppShortcuts: () => ({
+    mutate: saveShortcutsMutate,
+    isPending: false,
+    isSuccess: false,
+    error: null,
+  }),
+}));
 
 vi.mock('@/features/workspace/hooks/useBotApps', () => ({
   useBotAppActions: () => ({
@@ -46,6 +58,7 @@ const app = (over: Partial<BotApp> = {}): BotApp => ({
   request_url: null,
   socket_mode: false,
   interactivity: false,
+  home_enabled: false,
   has_app_token: false,
   connected_sockets: 0,
   failing_since: null,
@@ -172,8 +185,54 @@ describe('BotAppControls', () => {
         request_url: 'https://bot.example.com/events',
         socket_mode: false,
         interactivity: true,
+        home_enabled: false,
       },
     });
+  });
+
+  it('turns the Home tab on and lets the app hear it being opened', () => {
+    renderControls();
+    fireEvent.click(screen.getByTestId('bot-app-home'));
+    fireEvent.click(screen.getByTestId('bot-app-event-app_home_opened'));
+    fireEvent.click(screen.getByTestId('bot-app-events-save'));
+
+    expect(configureMutate.mock.calls[0][0].settings).toMatchObject({
+      events: ['app_home_opened'],
+      home_enabled: true,
+    });
+  });
+
+  it('saves the shortcuts it adds, in order, and drops the ones removed', () => {
+    shortcuts.listed = [
+      {
+        id: 'sc-1',
+        app_id: 'app-1',
+        kind: 'global',
+        name: 'Old one',
+        description: 'Goes away',
+        callback_id: 'old',
+      },
+    ];
+    renderControls();
+    fireEvent.click(screen.getByTestId('bot-app-shortcut-remove'));
+    fireEvent.click(screen.getByTestId('bot-app-shortcut-add'));
+    fireEvent.change(screen.getByLabelText('Where'), { target: { value: 'message' } });
+    fireEvent.change(screen.getByLabelText('Callback ID'), { target: { value: 'ticket_from_message' } });
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Create ticket from message' } });
+    fireEvent.change(screen.getByLabelText('Description'), {
+      target: { value: 'Turn this message into a ticket' },
+    });
+    fireEvent.click(screen.getByTestId('bot-app-shortcuts-save'));
+
+    expect(saveShortcutsMutate).toHaveBeenCalledWith([
+      {
+        kind: 'message',
+        name: 'Create ticket from message',
+        description: 'Turn this message into a ticket',
+        callback_id: 'ticket_from_message',
+      },
+    ]);
+    shortcuts.listed = [];
   });
 
   it('an app in socket mode gets an app-level token shown once and no request URL', () => {

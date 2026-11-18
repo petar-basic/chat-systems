@@ -561,13 +561,16 @@
           "reaction_removed": "A reaction is removed in a channel it is in",
           "member_joined_channel": "Somebody joins a channel it is in",
           "channel_created": "A public channel is made",
-          "channel_archived": "A channel it is in is archived"
+          "channel_archived": "A channel it is in is archived",
+          "app_home_opened": "Somebody opens its Home tab"
         },
         "socketMode": "Socket mode",
         "socketModeHint": "The app opens a socket to this instance and takes its events and slash commands there, so it needs no public URL.",
         "interactivity": "Interactivity",
         "interactivitySocket": "Buttons, menus and modals in its messages reach the app over its socket. Off, they stay disabled.",
         "interactivityUrl": "Buttons, menus and modals in its messages are posted to the request URL. Off, they stay disabled.",
+        "home": "Home tab",
+        "homeHint": "Its conversation gets a Home tab, which the app fills for each person with views.publish.",
         "requestUrl": "Request URL",
         "requestUrlHint": "Events are posted here, signed with the signing secret. The URL has to answer a challenge before it is saved.",
         "save": "Save",
