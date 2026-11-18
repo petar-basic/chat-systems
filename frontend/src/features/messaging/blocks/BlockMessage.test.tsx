@@ -1,9 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ReactElement } from 'react';
 import { fireEvent, render as rtlRender, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ApiError } from '@/lib/errors';
 import { useWorkspaceStore, type Workspace } from '@/stores/workspace';
+import i18n from '@/lib/i18n';
 import { BlockMessage } from './BlockMessage';
 import { everyElement, githubActions, grafana, jenkins, laidOut, sentry } from './fixtures';
 
@@ -286,5 +287,75 @@ describe('BlockMessage from an app with interactivity on', () => {
     expect(approve).toHaveAttribute('data-tooltip', INERT);
     fireEvent.click(approve);
     expect(calls.post).not.toHaveBeenCalled();
+  });
+});
+
+describe('BlockMessage in Japanese', () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('ja');
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  const live = (name: string) =>
+    waitFor(() => expect(screen.getByRole('button', { name })).not.toHaveAttribute('aria-disabled'));
+
+  it('says why an element is dead, and what to pick where the app named nothing', () => {
+    render(
+      <BlockMessage
+        message={laidOut('', {
+          blocks: [
+            {
+              type: 'actions',
+              block_id: 'pick',
+              elements: [
+                { type: 'button', action_id: 'go', text: { type: 'plain_text', text: 'Go' } },
+                {
+                  type: 'static_select',
+                  action_id: 'one',
+                  options: [{ text: { type: 'plain_text', text: 'A' }, value: 'a' }],
+                },
+                { type: 'users_select', action_id: 'who' },
+                { type: 'conversations_select', action_id: 'where' },
+                { type: 'datepicker', action_id: 'when' },
+                {
+                  type: 'overflow',
+                  action_id: 'more',
+                  options: [{ text: { type: 'plain_text', text: 'B' }, value: 'b' }],
+                },
+              ],
+            },
+          ],
+        })}
+      />,
+    );
+
+    const actions = screen.getByTestId('block-actions');
+    expect(within(actions).getByRole('button', { name: 'Go' })).toHaveAttribute(
+      'data-tooltip',
+      'このアプリにはインタラクティブ機能が設定されていません',
+    );
+    expect(
+      within(actions)
+        .getAllByTestId('block-select')
+        .map((select) => select.textContent),
+    ).toEqual(['選択してください', 'メンバーを選択', '会話を選択', '日付を選択']);
+    expect(within(actions).getByRole('button', { name: 'その他のオプション' })).toBeInTheDocument();
+  });
+
+  it('says so when the app does not answer, or will not take it', async () => {
+    appsAre([DEPLOYER]);
+    calls.post.mockRejectedValueOnce(new ApiError(503, 'The app did not respond')).mockRejectedValueOnce({});
+    render(<BlockMessage message={deploy()} />);
+    await live('Approve');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    expect(await screen.findByTestId('block-failure')).toHaveTextContent('アプリから応答がありませんでした');
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('block-failure')).toHaveTextContent('アプリがこの操作を受け付けませんでした'),
+    );
   });
 });

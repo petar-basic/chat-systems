@@ -238,6 +238,29 @@
       "failed": "この会話を変換できませんでした"
     }
   },
+  "appHome": {
+    "tabs": "アプリのタブ",
+    "home": "ホーム",
+    "messages": "メッセージ",
+    "empty": "{{name}} は、まだホームタブを用意していません。"
+  },
+  "appShortcuts": {
+    "heading": "ショートカット",
+    "failed": "「{{name}}」を使えませんでした"
+  },
+  "blocks": {
+    "notInteractive": "このアプリにはインタラクティブ機能が設定されていません",
+    "more": "その他のオプション",
+    "select": "選択してください",
+    "selectPerson": "メンバーを選択",
+    "selectConversation": "会話を選択",
+    "selectDate": "日付を選択",
+    "noResponse": "アプリから応答がありませんでした",
+    "failed": "アプリがこの操作を受け付けませんでした",
+    "view": {
+      "back": "戻る"
+    }
+  },
   "hoverCard": {
     "paused": "通知を {{time}} まで一時停止中",
     "localTime": "現地時刻 {{time}}",

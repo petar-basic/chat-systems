@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import i18n from '@/lib/i18n';
 import { IntegrationsSection } from './IntegrationsSection';
 import type { Channel } from '@/stores/workspace';
 import type { Hook, HookSecrets } from '@/features/workspace/hooks/useHooks';
@@ -48,10 +49,12 @@ const channels = [
   { id: 'ch-2', name: 'secret', channel_type: 'private' },
 ] as Channel[];
 
-function renderPanel() {
+const hostile = '<img src=x onerror="alert(1)"> {{name}}';
+
+function renderPanel(list: Channel[] = channels) {
   render(
     <MemoryRouter>
-      <IntegrationsSection workspaceId="ws-1" instanceUrl="http://localhost:8080" channels={channels} />
+      <IntegrationsSection workspaceId="ws-1" instanceUrl="http://localhost:8080" channels={list} />
     </MemoryRouter>,
   );
 }
@@ -223,9 +226,203 @@ describe('IntegrationsSection', () => {
     expect(await screen.findByTestId('hook-secrets')).toHaveTextContent('tok-new');
   });
 
+  it('shows what an incoming webhook takes as code', () => {
+    renderPanel();
+    expect(screen.getByText('{"text":"…"}').tagName).toBe('CODE');
+  });
+
   it('offers nothing to turn on for a running hook', () => {
     hooks = [hook({})];
     renderPanel();
     expect(screen.queryByTestId('hook-enable')).toBeNull();
+  });
+});
+
+describe('IntegrationsSection in Japanese', () => {
+  const named = [
+    { id: 'ch-1', name: hostile, channel_type: 'public' },
+    { id: 'ch-2', name: 'secret', channel_type: 'private' },
+  ] as Channel[];
+
+  beforeEach(async () => {
+    hooks = [];
+    createMutate.mockReset();
+    deleteMutate.mockReset().mockResolvedValue(undefined);
+    enableMutate.mockReset();
+    revealMutate.mockReset();
+    rotateMutate.mockReset();
+    await i18n.changeLanguage('ja');
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('labels both kinds of webhook and their forms', () => {
+    renderPanel(named);
+
+    expect(screen.getByText('Incoming Webhook')).toBeInTheDocument();
+    expect(screen.getByText('Outgoing Webhook')).toBeInTheDocument();
+    const code = screen.getByText('{"text":"…"}');
+    expect(code.tagName).toBe('CODE');
+    expect(code.parentElement).toHaveTextContent(
+      '{"text":"…"} を送信できるサービスやツールから、チャンネルに投稿できます。',
+    );
+    expect(
+      screen.getByText(
+        '選んだチャンネルに投稿されたメッセージが、下に表示されるシークレットで署名され、指定した URL に POST で送信されます。そのチャンネルのメンバーは全員、この連携が設定されていることを確認できます。',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Incoming Webhook の名前')).toHaveAttribute(
+      'placeholder',
+      '名前（例: CI 通知）',
+    );
+    expect(screen.getByLabelText('Incoming Webhook の投稿先チャンネル')).toHaveTextContent(
+      '投稿先のチャンネル…',
+    );
+    expect(screen.getByRole('option', { name: `#${hostile}` })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Incoming Webhook を作成' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Outgoing Webhook の名前')).toHaveAttribute(
+      'placeholder',
+      '名前（例: デプロイボット）',
+    );
+    expect(screen.getByLabelText('Outgoing Webhook の送信先 URL')).toBeInTheDocument();
+    expect(screen.getByLabelText(`#${hostile}`)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Outgoing Webhook を作成' })).toBeInTheDocument();
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
+
+  it('names each webhook, its channels and its buttons as text', () => {
+    hooks = [
+      hook({ name: hostile }),
+      hook({
+        id: 'hook-2',
+        hook_type: 'outgoing_webhook',
+        name: 'Deploy bot',
+        config: { url: 'https://example.com/hooks/chat', channel_ids: ['ch-1', 'ch-2', 'ch-gone'] },
+      }),
+    ];
+    renderPanel(named);
+
+    const rows = screen.getAllByTestId('hook-row');
+    expect(within(rows[0]).getByTestId('hook-target')).toHaveTextContent(`#${hostile}`);
+    expect(within(rows[1]).getByTestId('hook-scope').textContent).toBe(
+      `転送先: #${hostile}、#secret、#不明なチャンネル`,
+    );
+    expect(within(rows[0]).getByRole('button', { name: `${hostile} の認証情報を表示` })).toHaveAttribute(
+      'data-tooltip',
+      '表示',
+    );
+    expect(within(rows[0]).getByRole('button', { name: `${hostile} の認証情報を再発行` })).toHaveAttribute(
+      'data-tooltip',
+      '再発行（古い値はすぐに使えなくなります）',
+    );
+    expect(within(rows[0]).getByRole('button', { name: `${hostile} を削除` })).toHaveAttribute(
+      'data-tooltip',
+      '削除',
+    );
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
+
+  it('says a webhook stopped, with and without a reason, and turns it on', async () => {
+    hooks = [
+      hook({ is_active: false, disabled_reason: "Its creator's account is suspended" }),
+      hook({ id: 'hook-2', is_active: false, disabled_reason: null, config: {} }),
+    ];
+    enableMutate.mockResolvedValue({ hook: hook({}), secrets: null });
+    renderPanel(named);
+
+    const rows = screen.getAllByTestId('hook-row');
+    expect(within(rows[0]).getByTestId('hook-inactive')).toHaveTextContent(
+      "停止中: its creator's account is suspended",
+    );
+    expect(within(rows[1]).getByTestId('hook-inactive').textContent).toBe('停止中');
+    expect(within(rows[1]).getByTestId('hook-target')).toHaveTextContent('#不明なチャンネル');
+    fireEvent.click(within(rows[0]).getByRole('button', { name: 'オンにする' }));
+    await waitFor(() => expect(enableMutate).toHaveBeenCalledWith('hook-1'));
+  });
+
+  it('shows the URL and the signing secret under Japanese labels', async () => {
+    hooks = [
+      hook({}),
+      hook({
+        id: 'hook-2',
+        hook_type: 'outgoing_webhook',
+        config: { url: 'https://example.com/hooks/chat', channel_ids: ['ch-1'] },
+      }),
+    ];
+    revealMutate.mockImplementation(async (id: string) =>
+      id === 'hook-1'
+        ? secrets({})
+        : secrets({
+            hook_id: 'hook-2',
+            hook_type: 'outgoing_webhook',
+            config: { secret: 's3cret' },
+            incoming_url: null,
+          }),
+    );
+    renderPanel(named);
+
+    const rows = screen.getAllByTestId('hook-row');
+    fireEvent.click(within(rows[0]).getByTestId('hook-reveal'));
+    expect(await within(rows[0]).findByText('Webhook の URL')).toBeInTheDocument();
+    fireEvent.click(within(rows[1]).getByTestId('hook-reveal'));
+    expect(await within(rows[1]).findByText('署名シークレット')).toBeInTheDocument();
+  });
+
+  it('asks before deleting either kind, naming it as text', () => {
+    hooks = [
+      hook({ name: hostile }),
+      hook({
+        id: 'hook-2',
+        hook_type: 'outgoing_webhook',
+        name: hostile,
+        config: { url: 'https://x.example' },
+      }),
+    ];
+    renderPanel(named);
+
+    const rows = screen.getAllByTestId('hook-row');
+    fireEvent.click(within(rows[0]).getByTestId('hook-delete'));
+    const incoming = screen.getByRole('dialog', { name: `${hostile} を削除しますか?` });
+    expect(within(incoming).getByText('この URL への投稿は、今後すべて拒否されます。')).toBeInTheDocument();
+    expect(within(incoming).getByRole('button', { name: '連携を削除' })).toBeInTheDocument();
+    fireEvent.click(within(incoming).getByRole('button', { name: 'キャンセル' }));
+
+    fireEvent.click(within(rows[1]).getByTestId('hook-delete'));
+    const outgoing = screen.getByRole('dialog', { name: `${hostile} を削除しますか?` });
+    expect(
+      within(outgoing).getByText('この URL には、メッセージが送信されなくなります。'),
+    ).toBeInTheDocument();
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
+
+  it('says what failed when the server gives no message', async () => {
+    hooks = [hook({}), hook({ id: 'hook-2', is_active: false })];
+    createMutate.mockRejectedValue({});
+    revealMutate.mockRejectedValue({});
+    rotateMutate.mockRejectedValue({});
+    enableMutate.mockRejectedValue({});
+    renderPanel(named);
+
+    fireEvent.change(screen.getByLabelText('Incoming Webhook の名前'), { target: { value: 'CI' } });
+    fireEvent.change(screen.getByLabelText('Incoming Webhook の投稿先チャンネル'), {
+      target: { value: 'ch-2' },
+    });
+    fireEvent.click(screen.getByTestId('incoming-hook-create'));
+    expect(await screen.findByText('Webhook を作成できませんでした。')).toBeInTheDocument();
+
+    const rows = screen.getAllByTestId('hook-row');
+    fireEvent.click(within(rows[0]).getByTestId('hook-reveal'));
+    expect(await screen.findByText('認証情報を表示できませんでした。')).toBeInTheDocument();
+    fireEvent.click(within(rows[0]).getByTestId('hook-rotate'));
+    expect(await screen.findByText('認証情報を再発行できませんでした。')).toBeInTheDocument();
+    fireEvent.click(within(rows[1]).getByTestId('hook-enable'));
+    expect(await screen.findByText('Webhook をオンにできませんでした。')).toBeInTheDocument();
+  });
+
+  it('says when there is no channel to forward', () => {
+    renderPanel([]);
+    expect(screen.getByText('転送できるチャンネルがありません。')).toBeInTheDocument();
   });
 });

@@ -147,9 +147,6 @@ describe('workspace settings strings', () => {
     [...new Set(keys.map((key) => key.replace(/_(one|other)$/, '')))].sort();
 
   const AWAITING_JAPANESE = [
-    'apps.events.home',
-    'apps.events.homeHint',
-    'apps.events.kinds.app_home_opened',
     'apps.events.kinds.link_shared',
     'apps.unfurls.add',
     'apps.unfurls.domain',

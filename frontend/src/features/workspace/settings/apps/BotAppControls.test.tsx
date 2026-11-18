@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import i18n from '@/lib/i18n';
 import { BotAppControls } from './BotAppControls';
 import type { BotApp, BotAppWithToken } from '@/features/workspace/hooks/useBotApps';
@@ -16,7 +16,11 @@ const configureMutate = vi.fn();
 const makeAppTokenMutate = vi.fn();
 const saveShortcutsMutate = vi.fn();
 const saveDomainsMutate = vi.fn();
-const shortcuts = vi.hoisted(() => ({ listed: [] as Array<Record<string, unknown>> }));
+const shortcuts = vi.hoisted(() => ({
+  listed: [] as Array<Record<string, unknown>>,
+  saved: false,
+  error: null as unknown,
+}));
 const domains = vi.hoisted(() => ({ listed: [] as string[] }));
 
 vi.mock('@/features/apps', () => ({
@@ -24,8 +28,8 @@ vi.mock('@/features/apps', () => ({
   useSaveBotAppShortcuts: () => ({
     mutate: saveShortcutsMutate,
     isPending: false,
-    isSuccess: false,
-    error: null,
+    isSuccess: shortcuts.saved,
+    error: shortcuts.error,
   }),
   useBotAppUnfurlDomains: () => ({ data: domains.listed, dataUpdatedAt: 1 }),
   useSaveBotAppUnfurlDomains: () => ({
@@ -412,5 +416,78 @@ describe('BotAppControls in Japanese', () => {
 
     expect(screen.getByTestId('bot-app-socket-count')).toHaveTextContent('開いているソケットはありません');
     expect(screen.getByRole('button', { name: 'アプリレベルトークンを作成' })).toBeInTheDocument();
+  });
+});
+
+describe('BotAppControls Home and shortcuts in Japanese', () => {
+  beforeEach(async () => {
+    saveShortcutsMutate.mockReset();
+    shortcuts.listed = [
+      {
+        id: 'sc-1',
+        app_id: 'app-1',
+        kind: 'message',
+        name: 'Ticket',
+        description: 'Make one',
+        callback_id: 'ticket',
+      },
+    ];
+    await i18n.changeLanguage('ja');
+  });
+
+  afterEach(async () => {
+    shortcuts.listed = [];
+    shortcuts.saved = false;
+    shortcuts.error = null;
+    await i18n.changeLanguage('en');
+  });
+
+  it('labels the Home tab and its event', () => {
+    renderControls();
+
+    expect(screen.getByLabelText('ホームタブ')).not.toBeChecked();
+    expect(
+      screen.getByText(
+        'このアプリとの会話に「ホーム」タブが追加され、アプリはユーザーごとに、その人に合わせたビューを表示できるようになります（アプリが views.publish で表示内容を送ります）。',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('誰かがこのアプリのホームタブを開いた')).toBeInTheDocument();
+  });
+
+  it('labels the shortcuts form', () => {
+    renderControls();
+
+    const form = screen.getByTestId('bot-app-shortcuts');
+    expect(within(form).getByText('ショートカット')).toBeInTheDocument();
+    expect(
+      within(form).getByText(
+        'グローバルショートカットは、メッセージ入力欄のショートカットメニューとクイックスイッチャーに表示されます。メッセージショートカットは、このアプリが参加している会話で、メッセージの「その他の操作」に表示されます。これらを使用すると、アプリに対してコールバック ID が送信されます。それぞれ最大5つまで設定可能です。',
+      ),
+    ).toBeInTheDocument();
+    const where = within(form).getByLabelText('表示する場所');
+    expect(where).toHaveValue('message');
+    expect(
+      within(where)
+        .getAllByRole('option')
+        .map((option: HTMLElement) => option.textContent),
+    ).toEqual(['グローバル', 'メッセージ']);
+    expect(within(form).getByLabelText('コールバック ID')).toHaveValue('ticket');
+    fireEvent.click(within(form).getByRole('button', { name: 'このショートカットを削除' }));
+    fireEvent.click(within(form).getByRole('button', { name: 'ショートカットを追加' }));
+    expect(within(form).getByLabelText('名前')).toHaveAttribute('placeholder', '新しい依頼');
+    expect(within(form).getByLabelText('説明')).toHaveAttribute('placeholder', 'ヘルプデスクに依頼する');
+    expect(within(form).getByRole('button', { name: 'ショートカットを保存' })).toBeInTheDocument();
+  });
+
+  it('says it saved', () => {
+    shortcuts.saved = true;
+    renderControls();
+    expect(screen.getByTestId('bot-app-shortcuts-saved')).toHaveTextContent('保存しました');
+  });
+
+  it('says what failed when the server gives no message', () => {
+    shortcuts.error = {};
+    renderControls();
+    expect(screen.getByRole('alert')).toHaveTextContent('ショートカットを保存できませんでした');
   });
 });

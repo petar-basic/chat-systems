@@ -595,6 +595,71 @@
         "save": "Save domains",
         "saved": "Saved",
         "failed": "The domains could not be saved"
+      },
+      "shortcuts": {
+        "title": "Shortcuts",
+        "intro": "Global shortcuts sit in the composer's shortcut menu and in the quick switcher; message shortcuts sit under More actions on messages in conversations the app is in. Using one sends the app its callback ID. At most {{max}} of each.",
+        "where": "Where",
+        "kinds": {
+          "global": "Global",
+          "message": "On a message"
+        },
+        "callbackId": "Callback ID",
+        "name": "Name",
+        "namePlaceholder": "New request",
+        "description": "Description",
+        "descriptionPlaceholder": "Ask the help desk for something",
+        "remove": "Remove this shortcut",
+        "add": "Add a shortcut",
+        "save": "Save shortcuts",
+        "saved": "Saved",
+        "failed": "The shortcuts could not be saved"
+      }
+    },
+    "integrations": {
+      "incoming": {
+        "title": "Incoming webhooks",
+        "intro": "Post into a channel from anything that can send <code>{\"text\":\"…\"}</code>.",
+        "nameLabel": "Incoming webhook name",
+        "namePlaceholder": "Name, e.g. CI alerts",
+        "channelLabel": "Incoming webhook channel",
+        "channelPlaceholder": "Post to channel…",
+        "create": "Create incoming webhook"
+      },
+      "outgoing": {
+        "title": "Outgoing webhooks",
+        "intro": "Messages in the channels you pick are POSTed to your URL, signed with the secret below. Everyone in those channels can see that the integration is attached.",
+        "nameLabel": "Outgoing webhook name",
+        "namePlaceholder": "Name, e.g. Deploy bot",
+        "urlLabel": "Outgoing webhook URL",
+        "noChannels": "No channels to forward.",
+        "create": "Create outgoing webhook"
+      },
+      "row": {
+        "noChannel": "#unknown channel",
+        "unknownChannel": "unknown",
+        "forwards": "Forwards",
+        "disabled": "Disabled",
+        "disabledReason": "Disabled — {{reason}}",
+        "turnOn": "Turn on",
+        "reveal": "Reveal",
+        "revealLabel": "Reveal credentials for {{name}}",
+        "rotate": "Rotate — the old value stops working immediately",
+        "rotateLabel": "Rotate credentials for {{name}}",
+        "delete": "Delete",
+        "deleteLabel": "Delete {{name}}",
+        "deleteTitle": "Delete {{name}}?",
+        "deleteIncoming": "Anything still posting to its URL will be refused.",
+        "deleteOutgoing": "Messages stop being sent to its URL.",
+        "deleteConfirm": "Delete integration",
+        "webhookUrl": "Webhook URL",
+        "signingSecret": "Signing secret"
+      },
+      "failed": {
+        "create": "Failed to create the webhook",
+        "reveal": "Failed to reveal the credentials",
+        "rotate": "Failed to rotate the credentials",
+        "turnOn": "Failed to turn the webhook on"
       }
     }
   }

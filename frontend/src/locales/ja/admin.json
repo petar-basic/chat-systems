@@ -162,6 +162,7 @@
         "token_rotated": "アプリのトークンを再発行",
         "removed": "アプリを削除",
         "called": "アプリが API を呼び出し",
+        "interaction": "ボタン、メニュー、フォームの操作をアプリに送信",
         "disabled": "アプリをオフ",
         "enabled": "アプリを再びオン"
       },

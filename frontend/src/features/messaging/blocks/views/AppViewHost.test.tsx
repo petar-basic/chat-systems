@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ApiError } from '@/lib/errors';
 import { useAppViewsStore, type AppView } from '@/stores/appViews';
+import i18n from '@/lib/i18n';
 import { AppViewHost } from './AppViewHost';
 
 const calls = { post: vi.fn() };
@@ -215,5 +216,33 @@ describe('AppViewHost', () => {
       value: undefined,
       values: { what: { text: ['A box'] }, when: { date: [] }, teams: { picked: ['web'] } },
     });
+  });
+});
+
+describe('AppViewHost in Japanese', () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('ja');
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('names its back button in Japanese', () => {
+    showing(request, details);
+    renderHost();
+
+    expect(screen.getByRole('button', { name: '戻る' })).toBeInTheDocument();
+  });
+
+  it('says so in Japanese when the app does not answer a submission', async () => {
+    calls.post.mockRejectedValue(new ApiError(503, 'The app did not respond'));
+    showing(request);
+    renderHost();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    expect(await screen.findByTestId('app-view-failure')).toHaveTextContent(
+      'アプリから応答がありませんでした',
+    );
   });
 });
