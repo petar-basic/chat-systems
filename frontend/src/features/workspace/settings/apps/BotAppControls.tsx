@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { RefreshCw, RotateCcw, Trash2 } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
 import { Checkbox } from '@/shared/components/Form/Checkbox';
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export function BotAppControls({ app, scopes: offered, onRemoved }: Props) {
+  const { t } = useTranslation('workspace');
   const { rotate, enable, remove, setScopes } = useBotAppActions(app.workspace_id);
   const [minted, setMinted] = useState<BotAppWithToken | null>(null);
   const [scopes, setChosen] = useState<BotScope[]>(app.scopes);
@@ -57,7 +59,7 @@ export function BotAppControls({ app, scopes: offered, onRemoved }: Props) {
             onClick={() => enable.mutate(app.id, { onSuccess: setMinted })}
             data-qa="bot-app-enable"
           >
-            Turn on
+            {t('settings.apps.bot.turnOn')}
           </Button>
         ) : (
           <Button
@@ -67,7 +69,7 @@ export function BotAppControls({ app, scopes: offered, onRemoved }: Props) {
             onClick={() => rotate.mutate(app.id, { onSuccess: setMinted })}
             data-qa="bot-app-rotate"
           >
-            Rotate token
+            {t('settings.apps.bot.rotate')}
           </Button>
         )}
         <Button
@@ -77,19 +79,20 @@ export function BotAppControls({ app, scopes: offered, onRemoved }: Props) {
           onClick={() => setConfirmRemove(true)}
           data-qa="bot-app-remove"
         >
-          Remove
+          {t('settings.apps.bot.remove')}
         </Button>
       </div>
       {stopped && !minted && (
         <p className="text-xs text-muted" data-qa="bot-app-stopped">
-          Turning it on gives it a new token and signing secret, and you become the person it acts for. The
-          token and secret it had stay refused.
+          {t('settings.apps.bot.stopped')}
         </p>
       )}
       {minted && <TokenReveal name={minted.name} token={minted.token} onDismiss={() => setMinted(null)} />}
 
       <form onSubmit={submit} className="space-y-2" data-qa="bot-app-scopes-form">
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted">Scopes</h4>
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted">
+          {t('settings.apps.bot.scopes')}
+        </h4>
         {offered.map(({ key, text }) => (
           <Checkbox
             key={key}
@@ -108,7 +111,7 @@ export function BotAppControls({ app, scopes: offered, onRemoved }: Props) {
           loading={setScopes.isPending}
           data-qa="bot-app-scopes-save"
         >
-          Save scopes
+          {t('settings.apps.bot.saveScopes')}
         </Button>
       </form>
 
@@ -116,15 +119,15 @@ export function BotAppControls({ app, scopes: offered, onRemoved }: Props) {
 
       {failure && (
         <p role="alert" className="text-sm text-danger">
-          {toUserMessage(failure, 'The app change failed')}
+          {toUserMessage(failure, t('settings.apps.bot.failed'))}
         </p>
       )}
       {consenting && (
         <ConsentDialog
-          title={`Give ${app.name} more access?`}
-          lead="Its token keeps working, and from now on the app will also be able to:"
+          title={t('settings.apps.bot.moreTitle', { name: app.name })}
+          lead={t('settings.apps.bot.moreLead')}
           permissions={offered.filter((p) => added.includes(p.key as BotScope))}
-          confirmLabel="Agree and save"
+          confirmLabel={t('settings.apps.bot.moreConfirm')}
           onConfirm={async () => {
             await save();
           }}
@@ -133,9 +136,9 @@ export function BotAppControls({ app, scopes: offered, onRemoved }: Props) {
       )}
       {confirmRemove && (
         <ConfirmDialog
-          title={`Remove ${app.name}?`}
-          description="Its token stops working at once, and its slash commands and webhooks are removed with it. What it posted stays."
-          confirmLabel="Remove app"
+          title={t('settings.apps.bot.removeTitle', { name: app.name })}
+          description={t('settings.apps.bot.removeDescription')}
+          confirmLabel={t('settings.apps.bot.removeConfirm')}
           onConfirm={async () => {
             await remove.mutateAsync(app.id);
             onRemoved();

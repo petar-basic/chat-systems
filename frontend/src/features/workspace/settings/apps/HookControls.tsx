@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { RefreshCw, RotateCcw, Trash2 } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog/ConfirmDialog';
@@ -13,24 +14,20 @@ import {
 } from '@/features/workspace/hooks/useHooks';
 import type { InstalledApp } from '@/features/workspace/hooks/useAppDirectory';
 
+type UrlNote = 'reinstallNote' | 'rotateNote';
+
 interface Minted {
-  label: string;
+  label: 'webhookUrl' | 'signingSecret';
   value: string;
-  note: string;
+  note: UrlNote | 'secretNote';
 }
 
-function mintedFrom(secrets: HookSecrets | null | undefined, note: string): Minted | null {
+function mintedFrom(secrets: HookSecrets | null | undefined, note: UrlNote): Minted | null {
   if (secrets?.incoming_url) {
-    return { label: 'Webhook URL', value: secrets.incoming_url, note };
+    return { label: 'webhookUrl', value: secrets.incoming_url, note };
   }
   const secret = (secrets?.config as { secret?: unknown } | undefined)?.secret;
-  return typeof secret === 'string'
-    ? {
-        label: 'Signing secret',
-        value: secret,
-        note: 'Copy it now: it is not shown again. It signs everything sent from now on.',
-      }
-    : null;
+  return typeof secret === 'string' ? { label: 'signingSecret', value: secret, note: 'secretNote' } : null;
 }
 
 interface Props {
@@ -40,6 +37,7 @@ interface Props {
 }
 
 export function HookControls({ workspaceId, app, onRemoved }: Props) {
+  const { t } = useTranslation('workspace');
   const instanceUrl = useWorkspaceStore((s) => s.currentWorkspace?.instanceUrl);
   const enable = useEnableHook(workspaceId, instanceUrl);
   const rotate = useRotateHook(instanceUrl);
@@ -59,18 +57,12 @@ export function HookControls({ workspaceId, app, onRemoved }: Props) {
             loading={enable.isPending}
             onClick={() =>
               enable.mutate(app.id, {
-                onSuccess: (turnedOn) =>
-                  setMinted(
-                    mintedFrom(
-                      turnedOn.secrets,
-                      'Copy it now: it is not shown again. The URL it had before no longer works.',
-                    ),
-                  ),
+                onSuccess: (turnedOn) => setMinted(mintedFrom(turnedOn.secrets, 'reinstallNote')),
               })
             }
             data-qa="app-reinstall"
           >
-            Reinstall
+            {t('settings.apps.hook.reinstall')}
           </Button>
         )}
         {app.kind === 'incoming_webhook' && (
@@ -80,15 +72,12 @@ export function HookControls({ workspaceId, app, onRemoved }: Props) {
             loading={rotate.isPending}
             onClick={() =>
               rotate.mutate(app.id, {
-                onSuccess: (made) =>
-                  setMinted(
-                    mintedFrom(made, 'Copy it now: it is not shown again. The old URL stopped working.'),
-                  ),
+                onSuccess: (made) => setMinted(mintedFrom(made, 'rotateNote')),
               })
             }
             data-qa="app-rotate"
           >
-            Rotate URL
+            {t('settings.apps.hook.rotate')}
           </Button>
         )}
         <Button
@@ -98,25 +87,25 @@ export function HookControls({ workspaceId, app, onRemoved }: Props) {
           onClick={() => setConfirmRemove(true)}
           data-qa="app-remove"
         >
-          Remove
+          {t('settings.apps.hook.remove')}
         </Button>
       </div>
       {minted && (
         <div data-qa="app-rotated-url">
-          <CopyField label={minted.label} value={minted.value} />
-          <p className="mt-1 text-xs text-muted">{minted.note}</p>
+          <CopyField label={t(`settings.apps.hook.${minted.label}`)} value={minted.value} />
+          <p className="mt-1 text-xs text-muted">{t(`settings.apps.hook.${minted.note}`)}</p>
         </div>
       )}
       {failure && (
         <p role="alert" className="text-sm text-danger">
-          {toUserMessage(failure, 'The change failed')}
+          {toUserMessage(failure, t('settings.apps.changeFailed'))}
         </p>
       )}
       {confirmRemove && (
         <ConfirmDialog
-          title={`Remove ${app.name}?`}
-          description="It stops at once. What it already posted stays."
-          confirmLabel="Remove"
+          title={t('settings.apps.hook.removeTitle', { name: app.name })}
+          description={t('settings.apps.hook.removeDescription')}
+          confirmLabel={t('settings.apps.hook.remove')}
           onConfirm={async () => {
             await remove.mutateAsync(app.id);
             onRemoved();

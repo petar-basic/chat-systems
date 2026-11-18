@@ -1,9 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import i18n from '@/lib/i18n';
 import { BotAppControls } from './BotAppControls';
 import type { BotApp, BotAppWithToken } from '@/features/workspace/hooks/useBotApps';
 
 type Options = { onSuccess?: (app: BotAppWithToken) => void };
+
+const hostile = '<img src=x onerror="alert(1)"> {{name}}';
 
 const rotateMutate = vi.fn();
 const enableMutate = vi.fn();
@@ -187,5 +190,128 @@ describe('BotAppControls', () => {
     renderControls({ failing_since: '2026-10-29T10:00:00Z', last_failure: 'The request URL answered 503' });
 
     expect(screen.getByTestId('bot-app-failing')).toHaveTextContent('answered 503');
+  });
+});
+
+describe('BotAppControls sockets in English', () => {
+  it('counts one open socket in the singular', () => {
+    renderControls({ socket_mode: true, connected_sockets: 1 });
+    expect(screen.getByTestId('bot-app-socket-count')).toHaveTextContent('1 socket open');
+  });
+});
+
+describe('BotAppControls in Japanese', () => {
+  beforeEach(async () => {
+    setScopesMutate.mockReset().mockResolvedValue({});
+    await i18n.changeLanguage('ja');
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('explains a stopped app, its scopes and its events', () => {
+    renderControls({
+      name: hostile,
+      disabled_at: '2026-10-29T00:00:00Z',
+      failing_since: '2026-10-29T10:00:00Z',
+      last_failure: 'The request URL answered 503',
+    });
+
+    expect(screen.getByRole('button', { name: 'オンにする' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '削除' })).toBeInTheDocument();
+    expect(screen.getByTestId('bot-app-stopped')).toHaveTextContent(
+      'オンにすると、新しいトークンと署名シークレットが発行され、このアプリは、オンにしたあなたの代わりとして動くようになります。前のトークンとシークレットは、使えないままです。',
+    );
+    expect(screen.getByText('スコープ')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'スコープを保存' })).toBeDisabled();
+    expect(screen.getByTestId('bot-app-failing')).toHaveTextContent(
+      /^.+ からエラーが発生しています: The request URL answered 503$/,
+    );
+    expect(screen.getByText('イベント')).toBeInTheDocument();
+    expect(screen.getByText('誰かがこのアプリをメンションした')).toBeInTheDocument();
+    expect(screen.getByText('公開チャンネルが作られた')).toBeInTheDocument();
+    expect(screen.getByLabelText('ソケットモード')).not.toBeChecked();
+    expect(
+      screen.getByText(
+        'アプリがこのサーバーにソケットを開き、イベントとスラッシュコマンドをそこで受け取ります。そのため、公開された URL は要りません。',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/リクエスト URL/)).toBeInTheDocument();
+    expect(screen.getByLabelText('インタラクティブ機能')).not.toBeChecked();
+    expect(
+      screen.getByText(
+        'このアプリのメッセージにあるボタン、メニュー、モーダルの操作が、リクエスト URL に送られます。オフのときは、どれも使えません。',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '保存' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '署名シークレットを表示' })).toBeInTheDocument();
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
+
+  it('turns it on, and hands the token over once', () => {
+    renderControls({ name: hostile, disabled_at: '2026-10-29T00:00:00Z' });
+    enableMutate.mockImplementation((_id: string, options?: Options) =>
+      options?.onSuccess?.({ ...app({ name: hostile }), token: 'cbot-turned-on' }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'オンにする' }));
+
+    expect(
+      screen.getByText(
+        `${hostile} のトークンを今すぐコピーしてください。二度と表示されず、あとから誰も読み出せません。`,
+      ),
+    ).toBeInTheDocument();
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
+
+  it('asks before giving more access, and before removing it, naming it as text', async () => {
+    renderControls({ name: hostile });
+    expect(screen.getByRole('button', { name: 'トークンを再発行' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('bot-app-scope-edit-users:read'));
+    fireEvent.click(screen.getByRole('button', { name: 'スコープを保存' }));
+    expect(await screen.findByText(`${hostile} にできることを増やしますか?`)).toBeInTheDocument();
+    expect(
+      screen.getByText('トークンはそのまま使えます。これからは、次のこともできるようになります:'),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '同意して保存' }));
+    await waitFor(() => expect(setScopesMutate).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByRole('button', { name: '削除' }));
+    expect(await screen.findByText(`${hostile} を削除しますか?`)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'トークンはすぐに使えなくなり、このアプリのスラッシュコマンドと Webhook も一緒に削除されます。投稿した内容は残ります。',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'アプリを削除' })).toBeInTheDocument();
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
+
+  it('counts sockets and hands an app-level token over once', () => {
+    renderControls({ socket_mode: true, connected_sockets: 2, has_app_token: true });
+
+    expect(screen.queryByLabelText(/リクエスト URL/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'このアプリのメッセージにあるボタン、メニュー、モーダルの操作が、ソケットを通じてアプリに届きます。オフのときは、どれも使えません。',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('bot-app-socket-count')).toHaveTextContent('開いているソケット: 2個');
+    expect(screen.getByRole('button', { name: '無効化' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'アプリレベルトークンを再発行' }));
+    expect(
+      screen.getByText(
+        '今すぐコピーしてください。二度と表示されません。このトークンはソケットを開くためだけのもので、新しく発行すると、古いトークンで開いたソケットはすべて閉じます。',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('アプリレベルトークン')).toBeInTheDocument();
+  });
+
+  it('says when no socket is open, and offers the first app-level token', () => {
+    renderControls({ socket_mode: true });
+
+    expect(screen.getByTestId('bot-app-socket-count')).toHaveTextContent('開いているソケットはありません');
+    expect(screen.getByRole('button', { name: 'アプリレベルトークンを作成' })).toBeInTheDocument();
   });
 });
