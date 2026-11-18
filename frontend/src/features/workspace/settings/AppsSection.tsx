@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChevronRight, Hammer } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
 import { QueryState } from '@/shared/components/QueryState/QueryState';
@@ -25,6 +26,7 @@ interface Props {
 }
 
 export function AppsSection({ workspaceId, initialApp = null }: Props) {
+  const { t } = useTranslation('workspace');
   const directory = useAppDirectory(workspaceId);
   const apps = useApps(workspaceId);
   const [open, setOpen] = useState<AppRef | null>(initialApp);
@@ -41,7 +43,7 @@ export function AppsSection({ workspaceId, initialApp = null }: Props) {
             void directory.refetch();
             void apps.refetch();
           }}
-          errorMessage="Couldn't load the apps."
+          errorMessage={t('settings.apps.loadFailed')}
         >
           {data &&
             (selected ? (
@@ -80,6 +82,7 @@ function Directory({
   missing: boolean;
   onOpen: (ref: AppRef) => void;
 }) {
+  const { t } = useTranslation('workspace');
   const isAdmin = directory.can_manage;
   const [building, setBuilding] = useState(false);
 
@@ -87,18 +90,16 @@ function Directory({
     <>
       {missing && (
         <p className="text-sm text-muted" data-qa="app-directory-missing">
-          That app is no longer installed.
+          {t('settings.apps.missing')}
         </p>
       )}
       <section className="space-y-2" data-qa="app-directory-installed">
         <div>
-          <h3 className="text-sm font-semibold text-fg-soft">Installed</h3>
-          <p className="text-xs text-muted">
-            Everything connected to this workspace: who added it, what it can do and whether it is working.
-          </p>
+          <h3 className="text-sm font-semibold text-fg-soft">{t('settings.apps.installed')}</h3>
+          <p className="text-xs text-muted">{t('settings.apps.installedHint')}</p>
         </div>
         {directory.installed.length === 0 ? (
-          <p className="text-sm text-muted">Nothing is connected yet.</p>
+          <p className="text-sm text-muted">{t('settings.apps.nothingInstalled')}</p>
         ) : (
           directory.installed.map((app) => (
             <InstalledRow key={`${app.kind}:${app.id}`} app={app} onOpen={() => onOpen(app)} />
@@ -108,11 +109,8 @@ function Directory({
 
       <section className="space-y-3" data-qa="app-directory-available">
         <div>
-          <h3 className="text-sm font-semibold text-fg-soft">Available</h3>
-          <p className="text-xs text-muted">
-            Connected apps turn links into cards with live details. Each person connects their own account, so
-            a card only ever shows what the person who posted the link can see.
-          </p>
+          <h3 className="text-sm font-semibold text-fg-soft">{t('settings.apps.available')}</h3>
+          <p className="text-xs text-muted">{t('settings.apps.availableHint')}</p>
         </div>
         {statuses.map((status) => (
           <ConnectedAppCard
@@ -132,14 +130,12 @@ function Directory({
           <div className="flex items-start gap-3">
             <Hammer className="mt-0.5 h-5 w-5 shrink-0 text-accent-soft" />
             <div className="min-w-0 flex-1">
-              <h3 className="text-sm font-semibold text-fg">Build an app</h3>
-              <p className="text-xs text-muted">
-                A bot user and a token for something your team writes itself.
-              </p>
+              <h3 className="text-sm font-semibold text-fg">{t('settings.apps.build')}</h3>
+              <p className="text-xs text-muted">{t('settings.apps.buildHint')}</p>
             </div>
             {isAdmin && !building && (
               <Button size="sm" onClick={() => setBuilding(true)} data-qa="app-directory-build-open">
-                Build
+                {t('settings.apps.buildOpen')}
               </Button>
             )}
           </div>
@@ -157,7 +153,8 @@ function Directory({
 }
 
 function InstalledRow({ app, onOpen }: { app: InstalledApp; onOpen: () => void }) {
-  const { label, Icon } = KINDS[app.kind];
+  const { t } = useTranslation('workspace');
+  const Icon = KINDS[app.kind];
   return (
     <button
       onClick={onOpen}
@@ -172,7 +169,7 @@ function InstalledRow({ app, onOpen }: { app: InstalledApp; onOpen: () => void }
           <HealthBadge health={app.health} />
         </div>
         <div className="truncate text-xs text-muted">
-          {label} · {displayNameOf(app.added_by_name)} · {channelText(app)}
+          {t(`settings.apps.kinds.${app.kind}`)} · {displayNameOf(app.added_by_name)} · {channelText(app)}
         </div>
       </div>
       <ChevronRight className="h-4 w-4 shrink-0 text-muted" />

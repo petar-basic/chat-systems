@@ -417,6 +417,93 @@
       "people_other": "{{count}} people",
       "deleteNamed": "Delete @{{handle}}",
       "empty": "No groups yet. A group gives a team one handle to mention."
+    },
+    "apps": {
+      "loadFailed": "Couldn't load the apps.",
+      "missing": "That app is no longer installed.",
+      "installed": "Installed",
+      "installedHint": "Everything connected to this workspace: who added it, what it can do and whether it is working.",
+      "nothingInstalled": "Nothing is connected yet.",
+      "available": "Available",
+      "availableHint": "Connected apps turn links into cards with live details. Each person connects their own account, so a card only ever shows what the person who posted the link can see.",
+      "build": "Build an app",
+      "buildHint": "A bot user and a token for something your team writes itself.",
+      "buildOpen": "Build",
+      "kinds": {
+        "connected_app": "Connected app",
+        "bot_app": "App",
+        "incoming_webhook": "Incoming webhook",
+        "outgoing_webhook": "Outgoing webhook",
+        "slash_command": "Slash command",
+        "workflow": "Workflow"
+      },
+      "everyChannel": "Every channel",
+      "noChannels": "No channels",
+      "hiddenChannels_one": "{{count}} private channel you are not in",
+      "hiddenChannels_other": "{{count}} private channels you are not in",
+      "health": {
+        "off": "Off",
+        "disabled": "Turned off",
+        "failing": "Failing"
+      },
+      "card": {
+        "connected": "Connected",
+        "notSetUp": "Not set up",
+        "off": "Off",
+        "disconnect": "Disconnect",
+        "connect": "Connect my account",
+        "promptsOff": "Prompts off",
+        "turnOn": "Turn on",
+        "turnedOff": "An admin has turned this app off.",
+        "askAdmin": "Ask a workspace admin to set this app up.",
+        "hideSetup": "Hide setup",
+        "editSetup": "Edit setup",
+        "setUp": "Set up"
+      },
+      "setup": {
+        "console": "Open the developer console",
+        "callbackUrl": "Callback URL",
+        "scopes": "Scopes",
+        "reuse": "Use the {{name}} app",
+        "reuseHint": "Add the {{api}} API to it first.",
+        "clientId": "Client ID",
+        "secret": "Secret",
+        "secretStored": "Stored — leave blank to keep it",
+        "enabled": "On for this workspace",
+        "save": "Save",
+        "removeConfirm": "Remove, and disconnect everyone",
+        "remove": "Remove app",
+        "installTitle": "Install {{name}}?",
+        "installLead": "Nobody can connect an account until you agree. For each person who connects, it will be able to:",
+        "installConfirm": "Agree and install"
+      },
+      "consentNothing": "Nothing beyond being listed here.",
+      "request": {
+        "title": "Ask for an app",
+        "hint": "Only an admin can add one. Your request lands in their notifications.",
+        "name": "What should be added?",
+        "reason": "Why",
+        "send": "Send request",
+        "sent": "Asked the admins for {{name}}.",
+        "failed": "The request was not sent"
+      },
+      "make": {
+        "intro": "An app has a bot user and a token of its own. It reads and writes only in the channels it is added to, with the scopes given here. The API it calls is described in the bot API guide.",
+        "name": "App name",
+        "namePlaceholder": "Deploy bot",
+        "description": "Description",
+        "scopes": "Scopes",
+        "create": "Create app",
+        "failed": "The app could not be made",
+        "consentTitle": "Install {{name}}?",
+        "consentLead": "Its token is made when you agree. With it, the app will be able to:",
+        "consentConfirm": "Agree and make the token"
+      },
+      "token": {
+        "copyNow": "Copy {{name}}'s token now. It is not shown again, and nobody can read it back later.",
+        "label": "Bot token",
+        "stored": "I have stored it"
+      }
     }
   }
 }

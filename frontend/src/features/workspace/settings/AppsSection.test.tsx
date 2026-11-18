@@ -1,8 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
+import i18n from '@/lib/i18n';
 import { AppsSection } from './AppsSection';
 import type { AppDirectory, InstalledApp } from '@/features/workspace/hooks/useAppDirectory';
 import type { BotAppWithToken, NewBotApp } from '@/features/workspace/hooks/useBotApps';
+
+const hostile = '<img src=x onerror="alert(1)"> {{name}}';
 
 const requestMutate = vi.fn();
 const createMutate = vi.fn();
@@ -200,5 +203,144 @@ describe('AppsSection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     await waitFor(() => expect(screen.queryByTestId('app-consent-permissions')).not.toBeInTheDocument());
     expect(createMutate).not.toHaveBeenCalled();
+  });
+});
+
+describe('AppsSection channels in English', () => {
+  it('counts more than one hidden channel in the plural', () => {
+    directory = { ...directory, installed: [installed({ hidden_channels: 2 })] };
+    render(<AppsSection workspaceId="ws-1" />);
+
+    expect(rows()[0]).toHaveTextContent(
+      'Incoming webhook · Ana · #deploys, 2 private channels you are not in',
+    );
+  });
+});
+
+describe('AppsSection in Japanese', () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('ja');
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('lists what is installed, and names it all as text', () => {
+    directory = {
+      ...directory,
+      installed: [
+        installed({
+          name: hostile,
+          added_by_name: hostile,
+          channels: [{ id: 'ch-1', name: hostile }],
+          hidden_channels: 1,
+          health: { state: 'disabled', reason: 'Its URL kept failing', since: '2026-10-29T11:00:00Z' },
+        }),
+        installed({ kind: 'workflow', id: 'w-1', every_channel: true, health: { state: 'failing' } }),
+        installed({ kind: 'slash_command', id: 's-1', channels: [], health: { state: 'off' } }),
+        installed({ kind: 'outgoing_webhook', id: 'o-1' }),
+        installed({ kind: 'bot_app', id: 'b-1' }),
+        installed({ kind: 'connected_app', id: 'c-1' }),
+      ],
+    };
+    render(<AppsSection workspaceId="ws-1" />);
+
+    expect(screen.getByText('インストール済み')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'このワークスペースにつながっているものすべてです。追加した人、できること、正しく動いているかが分かります。',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('利用できるアプリ')).toBeInTheDocument();
+    expect(screen.getByText('アプリを作る')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '作る' })).toBeInTheDocument();
+
+    const [hook, workflow, command, outgoing, bot, connected] = rows();
+    expect(within(hook).getByText(hostile)).toBeInTheDocument();
+    expect(hook).toHaveTextContent(
+      `Incoming Webhook · ${hostile} · #${hostile}、参加していない非公開チャンネル 1個`,
+    );
+    expect(within(hook).getByTestId('app-health')).toHaveTextContent('停止中');
+    expect(workflow).toHaveTextContent('ワークフロー · Ana · すべてのチャンネル');
+    expect(within(workflow).getByTestId('app-health')).toHaveTextContent('エラー発生中');
+    expect(command).toHaveTextContent('スラッシュコマンド · Ana · チャンネルなし');
+    expect(within(command).getByTestId('app-health')).toHaveTextContent('オフ');
+    expect(outgoing).toHaveTextContent('Outgoing Webhook · Ana');
+    expect(bot).toHaveTextContent('アプリ · Ana');
+    expect(connected).toHaveTextContent('接続アプリ · Ana');
+    expect(document.querySelector('[onerror]')).toBeNull();
+
+    fireEvent.click(hook);
+    expect(screen.getByTestId('app-page')).toHaveTextContent('Incoming Webhook');
+    expect(screen.getByTestId('app-page-channels')).toHaveTextContent(
+      `#${hostile}、参加していない非公開チャンネル 1個`,
+    );
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
+
+  it('says when nothing is installed, or the linked app is gone', () => {
+    directory = { ...directory, installed: [] };
+    render(<AppsSection workspaceId="ws-1" initialApp={{ kind: 'bot_app', id: 'gone' }} />);
+
+    expect(screen.getByText('まだ何もつながっていません。')).toBeInTheDocument();
+    expect(screen.getByTestId('app-directory-missing')).toHaveTextContent(
+      'そのアプリは、もうインストールされていません。',
+    );
+  });
+
+  it('lets a member ask for an app, and names it as text', () => {
+    directory = { ...directory, can_manage: false };
+    requestMutate.mockImplementation((_req: unknown, options?: { onSuccess?: () => void }) =>
+      options?.onSuccess?.(),
+    );
+    render(<AppsSection workspaceId="ws-1" />);
+
+    expect(screen.getByText('アプリをリクエスト')).toBeInTheDocument();
+    expect(
+      screen.getByText('アプリを追加できるのは管理者だけです。リクエストは管理者の通知に届きます。'),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/理由/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('追加してほしいアプリ'), { target: { value: hostile } });
+    fireEvent.click(screen.getByRole('button', { name: 'リクエストを送信' }));
+
+    expect(screen.getByTestId('app-request-sent').textContent).toBe(
+      `${hostile} を管理者にリクエストしました。`,
+    );
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
+
+  it('asks before making an app, and hands its token over once', async () => {
+    render(<AppsSection workspaceId="ws-1" />);
+    fireEvent.click(screen.getByRole('button', { name: '作る' }));
+
+    expect(
+      screen.getByText(
+        'アプリには、専用のボットユーザーとトークンがあります。読み書きできるのは追加されたチャンネルの中だけで、ここで選んだスコープの範囲に限られます。呼び出す API は、ボット API のガイドで説明しています。',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/説明/)).toBeInTheDocument();
+    expect(screen.getByText('スコープ')).toBeInTheDocument();
+    const name = screen.getByLabelText('アプリの名前');
+    expect(name).toHaveAttribute('placeholder', 'デプロイ用ボット');
+    fireEvent.change(name, { target: { value: hostile } });
+    fireEvent.click(screen.getByRole('button', { name: 'アプリを作成' }));
+
+    expect(await screen.findByText(`${hostile} をインストールしますか?`)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        '同意すると、トークンが作られます。このトークンで、アプリは次のことができるようになります:',
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '同意してトークンを作成' }));
+
+    expect(
+      await screen.findByText(
+        `${hostile} のトークンを今すぐコピーしてください。二度と表示されず、あとから誰も読み出せません。`,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('ボットのトークン')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '安全な場所に保存しました' })).toBeInTheDocument();
+    expect(document.querySelector('[onerror]')).toBeNull();
   });
 });
