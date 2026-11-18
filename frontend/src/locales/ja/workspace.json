@@ -568,6 +568,52 @@
         "appTokenNote": "今すぐコピーしてください。二度と表示されません。このトークンはソケットを開くためだけのもので、新しく発行すると、古いトークンで開いたソケットはすべて閉じます。",
         "appToken": "アプリレベルトークン"
       }
+    },
+    "integrations": {
+      "incoming": {
+        "title": "Incoming Webhook",
+        "intro": "<code>{\"text\":\"…\"}</code> を送信できるサービスやツールから、チャンネルに投稿できます。",
+        "nameLabel": "Incoming Webhook の名前",
+        "namePlaceholder": "名前（例: CI 通知）",
+        "channelLabel": "Incoming Webhook の投稿先チャンネル",
+        "channelPlaceholder": "投稿先のチャンネル…",
+        "create": "Incoming Webhook を作成"
+      },
+      "outgoing": {
+        "title": "Outgoing Webhook",
+        "intro": "選んだチャンネルに投稿されたメッセージが、下に表示されるシークレットで署名され、指定した URL に POST で送信されます。そのチャンネルのメンバーは全員、この連携が設定されていることを確認できます。",
+        "nameLabel": "Outgoing Webhook の名前",
+        "namePlaceholder": "名前（例: デプロイボット）",
+        "urlLabel": "Outgoing Webhook の送信先 URL",
+        "noChannels": "転送できるチャンネルがありません。",
+        "create": "Outgoing Webhook を作成"
+      },
+      "row": {
+        "noChannel": "#不明なチャンネル",
+        "unknownChannel": "不明なチャンネル",
+        "forwards": "転送先:",
+        "disabled": "停止中",
+        "disabledReason": "停止中: {{reason}}",
+        "turnOn": "オンにする",
+        "reveal": "表示",
+        "revealLabel": "{{name}} の認証情報を表示",
+        "rotate": "再発行（古い値はすぐに使えなくなります）",
+        "rotateLabel": "{{name}} の認証情報を再発行",
+        "delete": "削除",
+        "deleteLabel": "{{name}} を削除",
+        "deleteTitle": "{{name}} を削除しますか?",
+        "deleteIncoming": "この URL への投稿は、今後すべて拒否されます。",
+        "deleteOutgoing": "この URL には、メッセージが送信されなくなります。",
+        "deleteConfirm": "連携を削除",
+        "webhookUrl": "Webhook の URL",
+        "signingSecret": "署名シークレット"
+      },
+      "failed": {
+        "create": "Webhook を作成できませんでした。",
+        "reveal": "認証情報を表示できませんでした。",
+        "rotate": "認証情報を再発行できませんでした。",
+        "turnOn": "Webhook をオンにできませんでした。"
+      }
     }
   }
 }
