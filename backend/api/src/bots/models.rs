@@ -26,10 +26,14 @@ pub enum Scope {
     UsersRead,
     #[serde(rename = "commands")]
     Commands,
+    #[serde(rename = "links:read")]
+    LinksRead,
+    #[serde(rename = "links:write")]
+    LinksWrite,
 }
 
 impl Scope {
-    pub const ALL: [Scope; 10] = [
+    pub const ALL: [Scope; 12] = [
         Scope::ChatWrite,
         Scope::ChatWritePublic,
         Scope::ChannelsRead,
@@ -40,6 +44,8 @@ impl Scope {
         Scope::FilesWrite,
         Scope::UsersRead,
         Scope::Commands,
+        Scope::LinksRead,
+        Scope::LinksWrite,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -54,6 +60,8 @@ impl Scope {
             Scope::FilesWrite => "files:write",
             Scope::UsersRead => "users:read",
             Scope::Commands => "commands",
+            Scope::LinksRead => "links:read",
+            Scope::LinksWrite => "links:write",
         }
     }
 
@@ -73,6 +81,8 @@ impl Scope {
             Scope::FilesWrite => "Upload files",
             Scope::UsersRead => "Look people up in the workspace",
             Scope::Commands => "Own slash commands",
+            Scope::LinksRead => "See links to its domains that are posted where it is a member",
+            Scope::LinksWrite => "Show its own previews of links to its domains",
         }
     }
 }
@@ -88,10 +98,11 @@ pub enum AppEvent {
     ChannelCreated,
     ChannelArchived,
     AppHomeOpened,
+    LinkShared,
 }
 
 impl AppEvent {
-    pub const ALL: [AppEvent; 8] = [
+    pub const ALL: [AppEvent; 9] = [
         AppEvent::Message,
         AppEvent::AppMention,
         AppEvent::ReactionAdded,
@@ -100,6 +111,7 @@ impl AppEvent {
         AppEvent::ChannelCreated,
         AppEvent::ChannelArchived,
         AppEvent::AppHomeOpened,
+        AppEvent::LinkShared,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -112,6 +124,7 @@ impl AppEvent {
             AppEvent::ChannelCreated => "channel_created",
             AppEvent::ChannelArchived => "channel_archived",
             AppEvent::AppHomeOpened => "app_home_opened",
+            AppEvent::LinkShared => "link_shared",
         }
     }
 

@@ -65,6 +65,7 @@ export const QUERY_KEYS = {
   botApps: (workspaceId: string) => ['bot-apps', workspaceId] as const,
   activeApps: (workspaceId: string) => ['bot-apps', workspaceId, 'active'] as const,
   botAppShortcuts: (appId: string) => ['bot-app-shortcuts', appId] as const,
+  botAppUnfurlDomains: (appId: string) => ['bot-app-unfurl-domains', appId] as const,
   appHomeAll: () => ['app-home'] as const,
   appHome: (appId: string) => ['app-home', appId] as const,
 

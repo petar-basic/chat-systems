@@ -3,6 +3,10 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import i18n from '@/lib/i18n';
 import { LinkPreviews } from './LinkPreviews';
 
+vi.mock('@/features/instance/hooks/useAuth', () => ({
+  useCurrentUser: () => ({ data: { id: 'user-self' } }),
+}));
+
 const jira = {
   url: 'https://acme.atlassian.net/browse/PT-262',
   title: 'Focus Axon planning',
@@ -71,6 +75,63 @@ describe('LinkPreviews', () => {
       'src',
       'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1&start=90',
     );
+  });
+
+  it('draws an app preview in its blocks under the app name', () => {
+    const onHide = vi.fn();
+    render(
+      <LinkPreviews
+        unfurls={[
+          {
+            url: 'https://tracker.example.com/issues/7',
+            title: 'Tracker',
+            description: null,
+            site_name: 'Tracker',
+            image_url: null,
+            kind: 'blocks',
+            app: { id: 'app-1', bot_user_id: 'bot-1', name: 'Tracker', icon_url: null },
+            blocks: [
+              { type: 'header', text: { type: 'plain_text', text: 'TRK-7 Login fails' } },
+              {
+                type: 'section',
+                fields: [
+                  { type: 'mrkdwn', text: '*Status*\nOpen' },
+                  { type: 'mrkdwn', text: '*Assignee*\nAna' },
+                ],
+              },
+            ],
+          },
+        ]}
+        onHide={onHide}
+      />,
+    );
+    const card = screen.getByTestId('app-blocks-preview');
+    expect(screen.getByTestId('app-blocks-preview-app')).toHaveTextContent(/^Tracker$/);
+    expect(screen.getByTestId('block-header')).toHaveTextContent('TRK-7 Login fails');
+    expect(card).toHaveTextContent('Open');
+    expect(card).toHaveTextContent('Ana');
+    fireEvent.click(screen.getByTestId('app-blocks-preview-remove'));
+    expect(onHide).toHaveBeenCalled();
+  });
+
+  it('skips an app preview without blocks', () => {
+    const { container } = render(
+      <LinkPreviews
+        unfurls={[
+          {
+            url: 'https://tracker.example.com/issues/7',
+            title: 'Tracker',
+            description: null,
+            site_name: 'Tracker',
+            image_url: null,
+            kind: 'blocks',
+            app: { id: 'app-1', bot_user_id: 'bot-1', name: 'Tracker', icon_url: null },
+            blocks: [],
+          },
+        ]}
+      />,
+    );
+    expect(container).toBeEmptyDOMElement();
   });
 
   it('shows nothing for a page that gave only a title', () => {

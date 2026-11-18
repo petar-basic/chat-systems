@@ -32,6 +32,7 @@ const MAX_PRIVATE_METADATA: usize = 3000;
 const BLOCK_TYPES: [&str; 6] = [
     "header", "section", "divider", "image", "context", "actions",
 ];
+const UNFURL_BLOCK_TYPES: [&str; 5] = ["header", "section", "divider", "image", "context"];
 const VIEW_BLOCK_TYPES: [&str; 7] = [
     "header", "section", "divider", "image", "context", "actions", "input",
 ];
@@ -61,6 +62,7 @@ const ACCESSORY_TYPES: [&str; 7] = [
     "datepicker",
     "image",
 ];
+const UNFURL_ACCESSORY_TYPES: [&str; 1] = ["image"];
 const CONTEXT_TYPES: [&str; 3] = ["plain_text", "mrkdwn", "image"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -68,6 +70,7 @@ pub enum Surface {
     Message,
     View,
     Home,
+    Unfurl,
 }
 
 impl Surface {
@@ -75,12 +78,20 @@ impl Surface {
         match self {
             Surface::Message | Surface::Home => &BLOCK_TYPES,
             Surface::View => &VIEW_BLOCK_TYPES,
+            Surface::Unfurl => &UNFURL_BLOCK_TYPES,
+        }
+    }
+
+    fn accessory_types(self) -> &'static [&'static str] {
+        match self {
+            Surface::Unfurl => &UNFURL_ACCESSORY_TYPES,
+            Surface::Message | Surface::View | Surface::Home => &ACCESSORY_TYPES,
         }
     }
 
     fn max_blocks(self) -> usize {
         match self {
-            Surface::Message => MAX_BLOCKS,
+            Surface::Message | Surface::Unfurl => MAX_BLOCKS,
             Surface::View | Surface::Home => MAX_VIEW_BLOCKS,
         }
     }
@@ -193,6 +204,16 @@ pub fn home(value: &Value) -> AppResult<(HomeView, Vec<ImageRef>)> {
     optional(view.external_id.as_ref(), "view.external_id", MAX_ID)?;
     unique_ids(&view.blocks, "view.blocks", &mut Vec::new())?;
     Ok((view, images))
+}
+
+pub fn unfurl(value: &Value, path: &str) -> AppResult<(Vec<Block>, Vec<ImageRef>)> {
+    let mut images = Vec::new();
+    let blocks = blocks_at(value, path, Surface::Unfurl, &mut images)?;
+    if blocks.is_empty() {
+        return Err(refuse(path, "needs at least one block"));
+    }
+    unique_ids(&blocks, path, &mut Vec::new())?;
+    Ok((blocks, images))
 }
 
 pub fn block_id(block: &Block) -> Option<&String> {
@@ -321,7 +342,7 @@ fn block_at(
                 type_at(
                     accessory,
                     &format!("{path}.accessory"),
-                    &ACCESSORY_TYPES,
+                    surface.accessory_types(),
                     "element",
                 )?;
             }

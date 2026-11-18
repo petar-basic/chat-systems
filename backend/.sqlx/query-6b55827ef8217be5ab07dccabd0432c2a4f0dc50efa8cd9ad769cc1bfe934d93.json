@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM app_unfurl_domains WHERE app_id = $1 AND NOT (domain = ANY($2::text[]))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6b55827ef8217be5ab07dccabd0432c2a4f0dc50efa8cd9ad769cc1bfe934d93"
+}

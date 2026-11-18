@@ -909,6 +909,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/bot-apps/{app_id}/unfurl-domains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_unfurl_domains"];
+        /**
+         * Replaces the domains whose links the app previews itself. A domain covers
+         *     its subdomains, no two apps of a workspace claim the same one, and a
+         *     built-in preview's domain is refused while that integration is on.
+         */
+        put: operations["save_unfurl_domains"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/channels/{ch_id}": {
         parameters: {
             query?: never;
@@ -1968,7 +1989,12 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post?: never;
+        /**
+         * The app's previews of the links `link_shared` told it about, each a set of
+         *     blocks by URL. It answers within 30 minutes of the event, for that
+         *     message only, and may answer again to change a preview.
+         */
+        post: operations["answer_unfurls"];
         delete: operations["hide_unfurls"];
         options?: never;
         head?: never;
@@ -4279,6 +4305,12 @@ export interface components {
             owners: components["schemas"]["WorkspacePerson"][];
             slug: string;
         };
+        AnswerUnfurlsRequest: {
+            /** @description The preview of each link, by the URL as it was sent in `link_shared`. */
+            unfurls: {
+                [key: string]: components["schemas"]["UnfurlAnswer"];
+            };
+        };
         AppDirectory: {
             available: components["schemas"]["AvailableApp"][];
             bot_scopes: components["schemas"]["Permission"][];
@@ -4286,7 +4318,7 @@ export interface components {
             installed: components["schemas"]["InstalledApp"][];
         };
         /** @enum {string} */
-        AppEvent: "message" | "app_mention" | "reaction_added" | "reaction_removed" | "member_joined_channel" | "channel_created" | "channel_archived" | "app_home_opened";
+        AppEvent: "message" | "app_mention" | "reaction_added" | "reaction_removed" | "member_joined_channel" | "channel_created" | "channel_archived" | "app_home_opened" | "link_shared";
         AppHome: components["schemas"]["HomeView"] & {
             /** Format: uuid */
             app_id: string;
@@ -7276,7 +7308,7 @@ export interface components {
             revoked_at?: string | null;
         };
         /** @enum {string} */
-        Scope: "chat:write" | "chat:write.public" | "channels:read" | "channels:history" | "groups:history" | "im:write" | "reactions:write" | "files:write" | "users:read" | "commands";
+        Scope: "chat:write" | "chat:write.public" | "channels:read" | "channels:history" | "groups:history" | "im:write" | "reactions:write" | "files:write" | "users:read" | "commands" | "links:read" | "links:write";
         SearchFilters: {
             /** Format: date */
             after?: string | null;
@@ -7602,6 +7634,8 @@ export interface components {
         /** @enum {string} */
         Typeface: "system" | "inter" | "atkinson_hyperlegible" | "open_dyslexic";
         Unfurl: {
+            app?: components["schemas"]["UnfurlApp"] | null;
+            blocks?: components["schemas"]["Block"][];
             description?: string | null;
             embed?: components["schemas"]["VideoEmbed"] | null;
             /** Format: date-time */
@@ -7614,6 +7648,21 @@ export interface components {
             subtitle?: string | null;
             title: string;
             url: string;
+        };
+        UnfurlAnswer: {
+            /** @description Header, section, divider, image and context blocks. */
+            blocks: Record<string, never>[];
+        };
+        UnfurlApp: {
+            /** Format: uuid */
+            bot_user_id: string;
+            icon_url?: string | null;
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
+        UnfurlDomains: {
+            domains: string[];
         };
         UnfurlField: {
             avatar_url?: string | null;
@@ -9444,6 +9493,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SigningSecret"];
+                };
+            };
+        };
+    };
+    list_unfurl_domains: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                app_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnfurlDomains"];
+                };
+            };
+        };
+    };
+    save_unfurl_domains: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                app_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnfurlDomains"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnfurlDomains"];
                 };
             };
         };
@@ -11486,6 +11581,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DataList_MessageWithReactions"];
+                };
+            };
+        };
+    };
+    answer_unfurls: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                msg_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerUnfurlsRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
                 };
             };
         };

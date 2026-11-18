@@ -23,6 +23,7 @@ mod app_directory;
 mod app_events;
 mod app_home;
 mod app_shortcuts;
+mod app_unfurls;
 mod apps;
 mod audit;
 mod auth;

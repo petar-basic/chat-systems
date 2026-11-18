@@ -127,6 +127,7 @@ pub fn required_scope(event: AppEvent, channel_type: &str) -> Option<Scope> {
             Some(Scope::ChannelsRead)
         }
         AppEvent::AppHomeOpened => None,
+        AppEvent::LinkShared => Some(Scope::LinksRead),
     }
 }
 

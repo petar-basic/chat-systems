@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT c.workspace_id, m.user_id AS poster_id, m.content, m.metadata AS \"metadata!\",\n                   COALESCE((w.settings->>'link_previews')::boolean, true) AS \"previews_enabled!\"\n              FROM messages m\n              JOIN channels c ON c.id = m.channel_id\n              JOIN workspaces w ON w.id = c.workspace_id\n             WHERE m.id = $1 AND m.deleted_at IS NULL\n            ",
+  "query": "\n            SELECT c.workspace_id, m.channel_id, m.user_id AS poster_id, m.content, m.metadata AS \"metadata!\",\n                   COALESCE((w.settings->>'link_previews')::boolean, true) AS \"previews_enabled!\"\n              FROM messages m\n              JOIN channels c ON c.id = m.channel_id\n              JOIN workspaces w ON w.id = c.workspace_id\n             WHERE m.id = $1 AND m.deleted_at IS NULL\n            ",
   "describe": {
     "columns": [
       {
@@ -16,6 +16,17 @@
       },
       {
         "ordinal": 1,
+        "name": "channel_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "channel_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
         "name": "poster_id",
         "type_info": "Uuid",
         "origin": {
@@ -26,7 +37,7 @@
         }
       },
       {
-        "ordinal": 2,
+        "ordinal": 3,
         "name": "content",
         "type_info": "Text",
         "origin": {
@@ -37,7 +48,7 @@
         }
       },
       {
-        "ordinal": 3,
+        "ordinal": 4,
         "name": "metadata!",
         "type_info": "Jsonb",
         "origin": {
@@ -48,7 +59,7 @@
         }
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "previews_enabled!",
         "type_info": "Bool",
         "origin": "Expression"
@@ -63,9 +74,10 @@
       false,
       false,
       false,
+      false,
       true,
       null
     ]
   },
-  "hash": "8c6507b138e64cfeb79ab6262408701e6631368dec88b9bc1b7a5d60be3c8218"
+  "hash": "457a02cdaf6820054132b49d3b6d8e85871b13163e5c39e38ad1d736118dde84"
 }

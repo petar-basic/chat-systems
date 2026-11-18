@@ -123,13 +123,20 @@ test('a reply inside a direct message stays in its thread', async ({ page }) => 
 
     await expect(panel.locator('[data-qa="thread-reply"]', { hasText: replyText })).toBeVisible();
 
-    const feed = await (await bob.get(`${API}/channels/${conversation.id}/messages`)).json();
+    const feed = async () =>
+      (await (await bob.get(`${API}/channels/${conversation.id}/messages`)).json()).data as Array<{
+        content: string;
+        reply_count: number;
+      }>;
+    await expect
+      .poll(async () => (await feed()).find((m) => m.content === parentText)?.reply_count, {
+        message: 'the reply reached the server',
+      })
+      .toBe(1);
     expect(
-      feed.data.some((m: { content: string }) => m.content === replyText),
+      (await feed()).some((m) => m.content === replyText),
       'a threaded reply does not clutter the main conversation',
     ).toBe(false);
-    const parentRow = feed.data.find((m: { content: string }) => m.content === parentText);
-    expect(parentRow.reply_count).toBe(1);
   } finally {
     await admin.dispose();
     await bob.dispose();

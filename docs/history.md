@@ -4038,3 +4038,48 @@ The QA found one bug, from CS-134: a section read back from the server carries
 `"accessory": null`, which the parser took for an element without a type, so an app could not
 publish the Home, or a view, it had been sent. A null accessory now counts as none. A guest's
 missing shortcuts are covered by `http_tests` only, since Dev Team has no guest.
+
+### [CS-137] Apps that preview their own links ✅ shipped
+The built-in previews covered Jira, GitHub, Google Drive, Figma and Confluence. A company's
+own tools got the generic page preview, or nothing when they sat behind a login. In Slack an
+app claims a domain and draws the preview itself, and an app copied from Slack does that.
+
+**Domains.** An admin lists up to five on the app's page, under *Link previews*, once the app
+has `links:read` and `links:write`. A domain covers its subdomains, the longest claim wins, no
+two apps of a workspace hold the same one, and a built-in preview's domain is refused while
+that integration is on. A link a claim covers is not fetched.
+
+**The event and the answer.** A message that links to a claimed domain, in a channel the bot
+is in, sends Slack's `link_shared` with the channel, the message, the poster and the links not
+answered yet. Where the bot is not, the link gets no preview and the app hears nothing. Within
+30 minutes the app answers `POST /messages/{id}/unfurls` with blocks per link: headers,
+sections with fields, context, dividers and images, no buttons or menus. The preview is stored
+with the message's others, in the order of its links, sent as `message.updated`, and drawn
+under the message with the app's name and icon. Answering again replaces it. An edit asks
+about new links only, keeps the previews of the links that stay and drops the rest. *Remove
+preview* keeps them all removed, and the app is not asked about that message again. Turning
+the workspace's link previews off turns these off too.
+
+[`examples/tracker-previews`](../examples/tracker-previews/) answers `tracker.example.com`
+issue links with a header and two fields, and the end-to-end suite runs it in two browsers.
+
+**QA** on the Docker stack, with the example app on a socket, Alice and Bob in Dev Team, and
+their clients' sockets listened to from a script:
+- Claiming without the links scopes, six domains, a URL, `localhost`, a wildcard, an IP and
+  the same domain twice were refused with `422`, and another app's domain with `409`. GitHub
+  is not set up in Dev Team, so its domain is covered by `http_tests` only.
+- Alice's link to issue 7 got the app's preview, a header and two fields, and both sockets got
+  it as `message.updated`. The same link in a channel without the bot got no preview, no share
+  and no delivery.
+- An edit that added issue 8 asked the app about 8 alone; both previews showed, and the app
+  could still change 7's.
+- A URL the event did not carry, a message without the link, a message where the bot is not,
+  an `actions` block, a person's token, a share aged past 30 minutes and a link edited out of
+  the message were all refused.
+- After *Remove preview*, an edit that added issue 9 asked nothing, and the app's answer was
+  `409`. With link previews off, a new link sent no event and an answer was `409`.
+
+The QA found two bugs, both fixed before the PR. An edit replaced the app's share with the new
+links only, so the app could no longer change an earlier preview; a share now adds the new
+links to the ones it had. Changing a preview also moved it to the end; previews now keep the
+order of the links in the message.

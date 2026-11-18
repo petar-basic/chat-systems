@@ -545,6 +545,7 @@ Sends and manages messages, threads, reactions, pins, read tracking, and search.
 | PATCH | `/messages/:msg_id` | `{ content, attachment_ids?, blocks?, attachments? }` | `Message` — `attachment_ids` is the set of files to keep; the rest are deleted. A bot that sends `blocks` or `attachments` replaces the message's layout, and one that sends only `content` keeps it; a person cannot edit a message built from blocks (403) |
 | DELETE | `/messages/:msg_id` | — | `{ status: "deleted" }` |
 | DELETE | `/messages/:msg_id/unfurls` | — | `Message` — the author removes its link previews; they stay removed across edits |
+| POST | `/messages/:msg_id/unfurls` | bot token, `links:write`; `{ unfurls: { <url>: { blocks } } }` | `{ status: "ok" }` — an app's own previews of the links `link_shared` sent it, within 30 minutes; 403 for a message not shared with it, 422 for a URL not shared with it or no longer in the message, or a block a preview does not take, 409 once the author removed the previews or while previews are off |
 
 **Link previews.** `chat-worker`'s `unfurl` consumer reads every `message.created` and
 `message.updated`, takes the first three `http(s)` links outside code spans, and fetches
@@ -557,6 +558,21 @@ read and announced with `message.updated`. `metadata.unfurls_source` (a hash of 
 list) is what makes a redelivered event and the consumer's own update a no-op, and an edit
 that keeps the links free. Each URL's result is cached in Redis for 24 hours. A workspace
 turns previews off with `PATCH /workspaces/:ws_id { link_previews: false }`.
+
+**App previews** (`app_unfurls`). `app_unfurl_domains` holds an app's domains, `(app_id,
+domain)` the key and `(workspace_id, domain)` unique. Before fetching, the consumer asks
+`app_unfurls::route` which links an app claims: the longest claimed domain that covers the
+host, unless a built-in integration for that host is on. Claimed links are not fetched. Once
+the previews are stored, `app_unfurls::ask` writes an `app_link_shares` row per app (the
+message, the URLs, `expires_at` 30 minutes on) and queues `link_shared` as an
+`app_deliveries` event, but only for an app that is on, reachable, a member of the channel,
+subscribed and holding `links:read`, and only for links it has not answered yet. The answer
+(`parse::unfurl`, the message blocks on `Surface::Unfurl` without actions, inputs or element
+accessories) becomes an unfurl with `kind: "blocks"`, `blocks` and `app { id, bot_user_id,
+name, icon_url }`. `put_app_unfurls_in` replaces that URL's preview in the same statement that
+refuses a message whose previews were removed. `store_unfurls_in` keeps app previews of the
+links still in the message, so the consumer's next write does not drop an answer. The event
+sender's sweep deletes shares a day after they expire.
 
 YouTube, Vimeo and Loom links (`unfurl::video`) skip the page and ask the service's oEmbed
 endpoint — a fixed host, so no SSRF resolution is involved — about the canonical form of the
@@ -1465,6 +1481,8 @@ writes one is [bot-api.md](./bot-api.md).
 | DELETE | `/bot-apps/:app_id/app-token` | — | `{ status: "revoked" }` — admin |
 | GET | `/bot-apps/:app_id/shortcuts` | — | `{ data: AppShortcut[] }` — admin |
 | PUT | `/bot-apps/:app_id/shortcuts` | `{ shortcuts: [{ kind: global\|message, name, description, callback_id }] }` | `{ data: AppShortcut[] }` — admin; the whole list, at most five of each kind, `callback_id` unique in the app; audited as `bot_app.updated` |
+| GET | `/bot-apps/:app_id/unfurl-domains` | — | `{ domains }` — admin |
+| PUT | `/bot-apps/:app_id/unfurl-domains` | `{ domains }` | `{ domains }` — admin; the whole list, lowercased, at most five; 422 without `links:read` and `links:write` or for something that is not a host name; 409 for a domain another app holds or a built-in preview's while it is on; audited as `bot_app.updated` |
 | POST | `/apps/connections.open` | `capp-` app-level token | `{ url }` — a `ws(s)://…/ws/apps?ticket=` good once, for 30 seconds; 403 while socket mode is off |
 
 Creating an app inserts a `users` row with `is_bot = true`, an address under `bots.invalid`,

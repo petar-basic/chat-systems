@@ -251,7 +251,10 @@ async fn the_directory_lists_every_kind_with_its_owner_and_health(pool: PgPool) 
         .find(|a| a["provider"] == "jira")
         .expect("jira card");
     assert_eq!(jira_card["installed"], true);
-    assert_eq!(body["bot_scopes"].as_array().expect("scopes").len(), 10);
+    assert_eq!(
+        body["bot_scopes"].as_array().expect("scopes").len(),
+        crate::bots::models::Scope::ALL.len()
+    );
 
     let text = body.to_string();
     for secret in ["jira-secret", "client-1", "/secret/path", "/hidden/run"] {

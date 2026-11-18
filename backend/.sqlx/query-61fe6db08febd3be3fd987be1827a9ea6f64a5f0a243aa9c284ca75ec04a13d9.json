@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT urls FROM app_link_shares\n              WHERE app_id = $1 AND message_id = $2 AND expires_at > NOW()",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "urls",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "app_link_shares",
+            "name": "urls"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "61fe6db08febd3be3fd987be1827a9ea6f64a5f0a243aa9c284ca75ec04a13d9"
+}

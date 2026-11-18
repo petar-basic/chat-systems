@@ -15,11 +15,13 @@ const setScopesMutate = vi.fn();
 const configureMutate = vi.fn();
 const makeAppTokenMutate = vi.fn();
 const saveShortcutsMutate = vi.fn();
+const saveDomainsMutate = vi.fn();
 const shortcuts = vi.hoisted(() => ({
   listed: [] as Array<Record<string, unknown>>,
   saved: false,
   error: null as unknown,
 }));
+const domains = vi.hoisted(() => ({ listed: [] as string[] }));
 
 vi.mock('@/features/apps', () => ({
   useBotAppShortcuts: () => ({ data: shortcuts.listed, dataUpdatedAt: 1 }),
@@ -28,6 +30,13 @@ vi.mock('@/features/apps', () => ({
     isPending: false,
     isSuccess: shortcuts.saved,
     error: shortcuts.error,
+  }),
+  useBotAppUnfurlDomains: () => ({ data: domains.listed, dataUpdatedAt: 1 }),
+  useSaveBotAppUnfurlDomains: () => ({
+    mutate: saveDomainsMutate,
+    isPending: false,
+    isSuccess: false,
+    error: null,
   }),
 }));
 
@@ -237,6 +246,37 @@ describe('BotAppControls', () => {
       },
     ]);
     shortcuts.listed = [];
+  });
+
+  it('claims the domains it previews, trimmed, and drops the ones removed', () => {
+    domains.listed = ['old.example.com'];
+    saveDomainsMutate.mockReset();
+    renderControls({ scopes: ['chat:write', 'links:read', 'links:write'] });
+    expect(screen.queryByTestId('bot-app-unfurl-needs-scopes')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove old.example.com' }));
+    fireEvent.click(screen.getByTestId('bot-app-unfurl-domain-add'));
+    fireEvent.click(screen.getByTestId('bot-app-unfurl-domain-add'));
+    fireEvent.change(screen.getByLabelText('Domain 1'), { target: { value: ' tracker.example.com ' } });
+    fireEvent.click(screen.getByTestId('bot-app-unfurl-domains-save'));
+
+    expect(saveDomainsMutate).toHaveBeenCalledWith(['tracker.example.com']);
+    domains.listed = [];
+  });
+
+  it('says an app without the links scopes claims no domains', () => {
+    renderControls();
+    expect(screen.getByTestId('bot-app-unfurl-needs-scopes')).toHaveTextContent(
+      'Give the app the links:read and links:write scopes to claim domains.',
+    );
+    expect(screen.getByTestId('bot-app-unfurl-domain-add')).toBeDisabled();
+  });
+
+  it('lets the app hear links to its domains', () => {
+    renderControls({ scopes: ['chat:write', 'links:read', 'links:write'] });
+    fireEvent.click(screen.getByTestId('bot-app-event-link_shared'));
+    fireEvent.click(screen.getByTestId('bot-app-events-save'));
+
+    expect(configureMutate.mock.calls[0][0].settings).toMatchObject({ events: ['link_shared'] });
   });
 
   it('an app in socket mode gets an app-level token shown once and no request URL', () => {
