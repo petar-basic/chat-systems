@@ -1,5 +1,8 @@
 import { Fragment, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
+import { useTranslation } from 'react-i18next';
+import { Trans } from '@/shared/components/Trans/Trans';
+import i18n from '@/lib/i18n';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { Button } from '@/shared/components/Button/Button';
 import { CopyField } from '@/shared/components/CopyField/CopyField';
@@ -71,11 +74,12 @@ function HookRow({
   onEnable: () => void;
   onDelete: () => Promise<void>;
 }) {
+  const { t } = useTranslation('workspace');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const isIncoming = hook.hook_type === 'incoming_webhook';
   const linked = channels.map((channel, i) => (
     <Fragment key={channel.id}>
-      {i > 0 && ', '}
+      {i > 0 && i18n.t('common:listSeparator')}
       <ChannelLink workspaceId={workspaceId} channel={channel} />
     </Fragment>
   ));
@@ -90,23 +94,25 @@ function HookRow({
             {isIncoming
               ? linked.length > 0
                 ? linked
-                : '#unknown channel'
+                : t('settings.integrations.row.noChannel')
               : String(configOf(hook).url ?? '')}
           </div>
           {scope && linked.length > 0 && (
             <div className="text-xs text-warning/80 truncate" data-qa="hook-scope">
-              Forwards {linked}
+              {t('settings.integrations.row.forwards')} {linked}
             </div>
           )}
           {!hook.is_active && (
             <div className="flex items-center gap-2 mt-1">
               <span className="text-xs text-danger" data-qa="hook-inactive">
                 {hook.disabled_reason
-                  ? `Disabled — ${hook.disabled_reason.charAt(0).toLowerCase()}${hook.disabled_reason.slice(1)}`
-                  : 'Disabled'}
+                  ? t('settings.integrations.row.disabledReason', {
+                      reason: `${hook.disabled_reason.charAt(0).toLowerCase()}${hook.disabled_reason.slice(1)}`,
+                    })
+                  : t('settings.integrations.row.disabled')}
               </span>
               <Button size="sm" onClick={onEnable} disabled={busy} data-qa="hook-enable">
-                Turn on
+                {t('settings.integrations.row.turnOn')}
               </Button>
             </div>
           )}
@@ -114,8 +120,8 @@ function HookRow({
         <button
           onClick={onReveal}
           disabled={busy}
-          aria-label={`Reveal credentials for ${hook.name}`}
-          data-tooltip="Reveal"
+          aria-label={t('settings.integrations.row.revealLabel', { name: hook.name })}
+          data-tooltip={t('settings.integrations.row.reveal')}
           data-qa="hook-reveal"
           className="p-1.5 rounded text-muted hover:text-fg hover:bg-raised transition cursor-pointer disabled:opacity-50"
         >
@@ -124,8 +130,8 @@ function HookRow({
         <button
           onClick={onRotate}
           disabled={busy}
-          aria-label={`Rotate credentials for ${hook.name}`}
-          data-tooltip="Rotate — the old value stops working immediately"
+          aria-label={t('settings.integrations.row.rotateLabel', { name: hook.name })}
+          data-tooltip={t('settings.integrations.row.rotate')}
           data-qa="hook-rotate"
           className="p-1.5 rounded text-muted hover:text-warning hover:bg-raised transition cursor-pointer disabled:opacity-50"
         >
@@ -134,8 +140,8 @@ function HookRow({
         <button
           onClick={() => setConfirmDelete(true)}
           disabled={busy}
-          aria-label={`Delete ${hook.name}`}
-          data-tooltip="Delete"
+          aria-label={t('settings.integrations.row.deleteLabel', { name: hook.name })}
+          data-tooltip={t('settings.integrations.row.delete')}
           data-qa="hook-delete"
           className="p-1.5 rounded text-muted hover:text-danger hover:bg-raised transition cursor-pointer disabled:opacity-50"
         >
@@ -145,13 +151,13 @@ function HookRow({
 
       {confirmDelete && (
         <ConfirmDialog
-          title={`Delete ${hook.name}?`}
-          description={
+          title={t('settings.integrations.row.deleteTitle', { name: hook.name })}
+          description={t(
             isIncoming
-              ? 'Anything still posting to its URL will be refused.'
-              : 'Messages stop being sent to its URL.'
-          }
-          confirmLabel="Delete integration"
+              ? 'settings.integrations.row.deleteIncoming'
+              : 'settings.integrations.row.deleteOutgoing',
+          )}
+          confirmLabel={t('settings.integrations.row.deleteConfirm')}
           onConfirm={onDelete}
           onClose={() => setConfirmDelete(false)}
           dataQa="hook-delete-dialog"
@@ -164,7 +170,7 @@ function HookRow({
             <CopyField
               valueQa="hook-secret-value"
               copyQa="hook-secret-copy"
-              label="Webhook URL"
+              label={t('settings.integrations.row.webhookUrl')}
               value={secrets.incoming_url}
             />
           )}
@@ -172,7 +178,7 @@ function HookRow({
             <CopyField
               valueQa="hook-secret-value"
               copyQa="hook-secret-copy"
-              label="Signing secret"
+              label={t('settings.integrations.row.signingSecret')}
               value={signingSecret}
             />
           )}
@@ -183,6 +189,7 @@ function HookRow({
 }
 
 export function IntegrationsSection({ workspaceId, instanceUrl, channels }: Props) {
+  const { t } = useTranslation('workspace');
   const { data: hooks = [], isLoading } = useHooks(workspaceId, instanceUrl);
   const createHook = useCreateHook(workspaceId, instanceUrl);
   const deleteHook = useDeleteHook(workspaceId, instanceUrl);
@@ -228,7 +235,7 @@ export function IntegrationsSection({ workspaceId, instanceUrl, channels }: Prop
       setIncomingName('');
       setIncomingChannel('');
     } catch (err: unknown) {
-      failWith('Failed to create the webhook')(err);
+      failWith(t('settings.integrations.failed.create'))(err);
     }
   };
 
@@ -247,7 +254,7 @@ export function IntegrationsSection({ workspaceId, instanceUrl, channels }: Prop
       setOutgoingUrl('');
       setOutgoingChannels([]);
     } catch (err: unknown) {
-      failWith('Failed to create the webhook')(err);
+      failWith(t('settings.integrations.failed.create'))(err);
     }
   };
 
@@ -261,7 +268,10 @@ export function IntegrationsSection({ workspaceId, instanceUrl, channels }: Prop
     const ids = Array.isArray(config.channel_ids) ? config.channel_ids : [config.channel_id];
     return ids
       .filter((id): id is string => typeof id === 'string')
-      .map((id) => ({ id, name: channels.find((c) => c.id === id)?.name ?? 'unknown' }));
+      .map((id) => ({
+        id,
+        name: channels.find((c) => c.id === id)?.name ?? t('settings.integrations.row.unknownChannel'),
+      }));
   };
 
   const handleReveal = async (hookId: string) => {
@@ -269,7 +279,7 @@ export function IntegrationsSection({ workspaceId, instanceUrl, channels }: Prop
     try {
       remember(await revealHook.mutateAsync(hookId));
     } catch (err: unknown) {
-      failWith('Failed to reveal the credentials')(err);
+      failWith(t('settings.integrations.failed.reveal'))(err);
     }
   };
 
@@ -278,7 +288,7 @@ export function IntegrationsSection({ workspaceId, instanceUrl, channels }: Prop
     try {
       remember(await rotateHook.mutateAsync(hookId));
     } catch (err: unknown) {
-      failWith('Failed to rotate the credentials')(err);
+      failWith(t('settings.integrations.failed.rotate'))(err);
     }
   };
 
@@ -288,7 +298,7 @@ export function IntegrationsSection({ workspaceId, instanceUrl, channels }: Prop
       const { secrets } = await enableHook.mutateAsync(hookId);
       if (secrets) remember(secrets);
     } catch (err: unknown) {
-      failWith('Failed to turn the webhook on')(err);
+      failWith(t('settings.integrations.failed.turnOn'))(err);
     }
   };
 
@@ -309,11 +319,14 @@ export function IntegrationsSection({ workspaceId, instanceUrl, channels }: Prop
 
         <div className="px-4 py-3 flex items-center gap-2 text-xs font-semibold text-muted uppercase tracking-wider">
           <ArrowDownToLine className="w-3.5 h-3.5" />
-          Incoming webhooks
+          {t('settings.integrations.incoming.title')}
         </div>
         <p className="px-4 -mt-1 pb-2 text-xs text-muted">
-          Post into a channel from anything that can send{' '}
-          <code className="text-fg-dim">{'{"text":"…"}'}</code>.
+          <Trans
+            t={t}
+            i18nKey="settings.integrations.incoming.intro"
+            components={{ code: <code className="text-fg-dim" /> }}
+          />
         </p>
 
         {isLoading ? (
@@ -339,21 +352,21 @@ export function IntegrationsSection({ workspaceId, instanceUrl, channels }: Prop
 
         <form onSubmit={handleCreateIncoming} className="px-4 py-3 space-y-2 border-b border-line/50">
           <TextInput
-            label="Incoming webhook name"
+            label={t('settings.integrations.incoming.nameLabel')}
             labelHidden
             value={incomingName}
             onChange={(e) => setIncomingName(e.target.value)}
-            placeholder="Name, e.g. CI alerts"
+            placeholder={t('settings.integrations.incoming.namePlaceholder')}
             dataQa="incoming-hook-name"
           />
           <Select
-            label="Incoming webhook channel"
+            label={t('settings.integrations.incoming.channelLabel')}
             labelHidden
             value={incomingChannel}
             onChange={(e) => setIncomingChannel(e.target.value)}
             dataQa="incoming-hook-channel"
           >
-            <option value="">Post to channel…</option>
+            <option value="">{t('settings.integrations.incoming.channelPlaceholder')}</option>
             {postable.map((c) => (
               <option key={c.id} value={c.id}>
                 #{c.name}
@@ -367,18 +380,15 @@ export function IntegrationsSection({ workspaceId, instanceUrl, channels }: Prop
             disabled={busy || !incomingName.trim() || !incomingChannel}
             data-qa="incoming-hook-create"
           >
-            Create incoming webhook
+            {t('settings.integrations.incoming.create')}
           </Button>
         </form>
 
         <div className="px-4 py-3 flex items-center gap-2 text-xs font-semibold text-muted uppercase tracking-wider">
           <ArrowUpFromLine className="w-3.5 h-3.5" />
-          Outgoing webhooks
+          {t('settings.integrations.outgoing.title')}
         </div>
-        <p className="px-4 -mt-1 pb-2 text-xs text-muted">
-          Messages in the channels you pick are POSTed to your URL, signed with the secret below. Everyone in
-          those channels can see that the integration is attached.
-        </p>
+        <p className="px-4 -mt-1 pb-2 text-xs text-muted">{t('settings.integrations.outgoing.intro')}</p>
 
         {outgoing.map((hook) => (
           <HookRow
@@ -398,15 +408,15 @@ export function IntegrationsSection({ workspaceId, instanceUrl, channels }: Prop
 
         <form onSubmit={handleCreateOutgoing} className="px-4 py-3 space-y-2">
           <TextInput
-            label="Outgoing webhook name"
+            label={t('settings.integrations.outgoing.nameLabel')}
             labelHidden
             value={outgoingName}
             onChange={(e) => setOutgoingName(e.target.value)}
-            placeholder="Name, e.g. Deploy bot"
+            placeholder={t('settings.integrations.outgoing.namePlaceholder')}
             dataQa="outgoing-hook-name"
           />
           <TextInput
-            label="Outgoing webhook URL"
+            label={t('settings.integrations.outgoing.urlLabel')}
             labelHidden
             type="url"
             value={outgoingUrl}
@@ -419,7 +429,9 @@ export function IntegrationsSection({ workspaceId, instanceUrl, channels }: Prop
             data-qa="outgoing-hook-channels"
           >
             {postable.length === 0 && (
-              <div className="px-3 py-2 text-xs text-muted">No channels to forward.</div>
+              <div className="px-3 py-2 text-xs text-muted">
+                {t('settings.integrations.outgoing.noChannels')}
+              </div>
             )}
             {postable.map((c) => (
               <Checkbox
@@ -439,7 +451,7 @@ export function IntegrationsSection({ workspaceId, instanceUrl, channels }: Prop
             disabled={busy || !outgoingName.trim() || !outgoingUrl.trim() || outgoingChannels.length === 0}
             data-qa="outgoing-hook-create"
           >
-            Create outgoing webhook
+            {t('settings.integrations.outgoing.create')}
           </Button>
         </form>
       </div>
