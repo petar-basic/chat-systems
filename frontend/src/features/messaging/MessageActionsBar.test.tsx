@@ -6,6 +6,10 @@ import { MessageActionsBar } from './MessageActionsBar';
 import type { MessageActionHandlers } from './messageActionList';
 
 vi.mock('./EmojiPicker', () => ({ default: () => null }));
+vi.mock('@/features/apps', () => ({
+  useMessageShortcuts: () => ({ data: [] }),
+  useRunAppShortcut: () => ({ mutateAsync: vi.fn() }),
+}));
 
 const message = { id: 'm-1', is_pinned: false, pending: false } as unknown as Message;
 

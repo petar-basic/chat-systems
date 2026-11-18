@@ -281,6 +281,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/app-shortcuts/{shortcut_id}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Uses one of an app's shortcuts. A global shortcut reaches the app as a
+         *     `shortcut` payload, with the conversation it was used from if there was
+         *     one. A message shortcut, used on a message in a conversation the app is
+         *     in, reaches it as a `message_action` payload with the message and a
+         *     `response_url`. Both carry a `trigger_id` that opens a modal, and the app
+         *     has three seconds to acknowledge them. Guests have no app shortcuts.
+         */
+        post: operations["run_app_shortcut"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/apps/connections": {
         parameters: {
             query?: never;
@@ -307,6 +331,68 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["open_connection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/apps/{app_id}/home": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your Home tab in a conversation with an app: what the app last published
+         *     for you, and nothing until it has.
+         */
+        get: operations["get_app_home"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/apps/{app_id}/home/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A button, menu or date picker in your Home tab. It reaches the app as a
+         *     `block_actions` payload with the Home and a `trigger_id` that opens a
+         *     modal; the app has three seconds to acknowledge it.
+         */
+        post: operations["act_in_app_home"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/apps/{app_id}/home/opened": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Somebody opened the Home tab in their conversation with the app. An app
+         *     that subscribes to `app_home_opened` hears about it, with the Home it last
+         *     published for them, and can publish a fresh one.
+         */
+        post: operations["app_home_opened"];
         delete?: never;
         options?: never;
         head?: never;
@@ -787,6 +873,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/bot-apps/{app_id}/shortcuts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_app_shortcuts"];
+        /**
+         * Replaces an app's shortcuts. A shortcut keeps its id while its
+         *     `callback_id` stays the same.
+         */
+        put: operations["save_app_shortcuts"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/bot-apps/{app_id}/signing-secret": {
         parameters: {
             query?: never;
@@ -997,6 +1103,23 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["update_channel_member_role"];
+        trace?: never;
+    };
+    "/channels/{ch_id}/message-shortcuts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The message shortcuts of the apps in a conversation; a guest gets none. */
+        get: operations["message_shortcuts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/channels/{ch_id}/messages": {
@@ -1445,10 +1568,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * A `block_actions` payload's `response_url`: up to five answers within
-         *     thirty minutes. `replace_original` and `delete_original` act on the message
-         *     the element was in, `in_channel` posts a new message as the app, and
-         *     anything else is shown only to whoever used the element.
+         * A `block_actions` or `message_action` payload's `response_url`: up to five
+         *     answers within thirty minutes. `replace_original` and `delete_original` act
+         *     on the message, when it is the app's own; `in_channel` posts a new message
+         *     as the app, and anything else is shown only to whoever used it.
          */
         post: operations["answer_interaction"];
         delete?: never;
@@ -2269,6 +2392,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/views/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publishes one person's Home tab in their conversation with the app. Each
+         *     person has their own, which nobody else can read, and publishing again
+         *     replaces it. With `hash`, a Home that changed since the app last saw it is
+         *     left alone.
+         */
+        post: operations["publish_app_home"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/views/push": {
         parameters: {
             query?: never;
@@ -2562,6 +2707,28 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["update_workspace"];
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/active-apps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The workspace's apps that are on: which of them draw live buttons and
+         *     menus in their messages (`interactive`), which have a Home tab, and their
+         *     global shortcuts. Messages count as an app's when its bot user posted them
+         *     or they came through one of its hooks or commands.
+         */
+        get: operations["list_active_apps"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/workspaces/{ws_id}/active-huddles": {
@@ -3219,27 +3386,6 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["upload_icon"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/workspaces/{ws_id}/interactive-apps": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * The apps whose buttons and menus work, so the client knows which messages
-         *     to draw them live in: a message by one of their bot users, or posted
-         *     through one of their hooks or commands.
-         */
-        get: operations["list_interactive_apps"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4067,6 +4213,22 @@ export interface components {
              */
             value?: string | null;
         };
+        ActiveApp: {
+            /** Format: uuid */
+            app_id: string;
+            /** Format: uuid */
+            bot_user_id: string;
+            description?: string | null;
+            /** @description Its conversation has a Home tab. */
+            home: boolean;
+            hook_ids: string[];
+            icon_url?: string | null;
+            /** @description Its buttons, menus and shortcuts reach it. */
+            interactive: boolean;
+            name: string;
+            /** @description Its global shortcuts; a guest gets none. */
+            shortcuts: components["schemas"]["AppShortcut"][];
+        };
         ActiveHuddle: {
             /** Format: uuid */
             channel_id?: string | null;
@@ -4124,13 +4286,37 @@ export interface components {
             installed: components["schemas"]["InstalledApp"][];
         };
         /** @enum {string} */
-        AppEvent: "message" | "app_mention" | "reaction_added" | "reaction_removed" | "member_joined_channel" | "channel_created" | "channel_archived";
+        AppEvent: "message" | "app_mention" | "reaction_added" | "reaction_removed" | "member_joined_channel" | "channel_created" | "channel_archived" | "app_home_opened";
+        AppHome: components["schemas"]["HomeView"] & {
+            /** Format: uuid */
+            app_id: string;
+            hash: string;
+            /** Format: uuid */
+            id: string;
+        };
         AppList: {
             data: components["schemas"]["AppStatus"][];
         };
         AppRequest: {
             name: string;
             reason?: string | null;
+        };
+        AppShortcut: {
+            /** Format: uuid */
+            app_id: string;
+            callback_id: string;
+            description: string;
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["ShortcutKind"];
+            name: string;
+        };
+        AppShortcutInput: {
+            /** @description Sent back in the payload, so the app knows which shortcut was used. */
+            callback_id: string;
+            description: string;
+            kind: components["schemas"]["ShortcutKind"];
+            name: string;
         };
         AppStatus: {
             client_id?: string | null;
@@ -4364,6 +4550,7 @@ export interface components {
             /** Format: date-time */
             failing_since?: string | null;
             has_app_token: boolean;
+            home_enabled: boolean;
             icon_url?: string | null;
             /** Format: uuid */
             id: string;
@@ -4487,6 +4674,11 @@ export interface components {
             bookmarks: components["schemas"]["ChannelBookmark"][];
             lists: components["schemas"]["List"][];
             members: components["schemas"]["ChannelMember"][];
+            /**
+             * @description The message shortcuts of the apps in this conversation; a guest gets
+             *     none.
+             */
+            message_shortcuts: components["schemas"]["AppShortcut"][];
             pins: components["schemas"]["Message"][];
             workflow_shortcuts: components["schemas"]["Shortcut"][];
             /** Format: uuid */
@@ -4935,6 +5127,24 @@ export interface components {
                 workspace_id: string;
             };
         };
+        DataList_ActiveApp: {
+            data: {
+                /** Format: uuid */
+                app_id: string;
+                /** Format: uuid */
+                bot_user_id: string;
+                description?: string | null;
+                /** @description Its conversation has a Home tab. */
+                home: boolean;
+                hook_ids: string[];
+                icon_url?: string | null;
+                /** @description Its buttons, menus and shortcuts reach it. */
+                interactive: boolean;
+                name: string;
+                /** @description Its global shortcuts; a guest gets none. */
+                shortcuts: components["schemas"]["AppShortcut"][];
+            }[];
+        };
         DataList_ActiveHuddle: {
             data: {
                 /** Format: uuid */
@@ -4969,6 +5179,18 @@ export interface components {
                 owner_id: string;
                 owners: components["schemas"]["WorkspacePerson"][];
                 slug: string;
+            }[];
+        };
+        DataList_AppShortcut: {
+            data: {
+                /** Format: uuid */
+                app_id: string;
+                callback_id: string;
+                description: string;
+                /** Format: uuid */
+                id: string;
+                kind: components["schemas"]["ShortcutKind"];
+                name: string;
             }[];
         };
         DataList_AuditRow: {
@@ -5009,6 +5231,7 @@ export interface components {
                 /** Format: date-time */
                 failing_since?: string | null;
                 has_app_token: boolean;
+                home_enabled: boolean;
                 icon_url?: string | null;
                 /** Format: uuid */
                 id: string;
@@ -5266,15 +5489,6 @@ export interface components {
                 status: components["schemas"]["ImportStatus"];
                 /** Format: uuid */
                 workspace_id: string;
-            }[];
-        };
-        DataList_InteractiveApp: {
-            data: {
-                /** Format: uuid */
-                app_id: string;
-                /** Format: uuid */
-                bot_user_id: string;
-                hook_ids: string[];
             }[];
         };
         DataList_LaterItem: {
@@ -6055,6 +6269,27 @@ export interface components {
         };
         /** @enum {string} */
         HealthState: "ok" | "off" | "disabled" | "failing";
+        HomeOpenedRequest: {
+            /**
+             * Format: uuid
+             * @description The conversation with the app whose Home tab was opened.
+             */
+            channel_id: string;
+        };
+        HomeTab: {
+            /** Format: uuid */
+            app_id: string;
+            home?: components["schemas"]["AppHome"] | null;
+        };
+        /** @enum {string} */
+        HomeType: "home";
+        HomeView: {
+            blocks: components["schemas"]["Block"][];
+            callback_id?: string | null;
+            external_id?: string | null;
+            private_metadata?: string | null;
+            type: components["schemas"]["HomeType"];
+        };
         Hook: {
             /** Format: uuid */
             app_id?: string | null;
@@ -6209,13 +6444,6 @@ export interface components {
              */
             response_type?: string | null;
             text?: string | null;
-        };
-        InteractiveApp: {
-            /** Format: uuid */
-            app_id: string;
-            /** Format: uuid */
-            bot_user_id: string;
-            hook_ids: string[];
         };
         InviteAccepted: {
             /** Format: uuid */
@@ -6822,6 +7050,19 @@ export interface components {
         };
         /** @enum {string} */
         Provider: "jira" | "github" | "google_drive" | "figma" | "confluence";
+        PublishHomeRequest: {
+            /**
+             * @description The `hash` the app last saw; the publish is refused when this person's
+             *     Home has changed since.
+             */
+            hash?: string | null;
+            /**
+             * Format: uuid
+             * @description Whose Home this is; nobody else sees it.
+             */
+            user_id: string;
+            view: components["schemas"]["HomeView"];
+        };
         PushKey: {
             enabled: boolean;
             public_key: string;
@@ -6949,6 +7190,18 @@ export interface components {
             run_id: string;
             status: string;
         };
+        RunShortcutRequest: {
+            /**
+             * Format: uuid
+             * @description The conversation it was used from, if any.
+             */
+            channel_id?: string | null;
+            /**
+             * Format: uuid
+             * @description The message a message shortcut was used on.
+             */
+            message_id?: string | null;
+        };
         /** @enum {string} */
         RunStatus: "pending" | "running" | "succeeded" | "failed" | "waiting" | "expired";
         RunStep: {
@@ -6972,6 +7225,13 @@ export interface components {
             thread_parent_id?: string | null;
             /** Format: date-time */
             updated_at: string;
+        };
+        SaveShortcutsRequest: {
+            /**
+             * @description Every shortcut the app has, in the order they are listed; at most five
+             *     of each kind.
+             */
+            shortcuts: components["schemas"]["AppShortcutInput"][];
         };
         SaveWorkflowRequest: {
             definition: components["schemas"]["Definition"];
@@ -7137,6 +7397,8 @@ export interface components {
             id: string;
             name: string;
         };
+        /** @enum {string} */
+        ShortcutKind: "global" | "message";
         SidebarLayout: {
             collapsed_builtins: components["schemas"]["BuiltinSection"][];
             placements: components["schemas"]["ChannelPlacement"][];
@@ -7419,6 +7681,7 @@ export interface components {
         UpdateBotAppRequest: {
             description?: string | null;
             events?: components["schemas"]["AppEvent"][] | null;
+            home_enabled?: boolean | null;
             icon_url?: string | null;
             interactivity?: boolean | null;
             name?: string | null;
@@ -8259,6 +8522,31 @@ export interface operations {
             };
         };
     };
+    run_app_shortcut: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shortcut_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunShortcutRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
     complete_connection: {
         parameters: {
             query?: never;
@@ -8297,6 +8585,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SocketUrl"];
+                };
+            };
+        };
+    };
+    get_app_home: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                app_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomeTab"];
+                };
+            };
+        };
+    };
+    act_in_app_home: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                app_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    app_home_opened: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                app_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HomeOpenedRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
                 };
             };
         };
@@ -9022,6 +9381,52 @@ export interface operations {
             };
         };
     };
+    list_app_shortcuts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                app_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_AppShortcut"];
+                };
+            };
+        };
+    };
+    save_app_shortcuts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                app_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveShortcutsRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_AppShortcut"];
+                };
+            };
+        };
+    };
     reveal_signing_secret: {
         parameters: {
             query?: never;
@@ -9402,6 +9807,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChannelMember"];
+                };
+            };
+        };
+    };
+    message_shortcuts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_AppShortcut"];
                 };
             };
         };
@@ -11779,6 +12205,29 @@ export interface operations {
             };
         };
     };
+    publish_app_home: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishHomeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppHome"];
+                };
+            };
+        };
+    };
     push_app_view: {
         parameters: {
             query?: never;
@@ -12270,6 +12719,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Workspace"];
+                };
+            };
+        };
+    };
+    list_active_apps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_ActiveApp"];
                 };
             };
         };
@@ -13523,27 +13993,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Workspace"];
-                };
-            };
-        };
-    };
-    list_interactive_apps: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                ws_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DataList_InteractiveApp"];
                 };
             };
         };

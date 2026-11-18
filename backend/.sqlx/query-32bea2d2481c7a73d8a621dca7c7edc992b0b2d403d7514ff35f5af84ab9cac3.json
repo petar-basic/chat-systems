@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO app_shortcuts (app_id, kind, name, description, callback_id, position)\n             SELECT $1, kind, name, description, callback_id, position\n               FROM UNNEST($2::text[], $3::text[], $4::text[], $5::text[], $6::smallint[])\n                 AS t(kind, name, description, callback_id, position)\n             ON CONFLICT (app_id, callback_id) DO UPDATE\n                SET kind = EXCLUDED.kind, name = EXCLUDED.name,\n                    description = EXCLUDED.description, position = EXCLUDED.position",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "Int2Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "32bea2d2481c7a73d8a621dca7c7edc992b0b2d403d7514ff35f5af84ab9cac3"
+}

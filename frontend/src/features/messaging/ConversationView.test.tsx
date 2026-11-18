@@ -11,6 +11,7 @@ const view = vi.hoisted(() => ({
   send: vi.fn(),
   runCommand: vi.fn(),
   convert: vi.fn(),
+  app: undefined as Record<string, unknown> | undefined,
 }));
 
 vi.mock('@/lib/slashCommands', async (importOriginal) => ({
@@ -41,6 +42,13 @@ vi.mock('@/shared/hooks/useTypingSignal', () => ({
 vi.mock('@/shared/components/ConnectionBanner/ConnectionBanner', () => ({ ConnectionBanner: () => null }));
 vi.mock('@/features/huddle', () => ({ HuddleStartButton: () => <button type="button">huddle</button> }));
 vi.mock('@/features/notifications', () => ({ NotificationLevelButton: () => null }));
+vi.mock('@/features/apps', () => ({
+  useAppOfUser: (_workspaceId: string, userId: string | undefined) =>
+    userId === view.app?.bot_user_id ? view.app : undefined,
+}));
+vi.mock('./AppHomeTab', () => ({
+  AppHomeTab: ({ channelId }: { channelId: string }) => <div data-qa="app-home" data-channel={channelId} />,
+}));
 vi.mock('@/stores/users', () => ({
   useUserCache: () => ({ getUser: (id: string) => ({ ana: { display_name: 'Ana' } })[id] }),
 }));
@@ -310,5 +318,54 @@ describe('ConversationView in Japanese', () => {
     fireEvent.change(screen.getByTestId('conversation-convert-name'), { target: { value: 'Launch Plan' } });
     fireEvent.click(screen.getByTestId('conversation-convert-submit'));
     expect(await screen.findByText('この会話を変換できませんでした')).toBeInTheDocument();
+  });
+
+  describe('with an app', () => {
+    const helpdesk = (home: boolean) => ({
+      app_id: 'app-1',
+      bot_user_id: 'bot-1',
+      name: 'Helpdesk',
+      description: 'Ask for things',
+      icon_url: null,
+      interactive: true,
+      home,
+      hook_ids: [],
+      shortcuts: [],
+    });
+    const withApp = conversation({ participant_ids: ['me', 'bot-1'], departed: [] });
+
+    afterEach(() => {
+      view.app = undefined;
+    });
+
+    it('opens on its Home tab, with nothing to write in', () => {
+      view.app = helpdesk(true);
+      renderView(withApp);
+
+      expect(screen.getByRole('tab', { name: 'Home' })).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByTestId('app-home')).toHaveAttribute('data-channel', 'conv-1');
+      expect(screen.queryByTestId('feed')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('composer')).not.toBeInTheDocument();
+    });
+
+    it('goes back to the messages on the Messages tab', () => {
+      view.app = helpdesk(true);
+      renderView(withApp);
+
+      fireEvent.click(screen.getByRole('tab', { name: 'Messages' }));
+
+      expect(screen.getByRole('tab', { name: 'Messages' })).toHaveAttribute('aria-selected', 'true');
+      expect(screen.queryByTestId('app-home')).not.toBeInTheDocument();
+      expect(screen.getByTestId('feed')).toBeInTheDocument();
+      expect(screen.getByLabelText('composer')).toBeInTheDocument();
+    });
+
+    it('has no tabs while its Home is off', () => {
+      view.app = helpdesk(false);
+      renderView(withApp);
+
+      expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+      expect(screen.getByTestId('feed')).toBeInTheDocument();
+    });
   });
 });

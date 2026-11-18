@@ -190,6 +190,22 @@ pub enum ViewType {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum HomeType {
+    Home,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct HomeView {
+    #[serde(rename = "type")]
+    pub kind: HomeType,
+    pub blocks: Vec<Block>,
+    pub private_metadata: Option<String>,
+    pub callback_id: Option<String>,
+    pub external_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct View {
     #[serde(rename = "type")]
     pub kind: ViewType,

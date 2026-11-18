@@ -1,5 +1,9 @@
 import { useRef, useState } from 'react';
 import { Zap } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { useGlobalShortcuts, useRunAppShortcut, type GlobalShortcut } from '@/features/apps';
+import { useWorkspaceStore } from '@/stores/workspace';
+import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { AnchoredPopover } from '@/shared/components/Popover/AnchoredPopover';
 import { toast } from '@/shared/components/Toast';
 import { toUserMessage } from '@/lib/errors';
@@ -15,10 +19,24 @@ interface Props {
 export function ShortcutMenu({ channelId, instanceUrl }: Props) {
   const anchor = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
+  const { t } = useTranslation('messages');
   const shortcuts = useWorkflowShortcuts(channelId, instanceUrl).data ?? [];
   const start = useStartWorkflow(instanceUrl);
+  const workspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id);
+  const appShortcuts = useGlobalShortcuts(workspaceId);
+  const runApp = useRunAppShortcut();
 
-  if (shortcuts.length === 0) return null;
+  if (shortcuts.length === 0 && appShortcuts.length === 0) return null;
+
+  const runAppShortcut = ({ shortcut }: GlobalShortcut) => {
+    setOpen(false);
+    runApp.mutate(
+      { shortcutId: shortcut.id, channelId },
+      {
+        onError: (err) => toast.error(toUserMessage(err, t('appShortcuts.failed', { name: shortcut.name }))),
+      },
+    );
+  };
 
   const run = async (shortcut: WorkflowShortcut) => {
     setOpen(false);
@@ -36,8 +54,8 @@ export function ShortcutMenu({ channelId, instanceUrl }: Props) {
         ref={anchor}
         type="button"
         onClick={() => setOpen((v) => !v)}
-        aria-label="Run a workflow"
-        data-tooltip="Run a workflow"
+        aria-label={t('appShortcuts.heading')}
+        data-tooltip={t('appShortcuts.heading')}
         aria-haspopup="menu"
         aria-expanded={open}
         data-qa="composer-workflows"
@@ -53,7 +71,7 @@ export function ShortcutMenu({ channelId, instanceUrl }: Props) {
           dataQa="composer-workflows-menu"
           className="w-64 bg-surface border border-line rounded-lg shadow-xl p-1"
         >
-          <div role="menu" aria-label="Workflows" onKeyDown={roveMenu}>
+          <div role="menu" aria-label={t('appShortcuts.heading')} onKeyDown={roveMenu}>
             {shortcuts.map((shortcut, index) => (
               <MenuItem
                 key={shortcut.id}
@@ -62,6 +80,23 @@ export function ShortcutMenu({ channelId, instanceUrl }: Props) {
                 label={shortcut.name}
                 onSelect={() => void run(shortcut)}
                 qa="composer-workflow"
+              />
+            ))}
+            {appShortcuts.map((entry, index) => (
+              <MenuItem
+                key={entry.shortcut.id}
+                first={shortcuts.length === 0 && index === 0}
+                icon={
+                  <Avatar
+                    userId={entry.app.bot_user_id}
+                    name={entry.app.name}
+                    avatarUrl={entry.app.icon_url}
+                    size="xs"
+                  />
+                }
+                label={entry.shortcut.name}
+                onSelect={() => runAppShortcut(entry)}
+                qa="composer-app-shortcut"
               />
             ))}
           </div>

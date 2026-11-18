@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM app_shortcuts WHERE app_id = $1 AND callback_id <> ALL($2::text[])",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ff27e517d7b0d55d4797408139d4c82957c94d516d5204100252cb9d7170db3e"
+}

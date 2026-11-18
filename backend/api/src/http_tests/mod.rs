@@ -21,6 +21,8 @@ mod admin;
 mod analytics;
 mod app_directory;
 mod app_events;
+mod app_home;
+mod app_shortcuts;
 mod apps;
 mod audit;
 mod auth;

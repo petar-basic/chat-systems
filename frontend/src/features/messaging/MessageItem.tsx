@@ -484,6 +484,7 @@ function MessageItem({
             quickReactions={QUICK_REACTIONS}
             onReact={archived ? undefined : (emoji) => handleReactionToggle(emoji)}
             actions={sheetActionsFor(message, actions, t)}
+            shortcutsOn={message}
             onClose={() => setSheetOpen(false)}
           />
         )}

@@ -87,10 +87,11 @@ pub enum AppEvent {
     MemberJoinedChannel,
     ChannelCreated,
     ChannelArchived,
+    AppHomeOpened,
 }
 
 impl AppEvent {
-    pub const ALL: [AppEvent; 7] = [
+    pub const ALL: [AppEvent; 8] = [
         AppEvent::Message,
         AppEvent::AppMention,
         AppEvent::ReactionAdded,
@@ -98,6 +99,7 @@ impl AppEvent {
         AppEvent::MemberJoinedChannel,
         AppEvent::ChannelCreated,
         AppEvent::ChannelArchived,
+        AppEvent::AppHomeOpened,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -109,6 +111,7 @@ impl AppEvent {
             AppEvent::MemberJoinedChannel => "member_joined_channel",
             AppEvent::ChannelCreated => "channel_created",
             AppEvent::ChannelArchived => "channel_archived",
+            AppEvent::AppHomeOpened => "app_home_opened",
         }
     }
 
@@ -143,6 +146,7 @@ pub struct BotApp {
     pub request_url: Option<String>,
     pub socket_mode: bool,
     pub interactivity: bool,
+    pub home_enabled: bool,
     pub has_app_token: bool,
     pub connected_sockets: i64,
     pub failing_since: Option<DateTime<Utc>>,
@@ -214,4 +218,6 @@ pub struct UpdateBotAppRequest {
     pub socket_mode: Option<bool>,
     #[garde(skip)]
     pub interactivity: Option<bool>,
+    #[garde(skip)]
+    pub home_enabled: Option<bool>,
 }

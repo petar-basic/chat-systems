@@ -20,6 +20,7 @@ function fetchChannelContext(queryClient: QueryClient, api: ApiClient, channelId
       queryClient.setQueryData(QUERY_KEYS.channelBookmarks(channelId), context.bookmarks);
       queryClient.setQueryData(QUERY_KEYS.channelLists(context.workspace_id, channelId), context.lists);
       queryClient.setQueryData(QUERY_KEYS.workflowShortcuts(channelId), context.workflow_shortcuts);
+      queryClient.setQueryData(QUERY_KEYS.messageShortcuts(channelId), context.message_shortcuts);
       return context;
     },
   });

@@ -75,6 +75,7 @@ at any time without a new token.
 | POST | `/views/open` | — | `{ trigger_id, view }`; see [modals](#modals) |
 | POST | `/views/push` | — | `{ trigger_id, view }`, with a trigger from inside a view |
 | POST | `/views/update` | — | `{ view_id or external_id, hash?, view }` |
+| POST | `/views/publish` | — | `{ user_id, view, hash? }`; see [App Home](#app-home-and-shortcuts) |
 
 `client_message_id` is a version 4 UUID the bot picks. Sending the same one twice posts once,
 so a bot that retries after a timeout does not double-post.
@@ -213,6 +214,7 @@ app gets them over HTTP, at a request URL, or over a socket it opens itself (soc
 | `member_joined_channel` | somebody joins a channel the bot is in, the bot included | `channels:read` |
 | `channel_created` | a public channel is made | `channels:read` |
 | `channel_archived` | a channel the bot is in is archived | `channels:read` |
+| `app_home_opened` | somebody opens the app's [Home tab](#app-home-and-shortcuts) | — |
 
 An app never hears about a channel it is not in. `channel_created` is the one exception, and
 it is only sent for public channels, which every member of the workspace can already browse. An
@@ -246,6 +248,7 @@ Every event arrives in the same envelope:
 | `member_joined_channel` | `channel_id`, `user_id` |
 | `channel_created` | `channel_id`, `name`, `created_by` |
 | `channel_archived` | `channel_id` |
+| `app_home_opened` | `channel_id` (the person's conversation with the app), `user_id`, `tab` (`home`), `view` (the Home last published for them, or `null`) |
 
 Delivery is at least once and in order within a channel: the next event in a channel waits
 until the one before it is delivered or given up on. A retry carries the same `event_id`, so an
@@ -430,7 +433,9 @@ the options counts as none.
 | `response_type: "in_channel"` | posts the answer in the channel, from the app's bot |
 | otherwise | only the person who used the element sees it, as a command's answer is seen |
 
-A sixth use, a late one, and one after the app was turned off are refused.
+`replace_original` and `delete_original` work only on a message the app posted: the
+`response_url` of a [message shortcut](#app-home-and-shortcuts) used on somebody else's message
+answers `403 An app changes only its own messages`. A sixth use, a late one, and one after the app was turned off are refused.
 
 ### Modals
 
@@ -475,6 +480,82 @@ may stay empty; its element is one of the selects, a `datepicker`, or:
 Each answers with the view as it now is, with its `id`, `root_view_id` and `hash`. The person
 sees the top view; *Back* returns to the one below with what was typed in it, and the corner
 closes them all.
+
+## App Home and shortcuts
+
+### Home
+
+An app's conversation with each person can have a **Home** tab beside *Messages*: a page of
+blocks the app keeps for that person, such as their open requests or their settings. An admin
+turns *Home tab* on on the app's page in *Apps*. While it is on, the conversation opens on
+*Home*; an app that has not published one yet shows its name and description there.
+
+`POST /views/publish` takes the bot token and publishes one person's Home:
+
+```json
+{
+  "user_id": "c3d4…",
+  "hash": "…",
+  "view": {
+    "type": "home",
+    "callback_id": "helpdesk-home",
+    "private_metadata": "…",
+    "blocks": [
+      { "type": "header", "text": { "type": "plain_text", "text": "Your requests" } },
+      { "type": "actions", "block_id": "home", "elements": [
+        { "type": "button", "action_id": "new_request", "text": { "type": "plain_text", "text": "New request" } }
+      ] }
+    ]
+  }
+}
+```
+
+A Home takes the message blocks, up to 100, and no `input`. Publishing again replaces it, and the
+person's open tab changes without a reload. It answers with the Home, its `id` and a new `hash`;
+sent with the `hash` it last got, a publish is refused with `409` when the Home has changed
+since. Each person's Home is theirs: nobody else can read it. The route refuses a `user_id`
+that is not a person in the workspace (`422`) and a Home tab that is off (`409`); the token of
+an app that was turned off answers `401`, as everywhere.
+
+An app that subscribes to `app_home_opened` hears when somebody opens the tab, with the Home it
+last published for them, and can publish a fresh one. The buttons, menus and date pickers in a
+Home reach the app, with *Interactivity* on, as a `block_actions` with
+`"container": { "type": "view", "view_id": "<the Home's id>" }` and the `view` with its
+`state`, and no `response_url`. Its `trigger_id` opens a modal.
+
+### Shortcuts
+
+An admin gives an app up to five shortcuts of each kind under *Shortcuts* on its page, each a
+name, a description and a `callback_id` the app recognises it by. A shortcut needs
+*Interactivity* on and reaches the app as a payload, like a button, within three seconds.
+
+- A **global** shortcut is listed in the composer's shortcut menu, next to the workflows, and
+  in the quick switcher. It sends
+
+  ```json
+  {
+    "type": "shortcut",
+    "app_id": "…", "workspace_id": "…",
+    "callback_id": "new_request",
+    "user": { "id": "…", "name": "Ana" },
+    "channel": { "id": "…", "name": "desk" },
+    "trigger_id": "…",
+    "action_ts": "…"
+  }
+  ```
+
+  with `channel` the one it was used in, or `null` from the quick switcher.
+
+- A **message** shortcut is listed under *More actions* on every message in a channel, private
+  channel or conversation the bot is a member of, and sends `"type": "message_action"` with the
+  same fields, the `channel` the message is in, the `message` as in `block_actions`, and a
+  `response_url`. Through that `response_url` the app answers like an element's, and changes
+  only its own messages.
+
+The app usually answers with a modal through `trigger_id`. A guest sees no app shortcuts.
+Turning an app off takes its shortcuts and its Home tab away from everybody without a reload,
+and nothing more is sent to it; turning off its interactivity takes away the shortcuts, and
+turning off its Home tab takes away the tab.
 
 ## Example
 
@@ -522,5 +603,16 @@ async function decide(payload) {
 }
 ```
 
-CI runs all three against a seeded instance on every pull request that runs the end-to-end
+[`examples/helpdesk`](../examples/helpdesk/) has a Home and both kinds of shortcut: it
+publishes each person's own requests in their Home, opens a modal from the global *New request*
+shortcut and the Home's button, and turns a message into a ticket from *Create ticket from
+message*:
+
+```js
+if (frame.type === 'event' && frame.payload.type === 'app_home_opened') {
+  await publishHome(frame.payload.event.user_id);
+}
+```
+
+CI runs all four against a seeded instance on every pull request that runs the end-to-end
 suite.

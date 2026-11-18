@@ -270,6 +270,16 @@
       "failed": "Could not convert this conversation"
     }
   },
+  "appHome": {
+    "tabs": "App tabs",
+    "home": "Home",
+    "messages": "Messages",
+    "empty": "{{name}} hasn't set up its Home tab yet."
+  },
+  "appShortcuts": {
+    "heading": "Shortcuts",
+    "failed": "Couldn't use “{{name}}”"
+  },
   "blocks": {
     "notInteractive": "This app has not set up interactivity",
     "more": "More options",

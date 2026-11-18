@@ -11,7 +11,7 @@ use shared_common::errors::{is_unique_violation, AppError, AppResult};
 
 use super::models::{BotApp, BotAppWithToken, CreateBotAppRequest, UpdateBotAppRequest};
 use super::repo::{BotAppChanges, NewBotApp};
-use super::{generate_token, hash_token, Caller};
+use super::{announce_apps, generate_token, hash_token, Caller};
 use crate::app_events;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
@@ -167,6 +167,7 @@ async fn update_bot_app(
                 request_url,
                 socket_mode: req.socket_mode,
                 interactivity: req.interactivity,
+                home_enabled: req.home_enabled,
             },
         )
         .await
@@ -189,9 +190,11 @@ async fn update_bot_app(
                 "request_url": app.request_url,
                 "socket_mode": app.socket_mode,
                 "interactivity": app.interactivity,
+                "home_enabled": app.home_enabled,
             })),
     )
     .await;
+    announce_apps(&state, app.workspace_id).await;
 
     Ok(Json(app))
 }
@@ -257,6 +260,7 @@ async fn enable_bot_app(
             })),
     )
     .await;
+    announce_apps(&state, app.workspace_id).await;
 
     Ok(Json(BotAppWithToken { app, token }))
 }
@@ -291,6 +295,7 @@ async fn remove_bot_app(
             .details(serde_json::json!({ "name": app.name })),
     )
     .await;
+    announce_apps(&state, app.workspace_id).await;
 
     Ok(Json(StatusResponse::new("deleted")))
 }

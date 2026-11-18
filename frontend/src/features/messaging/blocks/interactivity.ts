@@ -1,34 +1,15 @@
 import { useMemo, useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import type { components } from '@/api/schema';
+import { useMutation } from '@tanstack/react-query';
 import { useCurrentApi } from '@/shared/hooks/useCurrentApi';
-import { QUERY_KEYS } from '@/shared/constants';
+import { useActiveApps, type ActiveApp } from '@/features/apps';
 import { useWorkspaceStore, type Message } from '@/stores/workspace';
 import { actionKey, refusalText, type BlockActions } from './blockActions';
 
-export type InteractiveApp = components['schemas']['InteractiveApp'];
-
-export function useInteractiveApps(workspaceId: string | undefined) {
-  const apiClient = useCurrentApi();
-  return useQuery({
-    queryKey: QUERY_KEYS.interactiveApps(workspaceId ?? ''),
-    enabled: !!workspaceId,
-    staleTime: 60_000,
-    queryFn: () =>
-      apiClient
-        .typed((c) =>
-          c.GET('/workspaces/{ws_id}/interactive-apps', {
-            params: { path: { ws_id: workspaceId ?? '' } },
-          }),
-        )
-        .then((list) => list.data),
-  });
-}
-
-export function postedByInteractiveApp(apps: InteractiveApp[], message: Message): boolean {
+export function postedByInteractiveApp(apps: ActiveApp[], message: Message): boolean {
   const hookId = message.metadata?.bot?.hook_id;
   return apps.some(
-    (app) => app.bot_user_id === message.user_id || (!!hookId && app.hook_ids.includes(hookId)),
+    (app) =>
+      app.interactive && (app.bot_user_id === message.user_id || (!!hookId && app.hook_ids.includes(hookId))),
   );
 }
 
@@ -41,7 +22,7 @@ interface Acting {
 export function useMessageActions(message: Message): BlockActions | null {
   const workspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id);
   const apiClient = useCurrentApi();
-  const { data: apps } = useInteractiveApps(workspaceId);
+  const { data: apps } = useActiveApps(workspaceId);
   const [failure, setFailure] = useState<BlockActions['failure']>(null);
   const live = !!apps && postedByInteractiveApp(apps, message);
 
