@@ -167,6 +167,22 @@ pub async fn compose_home(
     })
 }
 
+pub async fn compose_unfurl(
+    state: &AppState,
+    workspace_id: Uuid,
+    value: &Value,
+    path: &str,
+) -> AppResult<Vec<Block>> {
+    let (blocks, images) = parse::unfurl(value, path)?;
+    check_images(&images).await?;
+    let mut layout = Layout {
+        blocks,
+        legacy_attachments: Vec::new(),
+    };
+    localize(state, workspace_id, &mut layout).await?;
+    Ok(layout.blocks)
+}
+
 fn short_id() -> String {
     Uuid::new_v4().simple().to_string()[..8].to_string()
 }

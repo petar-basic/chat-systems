@@ -18,6 +18,7 @@ const EVENTS: AppEvent[] = [
   'channel_created',
   'channel_archived',
   'app_home_opened',
+  'link_shared',
 ];
 
 interface Props {

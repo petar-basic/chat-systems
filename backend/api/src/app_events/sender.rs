@@ -218,6 +218,9 @@ pub async fn sweep(state: &AppState) {
     if let Err(e) = state.interaction_repo.purge().await {
         warn!("Interactions: failed to purge spent triggers and views: {e}");
     }
+    if let Err(e) = state.app_unfurl_repo.purge_expired().await {
+        warn!("App unfurls: failed to purge expired link shares: {e}");
+    }
 }
 
 pub async fn start_sender(state: Arc<AppState>) {

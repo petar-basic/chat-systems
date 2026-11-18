@@ -17,6 +17,14 @@ pub struct ImportedMessage<'a> {
     pub created_at: DateTime<Utc>,
 }
 
+pub struct UnfurlWrite<'a> {
+    pub content: &'a str,
+    pub source: &'a str,
+    pub unfurls: &'a serde_json::Value,
+    pub prompts: &'a serde_json::Value,
+    pub urls: &'a [String],
+}
+
 pub struct MessageRepo {
     pool: PgPool,
 }
@@ -671,7 +679,7 @@ impl MessageRepo {
         sqlx::query_as!(
             UnfurlTarget,
             r#"
-            SELECT c.workspace_id, m.user_id AS poster_id, m.content, m.metadata AS "metadata!",
+            SELECT c.workspace_id, m.channel_id, m.user_id AS poster_id, m.content, m.metadata AS "metadata!",
                    COALESCE((w.settings->>'link_previews')::boolean, true) AS "previews_enabled!"
               FROM messages m
               JOIN channels c ON c.id = m.channel_id
@@ -688,17 +696,27 @@ impl MessageRepo {
         &self,
         conn: &mut PgConnection,
         id: Uuid,
-        content: &str,
-        source: &str,
-        unfurls: &serde_json::Value,
-        prompts: &serde_json::Value,
+        write: UnfurlWrite<'_>,
     ) -> sqlx::Result<Option<Message>> {
         sqlx::query_as!(
             Message,
             r#"
             UPDATE messages
                SET metadata = COALESCE(metadata, '{}'::jsonb)
-                   || jsonb_build_object('unfurls', $4::jsonb, 'unfurls_source', $3::text, 'app_prompts', $5::jsonb)
+                   || jsonb_build_object(
+                          'unfurls',
+                          COALESCE(
+                              (SELECT jsonb_agg(kept.u ORDER BY array_position($6::text[], kept.u->>'url'), kept.ord)
+                                 FROM (SELECT f.u, f.ord
+                                         FROM jsonb_array_elements($4::jsonb) WITH ORDINALITY AS f(u, ord)
+                                       UNION ALL
+                                       SELECT a.u, a.ord
+                                         FROM jsonb_array_elements(COALESCE(metadata->'unfurls', '[]'::jsonb))
+                                              WITH ORDINALITY AS a(u, ord)
+                                        WHERE a.u ? 'app' AND a.u->>'url' = ANY($6::text[])) kept),
+                              '[]'::jsonb),
+                          'unfurls_source', $3::text,
+                          'app_prompts', $5::jsonb)
              WHERE id = $1
                AND content = $2
                AND deleted_at IS NULL
@@ -707,10 +725,50 @@ impl MessageRepo {
             RETURNING id, channel_id, user_id, client_message_id, content, metadata AS "metadata!", thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at
             "#,
             id,
-            content,
-            source,
+            write.content,
+            write.source,
+            write.unfurls,
+            write.prompts,
+            write.urls
+        )
+        .fetch_optional(&mut *conn)
+        .await
+    }
+
+    pub async fn put_app_unfurls_in(
+        &self,
+        conn: &mut PgConnection,
+        id: Uuid,
+        urls: &[String],
+        unfurls: &serde_json::Value,
+        links: &[String],
+    ) -> sqlx::Result<Option<Message>> {
+        sqlx::query_as!(
+            Message,
+            r#"
+            UPDATE messages
+               SET metadata = COALESCE(metadata, '{}'::jsonb)
+                   || jsonb_build_object(
+                          'unfurls',
+                          COALESCE(
+                              (SELECT jsonb_agg(merged.u ORDER BY array_position($4::text[], merged.u->>'url'), merged.ord)
+                                 FROM (SELECT e.u, e.ord
+                                         FROM jsonb_array_elements(COALESCE(metadata->'unfurls', '[]'::jsonb))
+                                              WITH ORDINALITY AS e(u, ord)
+                                        WHERE NOT (e.u->>'url' = ANY($2::text[]))
+                                       UNION ALL
+                                       SELECT n.u, n.ord
+                                         FROM jsonb_array_elements($3::jsonb) WITH ORDINALITY AS n(u, ord)) merged),
+                              '[]'::jsonb))
+             WHERE id = $1
+               AND deleted_at IS NULL
+               AND NOT COALESCE((metadata->>'unfurls_hidden')::boolean, false)
+            RETURNING id, channel_id, user_id, client_message_id, content, metadata AS "metadata!", thread_parent_id, reply_count AS "reply_count!", is_pinned AS "is_pinned!", created_at, updated_at, deleted_at
+            "#,
+            id,
+            urls,
             unfurls,
-            prompts
+            links
         )
         .fetch_optional(&mut *conn)
         .await

@@ -157,6 +157,7 @@ pub fn typed_routes() -> OpenApiRouter<Arc<AppState>> {
         .merge(crate::app_events::routes::router())
         .merge(crate::interactions::routes::router())
         .merge(crate::app_shortcuts::routes::router())
+        .merge(crate::app_unfurls::routes::router())
         .merge(crate::app_home::routes::router())
         .merge(crate::app_directory::routes::router())
 }

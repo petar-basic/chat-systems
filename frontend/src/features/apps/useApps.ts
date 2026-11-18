@@ -163,3 +163,31 @@ export function useSaveBotAppShortcuts(appId: string) {
     onSuccess: (saved) => queryClient.setQueryData(QUERY_KEYS.botAppShortcuts(appId), saved),
   });
 }
+
+export function useBotAppUnfurlDomains(appId: string) {
+  const apiClient = useCurrentApi();
+  return useQuery({
+    queryKey: QUERY_KEYS.botAppUnfurlDomains(appId),
+    queryFn: () =>
+      apiClient
+        .typed((c) => c.GET('/bot-apps/{app_id}/unfurl-domains', { params: { path: { app_id: appId } } }))
+        .then((saved) => saved.domains),
+  });
+}
+
+export function useSaveBotAppUnfurlDomains(appId: string) {
+  const apiClient = useCurrentApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (domains: string[]) =>
+      apiClient
+        .typed((c) =>
+          c.PUT('/bot-apps/{app_id}/unfurl-domains', {
+            params: { path: { app_id: appId } },
+            body: { domains },
+          }),
+        )
+        .then((saved) => saved.domains),
+    onSuccess: (saved) => queryClient.setQueryData(QUERY_KEYS.botAppUnfurlDomains(appId), saved),
+  });
+}

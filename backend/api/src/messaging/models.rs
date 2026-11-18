@@ -83,6 +83,18 @@ pub struct Unfurl {
     pub fetched_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub embed: Option<VideoEmbed>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub blocks: Vec<crate::blocks::models::Block>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub app: Option<UnfurlApp>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct UnfurlApp {
+    pub id: Uuid,
+    pub bot_user_id: Uuid,
+    pub name: String,
+    pub icon_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, ToSchema)]
@@ -108,6 +120,7 @@ pub struct UnfurlField {
 #[derive(Debug, Clone)]
 pub struct UnfurlTarget {
     pub workspace_id: Uuid,
+    pub channel_id: Uuid,
     pub poster_id: Uuid,
     pub content: String,
     pub metadata: serde_json::Value,

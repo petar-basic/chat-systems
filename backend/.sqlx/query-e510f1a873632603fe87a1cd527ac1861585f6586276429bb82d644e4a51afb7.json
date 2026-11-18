@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO app_link_shares (app_id, message_id, urls, expires_at)\n             VALUES ($1, $2, $3, NOW() + make_interval(secs => $4))\n             ON CONFLICT (app_id, message_id)\n             DO UPDATE SET urls = ARRAY(SELECT DISTINCT u\n                                          FROM UNNEST(app_link_shares.urls || EXCLUDED.urls) AS u),\n                           expires_at = EXCLUDED.expires_at",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "TextArray",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e510f1a873632603fe87a1cd527ac1861585f6586276429bb82d644e4a51afb7"
+}

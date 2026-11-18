@@ -513,7 +513,7 @@ first: CS-135 – CS-137 and the calendars' messages are written on them.
 | CS-134 ✅ | Messages built from blocks | backend · frontend · docs |
 | CS-135 ✅ | Buttons, menus and modals that reach the app | backend · frontend · realtime · docs |
 | CS-136 ✅ | An app's Home tab and its shortcuts | backend · frontend · docs |
-| CS-137 | Apps that preview their own links | backend · frontend · docs |
+| CS-137 ✅ | Apps that preview their own links | backend · frontend · docs |
 | CS-138 | Workflows that branch, wait and do more | backend · frontend |
 | CS-139 | Workflow steps from apps | backend · frontend · docs |
 | CS-140 | Google and Outlook calendars | backend · frontend · ops · docs |
@@ -613,9 +613,9 @@ Tickets that touch the same files, and the order that avoids rework:
 | built-in bot users and the message stream consumers in `chat-worker` | CS-130 ✅ → CS-140 |
 | huddle window, `HuddleControlBar` and huddle realtime frames | CS-131 ✅ → CS-132 ✅ |
 | `files/` upload metadata and `MessageAttachments.tsx` | CS-133 ✅ |
-| message `metadata`, the static renderer and `hooks/models.rs` payloads | CS-134 ✅ → CS-135 ✅ → CS-137 |
-| `app_events`, `bots/models.rs` and the app's page in *Apps* | CS-134 ✅ → CS-135 ✅ → CS-136 ✅ → CS-137 → CS-139 |
+| message `metadata`, the static renderer and `hooks/models.rs` payloads | CS-134 ✅ → CS-135 ✅ → CS-137 ✅ |
+| `app_events`, `bots/models.rs` and the app's page in *Apps* | CS-134 ✅ → CS-135 ✅ → CS-136 ✅ → CS-137 ✅ → CS-139 |
 | `ShortcutMenu.tsx` and message *More actions* | CS-136 ✅ |
-| `messaging/unfurl/consumer.rs` | CS-137 |
+| `messaging/unfurl/consumer.rs` | CS-137 ✅ |
 | `workflows/models.rs`, `runner.rs` and the builder | CS-138 → CS-139 |
 | `integrations/` providers and *Preferences* | CS-140 |

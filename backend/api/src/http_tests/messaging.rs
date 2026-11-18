@@ -246,7 +246,17 @@ async fn store_preview(
     let mut tx = state.pool.begin().await.expect("begin");
     let stored = state
         .message_repo
-        .store_unfurls_in(&mut tx, msg_id, content, source, &unfurls, &json!([]))
+        .store_unfurls_in(
+            &mut tx,
+            msg_id,
+            crate::messaging::repo::UnfurlWrite {
+                content,
+                source,
+                unfurls: &unfurls,
+                prompts: &json!([]),
+                urls: &[],
+            },
+        )
         .await
         .expect("store");
     tx.commit().await.expect("commit");

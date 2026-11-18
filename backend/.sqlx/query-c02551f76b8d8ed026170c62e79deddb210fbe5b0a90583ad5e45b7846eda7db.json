@@ -1,0 +1,163 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE messages\n               SET metadata = COALESCE(metadata, '{}'::jsonb)\n                   || jsonb_build_object(\n                          'unfurls',\n                          COALESCE(\n                              (SELECT jsonb_agg(merged.u ORDER BY array_position($4::text[], merged.u->>'url'), merged.ord)\n                                 FROM (SELECT e.u, e.ord\n                                         FROM jsonb_array_elements(COALESCE(metadata->'unfurls', '[]'::jsonb))\n                                              WITH ORDINALITY AS e(u, ord)\n                                        WHERE NOT (e.u->>'url' = ANY($2::text[]))\n                                       UNION ALL\n                                       SELECT n.u, n.ord\n                                         FROM jsonb_array_elements($3::jsonb) WITH ORDINALITY AS n(u, ord)) merged),\n                              '[]'::jsonb))\n             WHERE id = $1\n               AND deleted_at IS NULL\n               AND NOT COALESCE((metadata->>'unfurls_hidden')::boolean, false)\n            RETURNING id, channel_id, user_id, client_message_id, content, metadata AS \"metadata!\", thread_parent_id, reply_count AS \"reply_count!\", is_pinned AS \"is_pinned!\", created_at, updated_at, deleted_at\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "channel_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "channel_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "client_message_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "client_message_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "content",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "content"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "metadata!",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "metadata"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "thread_parent_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "thread_parent_id"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "reply_count!",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "reply_count"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "is_pinned!",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "is_pinned"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "updated_at"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "deleted_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "deleted_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "TextArray",
+        "Jsonb",
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "c02551f76b8d8ed026170c62e79deddb210fbe5b0a90583ad5e45b7846eda7db"
+}

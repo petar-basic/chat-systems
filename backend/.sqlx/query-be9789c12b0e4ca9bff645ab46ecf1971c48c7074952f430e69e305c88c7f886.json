@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO app_unfurl_domains (app_id, workspace_id, domain, position)\n             SELECT $1, $2, d.domain, d.position::smallint\n               FROM UNNEST($3::text[]) WITH ORDINALITY AS d(domain, position)\n             ON CONFLICT (app_id, domain) DO UPDATE SET position = EXCLUDED.position",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "be9789c12b0e4ca9bff645ab46ecf1971c48c7074952f430e69e305c88c7f886"
+}

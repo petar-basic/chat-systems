@@ -6,9 +6,13 @@ use tracing::{info, warn};
 use uuid::Uuid;
 
 use super::{fetch, links, video};
+use shared_events::Event;
+
+use crate::app_unfurls;
 use crate::integrations::service::{self as apps, AppUnfurl};
-use crate::messaging::models::Unfurl;
-use crate::messaging::stream_group::{Delivery, StreamGroup};
+use crate::messaging::models::{Unfurl, UnfurlTarget};
+use crate::messaging::repo::UnfurlWrite;
+use crate::messaging::stream_group::StreamGroup;
 use crate::state::AppState;
 
 const CACHE_SECONDS: u64 = 24 * 60 * 60;
@@ -20,21 +24,20 @@ pub async fn start_unfurl_consumer(redis_url: &str, state: Arc<AppState>) {
     info!("Unfurl consumer started");
     loop {
         for delivery in group.next_batch().await {
-            unfurl_delivery(&state, &delivery).await;
+            unfurl_event(&state, &delivery.event).await;
             group.ack(&delivery.key, &delivery.id).await;
         }
     }
 }
 
-async fn unfurl_delivery(state: &AppState, delivery: &Delivery) {
+pub async fn unfurl_event(state: &AppState, event: &Event) {
     if !matches!(
-        delivery.event.event_type.as_str(),
+        event.event_type.as_str(),
         "message.created" | "message.updated"
     ) {
         return;
     }
-    let Some(id) = delivery
-        .event
+    let Some(id) = event
         .payload
         .get("id")
         .and_then(|v| v.as_str())
@@ -71,9 +74,19 @@ async fn unfurl_delivery(state: &AppState, delivery: &Delivery) {
         return;
     }
 
+    let routed = match app_unfurls::route(state, &target, &urls).await {
+        Ok(routed) => routed,
+        Err(e) => {
+            warn!(message_id = %id, "unfurl: failed to read the apps' domains: {e}");
+            return;
+        }
+    };
     let mut unfurls = Vec::new();
     let mut prompts: Vec<String> = Vec::new();
     for url in &urls {
+        if routed.claimed.contains(url) {
+            continue;
+        }
         match apps::unfurl(state, target.workspace_id, target.poster_id, url).await {
             Ok(AppUnfurl::Card(card)) => unfurls.push(*card),
             Ok(AppUnfurl::Connect(provider)) => {
@@ -90,30 +103,26 @@ async fn unfurl_delivery(state: &AppState, delivery: &Delivery) {
         }
     }
 
-    if let Err(e) = store(
-        state,
-        id,
-        &target.content,
-        &source,
-        &unfurls,
-        &prompts,
-        target.workspace_id,
-    )
-    .await
-    {
-        warn!(message_id = %id, "unfurl: failed to store previews: {e}");
+    match store(state, id, &target, &source, &unfurls, &prompts, &urls).await {
+        Ok(true) => {
+            if let Err(e) = app_unfurls::ask(state, event, id, &target, routed).await {
+                warn!(message_id = %id, "unfurl: failed to ask the apps for previews: {e}");
+            }
+        }
+        Ok(false) => {}
+        Err(e) => warn!(message_id = %id, "unfurl: failed to store previews: {e}"),
     }
 }
 
 async fn store(
     state: &AppState,
     id: Uuid,
-    content: &str,
+    target: &UnfurlTarget,
     source: &str,
     unfurls: &[Unfurl],
     prompts: &[String],
-    workspace_id: Uuid,
-) -> shared_common::errors::AppResult<()> {
+    urls: &[String],
+) -> shared_common::errors::AppResult<bool> {
     let unfurls = serde_json::to_value(unfurls)
         .map_err(|e| shared_common::errors::AppError::Internal(e.to_string()))?;
     let prompts = serde_json::to_value(prompts)
@@ -121,18 +130,28 @@ async fn store(
     let mut tx = state.pool.begin().await?;
     let Some(message) = state
         .message_repo
-        .store_unfurls_in(&mut tx, id, content, source, &unfurls, &prompts)
+        .store_unfurls_in(
+            &mut tx,
+            id,
+            UnfurlWrite {
+                content: &target.content,
+                source,
+                unfurls: &unfurls,
+                prompts: &prompts,
+                urls,
+            },
+        )
         .await?
     else {
-        return Ok(());
+        return Ok(false);
     };
     let staged = state
         .publisher
-        .stage_message_updated(&mut tx, &message, workspace_id)
+        .stage_message_updated(&mut tx, &message, target.workspace_id)
         .await?;
     tx.commit().await?;
     state.publisher.dispatch(staged).await;
-    Ok(())
+    Ok(true)
 }
 
 async fn cached_or_fetched(state: &AppState, url: &str) -> Option<Unfurl> {

@@ -8,9 +8,12 @@ import { embedSrc } from '@/lib/videoEmbed';
 import { CollapsedPreview } from './CollapsedPreview';
 import { DAY_AND_TIME, formatClock } from '@/lib/datetime';
 import { CachedImage } from '@/shared/components/Image/CachedImage';
+import { Avatar } from '@/shared/components/Avatar/Avatar';
+import { BlockView } from './blocks/BlockView';
 
 type Unfurl = components['schemas']['Unfurl'];
 type UnfurlField = components['schemas']['UnfurlField'];
+type UnfurlApp = components['schemas']['UnfurlApp'];
 
 interface LinkPreviewsProps {
   unfurls: Unfurl[];
@@ -21,7 +24,12 @@ interface LinkPreviewsProps {
 export function LinkPreviews({ unfurls, onHide, onRefresh }: LinkPreviewsProps) {
   const { t } = useTranslation('messages');
   const worthShowing = unfurls.filter(
-    (unfurl) => unfurl.kind === 'app' || unfurl.kind === 'video' || unfurl.description || unfurl.image_url,
+    (unfurl) =>
+      (unfurl.kind === 'blocks' && unfurl.app && unfurl.blocks?.length) ||
+      unfurl.kind === 'app' ||
+      unfurl.kind === 'video' ||
+      unfurl.description ||
+      unfurl.image_url,
   );
   if (worthShowing.length === 0) return null;
   return (
@@ -35,7 +43,9 @@ export function LinkPreviews({ unfurls, onHide, onRefresh }: LinkPreviewsProps) 
     >
       <div className="mt-1 flex flex-col gap-1.5" data-qa="link-previews">
         {worthShowing.map((unfurl) =>
-          unfurl.kind === 'app' ? (
+          unfurl.kind === 'blocks' && unfurl.app ? (
+            <AppBlocksCard key={unfurl.url} unfurl={unfurl} app={unfurl.app} onHide={onHide} />
+          ) : unfurl.kind === 'app' ? (
             <AppCard key={unfurl.url} unfurl={unfurl} onHide={onHide} onRefresh={onRefresh} />
           ) : unfurl.kind === 'video' ? (
             <VideoCard key={unfurl.url} unfurl={unfurl} onHide={onHide} />
@@ -160,6 +170,39 @@ function AppCard({
           onClick={onHide}
           aria-label={t('previews.remove')}
           data-tooltip={t('previews.remove')}
+          className="absolute right-1 top-1 rounded p-0.5 text-muted opacity-0 transition hover:bg-raised hover:text-fg-dim focus-visible:opacity-100 group-hover/preview:opacity-100"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function AppBlocksCard({ unfurl, app, onHide }: { unfurl: Unfurl; app: UnfurlApp; onHide?: () => void }) {
+  const { t } = useTranslation('messages');
+  return (
+    <div
+      data-qa="app-blocks-preview"
+      className="group/preview relative flex max-w-lg flex-col gap-2 border-l-4 border-line pl-3 pr-8 py-1"
+    >
+      <div
+        className="flex items-center gap-1.5 text-xs font-semibold text-fg-dim"
+        data-qa="app-blocks-preview-app"
+      >
+        <Avatar userId={app.bot_user_id} name={app.name} avatarUrl={app.icon_url} size="xs" />
+        {app.name}
+      </div>
+      {(unfurl.blocks ?? []).map((block, index) => (
+        <BlockView key={index} block={block} />
+      ))}
+      {onHide && (
+        <button
+          type="button"
+          onClick={onHide}
+          aria-label={t('previews.remove')}
+          data-tooltip={t('previews.remove')}
+          data-qa="app-blocks-preview-remove"
           className="absolute right-1 top-1 rounded p-0.5 text-muted opacity-0 transition hover:bg-raised hover:text-fg-dim focus-visible:opacity-100 group-hover/preview:opacity-100"
         >
           <X className="h-3.5 w-3.5" />

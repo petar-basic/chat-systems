@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT domain FROM app_unfurl_domains\n              WHERE workspace_id = $1 AND app_id <> $2 AND domain = ANY($3::text[])\n              ORDER BY domain",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "domain",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "app_unfurl_domains",
+            "name": "domain"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "bad357d554cad843291e4e3c9c07f1bbca034af3a6870fb1f39a795211dec957"
+}

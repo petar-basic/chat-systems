@@ -50,6 +50,8 @@ security scheme.
 | `files:write` | upload files to attach to its messages |
 | `users:read` | list the workspace's members, and the people who have left it |
 | `commands` | own slash commands |
+| `links:read` | hear about links to [its domains](#link-previews) posted where it is a member |
+| `links:write` | show its own previews of those links |
 
 A route the token has no scope for answers `403` with the scope's name:
 `This bot token does not have the reactions:write scope`. An admin can change an app's scopes
@@ -76,6 +78,7 @@ at any time without a new token.
 | POST | `/views/push` | — | `{ trigger_id, view }`, with a trigger from inside a view |
 | POST | `/views/update` | — | `{ view_id or external_id, hash?, view }` |
 | POST | `/views/publish` | — | `{ user_id, view, hash? }`; see [App Home](#app-home-and-shortcuts) |
+| POST | `/messages/{msg_id}/unfurls` | `links:write` | `{ unfurls: { <url>: { blocks } } }`; see [link previews](#link-previews) |
 
 `client_message_id` is a version 4 UUID the bot picks. Sending the same one twice posts once,
 so a bot that retries after a timeout does not double-post.
@@ -215,6 +218,7 @@ app gets them over HTTP, at a request URL, or over a socket it opens itself (soc
 | `channel_created` | a public channel is made | `channels:read` |
 | `channel_archived` | a channel the bot is in is archived | `channels:read` |
 | `app_home_opened` | somebody opens the app's [Home tab](#app-home-and-shortcuts) | — |
+| `link_shared` | a message in a channel the bot is in links to one of [its domains](#link-previews) | `links:read` |
 
 An app never hears about a channel it is not in. `channel_created` is the one exception, and
 it is only sent for public channels, which every member of the workspace can already browse. An
@@ -249,6 +253,7 @@ Every event arrives in the same envelope:
 | `channel_created` | `channel_id`, `name`, `created_by` |
 | `channel_archived` | `channel_id` |
 | `app_home_opened` | `channel_id` (the person's conversation with the app), `user_id`, `tab` (`home`), `view` (the Home last published for them, or `null`) |
+| `link_shared` | `channel_id`, `message_id`, `user_id` (who posted it), `links` (`[{ domain, url }]`, the links not answered yet) |
 
 Delivery is at least once and in order within a channel: the next event in a channel waits
 until the one before it is delivered or given up on. A retry carries the same `event_id`, so an
@@ -557,6 +562,71 @@ Turning an app off takes its shortcuts and its Home tab away from everybody with
 and nothing more is sent to it; turning off its interactivity takes away the shortcuts, and
 turning off its Home tab takes away the tab.
 
+## Link previews
+
+An app can draw the previews of links to its own tools, such as an internal tracker or wiki,
+which the instance cannot fetch itself.
+
+- **Domains.** An admin lists up to five under *Link previews* on the app's page, and the app
+  needs `links:read` and `links:write` for it.
+  - A domain covers its subdomains: `example.com` claims `tracker.example.com` too. Where two
+    apps' domains both cover a link, the longer one wins.
+  - No two apps of a workspace claim the same domain (`409`).
+  - A built-in preview's domain is refused while that integration is on (`409`): `github.com`,
+    `atlassian.net`, `docs.google.com` and `drive.google.com`, `figma.com`. A domain claimed
+    before the integration was turned on goes back to the integration while it is on.
+- **The event.** A link to a claimed domain gets no page preview of its own.
+  - When a message links there in a channel the bot is a member of, an app subscribed to
+    `link_shared` is sent the message and those links.
+  - Where the bot is not a member, the link gets no preview and the app hears nothing.
+  - An edit that adds a link sends the new links only. A preview already given stays, and a
+    link taken out of the message takes its preview with it.
+- **The answer.** Within 30 minutes of the event, the app sends blocks for each link. They
+  are drawn under the message, with the app's name and icon, for everybody in the channel and
+  without a reload.
+  - A preview takes `header`, `section`, `context`, `divider` and `image` blocks, and a
+    section's accessory may be an image. Buttons and menus are refused (`422`).
+  - Answering again replaces the preview.
+- **Refused answers.**
+  - A URL the event did not carry, or one edited out of the message since (`422`).
+  - A message whose links were not shared with the app in the last 30 minutes (`403`).
+  - A message whose author removed its previews (`409`). The app is not asked about that
+    message again, edits included.
+  - Any answer while the workspace's link previews are off (`409`); no `link_shared` is
+    sent then either.
+
+```json
+{
+  "type": "link_shared",
+  "workspace_id": "1b2c…",
+  "event": {
+    "channel_id": "9d0e…",
+    "message_id": "77aa…",
+    "user_id": "c3d4…",
+    "links": [{ "domain": "tracker.example.com", "url": "https://tracker.example.com/issues/7" }]
+  }
+}
+```
+
+```http
+POST /api/messages/77aa…/unfurls
+Authorization: Bearer cbot-…
+
+{
+  "unfurls": {
+    "https://tracker.example.com/issues/7": {
+      "blocks": [
+        { "type": "header", "text": { "type": "plain_text", "text": "TRK-7 Login fails on Safari" } },
+        { "type": "section", "fields": [
+          { "type": "mrkdwn", "text": "*Status*\nIn progress" },
+          { "type": "mrkdwn", "text": "*Assignee*\nMarko" }
+        ] }
+      ]
+    }
+  }
+}
+```
+
 ## Example
 
 [`examples/echo-bot`](../examples/echo-bot/) is a whole bot in one file: it answers
@@ -614,5 +684,13 @@ if (frame.type === 'event' && frame.payload.type === 'app_home_opened') {
 }
 ```
 
-CI runs all four against a seeded instance on every pull request that runs the end-to-end
+[`examples/tracker-previews`](../examples/tracker-previews/) previews links to
+`tracker.example.com`: on `link_shared` it answers each issue link with a header and two
+fields:
+
+```js
+await call(botToken, 'POST', `/messages/${event.message_id}/unfurls`, { unfurls });
+```
+
+CI runs all five against a seeded instance on every pull request that runs the end-to-end
 suite.

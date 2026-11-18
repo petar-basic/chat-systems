@@ -425,7 +425,8 @@ or a raw `<input>`, `<textarea>` or `<select>` (file pickers excepted) fails
 
 ### `MessageItem`
 Single message row. The hover toolbar is `MessageActionsBar`. Content, polls, forms and link
-previews are in `MessageBody`. Edit mode is `MessageEditor` and reactions are `MessageReactions`. The
+previews are in `MessageBody`. `LinkPreviews` draws a page preview, a video, a built-in app's
+card, or (`kind: "blocks"`) an app's own preview: its blocks under the app's name and icon. Edit mode is `MessageEditor` and reactions are `MessageReactions`. The
 row keeps focus, keys, the sender line and the delete confirmation. It does not
 call the API directly — actions go through `useMessageActions`, which wraps the message
 mutation hooks (`useEditMessage`, `useDeleteMessage`, `useReactToMessage`,
@@ -747,7 +748,9 @@ no longer works. A stopped app has *Turn on* in place of *Rotate token* (`BotApp
 which shows its new token once in `TokenReveal`. An app's page has a *Home tab* checkbox
 beside its events (`BotAppEvents`), and `BotAppShortcuts` edits its shortcuts: where each
 goes (*Global* or *On a message*), its callback ID, name and description, saved together
-with PUT `/bot-apps/{id}/shortcuts`.
+with PUT `/bot-apps/{id}/shortcuts`. `BotAppUnfurlDomains` edits the domains whose links the
+app previews, up to five, saved with PUT `/bot-apps/{id}/unfurl-domains`; it says so, and adds
+none, until the app has `links:read` and `links:write`.
 
 **API calls:** PATCH `/workspaces/{id}`, DELETE `/workspaces/{id}` (optionally `?hard=true`),
 POST `/workspaces/{id}/invites` `{ email, role }`, and each section's own.

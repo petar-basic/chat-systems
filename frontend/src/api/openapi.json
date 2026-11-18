@@ -1948,6 +1948,75 @@
         }
       }
     },
+    "/bot-apps/{app_id}/unfurl-domains": {
+      "get": {
+        "tags": [
+          "bot-apps"
+        ],
+        "operationId": "list_unfurl_domains",
+        "parameters": [
+          {
+            "name": "app_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnfurlDomains"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "bot-apps"
+        ],
+        "summary": "Replaces the domains whose links the app previews itself. A domain covers\nits subdomains, no two apps of a workspace claim the same one, and a\nbuilt-in preview's domain is refused while that integration is on.",
+        "operationId": "save_unfurl_domains",
+        "parameters": [
+          {
+            "name": "app_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnfurlDomains"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnfurlDomains"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/channels/{ch_id}": {
       "get": {
         "tags": [
@@ -5224,6 +5293,53 @@
       }
     },
     "/messages/{msg_id}/unfurls": {
+      "post": {
+        "tags": [
+          "messages",
+          "bot"
+        ],
+        "summary": "The app's previews of the links `link_shared` told it about, each a set of\nblocks by URL. It answers within 30 minutes of the event, for that\nmessage only, and may answer again to change a preview.",
+        "operationId": "answer_unfurls",
+        "parameters": [
+          {
+            "name": "msg_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerUnfurlsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bot": [
+              "links:write"
+            ]
+          }
+        ]
+      },
       "delete": {
         "tags": [
           "messages"
@@ -12272,6 +12388,24 @@
           }
         }
       },
+      "AnswerUnfurlsRequest": {
+        "type": "object",
+        "required": [
+          "unfurls"
+        ],
+        "properties": {
+          "unfurls": {
+            "type": "object",
+            "description": "The preview of each link, by the URL as it was sent in `link_shared`.",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/UnfurlAnswer"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "AppDirectory": {
         "type": "object",
         "required": [
@@ -12314,7 +12448,8 @@
           "member_joined_channel",
           "channel_created",
           "channel_archived",
-          "app_home_opened"
+          "app_home_opened",
+          "link_shared"
         ]
       },
       "AppHome": {
@@ -23500,7 +23635,9 @@
           "reactions:write",
           "files:write",
           "users:read",
-          "commands"
+          "commands",
+          "links:read",
+          "links:write"
         ]
       },
       "SearchFilters": {
@@ -24733,6 +24870,22 @@
           "title"
         ],
         "properties": {
+          "app": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/UnfurlApp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "blocks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Block"
+            }
+          },
           "description": {
             "type": [
               "string",
@@ -24797,6 +24950,62 @@
           },
           "url": {
             "type": "string"
+          }
+        }
+      },
+      "UnfurlAnswer": {
+        "type": "object",
+        "required": [
+          "blocks"
+        ],
+        "properties": {
+          "blocks": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "Header, section, divider, image and context blocks."
+          }
+        }
+      },
+      "UnfurlApp": {
+        "type": "object",
+        "required": [
+          "id",
+          "bot_user_id",
+          "name"
+        ],
+        "properties": {
+          "bot_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "icon_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "UnfurlDomains": {
+        "type": "object",
+        "required": [
+          "domains"
+        ],
+        "properties": {
+          "domains": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

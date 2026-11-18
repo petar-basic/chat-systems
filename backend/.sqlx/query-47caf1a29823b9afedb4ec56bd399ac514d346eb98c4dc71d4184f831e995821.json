@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            UPDATE messages\n               SET metadata = COALESCE(metadata, '{}'::jsonb)\n                   || jsonb_build_object('unfurls', $4::jsonb, 'unfurls_source', $3::text, 'app_prompts', $5::jsonb)\n             WHERE id = $1\n               AND content = $2\n               AND deleted_at IS NULL\n               AND COALESCE(metadata->>'unfurls_source', '') <> $3\n               AND NOT COALESCE((metadata->>'unfurls_hidden')::boolean, false)\n            RETURNING id, channel_id, user_id, client_message_id, content, metadata AS \"metadata!\", thread_parent_id, reply_count AS \"reply_count!\", is_pinned AS \"is_pinned!\", created_at, updated_at, deleted_at\n            ",
+  "query": "\n            UPDATE messages\n               SET metadata = COALESCE(metadata, '{}'::jsonb)\n                   || jsonb_build_object(\n                          'unfurls',\n                          COALESCE(\n                              (SELECT jsonb_agg(kept.u ORDER BY array_position($6::text[], kept.u->>'url'), kept.ord)\n                                 FROM (SELECT f.u, f.ord\n                                         FROM jsonb_array_elements($4::jsonb) WITH ORDINALITY AS f(u, ord)\n                                       UNION ALL\n                                       SELECT a.u, a.ord\n                                         FROM jsonb_array_elements(COALESCE(metadata->'unfurls', '[]'::jsonb))\n                                              WITH ORDINALITY AS a(u, ord)\n                                        WHERE a.u ? 'app' AND a.u->>'url' = ANY($6::text[])) kept),\n                              '[]'::jsonb),\n                          'unfurls_source', $3::text,\n                          'app_prompts', $5::jsonb)\n             WHERE id = $1\n               AND content = $2\n               AND deleted_at IS NULL\n               AND COALESCE(metadata->>'unfurls_source', '') <> $3\n               AND NOT COALESCE((metadata->>'unfurls_hidden')::boolean, false)\n            RETURNING id, channel_id, user_id, client_message_id, content, metadata AS \"metadata!\", thread_parent_id, reply_count AS \"reply_count!\", is_pinned AS \"is_pinned!\", created_at, updated_at, deleted_at\n            ",
   "describe": {
     "columns": [
       {
@@ -142,7 +142,8 @@
         "Text",
         "Text",
         "Jsonb",
-        "Jsonb"
+        "Jsonb",
+        "TextArray"
       ]
     },
     "nullable": [
@@ -160,5 +161,5 @@
       true
     ]
   },
-  "hash": "8230d707ac38693a68fcdc4912f169590e351569213efabc9df1f0c0942c5ba8"
+  "hash": "47caf1a29823b9afedb4ec56bd399ac514d346eb98c4dc71d4184f831e995821"
 }

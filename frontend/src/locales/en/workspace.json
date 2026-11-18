@@ -562,7 +562,8 @@
           "member_joined_channel": "Somebody joins a channel it is in",
           "channel_created": "A public channel is made",
           "channel_archived": "A channel it is in is archived",
-          "app_home_opened": "Somebody opens its Home tab"
+          "app_home_opened": "Somebody opens its Home tab",
+          "link_shared": "Somebody posts a link to one of its domains where it is a member"
         },
         "socketMode": "Socket mode",
         "socketModeHint": "The app opens a socket to this instance and takes its events and slash commands there, so it needs no public URL.",
@@ -583,6 +584,17 @@
         "revokeAppToken": "Revoke it",
         "appTokenNote": "Copy it now; it is not shown again. It opens sockets and does nothing else, and a new one closes every socket the old one opened.",
         "appToken": "App-level token"
+      },
+      "unfurls": {
+        "legend": "Link previews",
+        "hint": "Links to these domains and their subdomains are previewed by the app: it gets link_shared and answers with blocks. At most {{max}}.",
+        "needsScopes": "Give the app the links:read and links:write scopes to claim domains.",
+        "domain": "Domain {{number}}",
+        "remove": "Remove {{domain}}",
+        "add": "Add a domain",
+        "save": "Save domains",
+        "saved": "Saved",
+        "failed": "The domains could not be saved"
       }
     }
   }

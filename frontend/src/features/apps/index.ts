@@ -5,10 +5,12 @@ export {
   useAppHomeOpened,
   useAppOfUser,
   useBotAppShortcuts,
+  useBotAppUnfurlDomains,
   useGlobalShortcuts,
   useMessageShortcuts,
   useRunAppShortcut,
   useSaveBotAppShortcuts,
+  useSaveBotAppUnfurlDomains,
 } from './useApps';
 export type {
   ActiveApp,
