@@ -79,5 +79,10 @@
     "you": "自分",
     "conversation": "会話",
     "channelFallback": "チャンネル"
+  },
+  "recent": {
+    "title": "最近の検索",
+    "remove": "「{{search}}」を最近の検索から削除",
+    "clear": "すべて消去"
   }
 }
