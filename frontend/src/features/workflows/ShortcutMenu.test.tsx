@@ -68,7 +68,7 @@ describe('ShortcutMenu', () => {
 
     expect(menu.askedFor).toContain('ws-1');
     fireEvent.click(screen.getByRole('button', { name: 'Shortcuts' }));
-    expect(screen.getByRole('menuitem', { name: 'Onboard someone' })).toBeInTheDocument();
+    expect(await screen.findByRole('menuitem', { name: 'Onboard someone' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('menuitem', { name: /New request/ }));
 
     await waitFor(() =>
@@ -78,11 +78,11 @@ describe('ShortcutMenu', () => {
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
 
-  it('shows an app shortcut even where the channel has no workflows', () => {
+  it('shows an app shortcut even where the channel has no workflows', async () => {
     menu.appShortcuts = [newRequest];
     render(<ShortcutMenu channelId="ch-1" />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Shortcuts' }));
-    expect(screen.getAllByRole('menuitem')).toHaveLength(1);
+    expect(await screen.findAllByRole('menuitem')).toHaveLength(1);
   });
 });

@@ -215,7 +215,11 @@ async fn the_home_tab_is_there_only_while_it_is_on(pool: PgPool) {
     let (status, _) = s
         .publish_home(s.member_id, requests_home(&["Laptop"]), None)
         .await;
-    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "a turned-off app's token no longer signs in"
+    );
 }
 
 #[test_macros::db_test(migrations = "../migrations")]

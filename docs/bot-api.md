@@ -514,8 +514,8 @@ A Home takes the message blocks, up to 100, and no `input`. Publishing again rep
 person's open tab changes without a reload. It answers with the Home, its `id` and a new `hash`;
 sent with the `hash` it last got, a publish is refused with `409` when the Home has changed
 since. Each person's Home is theirs: nobody else can read it. The route refuses a `user_id`
-that is not a person in the workspace (`422`), a Home tab that is off (`409`), and an app that
-was turned off (`403`).
+that is not a person in the workspace (`422`) and a Home tab that is off (`409`); the token of
+an app that was turned off answers `401`, as everywhere.
 
 An app that subscribes to `app_home_opened` hears when somebody opens the tab, with the Home it
 last published for them, and can publish a fresh one. The buttons, menus and date pickers in a

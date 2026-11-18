@@ -1547,7 +1547,7 @@ are in, when its `bot_apps.interactivity` is on and it has a request URL or sock
 | GET | `/apps/:app_id/home` | — | `HomeTab { app_id, home: AppHome\|null }` — member, the caller's own Home; 404 while the app's Home tab is off or the app is off |
 | POST | `/apps/:app_id/home/opened` | `{ channel_id }` | `{ status: queued\|ok }` — the caller's DM with the bot (422 otherwise); queues `app_home_opened` when the app subscribes and has a URL or socket |
 | POST | `/apps/:app_id/home/actions` | `{ block_id, action_id, value? }` | `{ status: "ok" }` — an element in the caller's Home |
-| POST | `/views/publish` | bot token; `{ user_id, view, hash? }` | `AppHome` — 403 for a person's token or an app that is off, 409 while its Home tab is off or for a stale `hash`, 422 for a `user_id` that is not a person in the workspace |
+| POST | `/views/publish` | bot token; `{ user_id, view, hash? }` | `AppHome` — 403 for a person's token, 401 for an app that is off (its token no longer authenticates), 409 while its Home tab is off or for a stale `hash`, 422 for a `user_id` that is not a person in the workspace |
 
 A message belongs to an app when its author is the app's bot user, or when its
 `metadata.bot.hook_id` names a hook whose `app_id` is the app: a command's answer carries the
