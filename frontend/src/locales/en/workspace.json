@@ -583,6 +583,25 @@
         "revokeAppToken": "Revoke it",
         "appTokenNote": "Copy it now; it is not shown again. It opens sockets and does nothing else, and a new one closes every socket the old one opened.",
         "appToken": "App-level token"
+      },
+      "shortcuts": {
+        "title": "Shortcuts",
+        "intro": "Global shortcuts sit in the composer's shortcut menu and in the quick switcher; message shortcuts sit under More actions on messages in conversations the app is in. Using one sends the app its callback ID. At most {{max}} of each.",
+        "where": "Where",
+        "kinds": {
+          "global": "Global",
+          "message": "On a message"
+        },
+        "callbackId": "Callback ID",
+        "name": "Name",
+        "namePlaceholder": "New request",
+        "description": "Description",
+        "descriptionPlaceholder": "Ask the help desk for something",
+        "remove": "Remove this shortcut",
+        "add": "Add a shortcut",
+        "save": "Save shortcuts",
+        "saved": "Saved",
+        "failed": "The shortcuts could not be saved"
       }
     },
     "integrations": {
