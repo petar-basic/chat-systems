@@ -308,7 +308,7 @@ function MessageFields({
   const { ref, insert } = useVariableInsert<HTMLTextAreaElement>(step.text, (text) =>
     onChange({ ...step, text }),
   );
-  const summary = 'summary' in step ? step : null;
+  const summary = step.type === 'reply_in_thread' ? null : step;
 
   return (
     <>

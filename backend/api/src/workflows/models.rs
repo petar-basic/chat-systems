@@ -1847,7 +1847,7 @@ mod tests {
         );
         assert_eq!(
             at(
-                json!([made.clone(), { "type": "add_to_channel", "channel": { "kind": "from_step", "step": 0 }, "people": [] }])
+                json!([{ "type": "create_channel", "name": "proj", "private": false }, { "type": "add_to_channel", "channel": { "kind": "from_step", "step": 0 }, "people": [] }])
             ),
             "Step 2: pick who to add"
         );
