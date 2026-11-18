@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO app_interactions (id, app_id, user_id, message_id, uses_left, expires_at)\n             VALUES ($1, $2, $3, $4, $5, NOW() + make_interval(secs => $6))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Int4",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1a076876f80d56148355237270df13206a4eecc4b94fe854770d8f57c8eb4c68"
+}

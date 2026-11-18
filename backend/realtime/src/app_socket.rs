@@ -13,6 +13,7 @@ use uuid::Uuid;
 use crate::connection_manager::WRITER_CHANNEL_CAP;
 
 pub const ACK_WAIT_SECS: f64 = 3.0;
+const INTERACTIVE: &str = "interactive";
 const BATCH: i64 = 100;
 const IDLE: Duration = Duration::from_millis(250);
 const CHECK_EVERY: Duration = Duration::from_secs(2);
@@ -141,17 +142,19 @@ impl AppSockets {
         })
     }
 
-    pub async fn ack(&self, app_id: Uuid, envelope_id: Uuid) {
+    pub async fn ack(&self, app_id: Uuid, envelope_id: Uuid, payload: Option<&serde_json::Value>) {
         let done = sqlx::query!(
             "WITH done AS (
-                 UPDATE app_deliveries SET delivered_at = NOW(), leased_until = NULL
+                 UPDATE app_deliveries
+                    SET delivered_at = NOW(), leased_until = NULL, response = $3
                   WHERE id = $1 AND app_id = $2 AND delivered_at IS NULL
                  RETURNING app_id
              )
              UPDATE bot_apps SET failing_since = NULL, last_failure = NULL
               WHERE id IN (SELECT app_id FROM done) AND failing_since IS NOT NULL",
             envelope_id,
-            app_id
+            app_id,
+            payload
         )
         .execute(&self.db)
         .await;
@@ -210,6 +213,7 @@ impl AppSockets {
                 "envelope_id": delivery.id,
                 "type": delivery.kind,
                 "retry_attempt": delivery.attempts - 1,
+                "accepts_response_payload": delivery.kind == INTERACTIVE,
                 "payload": delivery.body,
             });
             if !self.send_to_app(delivery.app_id, text(&frame)) {
@@ -277,13 +281,22 @@ impl AppSockets {
     }
 }
 
-fn envelope_id(text: &str) -> Option<Uuid> {
-    serde_json::from_str::<serde_json::Value>(text)
-        .ok()?
-        .get("envelope_id")?
-        .as_str()?
-        .parse()
-        .ok()
+struct Ack {
+    envelope_id: Uuid,
+    payload: Option<serde_json::Value>,
+}
+
+fn ack_of(text: &str) -> Option<Ack> {
+    let mut frame = serde_json::from_str::<serde_json::Value>(text).ok()?;
+    let envelope_id = frame.get("envelope_id")?.as_str()?.parse().ok()?;
+    let payload = frame
+        .get_mut("payload")
+        .map(serde_json::Value::take)
+        .filter(|payload| !payload.is_null());
+    Some(Ack {
+        envelope_id,
+        payload,
+    })
 }
 
 pub async fn handle(socket: WebSocket, admitted: Admitted, apps: Arc<AppSockets>) {
@@ -323,8 +336,8 @@ pub async fn handle(socket: WebSocket, admitted: Admitted, apps: Arc<AppSockets>
                         })));
                         break;
                     }
-                    if let Some(id) = envelope_id(body.as_str()) {
-                        apps.ack(app_id, id).await;
+                    if let Some(ack) = ack_of(body.as_str()) {
+                        apps.ack(app_id, ack.envelope_id, ack.payload.as_ref()).await;
                     }
                 }
                 Some(Ok(Message::Pong(_) | Message::Ping(_))) => last_pong = Instant::now(),

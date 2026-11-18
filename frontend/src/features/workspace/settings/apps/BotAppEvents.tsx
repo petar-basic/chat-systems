@@ -27,6 +27,7 @@ export function BotAppEvents({ app }: Props) {
   const [events, setEvents] = useState<AppEvent[]>(app.events);
   const [requestUrl, setRequestUrl] = useState(app.request_url ?? '');
   const [socketMode, setSocketMode] = useState(app.socket_mode);
+  const [interactivity, setInteractivity] = useState(app.interactivity);
   const [appToken, setAppToken] = useState<string | null>(null);
 
   const toggle = (event: AppEvent, on: boolean) =>
@@ -36,7 +37,7 @@ export function BotAppEvents({ app }: Props) {
     e.preventDefault();
     configure.mutate({
       appId: app.id,
-      settings: { events, request_url: requestUrl.trim(), socket_mode: socketMode },
+      settings: { events, request_url: requestUrl.trim(), socket_mode: socketMode, interactivity },
     });
   };
 
@@ -73,6 +74,17 @@ export function BotAppEvents({ app }: Props) {
         onChange={setSocketMode}
         dataQa="bot-app-socket-mode"
       />
+      <Checkbox
+        label="Interactivity"
+        description={
+          socketMode
+            ? 'Buttons, menus and modals in its messages reach the app over its socket. Off, they stay disabled.'
+            : 'Buttons, menus and modals in its messages are posted to the request URL. Off, they stay disabled.'
+        }
+        checked={interactivity}
+        onChange={setInteractivity}
+        dataQa="bot-app-interactivity"
+      />
       {!socketMode && (
         <TextInput
           label="Request URL"
@@ -91,7 +103,7 @@ export function BotAppEvents({ app }: Props) {
           loading={configure.isPending}
           data-qa="bot-app-events-save"
         >
-          Save events
+          Save
         </Button>
         {!socketMode && (
           <Button

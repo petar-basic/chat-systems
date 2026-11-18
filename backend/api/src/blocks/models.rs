@@ -71,6 +71,28 @@ pub enum BlockElement {
         image_url: String,
         alt_text: String,
     },
+    PlainTextInput {
+        placeholder: Option<BlockText>,
+        initial_value: Option<String>,
+        #[serde(default)]
+        multiline: bool,
+        min_length: Option<u32>,
+        max_length: Option<u32>,
+        action_id: Option<String>,
+    },
+    Checkboxes {
+        #[serde(default)]
+        options: Vec<BlockOption>,
+        #[serde(default)]
+        initial_options: Vec<BlockOption>,
+        action_id: Option<String>,
+    },
+    RadioButtons {
+        #[serde(default)]
+        options: Vec<BlockOption>,
+        initial_option: Option<BlockOption>,
+        action_id: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
@@ -112,6 +134,14 @@ pub enum Block {
         elements: Vec<BlockElement>,
         block_id: Option<String>,
     },
+    Input {
+        label: BlockText,
+        element: BlockElement,
+        hint: Option<BlockText>,
+        #[serde(default)]
+        optional: bool,
+        block_id: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
@@ -151,4 +181,27 @@ pub struct Composed {
     pub content: String,
     pub layout: Option<Layout>,
     pub flattened: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ViewType {
+    Modal,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct View {
+    #[serde(rename = "type")]
+    pub kind: ViewType,
+    pub title: BlockText,
+    pub submit: Option<BlockText>,
+    pub close: Option<BlockText>,
+    pub blocks: Vec<Block>,
+    pub private_metadata: Option<String>,
+    pub callback_id: Option<String>,
+    pub external_id: Option<String>,
+    #[serde(default)]
+    pub notify_on_close: bool,
+    #[serde(default)]
+    pub clear_on_close: bool,
 }

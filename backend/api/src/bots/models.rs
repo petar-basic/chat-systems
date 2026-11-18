@@ -142,6 +142,7 @@ pub struct BotApp {
     pub events: Vec<AppEvent>,
     pub request_url: Option<String>,
     pub socket_mode: bool,
+    pub interactivity: bool,
     pub has_app_token: bool,
     pub connected_sockets: i64,
     pub failing_since: Option<DateTime<Utc>>,
@@ -211,4 +212,6 @@ pub struct UpdateBotAppRequest {
     pub request_url: Option<String>,
     #[garde(skip)]
     pub socket_mode: Option<bool>,
+    #[garde(skip)]
+    pub interactivity: Option<bool>,
 }

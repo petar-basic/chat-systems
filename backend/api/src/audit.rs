@@ -109,6 +109,7 @@ pub enum AuditAction {
     BotAppCalled,
     BotAppDisabled,
     BotAppEnabled,
+    BotAppInteraction,
 }
 
 impl AuditAction {
@@ -208,6 +209,7 @@ impl AuditAction {
             Self::BotAppCalled => "bot_app.called",
             Self::BotAppDisabled => "bot_app.disabled",
             Self::BotAppEnabled => "bot_app.enabled",
+            Self::BotAppInteraction => "bot_app.interaction",
         }
     }
 
@@ -295,7 +297,8 @@ impl AuditAction {
             | Self::BotAppRemoved
             | Self::BotAppCalled
             | Self::BotAppDisabled
-            | Self::BotAppEnabled => "bot_app",
+            | Self::BotAppEnabled
+            | Self::BotAppInteraction => "bot_app",
         }
     }
 }

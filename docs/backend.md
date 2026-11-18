@@ -1455,7 +1455,7 @@ writes one is [bot-api.md](./bot-api.md).
 | POST | `/workspaces/:ws_id/bot-apps` | `{ name, description?, icon_url?, scopes }` | `BotApp & { token }` — admin; 409 for a name the workspace already has |
 | GET | `/bot-apps/me` | bot token | `BotApp` — the app the token belongs to |
 | GET | `/bot-apps/:app_id` | — | `BotApp` — admin of its workspace |
-| PATCH | `/bot-apps/:app_id` | `{ name?, description?, icon_url?, scopes?, events?, request_url?, socket_mode? }` | `BotApp` — admin; the bot user's name and photo follow; a new `request_url` must answer the challenge first, `""` clears it |
+| PATCH | `/bot-apps/:app_id` | `{ name?, description?, icon_url?, scopes?, events?, request_url?, socket_mode?, interactivity? }` | `BotApp` — admin; the bot user's name and photo follow; a new `request_url` must answer the challenge first, `""` clears it |
 | POST | `/bot-apps/:app_id/rotate` | — | `BotApp & { token }` — admin; the old token stops at once |
 | POST | `/bot-apps/:app_id/enable` | — | `BotApp & { token }` — admin, for an app that stopped with its creator; a new bot token (shown once) and signing secret, no app-level token, and the admin becomes `created_by`; `bot_app.enabled` is audited; 409 for an app that is on |
 | DELETE | `/bot-apps/:app_id` | — | `{ status: "deleted" }` — admin |
@@ -1526,6 +1526,42 @@ gone (the token was replaced or revoked, socket mode was turned off, the app was
 API deletes the rows or the cascade does) gets a `disconnect` frame and close code 4003. A
 command owned by a socket-mode app is queued as a `slash_command` row instead of being called,
 and refused at once when the app has no live socket (`seen_at` within 30 seconds).
+
+**Interactivity** (`interactions`). Buttons, menus and modals reach the app whose message they
+are in, when its `bot_apps.interactivity` is on and it has a request URL or socket mode.
+
+| Method | Route | Input | Output |
+|--------|-------|-------|--------|
+| GET | `/workspaces/:ws_id/interactive-apps` | — | `{ data: [{ app_id, bot_user_id, hook_ids }] }` — member; which messages may be used |
+| POST | `/messages/:msg_id/actions` | `{ block_id, action_id, value? }` | `{ status: "ok" }` — reader of the channel; 404 for an element not in the message, 409 while the app's interactivity is off, 503 *The app did not respond* |
+| POST | `/views/:view_id/actions` | `{ block_id, action_id, value?, values }` | `{ status: "ok" }` — the view's person |
+| POST | `/views/:view_id/submit` | `{ values }` | `{ outcome: closed\|updated\|pushed\|cleared\|errors, errors }` — the top view only (409 otherwise) |
+| POST | `/views/:view_id/close` | `{ all? }` | `{ status: "closed" }` — back one view, or all of them |
+| POST | `/views/open`, `/views/push`, `/views/update` | bot token; `{ trigger_id, view }` or `{ view_id\|external_id, hash?, view }` | `AppView` — 422 for a used or expired trigger or a fourth view, 409 for a stale `hash` |
+| POST | `/interactions/responses/:token` | no session; `{ text?, blocks?, attachments?, response_type?, replace_original?, delete_original? }` | `{ status: deleted\|replaced\|posted\|shown }` — five uses in 30 minutes |
+
+A message belongs to an app when its author is the app's bot user, or when its
+`metadata.bot.hook_id` names a hook whose `app_id` is the app: a command's answer carries the
+hook. Composing blocks gives every interactive element without a `block_id` or `action_id` a
+short generated one. `act_on_message` checks the person can read the channel and the element
+is in the message, makes a trigger (`app_triggers`, three seconds, used once) and a response URL
+(`app_interactions`, five uses, 30 minutes, its token signed with `sealed::sign_id` under
+`interaction-responses`, as command response URLs are under theirs), audits
+`bot_app.interaction` and calls `interactions::exchange`. Over HTTP that is a signed `POST`
+with a three-second timeout and no retry; over a socket it is an `app_deliveries` row of kind
+`interactive` with a fresh `channel_id`, so it is a head at once, which expires with the three
+seconds, so the gateway never sends it twice. The gateway's frame carries
+`accepts_response_payload: true`, and the ack's `payload` is stored in
+`app_deliveries.response`, which the API polls every 50 ms. No answer is a 503.
+
+Views live in `app_views`, one row per view, `(stack_id, position)` unique; opening a view
+deletes the person's other stacks in that workspace, `push` inserts at `MAX(position) + 1` only
+while the stack has fewer than three, and `update` checks the `hash` in the `UPDATE`. Every change
+publishes an ephemeral `views.changed` with the person's whole stack, which the gateway sends to
+that user as `ServerFrame::ViewsChanged`. A submission is checked first (required inputs, text
+lengths, members and channels the person may name); a refusal is answered without asking the
+app. A trigger made for a command carries its invocation, so opening a modal with it tells the
+person's client the command is done (`command.response` with `response_type: "modal"`).
 
 ### app_directory
 

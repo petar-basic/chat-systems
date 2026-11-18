@@ -929,6 +929,48 @@ async fn a_command_answer_reaches_only_whoever_ran_it(pool: PgPool) {
     );
 }
 
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_view_stack_reaches_every_socket_of_its_person_and_nobody_else(pool: PgPool) {
+    let cm = manager(pool).await;
+    let person = Uuid::new_v4();
+    let other = Uuid::new_v4();
+    let ws = Uuid::new_v4();
+    let (_laptop, mut laptop_rx) = fake_conn(&cm, person);
+    let (_desktop, mut desktop_rx) = fake_conn(&cm, person);
+    let (_other_conn, mut other_rx) = fake_conn(&cm, other);
+
+    let event = "views.changed";
+    let published_on = format!("events:{}", event.split('.').next().unwrap_or_default());
+    assert!(
+        crate::event_consumer::SUBSCRIBED_CHANNELS.contains(&published_on.as_str()),
+        "the gateway listens where the api publishes it"
+    );
+    let view = Uuid::new_v4();
+    let payload = json!({
+        "user_id": person.to_string(),
+        "workspace_id": ws.to_string(),
+        "views": [{
+            "id": view.to_string(),
+            "app_id": Uuid::new_v4().to_string(),
+            "root_view_id": view.to_string(),
+            "previous_view_id": null,
+            "hash": "h",
+            "type": "modal",
+            "title": { "type": "plain_text", "text": "Request" },
+            "blocks": [],
+        }],
+    });
+    crate::event_consumer::handle_event(event, &payload, &cm).await;
+
+    for rx in [&mut laptop_rx, &mut desktop_rx] {
+        let frame = next_json(rx).expect("each of the person's sockets hears it");
+        assert_eq!(frame["type"], "views.changed");
+        assert_eq!(frame["workspace_id"], ws.to_string());
+        assert_eq!(frame["views"][0]["title"]["text"], "Request");
+    }
+    assert!(next_json(&mut other_rx).is_none());
+}
+
 #[test]
 fn the_consumer_listens_where_later_updates_are_published() {
     assert!(

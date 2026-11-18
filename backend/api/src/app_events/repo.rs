@@ -157,6 +157,7 @@ impl AppEventRepo {
                  UPDATE app_deliveries
                     SET failed_at = NOW(), leased_until = NULL
                   WHERE delivered_at IS NULL AND failed_at IS NULL
+                    AND kind <> 'interactive'
                     AND expires_at <= NOW()
                     AND (leased_until IS NULL OR leased_until < NOW())
                  RETURNING app_id, last_error, seq

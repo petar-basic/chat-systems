@@ -72,6 +72,9 @@ at any time without a new token.
 | GET | `/workspaces/{ws_id}/members` | `users:read` | `is_bot` marks other apps |
 | GET | `/workspaces/{ws_id}/former-members` | `users:read` | `{ user_id, display_name, avatar_url }` of people who left, to name the author of an old message |
 | POST | `/workspaces/{ws_id}/conversations` | `im:write` | `{ participant_ids }`; one person opens or reuses a DM |
+| POST | `/views/open` | — | `{ trigger_id, view }`; see [modals](#modals) |
+| POST | `/views/push` | — | `{ trigger_id, view }`, with a trigger from inside a view |
+| POST | `/views/update` | — | `{ view_id or external_id, hash?, view }` |
 
 `client_message_id` is a version 4 UUID the bot picks. Sending the same one twice posts once,
 so a bot that retries after a timeout does not double-post.
@@ -129,8 +132,9 @@ the path of what is wrong, such as `blocks[3].text: too long, at most 3000 chara
 link-local is refused, so a block cannot make a reader's browser fetch from the network the
 instance sits in.
 
-A button with a `url` opens it in a new tab. Every other element is shown but cannot be used
-yet: its tooltip says the app has not set up interactivity.
+A button with a `url` opens it in a new tab. Every other element reaches the app when
+somebody uses it, if the app has turned on [interactivity](#buttons-menus-and-modals);
+otherwise it is shown disabled, with a tooltip saying the app has not set up interactivity.
 
 **Text objects.** `plain_text` is shown as it is, with emoji names such as `:tada:` turned into
 the emoji. `mrkdwn` is turned into this app's markdown:
@@ -316,12 +320,161 @@ An app in socket mode needs no `url` for its command. Each invocation arrives on
 ```json
 { "envelope_id": "…", "type": "slash_command", "retry_attempt": 0,
   "payload": { "command": "deploy", "text": "api", "channel_id": "…", "workspace_id": "…",
-               "user_id": "…", "request_id": "…", "response_url": "https://…" } }
+               "user_id": "…", "request_id": "…", "response_url": "https://…",
+               "trigger_id": "…" } }
 ```
 
 to be acknowledged like an event and answered through `response_url`. The person who typed it
 sees *working on it…* until then, or *could not be reached* straight away when the app has no
 socket open. An invocation nobody acknowledges within a minute is dropped.
+
+## Buttons, menus and modals
+
+An app turns on **Interactivity** on its page in *Apps*. From then on, the buttons, menus and
+date pickers in the messages it posts, and in the answers to its own commands, reach it when
+somebody uses them. With it off they stay disabled. An element reaches only the app whose
+message it is in, and no scope is needed for it. Each payload sent is written to the audit log
+as `bot_app.interaction`.
+
+A payload goes where the app's events go: a signed `POST` to its request URL, or a frame on
+one of its sockets. It is sent once and never retried. An app that does not answer within
+three seconds leaves the element as it was, and the person sees *The app did not respond*.
+
+### What the app is sent
+
+A button or menu in a message:
+
+```json
+{
+  "type": "block_actions",
+  "app_id": "…", "workspace_id": "…",
+  "user": { "id": "…", "name": "Ana" },
+  "trigger_id": "…",
+  "container": { "type": "message", "message_id": "…", "channel_id": "…" },
+  "channel": { "id": "…", "name": "deploys" },
+  "message": { "id": "…", "user_id": "…", "text": "…", "blocks": [ … ], "attachments": [ … ],
+               "thread_parent_id": null, "created_at": "…" },
+  "response_url": "https://chat.example.com/api/interactions/responses/…",
+  "actions": [
+    { "type": "button", "block_id": "decision", "action_id": "approve", "value": "api@production",
+      "text": { "type": "plain_text", "text": "Approve" }, "action_ts": "…" }
+  ]
+}
+```
+
+An action carries what was chosen: `value` for a button, `selected_option` for a
+`static_select` or `overflow`, `selected_user`, `selected_conversation` or `selected_date`. A
+`block_id` or `action_id` the app left out is made up when the message is posted, so every
+element can be told apart; give your own to recognise them.
+
+An element inside a modal sends the same `block_actions`, with
+`"container": { "type": "view", "view_id": "…" }` and the `view` with its `state` in place of
+the channel, message and `response_url`. Submitting a modal sends
+
+```json
+{
+  "type": "view_submission",
+  "app_id": "…", "workspace_id": "…",
+  "user": { "id": "…", "name": "Ana" },
+  "trigger_id": "…",
+  "view": {
+    "id": "…", "root_view_id": "…", "previous_view_id": null, "hash": "…",
+    "type": "modal", "callback_id": "deploy-request", "private_metadata": "…",
+    "title": { … }, "blocks": [ … ],
+    "state": { "values": {
+      "service": { "name": { "type": "plain_text_input", "value": "api" } },
+      "target": { "env": { "type": "radio_buttons",
+                           "selected_option": { "text": { … }, "value": "production" } } }
+    } }
+  }
+}
+```
+
+and closing one with `"notify_on_close": true` sends `view_closed`, with `is_cleared` true when
+the whole stack was closed. Over HTTP the payload is the body, signed with
+`X-ChatSystems-Signature` like an event. Over a socket it arrives as
+
+```json
+{ "envelope_id": "…", "type": "interactive", "accepts_response_payload": true, "payload": { … } }
+```
+
+### What the app answers
+
+A `block_actions` needs only an acknowledgement: any 2xx over HTTP, or
+`{ "envelope_id": "…" }` on the socket. The app then answers through `response_url`, or opens a
+view with `trigger_id`.
+
+A `view_submission` is answered in the same acknowledgement: the HTTP body, or `payload` beside
+`envelope_id` on the socket. With nothing, the view is closed.
+
+| `response_action` | |
+|-------------------|-|
+| `errors` | `{ "errors": { "<block_id>": "Say which laptop" } }` shows each message under its input, and the view stays open |
+| `update` | `{ "view": { … } }` replaces the submitted view |
+| `push` | `{ "view": { … } }` puts a view on top of it |
+| `clear` | closes every view in the stack |
+
+A required input left empty and a text past its `max_length` or short of its `min_length` are
+refused before the app is asked, with the message under the input. A choice that is not one of
+the options counts as none.
+
+### response_url
+
+`response_url` takes up to five `POST`s within 30 minutes, each with the body of a message:
+
+| Field | |
+|-------|-|
+| `text`, `blocks`, `attachments` | the answer, as in [Blocks](#blocks) |
+| `replace_original: true` | replaces the message the element was in |
+| `delete_original: true` | deletes it |
+| `response_type: "in_channel"` | posts the answer in the channel, from the app's bot |
+| otherwise | only the person who used the element sees it, as a command's answer is seen |
+
+A sixth use, a late one, and one after the app was turned off are refused.
+
+### Modals
+
+The view routes take the app's bot token and answer `409` while its interactivity is off.
+`POST /views/open` opens a modal for whoever caused `trigger_id`: somebody
+who used one of the app's elements, or ran one of its commands, in the last three seconds. A
+trigger opens one view; a used or expired one is refused with `422`. A trigger from an element
+inside a view can `POST /views/push` a view on top of it, up to three; and
+`POST /views/update` replaces a view by `view_id` or `external_id`, refused with `409` when a
+`hash` is sent and the view has changed since.
+
+```json
+{
+  "type": "modal",
+  "callback_id": "deploy-request",
+  "external_id": "request-41",
+  "private_metadata": "anything up to 3000 characters, sent back with the view",
+  "title": { "type": "plain_text", "text": "Request a deploy" },
+  "submit": { "type": "plain_text", "text": "Request" },
+  "close": { "type": "plain_text", "text": "Cancel" },
+  "notify_on_close": false,
+  "clear_on_close": false,
+  "blocks": [
+    { "type": "input", "block_id": "service", "label": { "type": "plain_text", "text": "Service" },
+      "hint": { "type": "plain_text", "text": "Its short name" },
+      "element": { "type": "plain_text_input", "action_id": "name", "max_length": 40 } }
+  ]
+}
+```
+
+A view takes the message blocks and `input`, up to 100 blocks. The title, submit and close
+labels are `plain_text` of at most 24 characters, and a view with inputs needs a submit label.
+An `input` has a `label`, an `element`, an optional `hint` and `optional: true` for one that
+may stay empty; its element is one of the selects, a `datepicker`, or:
+
+| Element | Fields read |
+|---------|-------------|
+| `plain_text_input` | `placeholder`, `initial_value`, `multiline`, `min_length`, `max_length` (at most 3000), `action_id` |
+| `checkboxes` | `options` (1 to 10), `initial_options`, `action_id` |
+| `radio_buttons` | `options` (1 to 10), `initial_option`, `action_id` |
+
+Each answers with the view as it now is, with its `id`, `root_view_id` and `hash`. The person
+sees the top view; *Back* returns to the one below with what was typed in it, and the corner
+closes them all.
 
 ## Example
 
@@ -352,4 +505,22 @@ for (const channel of channels) {
 }
 ```
 
-CI runs both against a seeded instance on every pull request that runs the end-to-end suite.
+[`examples/deploy-approval`](../examples/deploy-approval/) uses all of the above over a socket:
+`/request` opens a modal, a button inside it pushes a second view, a bad service name comes
+back as an error under its input, and the request is posted with *Approve* and *Reject*, which
+the app answers through `response_url` with *Approved by Ana*:
+
+```js
+async function decide(payload) {
+  const action = payload.actions[0];
+  const verdict = action.action_id === 'approve' ? 'Approved' : 'Rejected';
+  await fetch(payload.response_url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ replace_original: true, text: `${verdict} by ${payload.user.name}` }),
+  });
+}
+```
+
+CI runs all three against a seeded instance on every pull request that runs the end-to-end
+suite.

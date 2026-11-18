@@ -276,7 +276,12 @@
     "select": "Select an option",
     "selectPerson": "Select a person",
     "selectConversation": "Select a conversation",
-    "selectDate": "Select a date"
+    "selectDate": "Select a date",
+    "noResponse": "The app did not respond",
+    "failed": "The app could not take that",
+    "view": {
+      "back": "Back"
+    }
   },
   "hoverCard": {
     "paused": "Notifications paused until {{time}}",

@@ -42,6 +42,7 @@ const app = (over: Partial<BotApp> = {}): BotApp => ({
   events: [],
   request_url: null,
   socket_mode: false,
+  interactivity: false,
   has_app_token: false,
   connected_sockets: 0,
   failing_since: null,
@@ -158,6 +159,7 @@ describe('BotAppControls', () => {
     fireEvent.change(screen.getByLabelText(/Request URL/), {
       target: { value: ' https://bot.example.com/events ' },
     });
+    fireEvent.click(screen.getByTestId('bot-app-interactivity'));
     fireEvent.click(screen.getByTestId('bot-app-events-save'));
 
     expect(configureMutate.mock.calls[0][0]).toEqual({
@@ -166,6 +168,7 @@ describe('BotAppControls', () => {
         events: ['app_mention'],
         request_url: 'https://bot.example.com/events',
         socket_mode: false,
+        interactivity: true,
       },
     });
   });

@@ -50,6 +50,7 @@ const ACTIONS = [
   'bot_app.token_rotated',
   'bot_app.removed',
   'bot_app.called',
+  'bot_app.interaction',
   'bot_app.disabled',
   'bot_app.enabled',
   'workflow.created',
