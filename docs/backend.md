@@ -776,7 +776,7 @@ Incoming/outgoing webhooks, bots and slash commands. A background task executes 
 | POST | `/hooks/:hook_id/rotate` | — | same shape, after minting a fresh `token` (incoming) or `secret` (outgoing); the previous value stops working immediately |
 | DELETE | `/hooks/:hook_id` | — | `{ status: "deleted" }` |
 | POST | `/hooks/incoming/:token` | `{ text?, blocks?, attachments?, username?, icon_url? }` | `{ status: "ok", message_id }` — `text` is required unless `blocks` or `attachments` are sent ([bot-api.md](./bot-api.md#blocks)) |
-| GET | `/channels/:ch_id/integrations` | — | `{ incoming_webhooks, outgoing_webhooks, slash_commands, workflows, can_add_webhook }` — what touches the channel, for anyone with access to it: incoming webhooks bound to it, outgoing webhooks and commands whose `channel_ids` include it, workflows whose trigger listens to it or whose `send_message` step posts into it; names and authors only, never a URL, token or secret |
+| GET | `/channels/:ch_id/integrations` | — | `{ incoming_webhooks, outgoing_webhooks, slash_commands, workflows, can_add_webhook }` — what touches the channel, for anyone with access to it: incoming webhooks bound to it, outgoing webhooks and commands whose `channel_ids` include it, workflows whose trigger listens to it or whose steps post into or act on it; names and authors only, never a URL, token or secret |
 
 Hook types: `incoming_webhook`, `outgoing_webhook`, `slash_command`. An outgoing webhook and a
 slash command need a non-empty `config.channel_ids`; without one the 422 names the type asked
@@ -1352,7 +1352,7 @@ answer once.
 
 ### workflows
 
-A workflow is a trigger and up to 20 steps, stored as a typed `Definition` in
+A workflow is a trigger and up to 20 steps, counting those inside branches, stored as a typed `Definition` in
 `workflows.definition` and checked on every save: `models.rs` for the shape and the variables
 each trigger offers, `service::check_authority` for what the builder may do (see the channel
 a trigger listens to, post in the channel, message the person, a real timezone). `runner.rs`
@@ -1372,7 +1372,7 @@ fields, merges them into `context.form`, records the step done and sets the run 
 again, in one transaction with the card's `submitted_at` and its `message.updated`. A later
 step inserts `{{form.<name>}}`; a person answer is a mention and notifies, a text answer does
 not. The tick also expires forms past `expires_at` (7 days): the run becomes `expired` and the
-card `expired`. A run resumed after its workflow was edited stops.
+card `expired`.
 
 `add_list_item` writes an item into a list its builder can write to (`lists::service::writable`)
 and `update_list_item` sets person, select or checkbox columns on the item an earlier step
@@ -1384,6 +1384,39 @@ into the stored value at run time, failing the step with the column's reason. Th
 `lists::service::create_item_in` / `update_item_in` on the step's transaction, followed by the
 returned `ItemWrite::announce`, so list frames, assignment notifications and the due-date sync
 are the ones a hand edit gives.
+
+A `branch` tests one value: a trigger variable or form answer (`form.urgency`), a profile field
+of the person who set the workflow off (`profile.<field_id>`), or a column of the item an
+earlier step added or updated (`step.<n>.column.<column_id>`). It uses `equals`, `contains`,
+`is_empty`, `greater_than` (a number, else an ISO date) or `one_of`, ignoring case and outer
+spaces. A choice compares its label and a person its id. `then` and `otherwise` are lists of
+steps, nested at most 2 deep, and the run joins after them. Steps are numbered depth first (a
+branch, its `then`, its `otherwise`, then the step after it). That number is the `position` in
+`workflow_run_steps`, a later step's `from_step` and the `N` of `{{step.N.…}}`. What a step on
+a path asks or makes is available only further down that path. A branch's row stores
+`matched`, and a step on the path not taken gets no row.
+
+A `delay` waits `{ kind: "for", amount, unit }` (minutes, hours or days) or `{ kind: "until",
+date, time, timezone }`, at most 30 days, and Postgres computes the moment. The run becomes
+`waiting` with `waiting_at` and `resume_at`. Each tick, `repo::resume_due` sets due runs back
+to `pending` and records the delay step in one statement under `FOR UPDATE SKIP LOCKED`, so two
+workers resume a run once. A form sets `waiting_at` too, and `WorkflowRun.waiting` says where a
+run waits and until when (the resume time, or when the form expires).
+
+`add_reaction` and `reply_in_thread` act on the message a `reaction_added` trigger fired on.
+`create_channel` makes a public or private channel from a name template (lowercased, spaces
+to dashes), with the builder as its admin, under the workspace's channel-creator rules. It
+offers `{{step.N.channel}}` and `{{step.N.channel_link}}`, and `reply_in_thread` offers
+`{{step.N.message_link}}`. `add_to_channel`, `set_topic` and `archive_channel` take a
+`ChannelRef`: a fixed channel, the trigger's channel, or the one an earlier step created
+(`from_step`). The people to add are the trigger's person, a person answer or a user group, at
+most 10, added through `membership::invite`. At run time each step checks that the builder may
+still create the channel, edit its topic or archive it, and fails with the reason; saving
+checks the same for a fixed channel.
+
+Every save also writes `workflow_versions (workflow_id, version, definition)`. A run executes
+the version it started on (`WorkflowRun.workflow_version`), so a run waiting through an edit
+finishes the old way, and its history labels each step (`RunStep.label`) from that version.
 
 A run is a row in `workflow_runs`, unique on `(workflow_id, trigger_key)` — the schedule
 instant, the webhook request or the stream event id — so a trigger delivered twice is one run.
@@ -1412,7 +1445,7 @@ webhook values or the reacted message.
 | POST | `/workflows/:workflow_id/owner` | — | `Workflow`, now the caller's and off, with a new `webhook_url` — a workspace admin, only when `creator_gone` (its builder left the workspace or is suspended; 409 otherwise) |
 | POST | `/workflows/:workflow_id/rotate` | — | `Workflow` with a new `webhook_url`; the old one answers 401 — its builder or an admin; 409 for a workflow not started by a webhook |
 | DELETE | `/workflows/:workflow_id` | — | `{ status: "deleted" }` — its builder or an admin |
-| GET | `/workflows/:workflow_id/runs` | — | `{ data: WorkflowRun[] }`, the last 50, newest first, each with its steps |
+| GET | `/workflows/:workflow_id/runs` | — | `{ data: WorkflowRun[] }`, the last 50, newest first, each with its steps (`label`, `matched` for a branch, `error`) and `waiting` (`position`, `label`, `until`) while it waits |
 | POST | `/workflows/:workflow_id/start` | header `Idempotency-Key` optional | 202 `{ status: "accepted", run_id }` — a shortcut, by someone who can post in its channel; 404 otherwise, 409 turned off, 429 above 30 a minute |
 | GET | `/channels/:ch_id/workflow-shortcuts` | — | `{ data: Shortcut[] }` — the enabled shortcuts of a channel you can post in |
 | POST | `/workflow-runs/:run_id/forms/:position` | `{ answers: { [name]: string } }` | `{ status: "submitted" }` — its recipient only (403); 422 a bad answer, 409 answered, expired or no longer waiting |

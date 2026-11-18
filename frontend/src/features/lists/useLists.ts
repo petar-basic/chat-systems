@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type { components } from '@/api/schema';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { ErrorLabels, QUERY_KEYS } from '@/shared/constants';
@@ -84,13 +84,17 @@ export function useWorkspaceLists(workspaceId: string, instanceUrl?: string, ena
   });
 }
 
-export function useListDetail(listId: string, instanceUrl?: string) {
-  return useQuery({
+export function listDetailQuery(listId: string, instanceUrl?: string) {
+  return queryOptions({
     queryKey: QUERY_KEYS.list(listId),
     queryFn: () =>
       api(instanceUrl).typed((c) => c.GET('/lists/{list_id}', { params: { path: { list_id: listId } } })),
     retry: false,
   });
+}
+
+export function useListDetail(listId: string, instanceUrl?: string) {
+  return useQuery(listDetailQuery(listId, instanceUrl));
 }
 
 export function useListItems(listId: string, instanceUrl?: string) {

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            UPDATE workflow_runs r\n               SET status = 'running', claimed_at = NOW()\n              FROM (\n                  SELECT id FROM workflow_runs\n                   WHERE status = 'pending'\n                      OR (status = 'running' AND claimed_at < NOW() - INTERVAL '5 minutes')\n                   ORDER BY started_at\n                   LIMIT $1\n                   FOR UPDATE SKIP LOCKED\n              ) due\n             WHERE r.id = due.id\n            RETURNING r.id, r.workflow_id, r.workflow_version, r.status AS \"status: RunStatus\",\n                      r.context, r.error, r.started_at, r.finished_at\n            ",
+  "query": "\n            SELECT r.id, r.workflow_id, r.workflow_version, r.status AS \"status: RunStatus\",\n                   r.context, r.error, r.started_at, r.finished_at, r.waiting_at,\n                   COALESCE(r.resume_at, f.expires_at) AS waiting_until\n              FROM workflow_runs r\n              LEFT JOIN workflow_forms f\n                     ON f.run_id = r.id AND f.position = r.waiting_at AND f.answered_at IS NULL\n             WHERE r.workflow_id = $1\n             ORDER BY r.started_at DESC, r.id\n             LIMIT $2\n            ",
   "describe": {
     "columns": [
       {
@@ -104,10 +104,28 @@
             "name": "finished_at"
           }
         }
+      },
+      {
+        "ordinal": 8,
+        "name": "waiting_at",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "workflow_runs",
+            "name": "waiting_at"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "waiting_until",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
       }
     ],
     "parameters": {
       "Left": [
+        "Uuid",
         "Int8"
       ]
     },
@@ -119,8 +137,10 @@
       false,
       true,
       false,
-      true
+      true,
+      true,
+      null
     ]
   },
-  "hash": "0b1454e6912c61a6937932f7d7e47841e677a8bd5e5f7057ef7b7be99212c973"
+  "hash": "c8c39bf55814bf5d00fcc764a5dc8fa1e36f19872b2103bf7cb02bc5a6dd3fcd"
 }

@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { Channel, WorkspaceMember } from '@/stores/workspace';
 import type { ListColumn } from '@/features/lists/listModel';
 import { WorkflowEditor } from './WorkflowEditor';
-import type { SaveWorkflow, Workflow } from './workflowModel';
+import type { Definition, SaveWorkflow, Workflow } from './workflowModel';
 
 const create = vi.fn<(body: SaveWorkflow) => Promise<Workflow>>();
 const update = vi.fn<(vars: { id: string; body: SaveWorkflow }) => Promise<Workflow>>();
@@ -12,6 +13,32 @@ const disable = vi.fn<(id: string) => Promise<Workflow>>();
 const takeOver = vi.fn<(id: string) => Promise<Workflow>>();
 const rotate = vi.fn<(id: string) => Promise<Workflow>>();
 const remove = vi.fn<(id: string) => Promise<unknown>>();
+const history = vi.hoisted(() => ({ runs: [] as unknown[] }));
+
+const FAILED_RUN = {
+  id: 'r-1',
+  workflow_version: 1,
+  status: 'failed',
+  error: 'Step 2 (Send a message): Its creator can no longer post in that channel',
+  started_at: '2026-10-24T08:00:00Z',
+  finished_at: '2026-10-24T08:00:01Z',
+  steps: [
+    {
+      position: 0,
+      label: 'Send a message',
+      succeeded: true,
+      message_id: 'm-1',
+      finished_at: '2026-10-24T08:00:01Z',
+    },
+    {
+      position: 1,
+      label: 'Send a message',
+      succeeded: false,
+      error: 'Its creator can no longer post in that channel',
+      finished_at: '2026-10-24T08:00:01Z',
+    },
+  ],
+};
 
 vi.mock('./useWorkflows', () => ({
   useWorkflowActions: () => ({
@@ -23,23 +50,7 @@ vi.mock('./useWorkflows', () => ({
     rotate: { mutateAsync: rotate, isPending: false },
     remove: { mutateAsync: remove, isPending: false },
   }),
-  useWorkflowRuns: () => ({
-    isLoading: false,
-    data: [
-      {
-        id: 'r-1',
-        workflow_version: 1,
-        status: 'failed',
-        error: 'Step 2 (Send a message): Its creator can no longer post in that channel',
-        started_at: '2026-10-24T08:00:00Z',
-        finished_at: '2026-10-24T08:00:01Z',
-        steps: [
-          { position: 0, succeeded: true, message_id: 'm-1', finished_at: '2026-10-24T08:00:01Z' },
-          { position: 1, succeeded: false, error: 'no', finished_at: '2026-10-24T08:00:01Z' },
-        ],
-      },
-    ],
-  }),
+  useWorkflowRuns: () => ({ isLoading: false, data: history.runs }),
 }));
 
 vi.mock('@/features/messaging/EmojiPicker', () => ({
@@ -62,6 +73,33 @@ vi.mock('@/features/lists/useLists', () => ({
     isLoading: false,
     data: id === 'l-1' ? { columns: LIST_COLUMNS } : undefined,
   }),
+  listDetailQuery: (id: string) => ({
+    queryKey: ['list', id],
+    queryFn: async () => ({ columns: LIST_COLUMNS }),
+    initialData: { columns: LIST_COLUMNS },
+  }),
+}));
+
+vi.mock('@/features/people/hooks/useProfileFields', async (original) => ({
+  ...(await original<typeof import('@/features/people/hooks/useProfileFields')>()),
+  useProfileFields: () => ({
+    fields: [
+      {
+        id: 'pf-office',
+        label: 'Office',
+        kind: 'options',
+        options: [
+          { id: 'o-bg', label: 'Belgrade' },
+          { id: 'o-ny', label: 'New York' },
+        ],
+      },
+    ],
+  }),
+}));
+
+vi.mock('@/features/workspace/hooks/useUserGroups', async (original) => ({
+  ...(await original<typeof import('@/features/workspace/hooks/useUserGroups')>()),
+  useUserGroups: () => ({ data: [{ id: 'g-design', handle: 'design', name: 'Design' }] }),
 }));
 
 const column = (id: string, name: string, kind: ListColumn['kind'], choices: string[] = []): ListColumn => ({
@@ -123,15 +161,17 @@ const saved = (overrides: Partial<Workflow> = {}): Workflow => ({
 function renderEditor(workflow: Workflow | null = null, { currentUserId = 'u-me', canBuild = true } = {}) {
   const onClose = vi.fn();
   render(
-    <WorkflowEditor
-      workspaceId="ws"
-      workflow={workflow}
-      channels={CHANNELS}
-      members={MEMBERS}
-      currentUserId={currentUserId}
-      canBuild={canBuild}
-      onClose={onClose}
-    />,
+    <QueryClientProvider client={new QueryClient()}>
+      <WorkflowEditor
+        workspaceId="ws"
+        workflow={workflow}
+        channels={CHANNELS}
+        members={MEMBERS}
+        currentUserId={currentUserId}
+        canBuild={canBuild}
+        onClose={onClose}
+      />
+    </QueryClientProvider>,
   );
   return onClose;
 }
@@ -149,6 +189,7 @@ const texts = () =>
   screen.getAllByTestId('workflow-step-text').map((area) => (area as HTMLTextAreaElement).value);
 
 beforeEach(() => {
+  history.runs = [FAILED_RUN];
   create.mockReset();
   update.mockReset();
   enable.mockReset();
@@ -514,10 +555,12 @@ describe('WorkflowEditor', () => {
     fireEvent.click(screen.getByTestId('workflow-history-toggle'));
     expect(screen.getByTestId('workflow-run-status')).toHaveTextContent('Failed');
     expect(screen.getByTestId('workflow-run-error')).toHaveTextContent('Its creator can no longer post');
-    expect(screen.getAllByTestId('workflow-run-step').map((s) => s.textContent)).toEqual([
-      'Step 1 · Send a message',
-      'Step 2 · Send a message',
-    ]);
+    const rows = screen.getAllByTestId('workflow-run-step');
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent('Step 1 · Send a message');
+    expect(within(rows[1]).getByTestId('workflow-run-step-error')).toHaveTextContent(
+      'Its creator can no longer post in that channel',
+    );
   });
 
   it('deletes after confirming and closes', async () => {
@@ -528,5 +571,289 @@ describe('WorkflowEditor', () => {
     fireEvent.click(screen.getByTestId('workflow-delete-confirm-confirm'));
     await waitFor(() => expect(remove).toHaveBeenCalledWith('w-1'));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
+  const lanes = (scope: HTMLElement = document.body) => within(scope).getAllByTestId('workflow-lane');
+
+  it('routes an urgent request one way and any other the other way, each path with its own steps', async () => {
+    create.mockResolvedValue(saved());
+    renderEditor();
+    fireEvent.change(screen.getByTestId('workflow-trigger-type'), { target: { value: 'shortcut' } });
+    fireEvent.change(screen.getByTestId('workflow-step-type'), { target: { value: 'form' } });
+    fireEvent.change(screen.getByTestId('workflow-step-person'), { target: { value: 'trigger_user' } });
+    fireEvent.change(screen.getByTestId('workflow-form-title'), { target: { value: 'Request' } });
+    fireEvent.change(screen.getByTestId('workflow-form-field-label'), { target: { value: 'Urgency' } });
+    fireEvent.change(screen.getByTestId('workflow-form-field-kind'), { target: { value: 'select' } });
+    fireEvent.change(screen.getByTestId('workflow-form-field-options'), {
+      target: { value: 'urgent\nnormal' },
+    });
+
+    fireEvent.click(screen.getByTestId('workflow-step-add'));
+    fireEvent.change(within(steps()[1]).getByTestId('workflow-step-type'), { target: { value: 'branch' } });
+    expect(within(steps()[1]).getByTestId('workflow-step-title')).toHaveTextContent('Branch');
+    const value = screen.getByTestId('workflow-branch-value');
+    expect(optionsOf(value)).toEqual([
+      'Pick a value',
+      'Person who ran it',
+      'Channel',
+      'Answer: Urgency',
+      'Their profile: Office',
+    ]);
+    fireEvent.change(value, { target: { value: 'form.urgency' } });
+    expect(optionsOf(screen.getByTestId('workflow-branch-op'))).toEqual([
+      'is',
+      'is one of',
+      'contains',
+      'is empty',
+    ]);
+    fireEvent.change(screen.getByTestId('workflow-branch-operand'), { target: { value: 'urgent' } });
+
+    const [then, otherwise] = lanes();
+    expect(then).toHaveAccessibleName('Step 2: if it matches');
+    expect(within(otherwise).getByText('No steps: the run goes straight on.')).toBeInTheDocument();
+    fireEvent.click(within(then).getByTestId('workflow-lane-add'));
+    fireEvent.change(within(lanes()[0]).getByTestId('workflow-step-text'), {
+      target: { value: 'Paging on-call' },
+    });
+    fireEvent.click(within(lanes()[1]).getByTestId('workflow-lane-add'));
+    fireEvent.change(within(lanes()[1]).getByTestId('workflow-step-text'), { target: { value: 'Filed' } });
+    expect(steps().map((step) => step.getAttribute('aria-label'))).toEqual([
+      'Step 1',
+      'Step 2',
+      'Step 3',
+      'Step 4',
+    ]);
+    fireEvent.click(screen.getByTestId('workflow-save'));
+
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+    expect(create.mock.calls[0][0].definition.steps[1]).toEqual({
+      type: 'branch',
+      value: 'form.urgency',
+      test: { op: 'equals', value: 'urgent' },
+      then: [{ type: 'send_message', channel_id: 'c-general', text: 'Paging on-call' }],
+      otherwise: [{ type: 'send_message', channel_id: 'c-general', text: 'Filed' }],
+    });
+  });
+
+  it('tests the person who ran it against people picked, or their profile against its choices', () => {
+    renderEditor(
+      saved({
+        definition: {
+          trigger: { type: 'shortcut', channel_id: 'c-general' },
+          steps: [
+            {
+              type: 'branch',
+              value: 'trigger.user',
+              test: { op: 'one_of', values: ['u-bob'] },
+              then: [{ type: 'send_message', channel_id: 'c-general', text: 'hi' }],
+              otherwise: [],
+            },
+          ],
+        },
+      }),
+    );
+    expect(optionsOf(screen.getByTestId('workflow-branch-op'))).toEqual(['is', 'is one of', 'is empty']);
+    expect(screen.getByRole('list', { name: 'People it matches' })).toHaveTextContent('Bob');
+    fireEvent.change(screen.getByTestId('workflow-branch-value'), { target: { value: 'profile.pf-office' } });
+    expect(screen.queryByRole('list', { name: 'People it matches' })).toBeNull();
+    fireEvent.change(screen.getByTestId('workflow-branch-op'), { target: { value: 'equals' } });
+    expect(optionsOf(screen.getByTestId('workflow-branch-operand'))).toEqual([
+      'Pick a choice',
+      'Belgrade',
+      'New York',
+    ]);
+  });
+
+  it('nests branches two deep and no deeper', () => {
+    const say = (text: string) => ({ type: 'send_message' as const, channel_id: 'c-general', text });
+    const branch = (then: Definition['steps']) => ({
+      type: 'branch' as const,
+      value: 'trigger.user',
+      test: { op: 'is_empty' as const },
+      then,
+      otherwise: [],
+    });
+    renderEditor(
+      saved({
+        definition: {
+          trigger: { type: 'shortcut', channel_id: 'c-general' },
+          steps: [branch([branch([say('deep')]), say('mid')])],
+        },
+      }),
+    );
+    expect(steps().map((step) => step.dataset.type)).toEqual([
+      'branch',
+      'branch',
+      'send_message',
+      'send_message',
+    ]);
+    expect(optionsOf(within(steps()[2]).getByTestId('workflow-step-type'))).not.toContain(
+      'Branch on a condition',
+    );
+    expect(optionsOf(within(steps()[3]).getByTestId('workflow-step-type'))).toContain(
+      'Branch on a condition',
+    );
+    expect(within(steps()[2]).getByTestId('workflow-step-remove')).not.toBeDisabled();
+    expect(within(steps()[0]).getByTestId('workflow-step-remove')).toBeDisabled();
+  });
+
+  it('won’t save a branch that tests nothing', async () => {
+    renderEditor(
+      saved({
+        definition: {
+          trigger: { type: 'shortcut', channel_id: 'c-general' },
+          steps: [
+            {
+              type: 'branch',
+              value: '',
+              test: { op: 'equals', value: '' },
+              then: [{ type: 'send_message', channel_id: 'c-general', text: 'hi' }],
+              otherwise: [],
+            },
+          ],
+        },
+      }),
+    );
+    fireEvent.click(screen.getByTestId('workflow-save'));
+    expect(await screen.findByTestId('workflow-error')).toHaveTextContent(
+      'Step 1: pick what the branch tests',
+    );
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('waits a while, and offers the message steps only to a reaction trigger', async () => {
+    create.mockResolvedValue(saved());
+    renderEditor();
+    expect(optionsOf(screen.getByTestId('workflow-step-type'))).not.toContain('React to the message');
+    fireEvent.change(screen.getByTestId('workflow-step-type'), { target: { value: 'delay' } });
+    expect(screen.getByTestId('workflow-delay-amount')).toHaveValue(1);
+    fireEvent.change(screen.getByTestId('workflow-delay-amount'), { target: { value: '2' } });
+    fireEvent.change(screen.getByTestId('workflow-delay-unit'), { target: { value: 'hours' } });
+    fireEvent.change(screen.getByTestId('workflow-delay-kind'), { target: { value: 'until' } });
+    expect(screen.getByTestId('workflow-delay-time')).toHaveValue('09:00');
+    fireEvent.change(screen.getByTestId('workflow-delay-kind'), { target: { value: 'for' } });
+    fireEvent.change(screen.getByTestId('workflow-delay-amount'), { target: { value: '2' } });
+    fireEvent.change(screen.getByTestId('workflow-delay-unit'), { target: { value: 'hours' } });
+    fireEvent.click(screen.getByTestId('workflow-step-add'));
+    fireEvent.change(screen.getAllByTestId('workflow-step-text')[0], { target: { value: 'Later' } });
+    fireEvent.change(screen.getByTestId('workflow-trigger-type'), { target: { value: 'reaction_added' } });
+    expect(optionsOf(within(steps()[1]).getByTestId('workflow-step-type'))).toEqual(
+      expect.arrayContaining(['React to the message', 'Reply in the message’s thread']),
+    );
+    fireEvent.click(screen.getByTestId('workflow-trigger-emoji'));
+    fireEvent.click(screen.getByText('Siren'));
+    fireEvent.click(screen.getByTestId('workflow-save'));
+
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+    expect(create.mock.calls[0][0].definition.steps).toEqual([
+      { type: 'delay', wait: { kind: 'for', amount: 2, unit: 'hours' } },
+      { type: 'send_message', channel_id: 'c-general', text: 'Later' },
+    ]);
+  });
+
+  it('makes a project channel, adds the people picked and points later steps at it', async () => {
+    create.mockResolvedValue(saved());
+    renderEditor();
+    fireEvent.change(screen.getByTestId('workflow-trigger-type'), { target: { value: 'shortcut' } });
+    fireEvent.change(screen.getByTestId('workflow-step-type'), { target: { value: 'form' } });
+    fireEvent.change(screen.getByTestId('workflow-step-person'), { target: { value: 'trigger_user' } });
+    fireEvent.change(screen.getByTestId('workflow-form-title'), { target: { value: 'Project' } });
+    fireEvent.change(screen.getByTestId('workflow-form-field-label'), { target: { value: 'Name' } });
+    fireEvent.click(screen.getByTestId('workflow-form-field-add'));
+    fireEvent.change(screen.getAllByTestId('workflow-form-field-label')[1], { target: { value: 'Who' } });
+    fireEvent.change(screen.getAllByTestId('workflow-form-field-kind')[1], { target: { value: 'person' } });
+
+    fireEvent.click(screen.getByTestId('workflow-step-add'));
+    fireEvent.change(within(steps()[1]).getByTestId('workflow-step-type'), {
+      target: { value: 'create_channel' },
+    });
+    fireEvent.change(screen.getByTestId('workflow-step-channel-name'), {
+      target: { value: 'proj-{{form.name}}' },
+    });
+    fireEvent.click(screen.getByTestId('workflow-step-channel-private'));
+
+    fireEvent.click(screen.getByTestId('workflow-step-add'));
+    fireEvent.change(within(steps()[2]).getByTestId('workflow-step-type'), {
+      target: { value: 'add_to_channel' },
+    });
+    const where = within(steps()[2]).getByTestId('workflow-step-channel-ref');
+    expect(optionsOf(where)).toEqual([
+      'Pick a channel',
+      'The channel it started in',
+      'The channel step 2 creates',
+      '#general',
+    ]);
+    expect(where).toHaveValue('step:1');
+    const add = within(steps()[2]).getByTestId('workflow-step-invitee-add');
+    expect(optionsOf(add)).toEqual(['Add people…', 'The person who ran it', 'Answer: Who', '@design']);
+    fireEvent.change(add, { target: { value: 'answer:who' } });
+    fireEvent.change(within(steps()[2]).getByTestId('workflow-step-invitee-add'), {
+      target: { value: 'group:g-design' },
+    });
+    expect(within(steps()[2]).getByRole('list', { name: 'People to add' })).toHaveTextContent(
+      'Answer: Who@design',
+    );
+
+    fireEvent.click(screen.getByTestId('workflow-step-add'));
+    const reply = steps()[3];
+    expect(optionsOf(within(reply).getByTestId('workflow-step-variable'))).toContain(
+      'Step 2: link to the new channel',
+    );
+    fireEvent.change(within(reply).getByTestId('workflow-step-type'), { target: { value: 'send_dm' } });
+    fireEvent.change(within(steps()[3]).getByTestId('workflow-step-person'), {
+      target: { value: 'trigger_user' },
+    });
+    fireEvent.change(within(steps()[3]).getByTestId('workflow-step-text'), {
+      target: { value: 'Made {{step.2.channel_link}}' },
+    });
+    fireEvent.click(within(steps()[1]).getByTestId('workflow-step-down'));
+    expect(within(steps()[1]).getByTestId('workflow-step-title')).toHaveTextContent(
+      'Add people to a channel',
+    );
+    fireEvent.click(within(steps()[1]).getByTestId('workflow-step-down'));
+    expect(within(steps()[1]).getByTestId('workflow-step-title')).toHaveTextContent('Create a channel');
+    fireEvent.click(screen.getByTestId('workflow-save'));
+
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+    expect(create.mock.calls[0][0].definition.steps.slice(1)).toEqual([
+      { type: 'create_channel', name: 'proj-{{form.name}}', private: true },
+      {
+        type: 'add_to_channel',
+        channel: { kind: 'from_step', step: 1 },
+        people: [
+          { kind: 'answer', field: 'who' },
+          { kind: 'group', group_id: 'g-design' },
+        ],
+      },
+      { type: 'send_dm', to: { kind: 'trigger_user' }, text: 'Made {{step.2.channel_link}}' },
+    ]);
+  });
+
+  it('says which path a run took and where it waits, and until when', () => {
+    history.runs = [
+      {
+        id: 'r-2',
+        workflow_version: 2,
+        status: 'waiting',
+        started_at: '2026-10-24T08:00:00Z',
+        steps: [
+          {
+            position: 0,
+            label: 'Branch',
+            succeeded: true,
+            matched: false,
+            finished_at: '2026-10-24T08:00:01Z',
+          },
+          { position: 2, label: 'Send a message', succeeded: true, finished_at: '2026-10-24T08:00:01Z' },
+        ],
+        waiting: { position: 3, label: 'Wait', until: '2026-10-25T08:00:00Z' },
+      },
+    ];
+    renderEditor(saved());
+    fireEvent.click(screen.getByTestId('workflow-history-toggle'));
+    expect(screen.getByTestId('workflow-run-status')).toHaveTextContent('Waiting');
+    expect(screen.getByTestId('workflow-run-path')).toHaveTextContent('took the “Otherwise” path');
+    expect(screen.getAllByTestId('workflow-run-step')[1]).toHaveTextContent('Step 3 · Send a message');
+    expect(screen.getByTestId('workflow-run-waiting')).toHaveTextContent(/^Waiting at step 4 · Wait until /);
   });
 });

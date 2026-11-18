@@ -585,10 +585,24 @@ step after a form can tick *Add the form answers below the message*. `ListStepEd
 `useListDetail`) and *Update the item a step added* (the earlier step, then only its person,
 select and checkbox columns): a select of choices, people or *Checked*/*Unchecked*, or a text
 input, each offering only the variables that fit the column (`fits`), and *Fill from the form
-answers* matches columns to questions by name. Moving or removing a step keeps an update step
-pointing at the step that adds its item (`moveStep`, `removeStep`). *Create workflow* saves a
+answers* matches columns to questions by name. `StepTree` lays the steps out as a tree: a
+*Branch on a condition* step (`BranchEditor`: what it checks, from the trigger, a form, the
+person's profile fields or an earlier list item's columns, a condition that fits that value,
+and what to compare with) is followed by two indented lanes, *If it matches* and *Otherwise*,
+each with its own *Add a step*. Branches nest 2 deep, so a step that deep doesn't offer one.
+`DelayEditor` waits a while or until a date, time and timezone. *React to the message* and
+*Reply in the message’s thread* appear for a reaction trigger. *Create a channel* takes a name
+with variables and *Make it private*, and *Add people to a channel*, *Set a channel’s topic*
+and *Archive a channel* pick a fixed channel, the trigger's, or the one an earlier step creates
+(`ChannelStepEditor`). Step numbers run depth first, as the server counts them (`flatten`), and
+a step offers only what came before it on its own path. `addStep`, `moveStep`, `removeStep` and
+`replaceStep` renumber every reference to a step (`from_step`, a channel step's `from_step`,
+`{{step.N.…}}`) so it keeps pointing at the same step, and a removed step's references fail
+validation instead of moving to another step. *Create workflow* saves a
 new one and it runs at once; *Save changes* keeps it on or off as it was; *Turn off* and *Turn
-on* switch it. There are no drafts. *Run history* swaps the form for `RunHistory`, refetched every 10 seconds. Someone else's workflow,
+on* switch it. There are no drafts. *Run history* swaps the form for `RunHistory`, refetched
+every 10 seconds: each step with its label from the version the run used, the path a branch
+took, a failed step's error, and where a waiting run waits and until when. Someone else's workflow,
 or yours when only admins may build, opens read-only. `workflowModel.ts` holds the pure
 helpers (schedule presets, insertion, reordering, who may build).
 

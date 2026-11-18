@@ -15,7 +15,7 @@ use crate::hooks::models::HookType;
 use crate::integrations::models::Provider;
 use crate::notifications::models::{NotificationData, NotificationType, SystemNotice};
 use crate::state::AppState;
-use crate::workflows::models::{Definition, RunStatus, Step, Trigger};
+use crate::workflows::models::{ChannelRef, Definition, RunStatus, Step, Trigger};
 use crate::workspace::models::WorkspaceRole;
 
 struct Draft {
@@ -354,14 +354,21 @@ fn trigger_text(trigger: &Trigger) -> (&'static str, String) {
     }
 }
 
-fn step_text(step: &Step) -> (&'static str, &'static str) {
-    match step {
+fn step_text(step: &Step) -> Option<(&'static str, &'static str)> {
+    Some(match step {
         Step::SendMessage { .. } => ("send_message", "Posts messages into channels"),
         Step::SendDm { .. } => ("send_dm", "Sends direct messages"),
         Step::Form { .. } => ("form", "Asks people to fill in a form"),
         Step::AddListItem { .. } => ("add_list_item", "Adds items to a list"),
         Step::UpdateListItem { .. } => ("update_list_item", "Changes items in a list"),
-    }
+        Step::AddReaction { .. } => ("add_reaction", "Adds reactions to messages"),
+        Step::ReplyInThread { .. } => ("reply_in_thread", "Replies in threads"),
+        Step::CreateChannel { .. } => ("create_channel", "Creates channels"),
+        Step::AddToChannel { .. } => ("add_to_channel", "Adds people to channels"),
+        Step::SetTopic { .. } => ("set_topic", "Changes channel topics"),
+        Step::ArchiveChannel { .. } => ("archive_channel", "Archives channels"),
+        Step::Branch { .. } | Step::Delay { .. } => return None,
+    })
 }
 
 fn trigger_channel(trigger: &Trigger) -> Option<Uuid> {
@@ -386,13 +393,19 @@ fn workflow(row: WorkflowRow) -> Draft {
         app.permissions.push(Permission::new(key, text));
         channel_ids.extend(trigger_channel(&definition.trigger));
         let mut seen = HashSet::new();
-        for step in &definition.steps {
-            if let Step::SendMessage { channel_id, .. } = step {
-                channel_ids.push(*channel_id);
+        for node in definition.flat() {
+            match node.step {
+                Step::SendMessage { channel_id, .. } => channel_ids.push(*channel_id),
+                step => {
+                    if let Some(ChannelRef::Channel { channel_id }) = step.channel() {
+                        channel_ids.push(*channel_id);
+                    }
+                }
             }
-            let (key, text) = step_text(step);
-            if seen.insert(key) {
-                app.permissions.push(Permission::new(key, text));
+            if let Some((key, text)) = step_text(node.step) {
+                if seen.insert(key) {
+                    app.permissions.push(Permission::new(key, text));
+                }
             }
         }
     }

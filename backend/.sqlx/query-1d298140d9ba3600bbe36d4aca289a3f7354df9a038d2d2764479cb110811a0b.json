@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, name, enabled, created_by\n              FROM workflows\n             WHERE workspace_id = $1\n               AND (definition #>> '{trigger,channel_id}' = $2\n                    OR definition->'steps' @> jsonb_build_array(\n                         jsonb_build_object('type', 'send_message', 'channel_id', $2::text)))\n             ORDER BY lower(name)\n            ",
+  "query": "\n            SELECT id, name, enabled, created_by\n              FROM workflows\n             WHERE workspace_id = $1\n               AND jsonb_path_exists(definition, 'strict $.**.channel_id ? (@ == $c)',\n                                     jsonb_build_object('c', $2::text))\n             ORDER BY lower(name)\n            ",
   "describe": {
     "columns": [
       {
@@ -61,5 +61,5 @@
       false
     ]
   },
-  "hash": "e06ba6d8ffc230a525b3c84556d8b7338ecf436161a50c21f92834621b29fa1d"
+  "hash": "1d298140d9ba3600bbe36d4aca289a3f7354df9a038d2d2764479cb110811a0b"
 }
