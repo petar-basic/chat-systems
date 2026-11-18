@@ -186,12 +186,9 @@ function AppBlocksCard({ unfurl, app, onHide }: { unfurl: Unfurl; app: UnfurlApp
       data-qa="app-blocks-preview"
       className="group/preview relative flex max-w-lg flex-col gap-2 border-l-4 border-line pl-3 pr-8 py-1"
     >
-      <div
-        className="flex items-center gap-1.5 text-xs font-semibold text-fg-dim"
-        data-qa="app-blocks-preview-app"
-      >
+      <div className="flex items-center gap-1.5 text-xs font-semibold text-fg-dim">
         <Avatar userId={app.bot_user_id} name={app.name} avatarUrl={app.icon_url} size="xs" />
-        {app.name}
+        <span data-qa="app-blocks-preview-app">{app.name}</span>
       </div>
       {(unfurl.blocks ?? []).map((block, index) => (
         <BlockView key={index} block={block} />

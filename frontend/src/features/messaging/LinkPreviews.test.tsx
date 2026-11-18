@@ -106,7 +106,7 @@ describe('LinkPreviews', () => {
       />,
     );
     const card = screen.getByTestId('app-blocks-preview');
-    expect(screen.getByTestId('app-blocks-preview-app')).toHaveTextContent('Tracker');
+    expect(screen.getByTestId('app-blocks-preview-app')).toHaveTextContent(/^Tracker$/);
     expect(screen.getByTestId('block-header')).toHaveTextContent('TRK-7 Login fails');
     expect(card).toHaveTextContent('Open');
     expect(card).toHaveTextContent('Ana');
