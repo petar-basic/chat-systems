@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Trans } from '@/shared/components/Trans/Trans';
 import { Modal } from '@/shared/components/Modal/Modal';
 import { Button } from '@/shared/components/Button/Button';
 import { TextInput } from '@/shared/components/Form/TextInput';
@@ -113,7 +114,7 @@ export function EditProfileModal({ onClose }: Props) {
       await save.refresh();
       onClose();
     } catch (err) {
-      setError(toUserMessage(err, 'Could not save your profile.'));
+      setError(toUserMessage(err, t('editProfile.saveFailed')));
       setSaving(false);
     }
   };
@@ -122,7 +123,7 @@ export function EditProfileModal({ onClose }: Props) {
     setError(null);
     const url = await photo.upload(file);
     if (!url) {
-      setError('Could not upload that photo.');
+      setError(t('editProfile.uploadFailed'));
       return;
     }
     setAvatarUrl(url);
@@ -134,13 +135,15 @@ export function EditProfileModal({ onClose }: Props) {
 
   return (
     <Modal
-      title="Edit profile"
+      title={t('editProfile.title')}
       description={
         workspace && (
-          <>
-            How you appear in <strong className="text-fg">{workspace.name}</strong>. Anything left empty shows
-            your account's.
-          </>
+          <Trans
+            t={t}
+            i18nKey="editProfile.intro"
+            values={{ name: workspace.name }}
+            components={{ workspace: <strong className="text-fg" /> }}
+          />
         )
       }
       onClose={onClose}
@@ -154,7 +157,7 @@ export function EditProfileModal({ onClose }: Props) {
           </p>
         )
       }
-      dismissLabel="Cancel"
+      dismissLabel={t('cancel', { ns: 'common' })}
       actions={
         <Button
           type="submit"
@@ -163,7 +166,7 @@ export function EditProfileModal({ onClose }: Props) {
           disabled={!loaded || photo.uploading}
           data-qa="profile-save"
         >
-          Save changes
+          {t('editProfile.save')}
         </Button>
       }
     >
@@ -175,7 +178,7 @@ export function EditProfileModal({ onClose }: Props) {
         <div className="grid gap-6 sm:grid-cols-[1fr_auto]">
           <div className="space-y-5">
             <TextInput
-              label="Display name"
+              label={t('editProfile.displayName')}
               optional
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
@@ -187,21 +190,21 @@ export function EditProfileModal({ onClose }: Props) {
             />
             <div className="grid gap-5 sm:grid-cols-[1fr_10rem]">
               <TextInput
-                label="Title"
+                label={t('editProfile.jobTitle')}
                 optional
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder={account?.title || 'What you do, e.g. Head of Finance'}
+                placeholder={account?.title || t('editProfile.titlePlaceholder')}
                 maxLength={100}
                 autoComplete="organization-title"
                 dataQa="profile-title"
               />
               <TextInput
-                label="Pronouns"
+                label={t('editProfile.pronouns')}
                 optional
                 value={pronouns}
                 onChange={(e) => setPronouns(e.target.value)}
-                placeholder={account?.pronouns || 'e.g. they/them'}
+                placeholder={account?.pronouns || t('editProfile.pronounsPlaceholder')}
                 maxLength={30}
                 dataQa="profile-pronouns"
               />
@@ -212,14 +215,14 @@ export function EditProfileModal({ onClose }: Props) {
               clearsAt={statusChanged ? null : profile?.status_expires_at}
             />
             <TextArea
-              label="Bio"
+              label={t('editProfile.bio')}
               optional
               rows={4}
               value={bio}
               onChange={(e) => setBio(e.target.value)}
               maxLength={500}
               counter
-              placeholder={account?.bio || 'What you work on, where you are, how to reach you'}
+              placeholder={account?.bio || t('editProfile.bioPlaceholder')}
               dataQa="profile-bio"
             />
             {editable.length > 0 && (
@@ -239,7 +242,13 @@ export function EditProfileModal({ onClose }: Props) {
             name={name}
             shown={avatarUrl || account?.avatar_url || null}
             uploading={photo.uploading}
-            resetLabel={avatarUrl ? (account?.avatar_url ? 'Use account photo' : 'Remove photo') : null}
+            resetLabel={
+              avatarUrl
+                ? account?.avatar_url
+                  ? t('editProfile.useAccountPhoto')
+                  : t('editProfile.removePhoto')
+                : null
+            }
             qaPrefix="profile"
             onFile={(file) => void handlePhoto(file)}
             onReset={() => setAvatarUrl('')}

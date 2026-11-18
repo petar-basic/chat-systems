@@ -167,6 +167,45 @@
     "file": "Profile photo file",
     "upload": "Upload photo"
   },
+  "editProfile": {
+    "title": "Edit profile",
+    "intro": "How you appear in <workspace>{{name}}</workspace>. Anything left empty shows your account's.",
+    "displayName": "Display name",
+    "jobTitle": "Title",
+    "titlePlaceholder": "What you do, e.g. Head of Finance",
+    "pronouns": "Pronouns",
+    "pronounsPlaceholder": "e.g. they/them",
+    "bio": "Bio",
+    "bioPlaceholder": "What you work on, where you are, how to reach you",
+    "useAccountPhoto": "Use account photo",
+    "removePhoto": "Remove photo",
+    "save": "Save changes",
+    "saveFailed": "Could not save your profile.",
+    "uploadFailed": "Could not upload that photo."
+  },
+  "status": {
+    "label": "Status",
+    "emoji": "Status emoji {{emoji}}",
+    "chooseEmoji": "Choose a status emoji",
+    "placeholder": "What's happening?",
+    "clear": "Clear status",
+    "presets": {
+      "meeting": "In a meeting",
+      "lunch": "At lunch",
+      "sick": "Out sick",
+      "holiday": "On holiday"
+    },
+    "clearAfter": "Clear after",
+    "durations": {
+      "never": "Don't clear",
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "hours_one": "{{count}} hour",
+      "hours_other": "{{count}} hours",
+      "today": "Today"
+    },
+    "clearsAt": "Clears at {{time}}"
+  },
   "twoFactor": {
     "title": "Two-factor authentication",
     "on_one": "On. {{count}} recovery code left.",
