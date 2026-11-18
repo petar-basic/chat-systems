@@ -304,10 +304,10 @@ needs pg_bigm: the compose `postgres` has it, and any other needs it installed a
 - **Backend:** `cargo fmt --check`, `clippy -D warnings`, `cargo build`, `cargo nextest run`
   (against a live Postgres built from `docker/postgres`, for pg_bigm, and a Redis service
   container), then `cargo audit`.
-- **Frontend:** `node scripts/audit.mjs`, `prettier --check`, `eslint`,
-  `tsc -b`, `vite build`, `vitest`. The audit fails on any high or critical advisory
-  except those in `frontend/audit-accepted.json`, each kept with the reason it does not
-  apply and when to drop it, as `backend/.cargo/audit.toml` does for `cargo audit`.
+- **Frontend:** `audit-ci` (`npm audit` failing on high and critical), `prettier --check`,
+  `eslint`, `tsc -b`, `vite build`, `vitest`. An advisory that does not apply is allowed in
+  `frontend/audit-ci.jsonc` with its reason in `notes` and an `expiry`, after which the
+  audit fails again, as `backend/.cargo/audit.toml` does for `cargo audit`.
 - **Desktop:** on macOS and Windows, `cargo fmt --check` (macOS), `clippy -D warnings`,
   `cargo test`, then a debug build of the `.app` and of the NSIS installer.
 
