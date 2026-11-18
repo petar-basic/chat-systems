@@ -7,8 +7,8 @@ use serde_json::Value;
 use shared_common::errors::{AppError, AppResult};
 
 use super::models::{
-    Block, BlockElement, BlockOption, BlockText, ContextElement, Layout, LegacyAttachment,
-    LegacyField, TextKind, View,
+    Block, BlockElement, BlockOption, BlockText, ContextElement, HomeView, Layout,
+    LegacyAttachment, LegacyField, TextKind, View,
 };
 
 pub const MAX_BLOCKS: usize = 50;
@@ -67,12 +67,13 @@ const CONTEXT_TYPES: [&str; 3] = ["plain_text", "mrkdwn", "image"];
 pub enum Surface {
     Message,
     View,
+    Home,
 }
 
 impl Surface {
     fn block_types(self) -> &'static [&'static str] {
         match self {
-            Surface::Message => &BLOCK_TYPES,
+            Surface::Message | Surface::Home => &BLOCK_TYPES,
             Surface::View => &VIEW_BLOCK_TYPES,
         }
     }
@@ -80,7 +81,7 @@ impl Surface {
     fn max_blocks(self) -> usize {
         match self {
             Surface::Message => MAX_BLOCKS,
-            Surface::View => MAX_VIEW_BLOCKS,
+            Surface::View | Surface::Home => MAX_VIEW_BLOCKS,
         }
     }
 }
@@ -156,6 +157,33 @@ pub fn view(value: &Value) -> AppResult<(View, Vec<ImageRef>)> {
             "a view with inputs needs a submit label",
         ));
     }
+    optional(
+        view.private_metadata.as_ref(),
+        "view.private_metadata",
+        MAX_PRIVATE_METADATA,
+    )?;
+    optional(view.callback_id.as_ref(), "view.callback_id", MAX_ID)?;
+    optional(view.external_id.as_ref(), "view.external_id", MAX_ID)?;
+    unique_ids(&view.blocks, "view.blocks", &mut Vec::new())?;
+    Ok((view, images))
+}
+
+pub fn home(value: &Value) -> AppResult<(HomeView, Vec<ImageRef>)> {
+    if !value.is_object() {
+        return Err(refuse("view", "must be an object"));
+    }
+    type_at(value, "view", &["home"], "view")?;
+    let mut images = Vec::new();
+    let blocks = blocks_at(
+        value
+            .get("blocks")
+            .ok_or_else(|| refuse("view.blocks", "missing"))?,
+        "view.blocks",
+        Surface::Home,
+        &mut images,
+    )?;
+    let mut view: HomeView = typed(value, "view")?;
+    view.blocks = blocks;
     optional(
         view.private_metadata.as_ref(),
         "view.private_metadata",
@@ -289,7 +317,7 @@ fn block_at(
 ) -> AppResult<Block> {
     match type_at(value, path, surface.block_types(), "block")? {
         "section" => {
-            if let Some(accessory) = value.get("accessory") {
+            if let Some(accessory) = value.get("accessory").filter(|a| !a.is_null()) {
                 type_at(
                     accessory,
                     &format!("{path}.accessory"),

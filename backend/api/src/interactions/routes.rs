@@ -13,18 +13,19 @@ use uuid::Uuid;
 use shared_common::errors::{AppError, AppResult};
 
 use super::models::{
-    ActionRequest, AppView, CloseViewRequest, InteractionAnswer, InteractiveApp, OpenViewRequest,
+    ActionRequest, ActiveApp, AppView, CloseViewRequest, InteractionAnswer, OpenViewRequest,
     StoredView, SubmitOutcome, SubmitViewRequest, Submitted, Trigger, UpdateAppViewRequest,
     ViewActionRequest,
 };
 use super::repo::MAX_STACK;
 use super::{
-    action, announce, app_view, app_views, exchange, find_element, interaction_of, interactive_app,
-    is_interactive, message_blocks, new_hash, person, read_view, response_url, state_values,
-    view_payload, Answer, NOT_INTERACTIVE, NO_RESPONSE, RESPONSE_URL_TTL_SECS, RESPONSE_URL_USES,
-    TRIGGER_TTL_SECS,
+    action, announce, answered, app_view, app_views, exchange, find_element, interaction_of,
+    interactive_app, is_interactive, message_blocks, message_body, new_hash, person, read_view,
+    record, response_url, state_values, view_payload, NOT_INTERACTIVE, RESPONSE_URL_TTL_SECS,
+    RESPONSE_URL_USES, TRIGGER_TTL_SECS,
 };
-use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
+use crate::app_shortcuts::models::AppShortcut;
+use crate::audit::ClientIp;
 use crate::authz;
 use crate::blocks::{self, models::Composed, models::Layout};
 use crate::bots::{models::BotApp, Caller};
@@ -35,6 +36,7 @@ use crate::messaging::routes::remove_message;
 use crate::middleware::AuthUser;
 use crate::state::AppState;
 use crate::threads::routes::announce_reply;
+use crate::workspace::models::WorkspaceRole;
 
 pub fn router() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new()
@@ -42,7 +44,7 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(act_in_app_view))
         .routes(routes!(submit_app_view))
         .routes(routes!(close_app_view))
-        .routes(routes!(list_interactive_apps))
+        .routes(routes!(list_active_apps))
         .routes(routes!(open_app_view))
         .routes(routes!(push_app_view))
         .routes(routes!(update_app_view))
@@ -50,25 +52,6 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
 
 pub fn public_router() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new().routes(routes!(answer_interaction))
-}
-
-async fn record(state: &AppState, ip: &ClientIp, user_id: Uuid, app: &BotApp, details: Value) {
-    audit::record(
-        state,
-        AuditEntry::new(AuditAction::BotAppInteraction, user_id)
-            .workspace(app.workspace_id)
-            .resource(app.id)
-            .ip(ip)
-            .details(details),
-    )
-    .await;
-}
-
-fn answered(answer: Answer) -> AppResult<Option<Value>> {
-    match answer {
-        Answer::Acked(body) => Ok(body),
-        Answer::Silent => Err(AppError::ServiceUnavailable(NO_RESPONSE.into())),
-    }
 }
 
 async fn own_view(state: &AppState, view_id: Uuid, user_id: Uuid) -> AppResult<StoredView> {
@@ -147,15 +130,7 @@ async fn act_on_message(
             "channel_id": message.channel_id,
         },
         "channel": { "id": message.channel_id, "name": access.channel.name },
-        "message": {
-            "id": msg_id,
-            "user_id": message.user_id,
-            "text": message.content,
-            "blocks": layout.blocks,
-            "attachments": layout.legacy_attachments,
-            "thread_parent_id": message.thread_parent_id,
-            "created_at": message.created_at,
-        },
+        "message": message_body(&message, &layout),
         "response_url": response_url(&state, interaction_id),
         "actions": [chosen],
     });
@@ -459,20 +434,44 @@ async fn close_app_view(
     Ok(Json(StatusResponse::new("closed")))
 }
 
-/// The apps whose buttons and menus work, so the client knows which messages
-/// to draw them live in: a message by one of their bot users, or posted
-/// through one of their hooks or commands.
-#[utoipa::path(get, path = "/workspaces/{ws_id}/interactive-apps", tag = "interactions",
-    responses((status = 200, body = DataList<InteractiveApp>)))]
-async fn list_interactive_apps(
+/// The workspace's apps that are on: which of them draw live buttons and
+/// menus in their messages (`interactive`), which have a Home tab, and their
+/// global shortcuts. Messages count as an app's when its bot user posted them
+/// or they came through one of its hooks or commands.
+#[utoipa::path(get, path = "/workspaces/{ws_id}/active-apps", tag = "interactions",
+    responses((status = 200, body = DataList<ActiveApp>)))]
+async fn list_active_apps(
     State(state): State<Arc<AppState>>,
     auth: AuthUser,
     Path(ws_id): Path<Uuid>,
-) -> AppResult<Json<DataList<InteractiveApp>>> {
-    authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
-    Ok(Json(
-        state.interaction_repo.interactive_apps(ws_id).await?.into(),
-    ))
+) -> AppResult<Json<DataList<ActiveApp>>> {
+    let member = authz::require_workspace_member(&state, ws_id, auth.user_id).await?;
+    let (rows, shortcuts) = tokio::try_join!(state.interaction_repo.active_apps(ws_id), async {
+        if member.role == WorkspaceRole::Guest {
+            Ok(Vec::new())
+        } else {
+            state.app_shortcut_repo.global_in_workspace(ws_id).await
+        }
+    },)?;
+    let mut by_app: HashMap<Uuid, Vec<AppShortcut>> = HashMap::new();
+    for row in shortcuts {
+        by_app.entry(row.app_id).or_default().push(row.into());
+    }
+    let apps = rows
+        .into_iter()
+        .map(|row| ActiveApp {
+            shortcuts: by_app.remove(&row.app_id).unwrap_or_default(),
+            app_id: row.app_id,
+            bot_user_id: row.bot_user_id,
+            name: row.name,
+            description: row.description,
+            icon_url: row.icon_url,
+            interactive: row.interactive,
+            home: row.home,
+            hook_ids: row.hook_ids,
+        })
+        .collect::<Vec<_>>();
+    Ok(Json(apps.into()))
 }
 
 fn app_of(caller: &Caller) -> AppResult<Uuid> {
@@ -664,10 +663,10 @@ async fn post_as_app(
     Ok(())
 }
 
-/// A `block_actions` payload's `response_url`: up to five answers within
-/// thirty minutes. `replace_original` and `delete_original` act on the message
-/// the element was in, `in_channel` posts a new message as the app, and
-/// anything else is shown only to whoever used the element.
+/// A `block_actions` or `message_action` payload's `response_url`: up to five
+/// answers within thirty minutes. `replace_original` and `delete_original` act
+/// on the message, when it is the app's own; `in_channel` posts a new message
+/// as the app, and anything else is shown only to whoever used it.
 #[utoipa::path(post, path = "/interactions/responses/{token}", tag = "interactions",
     request_body = InteractionAnswer,
     security(()),
@@ -702,6 +701,14 @@ async fn answer_interaction(
         .await?
         .ok_or_else(|| AppError::NotFound("The message has been deleted".into()))?;
     let channel = authz::find_channel(&state, message.channel_id).await?;
+
+    let changes_original = req.delete_original || req.replace_original;
+    if changes_original && state.interaction_repo.app_of_message(message.id).await? != Some(app.id)
+    {
+        return Err(AppError::Forbidden(
+            "An app changes only its own messages".into(),
+        ));
+    }
 
     if req.delete_original {
         authz::require_not_archived(&channel)?;

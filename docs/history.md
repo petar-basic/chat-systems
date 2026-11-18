@@ -3984,3 +3984,57 @@ Not in this ticket:
 - An `ephemeral` answer through `response_url` shows only its text, like a command's.
 - `external_select`, `multi_*` selects, `rich_text_input` and the other Slack inputs are
   refused.
+
+### [CS-136] An app's Home tab and its shortcuts ✅ shipped
+After CS-135 an app could be pressed, but only from a message it had posted. It had no page of
+its own for a person's open requests, and starting it meant remembering its slash command.
+Slack apps have a *Home* tab in their DM and shortcuts in the composer and on every message,
+and an app copied from Slack uses them.
+
+**Home.** An admin turns *Home tab* on on the app's page. The app's DM then opens on *Home*,
+with *Messages* beside it. The app publishes each person's Home with `views.publish`, a view of
+the message blocks, and publishing again changes the open tab without a reload, through an
+ephemeral `views.home_changed` that only that person's sockets get. Nobody can read another
+person's Home. Opening the tab sends Slack's `app_home_opened`, with the Home last published,
+and its buttons send `block_actions` with the Home as the view. Until it publishes, the tab
+shows the app's name and description.
+
+**Shortcuts.** The app's page lists up to five global and five message shortcuts, each with a
+name, a description and a `callback_id`. Global ones are in the composer's ⚡ menu, next to the
+workflows, and in the quick switcher; message ones are under *More actions* in the channels
+the bot is in. Using one sends Slack's `shortcut` or `message_action`, with a `trigger_id`, the
+channel and, for a message shortcut, the message and a `response_url`. That message may be
+anybody's, so a `response_url` now replaces or deletes only a message the app owns, for
+element answers as well.
+
+**Who sees what.** A guest gets no app shortcuts. Every change to an app, turning it off and
+`stand_down` included, broadcasts `workspace.apps_changed`, and clients drop their app list,
+Homes and message shortcuts on it, so a turned-off app's tab and shortcuts go without a reload.
+`interactive-apps` became `active-apps`: every app that is on, with `interactive`, `home` and
+its global shortcuts. A channel's message shortcuts come with the channel context, so opening a
+channel still takes two requests.
+
+[`examples/helpdesk`](../examples/helpdesk/) is a socket-mode app with a Home and both
+kinds of shortcut, and the end-to-end suite runs it.
+
+**QA** on the Docker stack, with the example app on a socket, Alice and Bob in Dev Team, and
+the client's calls made from a script that listened on Alice's socket:
+- Opening the Home queued `app_home_opened`; the app published *Your requests*, and the
+  `views.home_changed` reached Alice's socket and matched what `GET /apps/{id}/home` returned.
+- The Home's *New request*, the composer's shortcut and the quick switcher's (with no
+  channel) each opened the app's modal; each request sent republished Alice's Home with it.
+- *Create ticket from message* opened *Create a ticket* with the message's text in it, and
+  the bot posted *Ticket #4 opened by Alice Johnson: …* in the channel.
+- Bob's Home listed nothing of Alice's, and Alice's socket got no frame for Bob's.
+- Opening the Home from a channel, publishing with a person's token, for the bot or with an
+  `input` block, a stale `hash`, a message shortcut where the bot is not, a sixth global
+  shortcut and the same callback ID twice were all refused. The audit log had each
+  `shortcut`, `message_action` and `view_submission`.
+- Turning interactivity off took the app's shortcuts out of `active-apps` and the channel's
+  message shortcuts and refused a run with `409`; turning the Home tab off made the Home `404`
+  and a publish `409`. Each change reached Alice's socket as `workspace.apps_changed`.
+
+The QA found one bug, from CS-134: a section read back from the server carries
+`"accessory": null`, which the parser took for an element without a type, so an app could not
+publish the Home, or a view, it had been sent. A null accessory now counts as none. A guest's
+missing shortcuts are covered by `http_tests` only, since Dev Team has no guest.

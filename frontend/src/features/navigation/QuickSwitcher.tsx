@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Hash, Lock, MessageSquare, Search } from 'lucide-react';
-import type { Channel, WorkspaceMember } from '@/stores/workspace';
+import { Hash, Lock, MessageSquare, Search, Zap } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { useWorkspaceStore, type Channel, type WorkspaceMember } from '@/stores/workspace';
+import { useGlobalShortcuts, useRunAppShortcut } from '@/features/apps';
+import { toast } from '@/shared/components/Toast';
+import { toUserMessage } from '@/lib/errors';
 import { displayNameOf, matchesPerson } from '@/lib/userHelpers';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 import { TextInput } from '@/shared/components/Form/TextInput';
@@ -34,6 +38,10 @@ export function QuickSwitcher({
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   useEscapeToClose(onClose);
+  const { t } = useTranslation('messages');
+  const workspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id);
+  const appShortcuts = useGlobalShortcuts(workspaceId);
+  const { mutateAsync: runShortcut } = useRunAppShortcut();
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -65,8 +73,22 @@ export function QuickSwitcher({
         icon: <MessageSquare className="w-4 h-4 text-accent" />,
         run: () => onSelectDm(m.user_id),
       }));
-    return [...channelItems, ...peopleItems].slice(0, 50);
-  }, [query, channels, members, currentUserId, onSelectChannel, onSelectDm]);
+    const shortcutItems: Item[] = q
+      ? appShortcuts
+          .filter(({ shortcut }) => shortcut.name.toLowerCase().includes(q))
+          .map(({ shortcut, app }) => ({
+            key: `shortcut-${shortcut.id}`,
+            label: shortcut.name,
+            sub: app.name,
+            icon: <Zap className="w-4 h-4 text-muted" />,
+            run: () =>
+              void runShortcut({ shortcutId: shortcut.id }).catch((err) =>
+                toast.error(toUserMessage(err, t('appShortcuts.failed', { name: shortcut.name }))),
+              ),
+          }))
+      : [];
+    return [...channelItems, ...shortcutItems, ...peopleItems].slice(0, 50);
+  }, [query, channels, members, currentUserId, onSelectChannel, onSelectDm, appShortcuts, runShortcut, t]);
 
   const activeIndex = items.length ? Math.min(active, items.length - 1) : 0;
 

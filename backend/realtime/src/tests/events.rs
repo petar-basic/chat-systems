@@ -331,6 +331,24 @@ async fn an_emoji_change_reaches_only_its_workspace(pool: PgPool) {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn a_change_to_the_apps_reaches_only_its_workspace(pool: PgPool) {
+    let cm = manager(pool).await;
+    let workspace = Uuid::new_v4();
+    let (member, mut member_rx) = fake_conn(&cm, Uuid::new_v4());
+    cm.subscribe_workspace(&member, workspace);
+    let (outsider, mut outsider_rx) = fake_conn(&cm, Uuid::new_v4());
+    cm.subscribe_workspace(&outsider, Uuid::new_v4());
+
+    let payload = json!({ "workspace_id": workspace.to_string() });
+    crate::event_consumer::handle_event("workspace.apps_changed", &payload, &cm).await;
+
+    let frame = next_json(&mut member_rx).expect("a member hears about it");
+    assert_eq!(frame["type"], "workspace.apps_changed");
+    assert_eq!(frame["workspace_id"], workspace.to_string());
+    assert!(next_json(&mut outsider_rx).is_none());
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn a_privacy_change_reaches_the_whole_workspace_with_the_channel_id_only(pool: PgPool) {
     let cm = manager(pool).await;
     let workspace = Uuid::new_v4();
@@ -968,6 +986,40 @@ async fn a_view_stack_reaches_every_socket_of_its_person_and_nobody_else(pool: P
         assert_eq!(frame["workspace_id"], ws.to_string());
         assert_eq!(frame["views"][0]["title"]["text"], "Request");
     }
+    assert!(next_json(&mut other_rx).is_none());
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_home_reaches_only_the_person_it_was_published_for(pool: PgPool) {
+    let cm = manager(pool).await;
+    let person = Uuid::new_v4();
+    let other = Uuid::new_v4();
+    let ws = Uuid::new_v4();
+    let app = Uuid::new_v4();
+    let (_laptop, mut laptop_rx) = fake_conn(&cm, person);
+    let (_other_conn, mut other_rx) = fake_conn(&cm, other);
+
+    let event = "views.home_changed";
+    let published_on = format!("events:{}", event.split('.').next().unwrap_or_default());
+    assert!(crate::event_consumer::SUBSCRIBED_CHANNELS.contains(&published_on.as_str()));
+    let payload = json!({
+        "user_id": person.to_string(),
+        "workspace_id": ws.to_string(),
+        "app_id": app.to_string(),
+        "home": {
+            "id": Uuid::new_v4().to_string(),
+            "app_id": app.to_string(),
+            "hash": "h",
+            "type": "home",
+            "blocks": [],
+        },
+    });
+    crate::event_consumer::handle_event(event, &payload, &cm).await;
+
+    let frame = next_json(&mut laptop_rx).expect("the person hears it");
+    assert_eq!(frame["type"], "views.home_changed");
+    assert_eq!(frame["app_id"], app.to_string());
+    assert_eq!(frame["home"]["type"], "home");
     assert!(next_json(&mut other_rx).is_none());
 }
 

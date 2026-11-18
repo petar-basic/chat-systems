@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ArrowLeft, Hash, Menu, UserMinus, UserPlus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useAppOfUser } from '@/features/apps';
 import { useUserCache } from '@/stores/users';
 import { usePresenceStore } from '@/stores/presence';
 import type { Channel, Message, WorkspaceMember } from '@/stores/workspace';
@@ -25,6 +26,10 @@ import { asAttachments, useComposerAttachments } from './useComposerAttachments'
 import { useSlashCommand } from './hooks/useSlashCommand';
 import { CommandAnswer } from './CommandAnswer';
 import { ConvertConversationModal } from './ConvertConversationModal';
+import { AppHomeTab } from './AppHomeTab';
+
+type AppTab = 'home' | 'messages';
+const APP_TABS: AppTab[] = ['home', 'messages'];
 
 interface Props {
   workspaceId: string;
@@ -81,6 +86,14 @@ export default function ConversationView({
   const [addingPeople, setAddingPeople] = useState(false);
   const convertible = canConvert && !isDirect && participantIds.length >= 3;
   const [converting, setConverting] = useState(false);
+  const app = useAppOfUser(workspaceId, isDirect && !gone ? partnerId : undefined);
+  const [chosenTab, setChosenTab] = useState<{ conversationId: string; tab: AppTab } | null>(null);
+  const tab: AppTab | null = app?.home
+    ? chosenTab?.conversationId === conversation.id
+      ? chosenTab.tab
+      : 'home'
+    : null;
+  const onHome = tab === 'home';
 
   const sendMutation = useSendMessage(conversation.id, currentUserId);
   const { signalTyping, stopTyping } = useTypingSignal(typingTargetOf(conversation.id), instanceUrl);
@@ -191,23 +204,54 @@ export default function ConversationView({
           </div>
         </div>
 
-        <div className="relative flex min-h-0 flex-1 flex-col">
-          <MessageList
-            channelId={conversation.id}
-            draftKey={conversation.id}
-            markReadIn={workspaceId}
-            members={members}
-            channels={channels}
-            onThreadOpen={onOpenThread}
-            onSave={onSave}
-            onForward={onForward}
-            highlightMessageId={highlightMessageId}
-            onTargetMessageFound={onTargetMessageFound}
-          />
+        {app && tab && (
+          <div
+            role="tablist"
+            aria-label={t('appHome.tabs')}
+            className="flex gap-4 border-b border-line/50 px-4 shrink-0"
+            data-qa="app-tabs"
+          >
+            {APP_TABS.map((id) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={tab === id}
+                data-qa={`app-tab-${id}`}
+                onClick={() => setChosenTab({ conversationId: conversation.id, tab: id })}
+                className={`-mb-px border-b-2 py-2 text-sm transition ${
+                  tab === id
+                    ? 'border-accent font-medium text-fg'
+                    : 'border-transparent text-muted hover:text-fg'
+                }`}
+              >
+                {t(`appHome.${id}`)}
+              </button>
+            ))}
+          </div>
+        )}
 
-          <TypingIndicator channelId={conversation.id} currentUserId={currentUserId} />
-        </div>
-        {isDirect && partnerId !== currentUserId && <OffHoursNote userId={partnerId} />}
+        {app && onHome && <AppHomeTab app={app} channelId={conversation.id} />}
+
+        {!onHome && (
+          <div className="relative flex min-h-0 flex-1 flex-col">
+            <MessageList
+              channelId={conversation.id}
+              draftKey={conversation.id}
+              markReadIn={workspaceId}
+              members={members}
+              channels={channels}
+              onThreadOpen={onOpenThread}
+              onSave={onSave}
+              onForward={onForward}
+              highlightMessageId={highlightMessageId}
+              onTargetMessageFound={onTargetMessageFound}
+            />
+
+            <TypingIndicator channelId={conversation.id} currentUserId={currentUserId} />
+          </div>
+        )}
+        {isDirect && !onHome && partnerId !== currentUserId && <OffHoursNote userId={partnerId} />}
 
         {note && (
           <div
@@ -223,9 +267,11 @@ export default function ConversationView({
           </div>
         )}
 
-        <CommandAnswer text={command.answer} pending={command.pending} onDismiss={command.dismiss} />
+        {!onHome && (
+          <CommandAnswer text={command.answer} pending={command.pending} onDismiss={command.dismiss} />
+        )}
 
-        {!gone && (
+        {!gone && !onHome && (
           <MessageInput
             key={`conversation:${conversation.id}`}
             channelName={title}

@@ -27,11 +27,21 @@ function render(ui: ReactElement) {
   return rtlRender(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
 }
 
-const DEPLOYER = { app_id: 'app-1', bot_user_id: 'u-hook', hook_ids: ['hook-1'] };
+const DEPLOYER = {
+  app_id: 'app-1',
+  bot_user_id: 'u-hook',
+  name: 'Deployer',
+  description: null,
+  icon_url: null,
+  interactive: true,
+  home: false,
+  hook_ids: ['hook-1'],
+  shortcuts: [],
+};
 
 function appsAre(apps: (typeof DEPLOYER)[]) {
   calls.get.mockImplementation(async (path: string) =>
-    path === '/workspaces/{ws_id}/interactive-apps' ? { data: apps } : [],
+    path === '/workspaces/{ws_id}/active-apps' ? { data: apps } : [],
   );
 }
 
@@ -235,6 +245,13 @@ describe('BlockMessage from an app with interactivity on', () => {
     fireEvent.change(screen.getByLabelText('Region'), { target: { value: 'us' } });
     await waitFor(() => expect(calls.post).toHaveBeenCalledOnce());
     expect(calls.post.mock.calls[0][1]).toEqual({ block_id: 'deploy', action_id: 'region', value: 'us' });
+  });
+
+  it('stays drawn but dead while the app has interactivity off', async () => {
+    appsAre([{ ...DEPLOYER, interactive: false }]);
+    render(<BlockMessage message={deploy()} />);
+    await waitFor(() => expect(calls.get).toHaveBeenCalled());
+    expect(screen.getByRole('button', { name: 'Approve' })).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('says so under the block when the app does not answer', async () => {

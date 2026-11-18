@@ -13,6 +13,7 @@ export interface EventSettings {
   request_url: string;
   socket_mode: boolean;
   interactivity: boolean;
+  home_enabled: boolean;
 }
 
 export interface NewBotApp {

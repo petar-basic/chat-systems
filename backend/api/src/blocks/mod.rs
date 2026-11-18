@@ -16,7 +16,9 @@ use shared_common::errors::{AppError, AppResult};
 
 use crate::hooks::ssrf;
 use crate::state::AppState;
-use models::{Block, BlockElement, BlockText, Composed, ContextElement, Layout, TextKind, View};
+use models::{
+    Block, BlockElement, BlockText, Composed, ContextElement, HomeView, Layout, TextKind, View,
+};
 use mrkdwn::Names;
 use parse::{refuse, ImageRef};
 
@@ -141,6 +143,25 @@ pub async fn compose_view(state: &AppState, workspace_id: Uuid, value: &Value) -
     assign_ids(&mut layout);
     localize(state, workspace_id, &mut layout).await?;
     Ok(View {
+        blocks: layout.blocks,
+        ..view
+    })
+}
+
+pub async fn compose_home(
+    state: &AppState,
+    workspace_id: Uuid,
+    value: &Value,
+) -> AppResult<HomeView> {
+    let (view, images) = parse::home(value)?;
+    check_images(&images).await?;
+    let mut layout = Layout {
+        blocks: view.blocks,
+        legacy_attachments: Vec::new(),
+    };
+    assign_ids(&mut layout);
+    localize(state, workspace_id, &mut layout).await?;
+    Ok(HomeView {
         blocks: layout.blocks,
         ..view
     })

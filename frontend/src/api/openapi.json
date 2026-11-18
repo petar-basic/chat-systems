@@ -671,6 +671,47 @@
         }
       }
     },
+    "/app-shortcuts/{shortcut_id}/run": {
+      "post": {
+        "tags": [
+          "interactions"
+        ],
+        "summary": "Uses one of an app's shortcuts. A global shortcut reaches the app as a\n`shortcut` payload, with the conversation it was used from if there was\none. A message shortcut, used on a message in a conversation the app is\nin, reaches it as a `message_action` payload with the message and a\n`response_url`. Both carry a `trigger_id` that opens a modal, and the app\nhas three seconds to acknowledge them. Guests have no app shortcuts.",
+        "operationId": "run_app_shortcut",
+        "parameters": [
+          {
+            "name": "shortcut_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunShortcutRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/apps/connections": {
       "post": {
         "tags": [
@@ -722,6 +763,119 @@
             "app": []
           }
         ]
+      }
+    },
+    "/apps/{app_id}/home": {
+      "get": {
+        "tags": [
+          "interactions"
+        ],
+        "summary": "Your Home tab in a conversation with an app: what the app last published\nfor you, and nothing until it has.",
+        "operationId": "get_app_home",
+        "parameters": [
+          {
+            "name": "app_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeTab"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/apps/{app_id}/home/actions": {
+      "post": {
+        "tags": [
+          "interactions"
+        ],
+        "summary": "A button, menu or date picker in your Home tab. It reaches the app as a\n`block_actions` payload with the Home and a `trigger_id` that opens a\nmodal; the app has three seconds to acknowledge it.",
+        "operationId": "act_in_app_home",
+        "parameters": [
+          {
+            "name": "app_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/apps/{app_id}/home/opened": {
+      "post": {
+        "tags": [
+          "interactions"
+        ],
+        "summary": "Somebody opened the Home tab in their conversation with the app. An app\nthat subscribes to `app_home_opened` hears about it, with the Home it last\npublished for them, and can publish a fresh one.",
+        "operationId": "app_home_opened",
+        "parameters": [
+          {
+            "name": "app_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HomeOpenedRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/auth/complete-registration": {
@@ -1695,6 +1849,75 @@
         }
       }
     },
+    "/bot-apps/{app_id}/shortcuts": {
+      "get": {
+        "tags": [
+          "bot-apps"
+        ],
+        "operationId": "list_app_shortcuts",
+        "parameters": [
+          {
+            "name": "app_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_AppShortcut"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "bot-apps"
+        ],
+        "summary": "Replaces an app's shortcuts. A shortcut keeps its id while its\n`callback_id` stays the same.",
+        "operationId": "save_app_shortcuts",
+        "parameters": [
+          {
+            "name": "app_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveShortcutsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_AppShortcut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/bot-apps/{app_id}/signing-secret": {
       "get": {
         "tags": [
@@ -2313,6 +2536,37 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ChannelMember"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/channels/{ch_id}/message-shortcuts": {
+      "get": {
+        "tags": [
+          "interactions"
+        ],
+        "summary": "The message shortcuts of the apps in a conversation; a guest gets none.",
+        "operationId": "message_shortcuts",
+        "parameters": [
+          {
+            "name": "ch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_AppShortcut"
                 }
               }
             }
@@ -3646,7 +3900,7 @@
         "tags": [
           "interactions"
         ],
-        "summary": "A `block_actions` payload's `response_url`: up to five answers within\nthirty minutes. `replace_original` and `delete_original` act on the message\nthe element was in, `in_channel` posts a new message as the app, and\nanything else is shown only to whoever used the element.",
+        "summary": "A `block_actions` or `message_action` payload's `response_url`: up to five\nanswers within thirty minutes. `replace_original` and `delete_original` act\non the message, when it is the app's own; `in_channel` posts a new message\nas the app, and anything else is shown only to whoever used it.",
         "operationId": "answer_interaction",
         "parameters": [
           {
@@ -6123,6 +6377,42 @@
         ]
       }
     },
+    "/views/publish": {
+      "post": {
+        "tags": [
+          "interactions",
+          "bot"
+        ],
+        "summary": "Publishes one person's Home tab in their conversation with the app. Each\nperson has their own, which nobody else can read, and publishing again\nreplaces it. With `hash`, a Home that changed since the app last saw it is\nleft alone.",
+        "operationId": "publish_app_home",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishHomeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppHome"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bot": []
+          }
+        ]
+      }
+    },
     "/views/push": {
       "post": {
         "tags": [
@@ -6848,6 +7138,37 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Workspace"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/active-apps": {
+      "get": {
+        "tags": [
+          "interactions"
+        ],
+        "summary": "The workspace's apps that are on: which of them draw live buttons and\nmenus in their messages (`interactive`), which have a Home tab, and their\nglobal shortcuts. Messages count as an app's when its bot user posted them\nor they came through one of its hooks or commands.",
+        "operationId": "list_active_apps",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_ActiveApp"
                 }
               }
             }
@@ -8982,37 +9303,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Workspace"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/workspaces/{ws_id}/interactive-apps": {
-      "get": {
-        "tags": [
-          "interactions"
-        ],
-        "summary": "The apps whose buttons and menus work, so the client knows which messages\nto draw them live in: a message by one of their bot users, or posted\nthrough one of their hooks or commands.",
-        "operationId": "list_interactive_apps",
-        "parameters": [
-          {
-            "name": "ws_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DataList_InteractiveApp"
                 }
               }
             }
@@ -11757,6 +12047,65 @@
           }
         }
       },
+      "ActiveApp": {
+        "type": "object",
+        "required": [
+          "app_id",
+          "bot_user_id",
+          "name",
+          "interactive",
+          "home",
+          "hook_ids",
+          "shortcuts"
+        ],
+        "properties": {
+          "app_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "bot_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "home": {
+            "type": "boolean",
+            "description": "Its conversation has a Home tab."
+          },
+          "hook_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "icon_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "interactive": {
+            "type": "boolean",
+            "description": "Its buttons, menus and shortcuts reach it."
+          },
+          "name": {
+            "type": "string"
+          },
+          "shortcuts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AppShortcut"
+            },
+            "description": "Its global shortcuts; a guest gets none."
+          }
+        }
+      },
       "ActiveHuddle": {
         "type": "object",
         "required": [
@@ -11964,7 +12313,36 @@
           "reaction_removed",
           "member_joined_channel",
           "channel_created",
-          "channel_archived"
+          "channel_archived",
+          "app_home_opened"
+        ]
+      },
+      "AppHome": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/HomeView"
+          },
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "app_id",
+              "hash"
+            ],
+            "properties": {
+              "app_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "hash": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
         ]
       },
       "AppList": {
@@ -11995,6 +12373,63 @@
               "string",
               "null"
             ]
+          }
+        }
+      },
+      "AppShortcut": {
+        "type": "object",
+        "required": [
+          "id",
+          "app_id",
+          "kind",
+          "name",
+          "description",
+          "callback_id"
+        ],
+        "properties": {
+          "app_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "callback_id": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ShortcutKind"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "AppShortcutInput": {
+        "type": "object",
+        "required": [
+          "kind",
+          "name",
+          "description",
+          "callback_id"
+        ],
+        "properties": {
+          "callback_id": {
+            "type": "string",
+            "description": "Sent back in the payload, so the app knows which shortcut was used."
+          },
+          "description": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ShortcutKind"
+          },
+          "name": {
+            "type": "string"
           }
         }
       },
@@ -13041,6 +13476,7 @@
           "events",
           "socket_mode",
           "interactivity",
+          "home_enabled",
           "has_app_token",
           "connected_sockets",
           "created_at",
@@ -13099,6 +13535,9 @@
             "format": "date-time"
           },
           "has_app_token": {
+            "type": "boolean"
+          },
+          "home_enabled": {
             "type": "boolean"
           },
           "icon_url": {
@@ -13517,7 +13956,8 @@
           "pins",
           "bookmarks",
           "lists",
-          "workflow_shortcuts"
+          "workflow_shortcuts",
+          "message_shortcuts"
         ],
         "properties": {
           "bookmarks": {
@@ -13537,6 +13977,13 @@
             "items": {
               "$ref": "#/components/schemas/ChannelMember"
             }
+          },
+          "message_shortcuts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AppShortcut"
+            },
+            "description": "The message shortcuts of the apps in this conversation; a guest gets\nnone."
           },
           "pins": {
             "type": "array",
@@ -15245,6 +15692,76 @@
           }
         }
       },
+      "DataList_ActiveApp": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "app_id",
+                "bot_user_id",
+                "name",
+                "interactive",
+                "home",
+                "hook_ids",
+                "shortcuts"
+              ],
+              "properties": {
+                "app_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "bot_user_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "home": {
+                  "type": "boolean",
+                  "description": "Its conversation has a Home tab."
+                },
+                "hook_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "icon_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "interactive": {
+                  "type": "boolean",
+                  "description": "Its buttons, menus and shortcuts reach it."
+                },
+                "name": {
+                  "type": "string"
+                },
+                "shortcuts": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AppShortcut"
+                  },
+                  "description": "Its global shortcuts; a guest gets none."
+                }
+              }
+            }
+          }
+        }
+      },
       "DataList_ActiveHuddle": {
         "type": "object",
         "required": [
@@ -15378,6 +15895,50 @@
           }
         }
       },
+      "DataList_AppShortcut": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "app_id",
+                "kind",
+                "name",
+                "description",
+                "callback_id"
+              ],
+              "properties": {
+                "app_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "callback_id": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "kind": {
+                  "$ref": "#/components/schemas/ShortcutKind"
+                },
+                "name": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
       "DataList_AuditRow": {
         "type": "object",
         "required": [
@@ -15476,6 +16037,7 @@
                 "events",
                 "socket_mode",
                 "interactivity",
+                "home_enabled",
                 "has_app_token",
                 "connected_sockets",
                 "created_at",
@@ -15534,6 +16096,9 @@
                   "format": "date-time"
                 },
                 "has_app_token": {
+                  "type": "boolean"
+                },
+                "home_enabled": {
                   "type": "boolean"
                 },
                 "icon_url": {
@@ -16498,42 +17063,6 @@
                 "workspace_id": {
                   "type": "string",
                   "format": "uuid"
-                }
-              }
-            }
-          }
-        }
-      },
-      "DataList_InteractiveApp": {
-        "type": "object",
-        "required": [
-          "data"
-        ],
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "required": [
-                "app_id",
-                "bot_user_id",
-                "hook_ids"
-              ],
-              "properties": {
-                "app_id": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "bot_user_id": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "hook_ids": {
-                  "type": "array",
-                  "items": {
-                    "type": "string",
-                    "format": "uuid"
-                  }
                 }
               }
             }
@@ -19361,6 +19890,84 @@
           "failing"
         ]
       },
+      "HomeOpenedRequest": {
+        "type": "object",
+        "required": [
+          "channel_id"
+        ],
+        "properties": {
+          "channel_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The conversation with the app whose Home tab was opened."
+          }
+        }
+      },
+      "HomeTab": {
+        "type": "object",
+        "required": [
+          "app_id"
+        ],
+        "properties": {
+          "app_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "home": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AppHome",
+                "description": "What the app last published for whoever asks; nothing until it has."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "HomeType": {
+        "type": "string",
+        "enum": [
+          "home"
+        ]
+      },
+      "HomeView": {
+        "type": "object",
+        "required": [
+          "type",
+          "blocks"
+        ],
+        "properties": {
+          "blocks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Block"
+            }
+          },
+          "callback_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "external_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "private_metadata": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "$ref": "#/components/schemas/HomeType"
+          }
+        }
+      },
       "Hook": {
         "type": "object",
         "required": [
@@ -19920,31 +20527,6 @@
               "string",
               "null"
             ]
-          }
-        }
-      },
-      "InteractiveApp": {
-        "type": "object",
-        "required": [
-          "app_id",
-          "bot_user_id",
-          "hook_ids"
-        ],
-        "properties": {
-          "app_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "bot_user_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "hook_ids": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            }
           }
         }
       },
@@ -22180,6 +22762,30 @@
           "confluence"
         ]
       },
+      "PublishHomeRequest": {
+        "type": "object",
+        "required": [
+          "user_id",
+          "view"
+        ],
+        "properties": {
+          "hash": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The `hash` the app last saw; the publish is refused when this person's\nHome has changed since."
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Whose Home this is; nobody else sees it."
+          },
+          "view": {
+            "$ref": "#/components/schemas/HomeView"
+          }
+        }
+      },
       "PushKey": {
         "type": "object",
         "required": [
@@ -22618,6 +23224,27 @@
           }
         }
       },
+      "RunShortcutRequest": {
+        "type": "object",
+        "properties": {
+          "channel_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "The conversation it was used from, if any."
+          },
+          "message_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "The message a message shortcut was used on."
+          }
+        }
+      },
       "RunStatus": {
         "type": "string",
         "enum": [
@@ -22698,6 +23325,21 @@
           "updated_at": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "SaveShortcutsRequest": {
+        "type": "object",
+        "required": [
+          "shortcuts"
+        ],
+        "properties": {
+          "shortcuts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AppShortcutInput"
+            },
+            "description": "Every shortcut the app has, in the order they are listed; at most five\nof each kind."
           }
         }
       },
@@ -23308,6 +23950,13 @@
             "type": "string"
           }
         }
+      },
+      "ShortcutKind": {
+        "type": "string",
+        "enum": [
+          "global",
+          "message"
+        ]
       },
       "SidebarLayout": {
         "type": "object",
@@ -24388,6 +25037,12 @@
             "items": {
               "$ref": "#/components/schemas/AppEvent"
             }
+          },
+          "home_enabled": {
+            "type": [
+              "boolean",
+              "null"
+            ]
           },
           "icon_url": {
             "type": [

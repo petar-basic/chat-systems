@@ -15,11 +15,13 @@ use uuid::Uuid;
 use shared_common::errors::{AppError, AppResult};
 
 use crate::app_events::sender;
+use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
 use crate::blocks::models::{Block, BlockElement, BlockOption, Layout, View};
 use crate::blocks::parse;
 use crate::bots::models::BotApp;
 use crate::hooks::{executor, ssrf};
+use crate::messaging::models::Message;
 use crate::sealed;
 use crate::state::AppState;
 use models::{AppView, StoredView, Values};
@@ -138,6 +140,37 @@ async fn over_http(state: &AppState, app: &BotApp, payload: &Value) -> AppResult
     }
     let text = response.text().await.unwrap_or_default();
     Ok(Answer::Acked(serde_json::from_str(&text).ok()))
+}
+
+pub async fn record(state: &AppState, ip: &ClientIp, user_id: Uuid, app: &BotApp, details: Value) {
+    audit::record(
+        state,
+        AuditEntry::new(AuditAction::BotAppInteraction, user_id)
+            .workspace(app.workspace_id)
+            .resource(app.id)
+            .ip(ip)
+            .details(details),
+    )
+    .await;
+}
+
+pub fn answered(answer: Answer) -> AppResult<Option<Value>> {
+    match answer {
+        Answer::Acked(body) => Ok(body),
+        Answer::Silent => Err(AppError::ServiceUnavailable(NO_RESPONSE.into())),
+    }
+}
+
+pub fn message_body(message: &Message, layout: &Layout) -> Value {
+    json!({
+        "id": message.id,
+        "user_id": message.user_id,
+        "text": message.content,
+        "blocks": layout.blocks,
+        "attachments": layout.legacy_attachments,
+        "thread_parent_id": message.thread_parent_id,
+        "created_at": message.created_at,
+    })
 }
 
 pub fn person(user_id: Uuid, name: Option<String>) -> Value {

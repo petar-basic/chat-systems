@@ -2,6 +2,7 @@ use serde::Serialize;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
+use crate::app_shortcuts::models::AppShortcut;
 use crate::lists::models::List;
 use crate::messaging::models::Message;
 use crate::workflows::models::Shortcut;
@@ -15,4 +16,7 @@ pub struct ChannelContext {
     pub bookmarks: Vec<ChannelBookmark>,
     pub lists: Vec<List>,
     pub workflow_shortcuts: Vec<Shortcut>,
+    /// The message shortcuts of the apps in this conversation; a guest gets
+    /// none.
+    pub message_shortcuts: Vec<AppShortcut>,
 }

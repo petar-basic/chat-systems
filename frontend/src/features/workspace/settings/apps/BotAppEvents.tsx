@@ -16,6 +16,7 @@ const EVENTS: { event: AppEvent; label: string }[] = [
   { event: 'member_joined_channel', label: 'Somebody joins a channel it is in' },
   { event: 'channel_created', label: 'A public channel is made' },
   { event: 'channel_archived', label: 'A channel it is in is archived' },
+  { event: 'app_home_opened', label: 'Somebody opens its Home tab' },
 ];
 
 interface Props {
@@ -28,6 +29,7 @@ export function BotAppEvents({ app }: Props) {
   const [requestUrl, setRequestUrl] = useState(app.request_url ?? '');
   const [socketMode, setSocketMode] = useState(app.socket_mode);
   const [interactivity, setInteractivity] = useState(app.interactivity);
+  const [home, setHome] = useState(app.home_enabled);
   const [appToken, setAppToken] = useState<string | null>(null);
 
   const toggle = (event: AppEvent, on: boolean) =>
@@ -37,7 +39,13 @@ export function BotAppEvents({ app }: Props) {
     e.preventDefault();
     configure.mutate({
       appId: app.id,
-      settings: { events, request_url: requestUrl.trim(), socket_mode: socketMode, interactivity },
+      settings: {
+        events,
+        request_url: requestUrl.trim(),
+        socket_mode: socketMode,
+        interactivity,
+        home_enabled: home,
+      },
     });
   };
 
@@ -84,6 +92,13 @@ export function BotAppEvents({ app }: Props) {
         checked={interactivity}
         onChange={setInteractivity}
         dataQa="bot-app-interactivity"
+      />
+      <Checkbox
+        label="Home tab"
+        description="Its conversation gets a Home tab, which the app fills for each person with views.publish."
+        checked={home}
+        onChange={setHome}
+        dataQa="bot-app-home"
       />
       {!socketMode && (
         <TextInput

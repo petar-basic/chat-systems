@@ -17,6 +17,7 @@ import type { Message } from '@/stores/workspace';
 import EmojiPicker from './EmojiPicker';
 import { REMIND_PRESETS } from './schedulePresets';
 import { QUICK_REACTIONS, type MessageActionHandlers } from './messageActionList';
+import { MessageShortcutItems } from './MessageShortcuts';
 
 interface Props {
   message: Message;
@@ -218,6 +219,7 @@ export function MessageActionsBar({ message, actions: a, pickerOpen, onPickerCha
                 <Trash2 className="w-3.5 h-3.5" /> {t('actions.delete')}
               </button>
             )}
+            <MessageShortcutItems message={message} onDone={() => setShowOverflow(false)} />
           </AnchoredPopover>
         )}
       </div>

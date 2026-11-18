@@ -12,7 +12,7 @@ use super::models::ChannelContext;
 use crate::authz;
 use crate::middleware::AuthUser;
 use crate::state::AppState;
-use crate::{lists, workflows};
+use crate::{app_shortcuts, lists, workflows};
 
 pub fn router() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new().routes(routes!(channel_context))
@@ -27,7 +27,7 @@ async fn channel_context(
 ) -> AppResult<Json<ChannelContext>> {
     let access = authz::require_channel_access(&state, ch_id, auth.user_id).await?;
     let repo = &state.workspace_service.repo;
-    let (members, pins, bookmarks, lists, workflow_shortcuts) = tokio::try_join!(
+    let (members, pins, bookmarks, lists, workflow_shortcuts, message_shortcuts) = tokio::try_join!(
         async { Ok::<_, AppError>(repo.list_channel_members(ch_id).await?) },
         async { Ok(state.message_repo.list_pinned(ch_id).await?) },
         async { Ok(repo.list_channel_bookmarks(ch_id).await?) },
@@ -39,6 +39,7 @@ async fn channel_context(
                 Ok(Vec::new())
             }
         },
+        app_shortcuts::in_channel(&state, &access),
     )?;
     Ok(Json(ChannelContext {
         workspace_id: access.channel.workspace_id,
@@ -47,5 +48,6 @@ async fn channel_context(
         bookmarks,
         lists,
         workflow_shortcuts,
+        message_shortcuts,
     }))
 }

@@ -137,6 +137,8 @@ pub enum ServerFrame {
     WorkspaceRestored { workspace_id: Uuid },
     #[serde(rename = "workspace.emoji_changed")]
     WorkspaceEmojiChanged { workspace_id: Uuid },
+    #[serde(rename = "workspace.apps_changed")]
+    WorkspaceAppsChanged { workspace_id: Uuid },
     #[serde(rename = "notification")]
     Notification {
         workspace_id: Option<Uuid>,
@@ -311,6 +313,13 @@ pub enum ServerFrame {
         #[ts(type = "AppView[]")]
         views: serde_json::Value,
     },
+    #[serde(rename = "views.home_changed")]
+    ViewsHomeChanged {
+        workspace_id: Uuid,
+        app_id: Uuid,
+        #[ts(type = "AppHome")]
+        home: serde_json::Value,
+    },
     #[serde(rename = "user.instance_role_changed")]
     InstanceRoleChanged { role: String },
     #[serde(rename = "thread.read_state")]
@@ -440,7 +449,8 @@ impl ServerFrame {
              type ListComment = components['schemas']['ListComment'];\n\
              type NotificationData = components['schemas']['NotificationData'];\n\
              type Draft = components['schemas']['Draft'];\n\
-             type AppView = components['schemas']['AppView'];\n\n\
+             type AppView = components['schemas']['AppView'];\n\
+             type AppHome = components['schemas']['AppHome'];\n\n\
              export {decl}\n"
         )
     }

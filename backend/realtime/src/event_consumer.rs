@@ -274,6 +274,13 @@ pub(crate) async fn handle_event_for(
                     .await;
             }
         }
+        "workspace.apps_changed" => {
+            if let Some(workspace_id) = field("workspace_id") {
+                let frame = ServerFrame::WorkspaceAppsChanged { workspace_id };
+                cm.broadcast_to_workspace(audience, workspace_id, &framed(&frame))
+                    .await;
+            }
+        }
         "notification.push" => {
             if let Some(uid) = field("user_id") {
                 let frame = ServerFrame::Notification {
@@ -431,7 +438,7 @@ pub(crate) async fn handle_event_for(
             let frame = ServerFrame::LaterUpdated { workspace_id };
             cm.send_to_user(audience, uid, &framed(&frame)).await;
         }
-        "views.changed" => {
+        "views.changed" | "views.home_changed" => {
             let (Some(uid), Some(frame)) = (field("user_id"), typed(event_type, payload)) else {
                 return;
             };

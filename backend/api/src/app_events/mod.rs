@@ -113,21 +113,20 @@ pub fn translate(workspace_id: Uuid, event: &Event) -> Option<Translated> {
     })
 }
 
-pub fn required_scope(event: AppEvent, channel_type: &str) -> Scope {
+pub fn required_scope(event: AppEvent, channel_type: &str) -> Option<Scope> {
     match event {
         AppEvent::Message
         | AppEvent::AppMention
         | AppEvent::ReactionAdded
-        | AppEvent::ReactionRemoved => {
-            if channel_type == "public" {
-                Scope::ChannelsHistory
-            } else {
-                Scope::GroupsHistory
-            }
-        }
+        | AppEvent::ReactionRemoved => Some(if channel_type == "public" {
+            Scope::ChannelsHistory
+        } else {
+            Scope::GroupsHistory
+        }),
         AppEvent::MemberJoinedChannel | AppEvent::ChannelCreated | AppEvent::ChannelArchived => {
-            Scope::ChannelsRead
+            Some(Scope::ChannelsRead)
         }
+        AppEvent::AppHomeOpened => None,
     }
 }
 
@@ -135,9 +134,10 @@ pub fn hears(subscriber: &repo::Subscriber, translated: &Translated, event: AppE
     if !subscriber.events.iter().any(|e| e == event.as_str()) {
         return false;
     }
-    let scope = required_scope(event, &subscriber.channel_type);
-    if !subscriber.scopes.iter().any(|s| s == scope.as_str()) {
-        return false;
+    if let Some(scope) = required_scope(event, &subscriber.channel_type) {
+        if !subscriber.scopes.iter().any(|s| s == scope.as_str()) {
+            return false;
+        }
     }
     let in_channel = subscriber.is_member
         || (event == AppEvent::ChannelCreated && subscriber.channel_type == "public");

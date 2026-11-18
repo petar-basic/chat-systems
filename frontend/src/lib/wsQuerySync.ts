@@ -30,6 +30,7 @@ import { patchMessageEverywhere, shownInChannel } from './messagePatch';
 import { dropReply, patchReply, placeReply } from './threadCache';
 import { syncListFrames } from '@/features/lists/listSync';
 import { syncMembershipFrames } from './membershipSync';
+import { syncAppFrames } from './appSync';
 import { followInstanceRole } from './instanceRoleSync';
 import { applyCommandResponse } from './commandAnswers';
 import { useAppViewsStore } from '@/stores/appViews';
@@ -155,6 +156,7 @@ export const useWebSocketQuerySync = () => {
     unsubs.push(readOnReturn(queryClient));
     unsubs.push(...syncListFrames(queryClient));
     unsubs.push(...syncMembershipFrames(queryClient));
+    unsubs.push(...syncAppFrames(queryClient));
 
     unsubs.push(
       globalEventBus.on('sync.refetch_required', (event) => {

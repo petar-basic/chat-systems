@@ -12,6 +12,7 @@ import {
 } from '@/features/workspace/hooks/useBotApps';
 import type { AppPermission } from '@/features/workspace/hooks/useAppDirectory';
 import { BotAppEvents } from './BotAppEvents';
+import { BotAppShortcuts } from './BotAppShortcuts';
 import { ConsentDialog } from './ConsentDialog';
 import { TokenReveal } from './TokenReveal';
 
@@ -113,6 +114,7 @@ export function BotAppControls({ app, scopes: offered, onRemoved }: Props) {
       </form>
 
       <BotAppEvents app={app} />
+      <BotAppShortcuts appId={app.id} />
 
       {failure && (
         <p role="alert" className="text-sm text-danger">

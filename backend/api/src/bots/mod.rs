@@ -34,6 +34,20 @@ pub fn hash_token(token: &str) -> String {
     crate::scim::repo::hash_token(token)
 }
 
+pub async fn announce_apps(state: &AppState, workspace_id: uuid::Uuid) {
+    let published = state
+        .publisher
+        .publish_scoped(
+            "workspace.apps_changed",
+            workspace_id,
+            serde_json::json!({ "workspace_id": workspace_id }),
+        )
+        .await;
+    if let Err(e) = published {
+        tracing::warn!("could not announce a change to a workspace's apps: {e}");
+    }
+}
+
 pub struct Caller(AuthUser);
 
 impl Caller {

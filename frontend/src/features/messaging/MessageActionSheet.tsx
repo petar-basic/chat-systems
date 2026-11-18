@@ -2,7 +2,9 @@ import { useRef, useState, type ComponentType } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
 import { ActionSheet } from '@/shared/components/ActionSheet/ActionSheet';
+import type { Message } from '@/stores/workspace';
 import EmojiPicker from './EmojiPicker';
+import { useMessageShortcutActions } from './messageShortcutActions';
 
 export interface SheetAction {
   key: string;
@@ -18,6 +20,7 @@ interface Props {
   actions: SheetAction[];
   onClose: () => void;
   dataQa?: string;
+  shortcutsOn?: Message;
 }
 
 export default function MessageActionSheet({
@@ -26,10 +29,12 @@ export default function MessageActionSheet({
   actions,
   onClose,
   dataQa = 'message-action-sheet',
+  shortcutsOn,
 }: Props) {
   const { t } = useTranslation('messages');
   const [showPicker, setShowPicker] = useState(false);
   const pickerAnchorRef = useRef<HTMLButtonElement>(null);
+  const shortcutActions = useMessageShortcutActions(shortcutsOn);
 
   const react = (emoji: string) => {
     onReact?.(emoji);
@@ -79,7 +84,7 @@ export default function MessageActionSheet({
       )}
 
       <div className="py-1">
-        {actions.map(({ key, label, Icon, onSelect, destructive }) => (
+        {[...actions, ...shortcutActions].map(({ key, label, Icon, onSelect, destructive }) => (
           <button
             key={key}
             type="button"
