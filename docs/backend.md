@@ -1325,7 +1325,8 @@ the phrase's edge is a word going on, unless either is in a script written witho
 The earliest match wins, the longest on a tie, skipping responses that answered in this
 channel in the last 60 seconds. The bot then answers only where the author could post now
 (`authz::require_channel_post`: not archived, not moderators-only for a non-moderator) and
-never in a 1:1 DM. In one transaction it locks the response row, inserts a
+never in a DM or a group DM, as Slack's never post in DMs with other people. In one
+transaction it locks the response row, inserts a
 `custom_response_replies` row keyed by the message id unless the response answered in the
 channel within the minute, posts the reply and stages its `message.created`. The key makes a
 replayed stream entry a no-op, and the row lock makes two messages racing in one channel
