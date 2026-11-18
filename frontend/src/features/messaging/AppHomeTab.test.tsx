@@ -1,6 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import i18n from '@/lib/i18n';
 import { AppHomeTab } from './AppHomeTab';
+
+const hostile = '<img src=x onerror="alert(1)"> {{name}}';
 
 const home = vi.hoisted(() => ({
   tab: { isPending: false, isError: false, data: undefined as unknown, refetch: vi.fn() },
@@ -88,5 +91,39 @@ describe('AppHomeTab', () => {
     expect(empty).toHaveTextContent('Helpdesk');
     expect(empty).toHaveTextContent('Ask the help desk for anything');
     expect(empty).toHaveTextContent("Helpdesk hasn't set up its Home tab yet.");
+  });
+});
+
+describe('AppHomeTab in Japanese', () => {
+  beforeEach(async () => {
+    home.tab = { isPending: false, isError: false, data: { app_id: 'app-1', home: null }, refetch: vi.fn() };
+    await i18n.changeLanguage('ja');
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('says an app has no Home yet, naming it as text', () => {
+    render(<AppHomeTab app={{ ...helpdesk, name: hostile }} channelId="dm-1" />);
+
+    expect(screen.getByTestId('app-home-empty')).toHaveTextContent(
+      `${hostile} は、まだホームタブを用意していません。`,
+    );
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
+});
+
+describe('the apps strings in messages', () => {
+  function leaves(value: unknown, prefix = ''): string[] {
+    if (typeof value !== 'object' || value === null) return [prefix];
+    return Object.entries(value).flatMap(([key, child]) => leaves(child, prefix ? `${prefix}.${key}` : key));
+  }
+
+  it.each(['appHome', 'appShortcuts', 'blocks'])('has Japanese for every one in %s', (group) => {
+    const english = leaves(i18n.getResource('en', 'messages', group));
+    const japanese = leaves(i18n.getResource('ja', 'messages', group));
+    expect(english.length).toBeGreaterThan(0);
+    expect(japanese).toEqual(english);
   });
 });

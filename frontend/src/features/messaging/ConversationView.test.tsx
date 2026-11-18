@@ -360,6 +360,17 @@ describe('ConversationView in Japanese', () => {
       expect(screen.getByLabelText('composer')).toBeInTheDocument();
     });
 
+    it('names its tabs in Japanese', async () => {
+      await i18n.changeLanguage('ja');
+      view.app = helpdesk(true);
+      renderView(withApp);
+
+      expect(screen.getByRole('tablist', { name: 'アプリのタブ' })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: 'ホーム' })).toHaveAttribute('aria-selected', 'true');
+      fireEvent.click(screen.getByRole('tab', { name: 'メッセージ' }));
+      expect(screen.getByRole('tab', { name: 'メッセージ' })).toHaveAttribute('aria-selected', 'true');
+    });
+
     it('has no tabs while its Home is off', () => {
       view.app = helpdesk(false);
       renderView(withApp);

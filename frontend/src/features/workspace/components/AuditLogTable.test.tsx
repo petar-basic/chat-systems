@@ -5,8 +5,6 @@ import AuditLogTable, { type AuditEntry } from './AuditLogTable';
 
 const hostile = '<img src=x onerror="alert(1)"> {{name}}';
 
-const AWAITING_JAPANESE = ['actions.bot_app.interaction'];
-
 const entry = (id: string, action: string, actor: Partial<AuditEntry> = {}): AuditEntry => ({
   id,
   action,
@@ -105,12 +103,10 @@ describe('AuditLogTable in Japanese', () => {
     expect(screen.getByTestId('audit-log-empty')).toHaveTextContent('まだ記録はありません。');
   });
 
-  it('has Japanese for every action but the ones awaiting it', () => {
+  it('has Japanese for every action', () => {
     const english = leaves(i18n.getResource('en', 'admin', 'audit'));
     const japanese = leaves(i18n.getResource('ja', 'admin', 'audit'));
     expect(english).toHaveLength(102);
-    expect(english).toEqual(expect.arrayContaining(AWAITING_JAPANESE));
-    expect(japanese.filter((key) => AWAITING_JAPANESE.includes(key))).toEqual([]);
-    expect(japanese).toEqual(english.filter((key) => !AWAITING_JAPANESE.includes(key)));
+    expect(japanese).toEqual(english);
   });
 });

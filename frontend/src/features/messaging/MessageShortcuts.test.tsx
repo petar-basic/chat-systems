@@ -1,7 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import type { Message } from '@/stores/workspace';
+import i18n from '@/lib/i18n';
 import { MessageShortcutItems } from './MessageShortcuts';
+
+const hostile = '<img src=x onerror="alert(1)"> {{name}}';
 
 const apps = vi.hoisted(() => ({
   shortcuts: [] as Array<Record<string, unknown>>,
@@ -70,5 +73,29 @@ describe('MessageShortcutItems', () => {
     apps.shortcuts = [ticket];
     render(<MessageShortcutItems message={{ ...message, pending: true }} onDone={vi.fn()} />);
     expect(screen.queryByTestId('message-shortcuts')).not.toBeInTheDocument();
+  });
+});
+
+describe('MessageShortcutItems in Japanese', () => {
+  beforeEach(async () => {
+    apps.shortcuts = [{ ...ticket, name: hostile }];
+    apps.run.mockReset();
+    toastError.mockReset();
+    await i18n.changeLanguage('ja');
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('heads its shortcuts, and names one that failed as text', async () => {
+    apps.run.mockRejectedValue({});
+    render(<MessageShortcutItems message={message} onDone={vi.fn()} />);
+
+    expect(screen.getByTestId('message-shortcuts')).toHaveTextContent('ショートカット');
+    fireEvent.click(screen.getByRole('button', { name: hostile }));
+
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith(`「${hostile}」を使えませんでした`));
+    expect(document.querySelector('[onerror]')).toBeNull();
   });
 });

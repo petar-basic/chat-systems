@@ -1,7 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { useWorkspaceStore, type Workspace } from '@/stores/workspace';
+import i18n from '@/lib/i18n';
 import { ShortcutMenu } from './ShortcutMenu';
+
+const hostile = '<img src=x onerror="alert(1)"> {{name}}';
 
 const menu = vi.hoisted(() => ({
   workflows: [] as Array<{ id: string; name: string; description: string | null }>,
@@ -22,6 +25,9 @@ vi.mock('@/features/apps', () => ({
   },
   useRunAppShortcut: () => ({ mutate: menu.run }),
 }));
+
+const toastError = vi.hoisted(() => vi.fn());
+vi.mock('@/shared/components/Toast', () => ({ toast: { error: toastError, success: vi.fn() } }));
 
 const helpdesk = {
   app_id: 'app-1',
@@ -84,5 +90,34 @@ describe('ShortcutMenu', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Shortcuts' }));
     expect(await screen.findAllByRole('menuitem')).toHaveLength(1);
+  });
+});
+
+describe('ShortcutMenu in Japanese', () => {
+  beforeEach(async () => {
+    menu.workflows = [];
+    menu.appShortcuts = [{ ...newRequest, shortcut: { ...newRequest.shortcut, name: hostile } }];
+    menu.run.mockReset();
+    toastError.mockReset();
+    useWorkspaceStore.setState({ currentWorkspace: { id: 'ws-1' } as Workspace });
+    await i18n.changeLanguage('ja');
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('names its button, and a shortcut that failed as text', async () => {
+    menu.run.mockImplementation((_vars: unknown, options?: { onError?: (err: unknown) => void }) =>
+      options?.onError?.({}),
+    );
+    render(<ShortcutMenu channelId="ch-1" />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'ショートカット' }));
+    expect(await screen.findByRole('menu', { name: 'ショートカット' })).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('menuitem', { name: new RegExp('alert') }));
+
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith(`「${hostile}」を使えませんでした`));
+    expect(document.querySelector('[onerror]')).toBeNull();
   });
 });
