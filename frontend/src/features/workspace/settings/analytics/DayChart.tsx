@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+import i18n from '@/lib/i18n';
 import { dayLabel } from './days';
 
 export interface ChartSeries {
@@ -20,6 +22,7 @@ const BAR = 10;
 const GAP = 4;
 
 export function DayChart({ title, days, series, ceiling, qa }: Props) {
+  const { t } = useTranslation('workspace');
   const totals = days.map((_, i) => series.reduce((sum, s) => sum + (s.values[i] ?? 0), 0));
   const top = Math.max(ceiling ?? 0, ...totals, 1);
   const width = days.length * (BAR + GAP) - GAP;
@@ -42,7 +45,7 @@ export function DayChart({ title, days, series, ceiling, qa }: Props) {
       </figcaption>
       {busiest === 0 ? (
         <p className="rounded-lg border border-dashed border-line px-4 py-8 text-center text-sm text-muted">
-          Nothing in these days yet.
+          {t('settings.analytics.charts.nothing')}
         </p>
       ) : (
         <svg
@@ -50,11 +53,18 @@ export function DayChart({ title, days, series, ceiling, qa }: Props) {
           preserveAspectRatio="none"
           className="h-32 w-full"
           role="img"
-          aria-label={`${title}: at most ${busiest.toLocaleString()} on a day`}
+          aria-label={t('settings.analytics.charts.summary', { title, most: busiest.toLocaleString() })}
         >
           {days.map((day, i) => {
             let y = HEIGHT;
-            const parts = series.map((s) => s.label + ' ' + (s.values[i] ?? 0).toLocaleString()).join(', ');
+            const parts = series
+              .map((s) =>
+                t('settings.analytics.charts.value', {
+                  label: s.label,
+                  value: (s.values[i] ?? 0).toLocaleString(),
+                }),
+              )
+              .join(i18n.t('common:listSeparator'));
             return (
               <g key={day}>
                 <title>{`${dayLabel(day)}: ${parts}`}</title>

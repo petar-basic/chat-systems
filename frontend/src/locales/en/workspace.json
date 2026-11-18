@@ -324,6 +324,87 @@
       "saved": "Saved",
       "loadFailed": "Failed to load retention"
     },
+    "analytics": {
+      "tabs": {
+        "label": "Analytics",
+        "overview": "Overview",
+        "channels": "Channels",
+        "quiet": "Quiet channels"
+      },
+      "period": "Period",
+      "lastDays": "Last {{days}} days",
+      "includeGuests": "Include guests",
+      "intro": "Counts only, never what anyone wrote. A member is active on a day they post, react or read a conversation. Days run midnight to midnight UTC.",
+      "exportCsv": "Export CSV",
+      "stats": {
+        "members": "Members",
+        "active": "Active in these days",
+        "ofMembers": "of {{members}} members",
+        "messages": "Messages",
+        "joined": "Joined"
+      },
+      "charts": {
+        "activePerDay": "Active members per day",
+        "active": "Active",
+        "activePerWeek": "Active members per week",
+        "weekOf": "Week of {{date}}:",
+        "messagesPerDay": "Messages per day",
+        "public": "Public channels",
+        "private": "Private channels",
+        "direct": "Direct messages",
+        "nothing": "Nothing in these days yet.",
+        "summary": "{{title}}: at most {{most}} on a day",
+        "value": "{{label}} {{value}}"
+      },
+      "members": {
+        "title": "Members",
+        "member": "Member",
+        "role": "Role",
+        "daysActive": "Days active",
+        "messages": "Messages",
+        "lastActive": "Last active",
+        "never": "Never"
+      },
+      "channels": {
+        "title": "Channels",
+        "channel": "Channel",
+        "unnamed": "channel",
+        "archived": "Archived",
+        "private": "Private",
+        "created": "Created",
+        "members": "Members",
+        "guests": "Guests",
+        "messages": "Messages",
+        "posted": "Posted",
+        "viewed": "Viewed",
+        "reactions": "Reactions",
+        "lastMessage": "Last message",
+        "never": "Never"
+      },
+      "quiet": {
+        "noMessageFor": "No message for",
+        "days": "{{days}} days",
+        "archiveSelected": "Archive selected",
+        "archiveCount_one": "Archive {{n}} channel",
+        "archiveCount_other": "Archive {{n}} channels",
+        "empty": "Every channel has had a message in the last {{days}} days.",
+        "public": "Public",
+        "private": "Private",
+        "lastMessage": "Last message {{date}}",
+        "noMessages": "No messages yet",
+        "members_one": "{{n}} member",
+        "members_other": "{{n}} members",
+        "archive": "Archive",
+        "archiveLabel": "Archive #{{name}}",
+        "confirmOne": "Archive #{{name}}?",
+        "confirmMany_one": "Archive {{n}} channel?",
+        "confirmMany_other": "Archive {{n}} channels?",
+        "description": "Nobody can post in an archived channel. It stays readable and searchable, and a channel admin can unarchive it.",
+        "archived_one": "Archived {{n}} channel",
+        "archived_other": "Archived {{n}} channels",
+        "failed": "Could not archive those channels"
+      }
+    },
     "exports": {
       "intro": "An export is a tar archive of the workspace in JSON lines. Its download link works once and expires after a day.",
       "includeDms": "Include direct messages",
