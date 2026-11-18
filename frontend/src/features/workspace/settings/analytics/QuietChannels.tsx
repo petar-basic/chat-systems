@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Archive } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
 import { Checkbox } from '@/shared/components/Form/Checkbox';
@@ -21,11 +22,10 @@ interface Props {
   instanceUrl?: string;
 }
 
-function plural(n: number) {
-  return n === 1 ? '1 channel' : `${n.toLocaleString()} channels`;
-}
-
 export function QuietChannels({ workspaceId, instanceUrl }: Props) {
+  const { t } = useTranslation('workspace');
+  const counted = (n: number) => ({ count: n, n: n.toLocaleString() });
+  const unnamed = t('settings.analytics.channels.unnamed');
   const [days, setDays] = useState<QuietThreshold>(90);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [asking, setAsking] = useState<QuietChannel[] | null>(null);
@@ -46,10 +46,10 @@ export function QuietChannels({ workspaceId, instanceUrl }: Props) {
     if (!asking) return;
     try {
       const { archived } = await archive.mutateAsync(asking.map((c) => c.channel_id));
-      toast.success(`Archived ${plural(archived.length)}`);
+      toast.success(t('settings.analytics.quiet.archived', counted(archived.length)));
       setPicked(new Set());
     } catch (err) {
-      throw new Error(toUserMessage(err, 'Could not archive those channels'), { cause: err });
+      throw new Error(toUserMessage(err, t('settings.analytics.quiet.failed')), { cause: err });
     }
   };
 
@@ -57,7 +57,7 @@ export function QuietChannels({ workspaceId, instanceUrl }: Props) {
     <div className="space-y-4" data-qa="analytics-quiet">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <Select
-          label="No message for"
+          label={t('settings.analytics.quiet.noMessageFor')}
           value={days}
           onChange={(e) => {
             setDays(Number(e.target.value) as QuietThreshold);
@@ -68,7 +68,7 @@ export function QuietChannels({ workspaceId, instanceUrl }: Props) {
         >
           {QUIET_THRESHOLDS.map((n) => (
             <option key={n} value={n}>
-              {n} days
+              {t('settings.analytics.quiet.days', { days: n })}
             </option>
           ))}
         </Select>
@@ -80,7 +80,9 @@ export function QuietChannels({ workspaceId, instanceUrl }: Props) {
           icon={<Archive className="h-3.5 w-3.5" />}
           data-qa="analytics-quiet-archive-selected"
         >
-          {selected.length > 0 ? `Archive ${plural(selected.length)}` : 'Archive selected'}
+          {selected.length > 0
+            ? t('settings.analytics.quiet.archiveCount', counted(selected.length))
+            : t('settings.analytics.quiet.archiveSelected')}
         </Button>
       </div>
 
@@ -91,7 +93,7 @@ export function QuietChannels({ workspaceId, instanceUrl }: Props) {
         isEmpty={channels.length === 0}
         empty={
           <p className="rounded-lg border border-dashed border-line px-4 py-8 text-center text-sm text-muted">
-            Every channel has had a message in the last {days} days.
+            {t('settings.analytics.quiet.empty', { days })}
           </p>
         }
       >
@@ -103,16 +105,22 @@ export function QuietChannels({ workspaceId, instanceUrl }: Props) {
               data-qa="analytics-quiet-row"
             >
               <Checkbox
-                label={c.name ?? 'channel'}
+                label={c.name ?? unnamed}
                 description={
                   <>
-                    {c.channel_type === 'private' ? 'Private' : 'Public'}
+                    {t(
+                      c.channel_type === 'private'
+                        ? 'settings.analytics.quiet.private'
+                        : 'settings.analytics.quiet.public',
+                    )}
                     {' · '}
                     {c.last_message_at
-                      ? `Last message ${dayLabel(dayOf(c.last_message_at))}`
-                      : 'No messages yet'}
+                      ? t('settings.analytics.quiet.lastMessage', {
+                          date: dayLabel(dayOf(c.last_message_at)),
+                        })
+                      : t('settings.analytics.quiet.noMessages')}
                     {' · '}
-                    {c.members === 1 ? '1 member' : `${c.members.toLocaleString()} members`}
+                    {t('settings.analytics.quiet.members', counted(c.members))}
                   </>
                 }
                 checked={picked.has(c.channel_id)}
@@ -124,9 +132,9 @@ export function QuietChannels({ workspaceId, instanceUrl }: Props) {
                 onClick={() => setAsking([c])}
                 icon={<Archive className="h-3.5 w-3.5" />}
                 data-qa="analytics-quiet-archive"
-                aria-label={`Archive #${c.name ?? 'channel'}`}
+                aria-label={t('settings.analytics.quiet.archiveLabel', { name: c.name ?? unnamed })}
               >
-                Archive
+                {t('settings.analytics.quiet.archive')}
               </Button>
             </li>
           ))}
@@ -137,11 +145,15 @@ export function QuietChannels({ workspaceId, instanceUrl }: Props) {
         <ConfirmDialog
           title={
             asking.length === 1
-              ? `Archive #${asking[0].name ?? 'channel'}?`
-              : `Archive ${plural(asking.length)}?`
+              ? t('settings.analytics.quiet.confirmOne', { name: asking[0].name ?? unnamed })
+              : t('settings.analytics.quiet.confirmMany', counted(asking.length))
           }
-          description="Nobody can post in an archived channel. It stays readable and searchable, and a channel admin can unarchive it."
-          confirmLabel={asking.length === 1 ? 'Archive' : `Archive ${plural(asking.length)}`}
+          description={t('settings.analytics.quiet.description')}
+          confirmLabel={
+            asking.length === 1
+              ? t('settings.analytics.quiet.archive')
+              : t('settings.analytics.quiet.archiveCount', counted(asking.length))
+          }
           tone="danger"
           confirmDisabled={archive.isPending}
           onConfirm={confirm}
@@ -151,7 +163,7 @@ export function QuietChannels({ workspaceId, instanceUrl }: Props) {
           {asking.length > 1 && (
             <ul className="list-inside list-disc text-sm text-fg-soft">
               {asking.map((c) => (
-                <li key={c.channel_id}>#{c.name ?? 'channel'}</li>
+                <li key={c.channel_id}>#{c.name ?? unnamed}</li>
               ))}
             </ul>
           )}

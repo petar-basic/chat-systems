@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Download } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
 import { Select } from '@/shared/components/Form/Select';
@@ -50,9 +51,10 @@ function Stat({ label, value, hint }: { label: string; value: number; hint?: str
 }
 
 function CsvButton({ onClick, qa }: { onClick: () => void; qa: string }) {
+  const { t } = useTranslation('workspace');
   return (
     <Button size="sm" onClick={onClick} icon={<Download className="h-3.5 w-3.5" />} data-qa={qa}>
-      Export CSV
+      {t('settings.analytics.exportCsv')}
     </Button>
   );
 }
@@ -67,28 +69,29 @@ function fileName(workspaceName: string, what: string, days: AnalyticsWindow) {
 }
 
 function Overview({ report }: { report: WorkspaceAnalytics }) {
+  const { t } = useTranslation('workspace');
   const { daily } = report;
   const days = daily.map((d) => d.day);
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Members" value={report.members} />
+        <Stat label={t('settings.analytics.stats.members')} value={report.members} />
         <Stat
-          label="Active in these days"
+          label={t('settings.analytics.stats.active')}
           value={report.active_members}
-          hint={`of ${report.members.toLocaleString()} members`}
+          hint={t('settings.analytics.stats.ofMembers', { members: report.members.toLocaleString() })}
         />
-        <Stat label="Messages" value={sum(daily, messagesOf)} />
-        <Stat label="Joined" value={sum(daily, (d) => d.joined)} />
+        <Stat label={t('settings.analytics.stats.messages')} value={sum(daily, messagesOf)} />
+        <Stat label={t('settings.analytics.stats.joined')} value={sum(daily, (d) => d.joined)} />
       </div>
 
       <DayChart
-        title="Active members per day"
+        title={t('settings.analytics.charts.activePerDay')}
         days={days}
         ceiling={report.members}
         series={[
           {
-            label: 'Active',
+            label: t('settings.analytics.charts.active'),
             fill: 'fill-accent',
             swatch: 'bg-accent',
             values: daily.map((d) => d.active_members),
@@ -99,11 +102,11 @@ function Overview({ report }: { report: WorkspaceAnalytics }) {
 
       {report.weekly.length > 0 && (
         <div className="space-y-2">
-          <h4 className="text-sm font-medium text-fg">Active members per week</h4>
+          <h4 className="text-sm font-medium text-fg">{t('settings.analytics.charts.activePerWeek')}</h4>
           <ul className="flex flex-wrap gap-2" data-qa="analytics-weeks">
             {report.weekly.map((week) => (
               <li key={week.week} className="rounded-lg border border-line px-3 py-1.5 text-xs text-fg-soft">
-                Week of {dayLabel(week.week)}:{' '}
+                {t('settings.analytics.charts.weekOf', { date: dayLabel(week.week) })}{' '}
                 <span className="font-medium text-fg">{week.active_members.toLocaleString()}</span>
               </li>
             ))}
@@ -112,23 +115,23 @@ function Overview({ report }: { report: WorkspaceAnalytics }) {
       )}
 
       <DayChart
-        title="Messages per day"
+        title={t('settings.analytics.charts.messagesPerDay')}
         days={days}
         series={[
           {
-            label: 'Public channels',
+            label: t('settings.analytics.charts.public'),
             fill: 'fill-accent',
             swatch: 'bg-accent',
             values: daily.map((d) => d.public_messages),
           },
           {
-            label: 'Private channels',
+            label: t('settings.analytics.charts.private'),
             fill: 'fill-info',
             swatch: 'bg-info',
             values: daily.map((d) => d.private_messages),
           },
           {
-            label: 'Direct messages',
+            label: t('settings.analytics.charts.direct'),
             fill: 'fill-warning',
             swatch: 'bg-warning',
             values: daily.map((d) => d.direct_messages),
@@ -222,11 +225,7 @@ function channelsCsv(rows: ChannelActivity[], guests: boolean) {
 
 type Tab = 'overview' | 'channels' | 'quiet';
 
-const TABS: { key: Tab; label: string }[] = [
-  { key: 'overview', label: 'Overview' },
-  { key: 'channels', label: 'Channels' },
-  { key: 'quiet', label: 'Quiet channels' },
-];
+const TABS: Tab[] = ['overview', 'channels', 'quiet'];
 
 interface Scope {
   workspaceId: string;
@@ -246,6 +245,7 @@ function WorkspaceTab({
 }: Scope & {
   members: WorkspaceMember[];
 }) {
+  const { t } = useTranslation('workspace');
   const report = useWorkspaceAnalytics(workspaceId, days, guests, instanceUrl);
   const activity = useMemberAnalytics(workspaceId, days, guests, instanceUrl);
   const rows = memberRows(activity.data ?? [], members);
@@ -278,7 +278,7 @@ function WorkspaceTab({
       >
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="text-base font-semibold text-fg">Members</h3>
+            <h3 className="text-base font-semibold text-fg">{t('settings.analytics.members.title')}</h3>
             <CsvButton
               onClick={() => downloadCsv(fileName(workspaceName, 'members', days), membersCsv(rows))}
               qa="analytics-members-csv"
@@ -292,6 +292,7 @@ function WorkspaceTab({
 }
 
 function ChannelsTab({ workspaceId, workspaceName, instanceUrl, days, guests }: Scope) {
+  const { t } = useTranslation('workspace');
   const channels = useChannelActivity(workspaceId, days, guests, instanceUrl);
   const rows = channels.data ?? [];
 
@@ -303,7 +304,7 @@ function ChannelsTab({ workspaceId, workspaceName, instanceUrl, days, guests }: 
     >
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="text-base font-semibold text-fg">Channels</h3>
+          <h3 className="text-base font-semibold text-fg">{t('settings.analytics.channels.title')}</h3>
           <CsvButton
             onClick={() => downloadCsv(fileName(workspaceName, 'channels', days), channelsCsv(rows, guests))}
             qa="analytics-channels-csv"
@@ -316,6 +317,7 @@ function ChannelsTab({ workspaceId, workspaceName, instanceUrl, days, guests }: 
 }
 
 export function AnalyticsSection({ workspaceId, workspaceName, instanceUrl, members }: Props) {
+  const { t } = useTranslation('workspace');
   const [tab, setTab] = useState<Tab>('overview');
   const [days, setDays] = useState<AnalyticsWindow>(30);
   const [guests, setGuests] = useState(true);
@@ -323,20 +325,20 @@ export function AnalyticsSection({ workspaceId, workspaceName, instanceUrl, memb
 
   return (
     <div className="space-y-6" data-qa="analytics-panel">
-      <div className="flex gap-1" role="tablist" aria-label="Analytics">
-        {TABS.map((t) => (
+      <div className="flex gap-1" role="tablist" aria-label={t('settings.analytics.tabs.label')}>
+        {TABS.map((key) => (
           <button
-            key={t.key}
+            key={key}
             type="button"
             role="tab"
-            aria-selected={tab === t.key}
-            onClick={() => setTab(t.key)}
+            aria-selected={tab === key}
+            onClick={() => setTab(key)}
             className={`cursor-pointer rounded-full px-3 py-1 text-sm transition ${
-              tab === t.key ? 'bg-accent text-white' : 'text-fg-dim hover:bg-raised'
+              tab === key ? 'bg-accent text-white' : 'text-fg-dim hover:bg-raised'
             }`}
-            data-qa={`analytics-tab-${t.key}`}
+            data-qa={`analytics-tab-${key}`}
           >
-            {t.label}
+            {t(`settings.analytics.tabs.${key}`)}
           </button>
         ))}
       </div>
@@ -347,7 +349,7 @@ export function AnalyticsSection({ workspaceId, workspaceName, instanceUrl, memb
         <>
           <div className="flex flex-wrap items-end gap-4">
             <Select
-              label="Period"
+              label={t('settings.analytics.period')}
               value={days}
               onChange={(e) => setDays(Number(e.target.value) as AnalyticsWindow)}
               dataQa="analytics-window"
@@ -355,21 +357,18 @@ export function AnalyticsSection({ workspaceId, workspaceName, instanceUrl, memb
             >
               {ANALYTICS_WINDOWS.map((n) => (
                 <option key={n} value={n}>
-                  Last {n} days
+                  {t('settings.analytics.lastDays', { days: n })}
                 </option>
               ))}
             </Select>
             <Checkbox
-              label="Include guests"
+              label={t('settings.analytics.includeGuests')}
               checked={guests}
               onChange={setGuests}
               dataQa="analytics-guests"
             />
           </div>
-          <p className="text-xs text-muted">
-            Counts only, never what anyone wrote. A member is active on a day they post, react or read a
-            conversation. Days run midnight to midnight UTC.
-          </p>
+          <p className="text-xs text-muted">{t('settings.analytics.intro')}</p>
           {tab === 'overview' ? <WorkspaceTab {...scope} members={members} /> : <ChannelsTab {...scope} />}
         </>
       )}

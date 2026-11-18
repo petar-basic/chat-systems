@@ -315,6 +315,83 @@
       "saved": "保存しました",
       "loadFailed": "保存期間を読み込めませんでした"
     },
+    "analytics": {
+      "tabs": {
+        "label": "利用状況の分析",
+        "overview": "概要",
+        "channels": "チャンネル",
+        "quiet": "動きのないチャンネル"
+      },
+      "period": "期間",
+      "lastDays": "過去 {{days}} 日間",
+      "includeGuests": "ゲストを含める",
+      "intro": "件数だけを集計し、書かれた内容は含みません。投稿、リアクション、会話の閲覧のいずれかをした日を、そのメンバーがアクティブだった日として数えます。1日は UTC の 0 時から 0 時までです。",
+      "exportCsv": "CSV を書き出す",
+      "stats": {
+        "members": "メンバー",
+        "active": "期間中にアクティブ",
+        "ofMembers": "メンバー {{members}} 人中",
+        "messages": "メッセージ数",
+        "joined": "参加"
+      },
+      "charts": {
+        "activePerDay": "1日ごとのアクティブなメンバー",
+        "active": "アクティブ",
+        "activePerWeek": "1週間ごとのアクティブなメンバー",
+        "weekOf": "{{date}} の週:",
+        "messagesPerDay": "1日ごとのメッセージ数",
+        "public": "公開チャンネル",
+        "private": "非公開チャンネル",
+        "direct": "ダイレクトメッセージ",
+        "nothing": "この期間には、まだ何もありません。",
+        "summary": "{{title}}: 1日の最大は {{most}}",
+        "value": "{{label}} {{value}}"
+      },
+      "members": {
+        "title": "メンバー",
+        "member": "メンバー",
+        "role": "役割",
+        "daysActive": "アクティブな日数",
+        "messages": "メッセージ数",
+        "lastActive": "最後にアクティブ",
+        "never": "なし"
+      },
+      "channels": {
+        "title": "チャンネル",
+        "channel": "チャンネル",
+        "unnamed": "チャンネル",
+        "archived": "アーカイブ済み",
+        "private": "非公開",
+        "created": "作成日",
+        "members": "メンバー",
+        "guests": "ゲスト",
+        "messages": "メッセージ数",
+        "posted": "投稿したメンバー",
+        "viewed": "閲覧したメンバー",
+        "reactions": "リアクション",
+        "lastMessage": "最後のメッセージ",
+        "never": "なし"
+      },
+      "quiet": {
+        "noMessageFor": "メッセージがない期間",
+        "days": "{{days}} 日",
+        "archiveSelected": "選んだチャンネルをアーカイブ",
+        "archiveCount_other": "{{n}} 個のチャンネルをアーカイブ",
+        "empty": "どのチャンネルにも、過去 {{days}} 日以内にメッセージがあります。",
+        "public": "公開",
+        "private": "非公開",
+        "lastMessage": "最後のメッセージ: {{date}}",
+        "noMessages": "まだメッセージはありません",
+        "members_other": "メンバー {{n}} 人",
+        "archive": "アーカイブ",
+        "archiveLabel": "#{{name}} をアーカイブ",
+        "confirmOne": "#{{name}} をアーカイブしますか?",
+        "confirmMany_other": "{{n}} 個のチャンネルをアーカイブしますか?",
+        "description": "アーカイブしたチャンネルには、誰も投稿できなくなります。内容は引き続き読むことも検索することもでき、チャンネル管理者がアーカイブを解除できます。",
+        "archived_other": "{{n}} 個のチャンネルをアーカイブしました",
+        "failed": "チャンネルをアーカイブできませんでした"
+      }
+    },
     "exports": {
       "intro": "エクスポートは、ワークスペースの内容を JSON Lines 形式で収めた tar アーカイブです。ダウンロードのリンクは1回だけ使え、1日で期限が切れます。",
       "includeDms": "ダイレクトメッセージを含める",

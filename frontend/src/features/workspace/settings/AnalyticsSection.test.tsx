@@ -1,9 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ReactNode } from 'react';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { WorkspaceMember } from '@/stores/workspace';
 import { downloadCsv } from '@/lib/csv';
+import i18n from '@/lib/i18n';
+import { toast } from '@/shared/components/Toast';
 import { AnalyticsSection } from './AnalyticsSection';
 
 const get = vi.fn();
@@ -122,11 +124,11 @@ const quietChannels = [
   },
 ];
 
-function answer(report: object) {
+function answer(report: object, lists: { channels?: object[]; quiet?: object[] } = {}) {
   get.mockImplementation(async (path: string) => {
     if (path.endsWith('/members')) return { data: { data: activity } };
-    if (path.endsWith('/channels')) return { data: { data: channels } };
-    if (path.endsWith('/quiet-channels')) return { data: { data: quietChannels } };
+    if (path.endsWith('/channels')) return { data: { data: lists.channels ?? channels } };
+    if (path.endsWith('/quiet-channels')) return { data: { data: lists.quiet ?? quietChannels } };
     return { data: report };
   });
 }
@@ -139,9 +141,11 @@ function wrapper({ children }: { children: ReactNode }) {
   );
 }
 
-function renderSection() {
-  render(<AnalyticsSection workspaceId="ws-1" workspaceName="Dev Team" members={members} />, { wrapper });
+function renderSection(people: WorkspaceMember[] = members) {
+  render(<AnalyticsSection workspaceId="ws-1" workspaceName="Dev Team" members={people} />, { wrapper });
 }
+
+const hostile = '<img src=x onerror="alert(1)"> {{name}}';
 
 const names = () =>
   screen.queryAllByTestId('analytics-member-row').map((row) => row.querySelector('td')?.textContent);
@@ -336,5 +340,178 @@ describe('AnalyticsSection', () => {
 
     expect(await screen.findByText('A default channel cannot be archived')).toBeInTheDocument();
     expect(screen.getByTestId('analytics-quiet-confirm')).toBeInTheDocument();
+  });
+});
+
+describe('AnalyticsSection counts one in English', () => {
+  beforeEach(() => {
+    get.mockReset();
+    post.mockReset();
+    vi.mocked(toast.success).mockReset();
+  });
+
+  it('names one channel and one member in the singular', async () => {
+    answer(busy);
+    post.mockResolvedValue({ data: { archived: ['c-ghost'] } });
+    renderSection();
+    fireEvent.click(screen.getByRole('tab', { name: 'Quiet channels' }));
+
+    const [ghost] = await screen.findAllByTestId('analytics-quiet-row');
+    expect(ghost).toHaveTextContent('Public · No messages yet · 1 member');
+    fireEvent.click(screen.getByText('ghost'));
+    fireEvent.click(screen.getByRole('button', { name: 'Archive 1 channel' }));
+    fireEvent.click(await screen.findByTestId('analytics-quiet-confirm-confirm'));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Archived 1 channel'));
+  });
+});
+
+describe('AnalyticsSection in Japanese', () => {
+  beforeEach(async () => {
+    get.mockReset();
+    post.mockReset();
+    vi.mocked(toast.success).mockReset();
+    await i18n.changeLanguage('ja');
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('labels the overview, its charts and the member table, with names as text', async () => {
+    answer(busy);
+    renderSection([{ ...members[0], display_name: hostile }, members[1], members[2]]);
+
+    expect(screen.getByRole('tablist', { name: '利用状況の分析' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '概要' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'チャンネル' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '動きのないチャンネル' })).toBeInTheDocument();
+    expect(screen.getByLabelText('期間')).toHaveTextContent('過去 7 日間過去 30 日間過去 90 日間');
+    expect(screen.getByLabelText('ゲストを含める')).toBeChecked();
+    expect(
+      screen.getByText(
+        '件数だけを集計し、書かれた内容は含みません。投稿、リアクション、会話の閲覧のいずれかをした日を、そのメンバーがアクティブだった日として数えます。1日は UTC の 0 時から 0 時までです。',
+      ),
+    ).toBeInTheDocument();
+
+    const chart = await screen.findByRole('img', { name: '1日ごとのメッセージ数: 1日の最大は 5' });
+    expect(chart.querySelector('title')?.textContent).toMatch(
+      /: 公開チャンネル 4、非公開チャンネル 0、ダイレクトメッセージ 1$/,
+    );
+    expect(
+      screen.getByRole('img', { name: '1日ごとのアクティブなメンバー: 1日の最大は 2' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('1週間ごとのアクティブなメンバー')).toBeInTheDocument();
+    expect(screen.getByText(/ の週:$/)).toBeInTheDocument();
+    expect(screen.getByText('公開チャンネル')).toBeInTheDocument();
+    expect(screen.getByText('非公開チャンネル')).toBeInTheDocument();
+    expect(screen.getByText('ダイレクトメッセージ')).toBeInTheDocument();
+    expect(screen.getByText('期間中にアクティブ')).toBeInTheDocument();
+    expect(screen.getByText('メンバー 3 人中')).toBeInTheDocument();
+    expect(screen.getByText('メッセージ数', { selector: 'div' })).toBeInTheDocument();
+    expect(screen.getByText('参加')).toBeInTheDocument();
+    expect(screen.getByTestId('analytics-days-csv')).toHaveTextContent('CSV を書き出す');
+
+    expect(await screen.findByText('メンバー', { selector: 'h3' })).toBeInTheDocument();
+    for (const header of ['メンバー', '役割', 'アクティブな日数', 'メッセージ数', '最後にアクティブ']) {
+      expect(screen.getByRole('columnheader', { name: header })).toBeInTheDocument();
+    }
+    await waitFor(() => expect(names()).toHaveLength(3));
+    const rows = screen.getAllByTestId('analytics-member-row');
+    expect(rows.map((row) => row.querySelectorAll('td')[1].textContent)).toEqual([
+      '管理者',
+      'メンバー',
+      'ゲスト',
+    ]);
+    expect(rows[1].querySelector('td')?.textContent).toBe(hostile);
+    expect(rows[2].querySelectorAll('td')[4].textContent).toBe('なし');
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
+
+  it('says when nothing happened in these days', async () => {
+    answer(quiet);
+    renderSection();
+
+    expect(await screen.findAllByText('この期間には、まだ何もありません。')).toHaveLength(2);
+  });
+
+  it('labels the channel table, with names as text', async () => {
+    answer(busy, {
+      channels: [
+        channel('c-hostile', hostile, { messages: 9 }),
+        channel('c-gone', null as unknown as string, { messages: 5 }),
+        channel('c-old', 'old', { is_archived: true, channel_type: 'private' }),
+      ],
+    });
+    renderSection();
+    fireEvent.click(screen.getByRole('tab', { name: 'チャンネル' }));
+
+    await waitFor(() => expect(channelNames()).toEqual([hostile, 'チャンネル', 'old']));
+    for (const header of [
+      'チャンネル',
+      '作成日',
+      'メンバー',
+      'ゲスト',
+      'メッセージ数',
+      '投稿したメンバー',
+      '閲覧したメンバー',
+      'リアクション',
+      '最後のメッセージ',
+    ]) {
+      expect(screen.getByRole('columnheader', { name: header })).toBeInTheDocument();
+    }
+    expect(screen.getByLabelText('アーカイブ済み、非公開')).toBeInTheDocument();
+    expect(screen.getAllByText('なし')).toHaveLength(3);
+    expect(screen.getByTestId('analytics-channels-csv')).toHaveTextContent('CSV を書き出す');
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
+
+  it('lists quiet channels and archives the ones picked, after asking once', async () => {
+    answer(busy);
+    post.mockResolvedValue({ data: { archived: ['c-ghost', 'c-attic'] } });
+    renderSection();
+    fireEvent.click(screen.getByRole('tab', { name: '動きのないチャンネル' }));
+
+    const [ghost, attic] = await screen.findAllByTestId('analytics-quiet-row');
+    expect(screen.getByLabelText('メッセージがない期間')).toHaveTextContent('30 日60 日90 日180 日');
+    expect(ghost).toHaveTextContent('公開 · まだメッセージはありません · メンバー 1 人');
+    expect(attic).toHaveTextContent(/^attic非公開 · 最後のメッセージ: .+ · メンバー 4 人アーカイブ$/);
+    expect(screen.getByRole('button', { name: '選んだチャンネルをアーカイブ' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '#ghost をアーカイブ' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('ghost'));
+    fireEvent.click(screen.getByText('attic'));
+    fireEvent.click(screen.getByRole('button', { name: '2 個のチャンネルをアーカイブ' }));
+    const dialog = await screen.findByRole('dialog', { name: '2 個のチャンネルをアーカイブしますか?' });
+    expect(
+      within(dialog).getByText(
+        'アーカイブしたチャンネルには、誰も投稿できなくなります。内容は引き続き読むことも検索することもでき、チャンネル管理者がアーカイブを解除できます。',
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: '2 個のチャンネルをアーカイブ' }));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('2 個のチャンネルをアーカイブしました'));
+  });
+
+  it('asks before archiving one, naming it as text, and says what failed', async () => {
+    answer(busy, { quiet: [{ ...quietChannels[0], name: hostile }] });
+    post.mockRejectedValue({});
+    renderSection();
+    fireEvent.click(screen.getByRole('tab', { name: '動きのないチャンネル' }));
+
+    fireEvent.click(await screen.findByRole('button', { name: `#${hostile} をアーカイブ` }));
+    const dialog = await screen.findByRole('dialog', { name: `#${hostile} をアーカイブしますか?` });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'アーカイブ' }));
+
+    expect(await screen.findByText('チャンネルをアーカイブできませんでした')).toBeInTheDocument();
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
+
+  it('says when every channel had a message', async () => {
+    answer(busy, { quiet: [] });
+    renderSection();
+    fireEvent.click(screen.getByRole('tab', { name: '動きのないチャンネル' }));
+
+    expect(
+      await screen.findByText('どのチャンネルにも、過去 90 日以内にメッセージがあります。'),
+    ).toBeInTheDocument();
   });
 });
