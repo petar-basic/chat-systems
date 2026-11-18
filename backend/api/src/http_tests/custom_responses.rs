@@ -450,6 +450,23 @@ async fn bots_archived_channels_and_direct_messages_get_no_answer(pool: PgPool) 
         .expect("handle")
         .is_none());
 
+    let (status, group) = send(
+        &app,
+        "POST",
+        &format!("/api/workspaces/{}/conversations", t.ws),
+        Some(&t.ana),
+        Some(json!({ "participant_ids": [t.ben_id, t.owner_id] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{group:?}");
+    assert_eq!(group["kind"], "group");
+    let group: Uuid = group["id"].as_str().expect("id").parse().expect("uuid");
+    let grouped = say(&app, &t.ana, group, "wifi password").await;
+    assert!(consumer::handle(&state, &created_event(grouped))
+        .await
+        .expect("handle")
+        .is_none());
+
     let archived = open_channel(&state, t.ws, t.owner_id, "old", &[t.ana_id]).await;
     let late = say(&app, &t.ana, archived, "wifi password").await;
     sqlx::query("UPDATE channels SET is_archived = true WHERE id = $1")
@@ -462,7 +479,7 @@ async fn bots_archived_channels_and_direct_messages_get_no_answer(pool: PgPool) 
         .expect("handle")
         .is_none());
 
-    for ch in [t.help, dm, archived] {
+    for ch in [t.help, dm, group, archived] {
         assert!(bot_says(&state, ch)
             .await
             .iter()

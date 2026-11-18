@@ -69,7 +69,10 @@ pub async fn handle(state: &AppState, event: &Event) -> AppResult<Option<Uuid>> 
         Err(AppError::Forbidden(_) | AppError::NotFound(_)) => return Ok(None),
         Err(e) => return Err(e),
     };
-    if access.channel.channel_type == ChannelType::Dm {
+    if matches!(
+        access.channel.channel_type,
+        ChannelType::Dm | ChannelType::GroupDm
+    ) {
         return Ok(None);
     }
     service::answer(state, &heard, response_id).await
