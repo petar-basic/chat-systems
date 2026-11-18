@@ -146,7 +146,21 @@ describe('workspace settings strings', () => {
   const counted = (keys: string[]) =>
     [...new Set(keys.map((key) => key.replace(/_(one|other)$/, '')))].sort();
 
-  const AWAITING_JAPANESE = ['apps.events.home', 'apps.events.homeHint', 'apps.events.kinds.app_home_opened'];
+  const AWAITING_JAPANESE = [
+    'apps.events.home',
+    'apps.events.homeHint',
+    'apps.events.kinds.app_home_opened',
+    'apps.events.kinds.link_shared',
+    'apps.unfurls.add',
+    'apps.unfurls.domain',
+    'apps.unfurls.failed',
+    'apps.unfurls.hint',
+    'apps.unfurls.legend',
+    'apps.unfurls.needsScopes',
+    'apps.unfurls.remove',
+    'apps.unfurls.save',
+    'apps.unfurls.saved',
+  ];
 
   it('has Japanese for every one but the ones awaiting it', () => {
     const english = counted(leaves(i18n.getResource('en', 'workspace', 'settings')));
