@@ -53,6 +53,7 @@ use crate::state::AppState;
         (name = "scim", description = "SCIM provisioning tokens"),
         (name = "bot-apps", description = "Apps with a bot user, made per workspace"),
         (name = "app-directory", description = "Everything connected to a workspace, and requests for more"),
+        (name = "interactions", description = "Buttons, menus and modals that reach the app that sent them"),
         (name = "bot", description = "Routes a bot token may call, each with the scope it needs")
     )
 )]
@@ -154,6 +155,7 @@ pub fn typed_routes() -> OpenApiRouter<Arc<AppState>> {
         .merge(crate::workflows::routes::router())
         .merge(crate::bots::routes::router())
         .merge(crate::app_events::routes::router())
+        .merge(crate::interactions::routes::router())
         .merge(crate::app_directory::routes::router())
 }
 
@@ -170,6 +172,7 @@ pub fn public_routes() -> OpenApiRouter<Arc<AppState>> {
         .merge(crate::workflows::routes::public_router())
         .merge(crate::commands::routes::public_router())
         .merge(crate::app_events::routes::public_router())
+        .merge(crate::interactions::routes::public_router())
         .merge(crate::email::unsubscribe::public_router())
 }
 

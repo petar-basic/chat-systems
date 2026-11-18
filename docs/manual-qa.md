@@ -525,7 +525,7 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 
 ### 10.7 🟢 Events for an app, over HTTP and over a socket
 - **Reach:** workspace Admin → *Workspace settings → Apps*, the app's row → its page.
-- **Steps:** make *Echo* with `chat:write` and `channels:history`, tick `app_mention` and *Socket mode*, *Save events*, then *Make an app-level token* and copy it. `/invite @Echo` in #general and run:
+- **Steps:** make *Echo* with `chat:write` and `channels:history`, tick `app_mention` and *Socket mode*, *Save*, then *Make an app-level token* and copy it. `/invite @Echo` in #general and run:
   ```bash
   CHAT_API_URL=http://localhost:3000/api CHAT_BOT_TOKEN=<TOKEN> CHAT_APP_TOKEN=<APP_TOKEN> node examples/echo-bot/echo-bot-socket.mjs
   ```

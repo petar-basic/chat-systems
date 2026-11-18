@@ -1,10 +1,6 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use base64::Engine;
-use hmac::{Hmac, KeyInit, Mac};
-use sha2::Sha256;
 use tracing::{info, warn};
 use uuid::Uuid;
 
@@ -21,8 +17,6 @@ use crate::sealed;
 use crate::state::AppState;
 use crate::threads::repo::ReplyFollows;
 use crate::threads::routes::announce_reply;
-
-type HmacSha256 = Hmac<Sha256>;
 
 pub const RESPONSE_URL_TTL_SECS: f64 = 30.0 * 60.0;
 pub const RESPONSE_URL_USES: i32 = 5;
@@ -73,29 +67,16 @@ pub fn first_retry_delay() -> f64 {
     RETRY_DELAYS_SECS[0]
 }
 
-fn mac(state: &AppState, id: Uuid) -> HmacSha256 {
-    let mut mac =
-        HmacSha256::new_from_slice(&state.config.secrets_keys.derive(sealed::COMMAND_RESPONSES))
-            .expect("HMAC accepts any key length");
-    mac.update(id.as_bytes());
-    mac
-}
-
 pub fn response_url(state: &AppState, id: Uuid) -> String {
-    let signature = URL_SAFE_NO_PAD.encode(mac(state, id).finalize().into_bytes());
     format!(
-        "{}/api/commands/responses/{}.{signature}",
+        "{}/api/commands/responses/{}",
         state.config.public_url.trim_end_matches('/'),
-        id.simple()
+        sealed::sign_id(&state.config.secrets_keys, sealed::COMMAND_RESPONSES, id)
     )
 }
 
 pub fn invocation_of(state: &AppState, token: &str) -> Option<Uuid> {
-    let (id, signature) = token.split_once('.')?;
-    let id = Uuid::parse_str(id).ok()?;
-    let signature = URL_SAFE_NO_PAD.decode(signature).ok()?;
-    mac(state, id).verify_slice(&signature).ok()?;
-    Some(id)
+    sealed::verify_id(&state.config.secrets_keys, sealed::COMMAND_RESPONSES, token)
 }
 
 pub fn outgoing(state: &AppState, id: Uuid, payload: &serde_json::Value) -> serde_json::Value {
@@ -175,15 +156,27 @@ pub async fn call(
     Ok(Outcome::Answered(reply))
 }
 
+pub struct Answering<'a> {
+    pub channel_id: Uuid,
+    pub thread_parent_id: Option<Uuid>,
+    pub user_id: Uuid,
+    pub command: &'a str,
+    pub hook_id: Option<Uuid>,
+}
+
 pub async fn post_in_channel(
     state: &AppState,
-    channel_id: Uuid,
-    thread_parent_id: Option<Uuid>,
-    user_id: Uuid,
-    command: &str,
+    answering: Answering<'_>,
     answer: &Composed,
     replacing: Option<Uuid>,
 ) -> AppResult<Uuid> {
+    let Answering {
+        channel_id,
+        thread_parent_id,
+        user_id,
+        command,
+        hook_id,
+    } = answering;
     let channel = authz::find_channel(state, channel_id).await?;
     let root = match (thread_parent_id, replacing) {
         (Some(parent), None) => Some(thread_root(state, channel_id, parent).await?),
@@ -207,9 +200,11 @@ pub async fn post_in_channel(
             (msg.id, staged)
         }
         None => {
-            let metadata = answer.merged_into(
-                serde_json::json!({ "bot": { "name": format!("/{command}"), "icon_url": null } }),
-            );
+            let metadata = answer.merged_into(serde_json::json!({ "bot": {
+                "name": format!("/{command}"),
+                "icon_url": null,
+                "hook_id": hook_id,
+            } }));
             let msg = state
                 .message_repo
                 .create_bot_reply_in(
@@ -285,10 +280,13 @@ pub async fn answer(
     let replacing = invocation.answer_message_id.filter(|_| replace_original);
     let message_id = post_in_channel(
         state,
-        invocation.channel_id,
-        invocation.thread_parent_id,
-        invocation.user_id,
-        &invocation.command,
+        Answering {
+            channel_id: invocation.channel_id,
+            thread_parent_id: invocation.thread_parent_id,
+            user_id: invocation.user_id,
+            command: &invocation.command,
+            hook_id: Some(invocation.hook_id),
+        },
         &response.posted(),
         replacing,
     )

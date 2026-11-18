@@ -3,24 +3,20 @@ import { Calendar, ChevronDown, MoreHorizontal } from 'lucide-react';
 import type { components } from '@/api/schema';
 import { CachedImage } from '@/shared/components/Image/CachedImage';
 import { safeLink } from './layout';
+import { BUTTON_BASE, BUTTON_STYLE } from './buttonStyles';
+import { actionKey, useBlockActions } from './blockActions';
+import { LiveElement } from './LiveElement';
 
 type BlockElement = components['schemas']['BlockElement'];
 
-const BUTTON_BASE =
-  'inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-md border px-3 py-1 text-sm font-semibold transition';
-
-const BUTTON_STYLE = {
-  primary: 'border-emerald-700 bg-emerald-700 text-white',
-  danger: 'border-red-700 bg-red-700 text-white',
-  default: 'border-line-strong bg-surface text-fg',
-} as const;
-
 interface Props {
   element: BlockElement;
+  blockId?: string | null;
 }
 
-export function BlockElementView({ element }: Props) {
+export function BlockElementView({ element, blockId }: Props) {
   const { t } = useTranslation('messages');
+  const actions = useBlockActions();
   const inert = t('blocks.notInteractive');
 
   if (element.type === 'image') {
@@ -51,6 +47,21 @@ export function BlockElementView({ element }: Props) {
         </a>
       );
     }
+  }
+
+  const actionId = element.action_id;
+  if (actions && blockId && actionId) {
+    return (
+      <LiveElement
+        element={element}
+        pending={actions.pending === actionKey(blockId, actionId)}
+        act={(value) => actions.act(blockId, actionId, value)}
+      />
+    );
+  }
+
+  if (element.type === 'button') {
+    const look = BUTTON_STYLE[element.style ?? 'default'];
     return (
       <button
         type="button"
@@ -77,6 +88,14 @@ export function BlockElementView({ element }: Props) {
         <MoreHorizontal className="h-4 w-4" />
       </button>
     );
+  }
+
+  if (
+    element.type === 'plain_text_input' ||
+    element.type === 'checkboxes' ||
+    element.type === 'radio_buttons'
+  ) {
+    return null;
   }
 
   const shown =

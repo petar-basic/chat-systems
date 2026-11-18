@@ -1,0 +1,115 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE app_views SET view = $2, hash = $3, updated_at = NOW()\n              WHERE id = $1 AND ($4::text IS NULL OR hash = $4)\n             RETURNING id, stack_id, position, app_id, workspace_id, user_id, view, hash",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "app_views",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "stack_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "app_views",
+            "name": "stack_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "position",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "app_views",
+            "name": "position"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "app_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "app_views",
+            "name": "app_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "app_views",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "app_views",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "view",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "app_views",
+            "name": "view"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "hash",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "app_views",
+            "name": "hash"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Jsonb",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "39f8fab862b557ee2e741684a108f669ebee44e630a3dba46cc9644a06c85ee2"
+}

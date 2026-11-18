@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM app_views WHERE updated_at < NOW() - INTERVAL '1 day'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "3899565d5c37c7945214f3acda12f8c1e7c0bc2a9bf1f4ac070b7a06967cb926"
+}

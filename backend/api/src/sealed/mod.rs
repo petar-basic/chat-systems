@@ -3,11 +3,14 @@ pub mod reseal;
 
 use std::collections::HashMap;
 
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
 use chacha20poly1305::aead::{Aead, KeyInit};
 use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
+use hmac::{Hmac, Mac};
 use rand::RngExt;
 use sha2::{Digest, Sha256};
+use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
 
@@ -19,6 +22,27 @@ pub const SETUP_TOKEN: &str = "setup-token";
 pub const COMMAND_RESPONSES: &str = "command-responses";
 pub const BOT_SIGNING_SECRETS: &str = "bot-app-signing-secrets";
 pub const EMAIL_UNSUBSCRIBE: &str = "email-unsubscribe";
+pub const INTERACTION_RESPONSES: &str = "interaction-responses";
+
+fn id_mac(keys: &Keyring, purpose: &str, id: Uuid) -> Hmac<Sha256> {
+    let mut mac = <Hmac<Sha256> as hmac::KeyInit>::new_from_slice(&keys.derive(purpose))
+        .expect("HMAC accepts any key length");
+    mac.update(id.as_bytes());
+    mac
+}
+
+pub fn sign_id(keys: &Keyring, purpose: &str, id: Uuid) -> String {
+    let signature = URL_SAFE_NO_PAD.encode(id_mac(keys, purpose, id).finalize().into_bytes());
+    format!("{}.{signature}", id.simple())
+}
+
+pub fn verify_id(keys: &Keyring, purpose: &str, token: &str) -> Option<Uuid> {
+    let (id, signature) = token.split_once('.')?;
+    let id = Uuid::parse_str(id).ok()?;
+    let signature = URL_SAFE_NO_PAD.decode(signature).ok()?;
+    id_mac(keys, purpose, id).verify_slice(&signature).ok()?;
+    Some(id)
+}
 
 #[derive(Clone)]
 pub struct Keyring {

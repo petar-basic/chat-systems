@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT b.id\n                 FROM messages m\n                 JOIN bot_apps b\n                   ON b.bot_user_id = m.user_id\n                   OR b.id = (SELECT h.app_id FROM hooks h\n                               WHERE h.id::text = m.metadata->'bot'->>'hook_id')\n                WHERE m.id = $1 AND m.deleted_at IS NULL\n                LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "75598ca197eb40c23a76e489a698dee3b82a86b20556529b1afb9f89c1df4e0c"
+}

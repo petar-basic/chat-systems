@@ -12,6 +12,7 @@ export interface EventSettings {
   events: AppEvent[];
   request_url: string;
   socket_mode: boolean;
+  interactivity: boolean;
 }
 
 export interface NewBotApp {

@@ -32,6 +32,7 @@ import { syncListFrames } from '@/features/lists/listSync';
 import { syncMembershipFrames } from './membershipSync';
 import { followInstanceRole } from './instanceRoleSync';
 import { applyCommandResponse } from './commandAnswers';
+import { useAppViewsStore } from '@/stores/appViews';
 import { forgetWorkspace } from './forgetWorkspace';
 import { sayGuestAccessEnded } from './guestAccess';
 import { customEmojiKey } from '@/features/workspace/hooks/useCustomEmoji';
@@ -110,6 +111,9 @@ export const useWebSocketQuerySync = () => {
           queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notifications(event.workspace_id) });
       }),
       globalEventBus.on('command.response', applyCommandResponse),
+      globalEventBus.on('views.changed', (event) =>
+        useAppViewsStore.getState().replace(event.workspace_id, event.views),
+      ),
       followInstanceRole(),
       globalEventBus.on('later.updated', (event) => {
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.later(event.workspace_id) });

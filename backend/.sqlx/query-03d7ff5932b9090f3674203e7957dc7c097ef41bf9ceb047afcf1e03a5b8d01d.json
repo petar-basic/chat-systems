@@ -1,0 +1,115 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO app_views (stack_id, position, app_id, workspace_id, user_id, view, hash)\n               SELECT stack_id, MAX(position) + 1, app_id, workspace_id, user_id, $2, $3\n                 FROM app_views WHERE stack_id = $1\n                GROUP BY stack_id, app_id, workspace_id, user_id\n               HAVING COUNT(*) < $4\n               ON CONFLICT (stack_id, position) DO NOTHING\n               RETURNING id, stack_id, position, app_id, workspace_id, user_id, view, hash",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "app_views",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "stack_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "app_views",
+            "name": "stack_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "position",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "app_views",
+            "name": "position"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "app_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "app_views",
+            "name": "app_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "app_views",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "app_views",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "view",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "app_views",
+            "name": "view"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "hash",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "app_views",
+            "name": "hash"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Jsonb",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "03d7ff5932b9090f3674203e7957dc7c097ef41bf9ceb047afcf1e03a5b8d01d"
+}

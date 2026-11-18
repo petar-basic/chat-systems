@@ -1435,6 +1435,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/interactions/responses/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A `block_actions` payload's `response_url`: up to five answers within
+         *     thirty minutes. `replace_original` and `delete_original` act on the message
+         *     the element was in, `in_channel` posts a new message as the app, and
+         *     anything else is shown only to whoever used the element.
+         */
+        post: operations["answer_interaction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/invites/{token}/accept": {
         parameters: {
             query?: never;
@@ -1689,6 +1711,27 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["update_message"];
+        trace?: never;
+    };
+    "/messages/{msg_id}/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Somebody used a button, menu or date picker in a message. It reaches the
+         *     app that posted the message, if that app has turned interactivity on, as a
+         *     `block_actions` payload; the app has three seconds to acknowledge it.
+         */
+        post: operations["act_on_message"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/messages/{msg_id}/history": {
@@ -2199,6 +2242,130 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["create_user_export"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/views/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Opens a modal for whoever caused `trigger_id`: somebody who used an element
+         *     or ran one of the app's commands, in the last three seconds. A trigger
+         *     opens one view.
+         */
+        post: operations["open_app_view"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/views/push": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Puts a view on top of the open one, with a `trigger_id` from inside it. At
+         *     most three views are stacked.
+         */
+        post: operations["push_app_view"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/views/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replaces a view the app opened, found by `view_id` or `external_id`. With
+         *     `hash`, a view that changed since the app last saw it is left alone.
+         */
+        post: operations["update_app_view"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/views/{view_id}/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A button, menu or date picker inside a view. The payload carries the view
+         *     with what its inputs hold now, and a `trigger_id` that can push a view.
+         */
+        post: operations["act_in_app_view"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/views/{view_id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Goes back one view, or with `all` closes the stack. When the view asked
+         *     for it with `notify_on_close`, the app is told with `view_closed`, but
+         *     nobody waits for its answer.
+         */
+        post: operations["close_app_view"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/views/{view_id}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submits the view on top of the stack. A required input left empty is
+         *     refused here without asking the app; otherwise the app's answer decides:
+         *     nothing closes the view, `errors` shows its messages under the inputs,
+         *     `update` and `push` change the stack, and `clear` closes all of it.
+         */
+        post: operations["submit_app_view"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3058,6 +3225,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{ws_id}/interactive-apps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The apps whose buttons and menus work, so the client knows which messages
+         *     to draw them live in: a message by one of their bot users, or posted
+         *     through one of their hooks or commands.
+         */
+        get: operations["list_interactive_apps"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{ws_id}/invite-requests": {
         parameters: {
             query?: never;
@@ -3870,6 +4058,15 @@ export interface components {
             /** Format: int64 */
             sidebar_sections: number;
         };
+        ActionRequest: {
+            action_id: string;
+            block_id: string;
+            /**
+             * @description The chosen option's value, person, conversation or `YYYY-MM-DD` date;
+             *     nothing for a button.
+             */
+            value?: string | null;
+        };
         ActiveHuddle: {
             /** Format: uuid */
             channel_id?: string | null;
@@ -3953,6 +4150,17 @@ export interface components {
             /** Format: uuid */
             app_id: string;
             app_token: string;
+        };
+        AppView: components["schemas"]["View"] & {
+            /** Format: uuid */
+            app_id: string;
+            hash: string;
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            previous_view_id?: string | null;
+            /** Format: uuid */
+            root_view_id: string;
         };
         AppointOwnerRequest: {
             /** Format: uuid */
@@ -4054,6 +4262,14 @@ export interface components {
             elements: components["schemas"]["BlockElement"][];
             /** @enum {string} */
             type: "actions";
+        } | {
+            block_id?: string | null;
+            element: components["schemas"]["BlockElement"];
+            hint?: components["schemas"]["BlockText"] | null;
+            label: components["schemas"]["BlockText"];
+            optional?: boolean;
+            /** @enum {string} */
+            type: "input";
         };
         BlockElement: {
             action_id?: string | null;
@@ -4098,6 +4314,29 @@ export interface components {
             image_url: string;
             /** @enum {string} */
             type: "image";
+        } | {
+            action_id?: string | null;
+            initial_value?: string | null;
+            /** Format: int32 */
+            max_length?: number | null;
+            /** Format: int32 */
+            min_length?: number | null;
+            multiline?: boolean;
+            placeholder?: components["schemas"]["BlockText"] | null;
+            /** @enum {string} */
+            type: "plain_text_input";
+        } | {
+            action_id?: string | null;
+            initial_options?: components["schemas"]["BlockOption"][];
+            options?: components["schemas"]["BlockOption"][];
+            /** @enum {string} */
+            type: "checkboxes";
+        } | {
+            action_id?: string | null;
+            initial_option?: components["schemas"]["BlockOption"] | null;
+            options?: components["schemas"]["BlockOption"][];
+            /** @enum {string} */
+            type: "radio_buttons";
         };
         BlockOption: {
             text: components["schemas"]["BlockText"];
@@ -4128,6 +4367,7 @@ export interface components {
             icon_url?: string | null;
             /** Format: uuid */
             id: string;
+            interactivity: boolean;
             last_failure?: string | null;
             name: string;
             request_url?: string | null;
@@ -4379,6 +4619,10 @@ export interface components {
         ClipKind: "audio" | "video";
         /** @enum {string} */
         Clock: "h24" | "h12";
+        CloseViewRequest: {
+            /** @description Close every view in the stack rather than going back one. */
+            all?: boolean;
+        };
         CodeRequest: {
             code: string;
         };
@@ -4768,6 +5012,7 @@ export interface components {
                 icon_url?: string | null;
                 /** Format: uuid */
                 id: string;
+                interactivity: boolean;
                 last_failure?: string | null;
                 name: string;
                 request_url?: string | null;
@@ -5021,6 +5266,15 @@ export interface components {
                 status: components["schemas"]["ImportStatus"];
                 /** Format: uuid */
                 workspace_id: string;
+            }[];
+        };
+        DataList_InteractiveApp: {
+            data: {
+                /** Format: uuid */
+                app_id: string;
+                /** Format: uuid */
+                bot_user_id: string;
+                hook_ids: string[];
             }[];
         };
         DataList_LaterItem: {
@@ -5944,6 +6198,25 @@ export interface components {
             /** Format: int64 */
             workspaces: number;
         };
+        InteractionAnswer: {
+            attachments?: Record<string, never>[] | null;
+            blocks?: components["schemas"]["Block"][] | null;
+            delete_original?: boolean;
+            replace_original?: boolean;
+            /**
+             * @description `in_channel` posts a new message; anything else is shown only to
+             *     whoever used the element.
+             */
+            response_type?: string | null;
+            text?: string | null;
+        };
+        InteractiveApp: {
+            /** Format: uuid */
+            app_id: string;
+            /** Format: uuid */
+            bot_user_id: string;
+            hook_ids: string[];
+        };
         InviteAccepted: {
             /** Format: uuid */
             workspace_id: string;
@@ -6397,6 +6670,11 @@ export interface components {
         NumberStyle: "plain" | "percent" | "currency";
         /** @enum {string} */
         OpenChannelAt: "where_left" | "newest";
+        OpenViewRequest: {
+            /** Format: uuid */
+            trigger_id: string;
+            view: components["schemas"]["View"];
+        };
         OptionVoters: {
             /** Format: uuid */
             option_id: string;
@@ -6944,6 +7222,26 @@ export interface components {
                 [key: string]: string;
             };
         };
+        SubmitOutcome: {
+            /** @description The message to show under each input, by `block_id`. */
+            errors: {
+                [key: string]: string;
+            };
+            outcome: components["schemas"]["Submitted"];
+        };
+        SubmitViewRequest: {
+            /**
+             * @description Each input's value by `block_id` and `action_id`: one item for a single
+             *     choice, every chosen value for checkboxes, none when it is empty.
+             */
+            values?: {
+                [key: string]: {
+                    [key: string]: string[];
+                };
+            };
+        };
+        /** @enum {string} */
+        Submitted: "closed" | "updated" | "pushed" | "cleared" | "errors";
         SubscribeRequest: {
             endpoint: string;
             keys: components["schemas"]["SubscriptionKeys"];
@@ -7107,10 +7405,22 @@ export interface components {
         UnsubscribeRequest: {
             endpoint: string;
         };
+        UpdateAppViewRequest: {
+            external_id?: string | null;
+            /**
+             * @description The `hash` the app last saw; the update is refused when the view has
+             *     changed since.
+             */
+            hash?: string | null;
+            view: components["schemas"]["View"];
+            /** Format: uuid */
+            view_id?: string | null;
+        };
         UpdateBotAppRequest: {
             description?: string | null;
             events?: components["schemas"]["AppEvent"][] | null;
             icon_url?: string | null;
+            interactivity?: boolean | null;
             name?: string | null;
             request_url?: string | null;
             scopes?: components["schemas"]["Scope"][] | null;
@@ -7314,6 +7624,29 @@ export interface components {
             /** Format: int32 */
             start?: number | null;
         };
+        View: {
+            blocks: components["schemas"]["Block"][];
+            callback_id?: string | null;
+            clear_on_close?: boolean;
+            close?: components["schemas"]["BlockText"] | null;
+            external_id?: string | null;
+            notify_on_close?: boolean;
+            private_metadata?: string | null;
+            submit?: components["schemas"]["BlockText"] | null;
+            title: components["schemas"]["BlockText"];
+            type: components["schemas"]["ViewType"];
+        };
+        ViewActionRequest: {
+            action_id: string;
+            block_id: string;
+            value?: string | null;
+            /** @description What the inputs hold now, by `block_id` and `action_id`. */
+            values?: {
+                [key: string]: {
+                    [key: string]: string[];
+                };
+            };
+        };
         ViewConfig: {
             filters?: components["schemas"]["FilterRule"][];
             /** Format: uuid */
@@ -7325,6 +7658,8 @@ export interface components {
         ViewOrder: {
             view_ids: string[];
         };
+        /** @enum {string} */
+        ViewType: "modal";
         VoteRequest: {
             option_ids: string[];
         };
@@ -9897,6 +10232,31 @@ export interface operations {
             };
         };
     };
+    answer_interaction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InteractionAnswer"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
     workspace_accept_invite: {
         parameters: {
             query?: never;
@@ -10499,6 +10859,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    act_on_message: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                msg_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
                 };
             };
         };
@@ -11367,6 +11752,150 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExportCreated"];
+                };
+            };
+        };
+    };
+    open_app_view: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenViewRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppView"];
+                };
+            };
+        };
+    };
+    push_app_view: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenViewRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppView"];
+                };
+            };
+        };
+    };
+    update_app_view: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAppViewRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppView"];
+                };
+            };
+        };
+    };
+    act_in_app_view: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                view_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ViewActionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    close_app_view: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                view_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CloseViewRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    submit_app_view: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                view_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitViewRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubmitOutcome"];
                 };
             };
         };
@@ -12994,6 +13523,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Workspace"];
+                };
+            };
+        };
+    };
+    list_interactive_apps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_InteractiveApp"];
                 };
             };
         };

@@ -62,6 +62,7 @@ export const QUERY_KEYS = {
   apps: (workspaceId: string) => ['apps', workspaceId] as const,
   appDirectory: (workspaceId: string) => ['apps', workspaceId, 'directory'] as const,
   botApps: (workspaceId: string) => ['bot-apps', workspaceId] as const,
+  interactiveApps: (workspaceId: string) => ['bot-apps', workspaceId, 'interactive'] as const,
 
   scheduledMessages: (workspaceId: string) => ['scheduled-messages', workspaceId] as const,
   sentMessages: (workspaceId: string) => ['sent-messages', workspaceId] as const,

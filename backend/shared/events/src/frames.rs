@@ -305,6 +305,12 @@ pub enum ServerFrame {
         #[ts(type = "Draft")]
         draft: serde_json::Value,
     },
+    #[serde(rename = "views.changed")]
+    ViewsChanged {
+        workspace_id: Uuid,
+        #[ts(type = "AppView[]")]
+        views: serde_json::Value,
+    },
     #[serde(rename = "user.instance_role_changed")]
     InstanceRoleChanged { role: String },
     #[serde(rename = "thread.read_state")]
@@ -433,7 +439,8 @@ impl ServerFrame {
              type ListView = components['schemas']['ListView'];\n\
              type ListComment = components['schemas']['ListComment'];\n\
              type NotificationData = components['schemas']['NotificationData'];\n\
-             type Draft = components['schemas']['Draft'];\n\n\
+             type Draft = components['schemas']['Draft'];\n\
+             type AppView = components['schemas']['AppView'];\n\n\
              export {decl}\n"
         )
     }

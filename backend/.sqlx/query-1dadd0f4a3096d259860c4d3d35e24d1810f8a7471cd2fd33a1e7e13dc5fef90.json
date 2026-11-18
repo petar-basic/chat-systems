@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM app_interactions WHERE expires_at < NOW()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "1dadd0f4a3096d259860c4d3d35e24d1810f8a7471cd2fd33a1e7e13dc5fef90"
+}

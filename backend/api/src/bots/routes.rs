@@ -166,6 +166,7 @@ async fn update_bot_app(
                 events: req.events.as_deref(),
                 request_url,
                 socket_mode: req.socket_mode,
+                interactivity: req.interactivity,
             },
         )
         .await
@@ -187,6 +188,7 @@ async fn update_bot_app(
                 "events": app.events,
                 "request_url": app.request_url,
                 "socket_mode": app.socket_mode,
+                "interactivity": app.interactivity,
             })),
     )
     .await;

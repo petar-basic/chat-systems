@@ -45,6 +45,12 @@ describe('a command that answers later', () => {
     expect(answerAt('ch-1')).toBeUndefined();
   });
 
+  it('clears the pending line once the command opens a modal', () => {
+    waiting('ch-1', '/deploy is working on it…');
+    applyCommandResponse(frame('modal', ''));
+    expect(answerAt('ch-1')).toBeUndefined();
+  });
+
   it('leaves another channel and an earlier answer alone', () => {
     waiting('ch-2', '/deploy is working on it…');
     applyCommandResponse(frame('in_channel', '', 'ch-1'));

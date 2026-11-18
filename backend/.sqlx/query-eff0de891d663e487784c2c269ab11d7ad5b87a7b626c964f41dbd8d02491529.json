@@ -1,0 +1,47 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT b.id AS app_id, b.bot_user_id,\n                      ARRAY(SELECT h.id FROM hooks h WHERE h.app_id = b.id ORDER BY h.id) AS \"hook_ids!\"\n                 FROM bot_apps b\n                WHERE b.workspace_id = $1 AND b.interactivity AND b.disabled_at IS NULL\n                  AND (b.socket_mode OR b.request_url IS NOT NULL)\n                ORDER BY b.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "app_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "bot_user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "bot_user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "hook_ids!",
+        "type_info": "UuidArray",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "eff0de891d663e487784c2c269ab11d7ad5b87a7b626c964f41dbd8d02491529"
+}
