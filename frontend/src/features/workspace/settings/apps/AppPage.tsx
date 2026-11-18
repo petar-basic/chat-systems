@@ -1,5 +1,6 @@
 import { AlertTriangle, ArrowLeft, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { Button } from '@/shared/components/Button/Button';
 import { formatDateTime } from '@/lib/datetime';
 import { displayNameOf } from '@/lib/userHelpers';
@@ -36,7 +37,7 @@ export function AppPage({ workspaceId, app, directory, onOpen, onBack }: Props) 
         onClick={onBack}
         data-qa="app-page-back"
       >
-        All apps
+        {t('settings.apps.page.back')}
       </Button>
 
       <header className="flex items-start gap-3">
@@ -47,7 +48,11 @@ export function AppPage({ workspaceId, app, directory, onOpen, onBack }: Props) 
             <HealthBadge health={app.health} />
           </div>
           <p className="text-xs text-muted">
-            {label} · added by {displayNameOf(app.added_by_name)} · {formatDateTime(app.added_at)}
+            {t('settings.apps.page.meta', {
+              kind: label,
+              name: displayNameOf(app.added_by_name),
+              date: formatDateTime(app.added_at),
+            })}
           </p>
           {app.description && <p className="mt-1 text-sm text-fg-dim">{app.description}</p>}
           {owner && (
@@ -56,7 +61,7 @@ export function AppPage({ workspaceId, app, directory, onOpen, onBack }: Props) 
               className="mt-1 text-xs text-accent hover:underline"
               data-qa="app-page-owner"
             >
-              Part of {owner.name}
+              {t('settings.apps.page.partOf', { name: owner.name })}
             </button>
           )}
         </div>
@@ -65,14 +70,16 @@ export function AppPage({ workspaceId, app, directory, onOpen, onBack }: Props) 
       {app.health.state !== 'ok' && (
         <p className="flex items-start gap-1.5 text-sm text-danger" data-qa="app-page-health">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>{healthText(app)}</span>
+          <span>{healthText(app, t)}</span>
         </p>
       )}
 
       <section>
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted">What it can do</h4>
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted">
+          {t('settings.apps.page.canDo')}
+        </h4>
         {app.permissions.length === 0 ? (
-          <p className="mt-2 text-sm text-fg-dim">Nothing beyond being listed here.</p>
+          <p className="mt-2 text-sm text-fg-dim">{t('settings.apps.consentNothing')}</p>
         ) : (
           <ul className="mt-2 space-y-1.5" data-qa="app-page-permissions">
             {app.permissions.map((permission) => (
@@ -86,7 +93,9 @@ export function AppPage({ workspaceId, app, directory, onOpen, onBack }: Props) 
       </section>
 
       <section>
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted">Channels</h4>
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted">
+          {t('settings.apps.page.channels')}
+        </h4>
         <p className="mt-2 text-sm text-fg-dim" data-qa="app-page-channels">
           {channelText(app)}
         </p>
@@ -96,7 +105,7 @@ export function AppPage({ workspaceId, app, directory, onOpen, onBack }: Props) 
         <Controls workspaceId={workspaceId} app={app} directory={directory} onBack={onBack} />
       ) : (
         <p className="text-xs text-muted" data-qa="app-page-read-only">
-          Only a workspace admin can change or remove it.
+          {t('settings.apps.page.readOnly')}
         </p>
       )}
     </article>
@@ -114,6 +123,7 @@ function Controls({
   directory: AppDirectory;
   onBack: () => void;
 }) {
+  const { t } = useTranslation('workspace');
   const bots = useBotApps(app.kind === 'bot_app' ? workspaceId : undefined);
   const connected = useApps(app.kind === 'connected_app' ? workspaceId : undefined);
 
@@ -146,7 +156,7 @@ function Controls({
     case 'workflow':
       return (
         <p className="text-xs text-muted" data-qa="app-page-workflow">
-          Change or turn it off in Workflows.
+          {t('settings.apps.page.workflow')}
         </p>
       );
     default:
@@ -154,15 +164,13 @@ function Controls({
   }
 }
 
-function healthText(app: InstalledApp) {
+function healthText(app: InstalledApp, t: TFunction<'workspace'>) {
   const { state, reason, since } = app.health;
-  const when = since ? ` since ${formatDateTime(since)}` : '';
-  switch (state) {
-    case 'off':
-      return 'It is turned off.';
-    case 'disabled':
-      return `It was turned off${when}${reason ? `: ${reason}` : '.'}`;
-    default:
-      return `Failing${when}${reason ? `: ${reason}` : '.'}`;
-  }
+  if (state === 'off') return t('settings.apps.page.off');
+  const kind = state === 'disabled' ? 'disabled' : 'failing';
+  const date = since ? formatDateTime(since) : null;
+  if (date && reason) return t(`settings.apps.page.${kind}SinceReason`, { date, reason });
+  if (date) return t(`settings.apps.page.${kind}Since`, { date });
+  if (reason) return t(`settings.apps.page.${kind}Reason`, { reason });
+  return t(`settings.apps.page.${kind}`);
 }

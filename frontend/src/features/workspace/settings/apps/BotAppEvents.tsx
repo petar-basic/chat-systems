@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AlertTriangle, Plug } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
 import { TextInput } from '@/shared/components/Form/TextInput';
@@ -8,15 +9,15 @@ import { toUserMessage } from '@/lib/errors';
 import { formatDateTime } from '@/lib/datetime';
 import { useBotAppActions, type AppEvent, type BotApp } from '@/features/workspace/hooks/useBotApps';
 
-const EVENTS: { event: AppEvent; label: string }[] = [
-  { event: 'message', label: 'A message in a channel it is in' },
-  { event: 'app_mention', label: 'Somebody mentions it' },
-  { event: 'reaction_added', label: 'A reaction is added in a channel it is in' },
-  { event: 'reaction_removed', label: 'A reaction is removed in a channel it is in' },
-  { event: 'member_joined_channel', label: 'Somebody joins a channel it is in' },
-  { event: 'channel_created', label: 'A public channel is made' },
-  { event: 'channel_archived', label: 'A channel it is in is archived' },
-  { event: 'app_home_opened', label: 'Somebody opens its Home tab' },
+const EVENTS: AppEvent[] = [
+  'message',
+  'app_mention',
+  'reaction_added',
+  'reaction_removed',
+  'member_joined_channel',
+  'channel_created',
+  'channel_archived',
+  'app_home_opened',
 ];
 
 interface Props {
@@ -24,6 +25,7 @@ interface Props {
 }
 
 export function BotAppEvents({ app }: Props) {
+  const { t } = useTranslation('workspace');
   const { configure, makeAppToken, revokeAppToken, revealSecret } = useBotAppActions(app.workspace_id);
   const [events, setEvents] = useState<AppEvent[]>(app.events);
   const [requestUrl, setRequestUrl] = useState(app.request_url ?? '');
@@ -57,18 +59,22 @@ export function BotAppEvents({ app }: Props) {
         <p className="flex items-start gap-1.5 text-xs text-danger" data-qa="bot-app-failing">
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
-            Failing since {formatDateTime(app.failing_since)}
-            {app.last_failure ? `: ${app.last_failure}` : ''}
+            {app.last_failure
+              ? t('settings.apps.events.failingSinceReason', {
+                  date: formatDateTime(app.failing_since),
+                  reason: app.last_failure,
+                })
+              : t('settings.apps.events.failingSince', { date: formatDateTime(app.failing_since) })}
           </span>
         </p>
       )}
       <fieldset className="space-y-2">
-        <legend className="mb-1 text-xs font-medium text-fg-dim">Events</legend>
-        {EVENTS.map(({ event, label }) => (
+        <legend className="mb-1 text-xs font-medium text-fg-dim">{t('settings.apps.events.legend')}</legend>
+        {EVENTS.map((event) => (
           <Checkbox
             key={event}
             label={event}
-            description={label}
+            description={t(`settings.apps.events.kinds.${event}`)}
             checked={events.includes(event)}
             onChange={(on) => toggle(event, on)}
             dataQa={`bot-app-event-${event}`}
@@ -76,34 +82,32 @@ export function BotAppEvents({ app }: Props) {
         ))}
       </fieldset>
       <Checkbox
-        label="Socket mode"
-        description="The app opens a socket to this instance and takes its events and slash commands there, so it needs no public URL."
+        label={t('settings.apps.events.socketMode')}
+        description={t('settings.apps.events.socketModeHint')}
         checked={socketMode}
         onChange={setSocketMode}
         dataQa="bot-app-socket-mode"
       />
       <Checkbox
-        label="Interactivity"
-        description={
-          socketMode
-            ? 'Buttons, menus and modals in its messages reach the app over its socket. Off, they stay disabled.'
-            : 'Buttons, menus and modals in its messages are posted to the request URL. Off, they stay disabled.'
-        }
+        label={t('settings.apps.events.interactivity')}
+        description={t(
+          socketMode ? 'settings.apps.events.interactivitySocket' : 'settings.apps.events.interactivityUrl',
+        )}
         checked={interactivity}
         onChange={setInteractivity}
         dataQa="bot-app-interactivity"
       />
       <Checkbox
-        label="Home tab"
-        description="Its conversation gets a Home tab, which the app fills for each person with views.publish."
+        label={t('settings.apps.events.home')}
+        description={t('settings.apps.events.homeHint')}
         checked={home}
         onChange={setHome}
         dataQa="bot-app-home"
       />
       {!socketMode && (
         <TextInput
-          label="Request URL"
-          hint="Events are posted here, signed with the signing secret. The URL has to answer a challenge before it is saved."
+          label={t('settings.apps.events.requestUrl')}
+          hint={t('settings.apps.events.requestUrlHint')}
           value={requestUrl}
           onChange={(e) => setRequestUrl(e.target.value)}
           placeholder="https://bot.example.com/events"
@@ -118,7 +122,7 @@ export function BotAppEvents({ app }: Props) {
           loading={configure.isPending}
           data-qa="bot-app-events-save"
         >
-          Save
+          {t('settings.apps.events.save')}
         </Button>
         {!socketMode && (
           <Button
@@ -128,13 +132,13 @@ export function BotAppEvents({ app }: Props) {
             onClick={() => revealSecret.mutate(app.id)}
             data-qa="bot-app-signing-secret-show"
           >
-            Show signing secret
+            {t('settings.apps.events.showSecret')}
           </Button>
         )}
       </div>
       {revealSecret.data && !socketMode && (
         <CopyField
-          label="Signing secret"
+          label={t('settings.apps.hook.signingSecret')}
           value={revealSecret.data.signing_secret}
           valueQa="bot-app-signing-secret"
         />
@@ -144,8 +148,8 @@ export function BotAppEvents({ app }: Props) {
           <p className="flex items-center gap-1.5 text-xs text-muted" data-qa="bot-app-socket-count">
             <Plug className="h-3.5 w-3.5" />
             {app.connected_sockets === 0
-              ? 'No socket is open'
-              : `${app.connected_sockets} ${app.connected_sockets === 1 ? 'socket' : 'sockets'} open`}
+              ? t('settings.apps.events.noSocket')
+              : t('settings.apps.events.sockets', { count: app.connected_sockets })}
           </p>
           <div className="flex flex-wrap gap-2">
             <Button
@@ -157,7 +161,9 @@ export function BotAppEvents({ app }: Props) {
               }
               data-qa="bot-app-app-token-make"
             >
-              {app.has_app_token ? 'New app-level token' : 'Make an app-level token'}
+              {app.has_app_token
+                ? t('settings.apps.events.newAppToken')
+                : t('settings.apps.events.makeAppToken')}
             </Button>
             {app.has_app_token && (
               <Button
@@ -168,24 +174,25 @@ export function BotAppEvents({ app }: Props) {
                 onClick={() => revokeAppToken.mutate(app.id, { onSuccess: () => setAppToken(null) })}
                 data-qa="bot-app-app-token-revoke"
               >
-                Revoke it
+                {t('settings.apps.events.revokeAppToken')}
               </Button>
             )}
           </div>
           {appToken && (
             <div data-qa="bot-app-app-token">
-              <p className="text-xs text-fg-soft">
-                Copy it now; it is not shown again. It opens sockets and does nothing else, and a new one
-                closes every socket the old one opened.
-              </p>
-              <CopyField label="App-level token" value={appToken} valueQa="bot-app-app-token-value" />
+              <p className="text-xs text-fg-soft">{t('settings.apps.events.appTokenNote')}</p>
+              <CopyField
+                label={t('settings.apps.events.appToken')}
+                value={appToken}
+                valueQa="bot-app-app-token-value"
+              />
             </div>
           )}
         </div>
       )}
       {failure && (
         <p role="alert" className="text-sm text-danger">
-          {toUserMessage(failure, 'The change failed')}
+          {toUserMessage(failure, t('settings.apps.changeFailed'))}
         </p>
       )}
     </form>

@@ -10,6 +10,7 @@ const hostile = '<img src=x onerror="alert(1)"> {{name}}';
 const requestMutate = vi.fn();
 const createMutate = vi.fn();
 const enableMutate = vi.fn();
+const rotateMutate = vi.fn();
 let directory: AppDirectory;
 let appsLoading = false;
 
@@ -33,7 +34,7 @@ vi.mock('@/features/workspace/hooks/useBotApps', () => ({
 }));
 vi.mock('@/features/workspace/hooks/useHooks', () => ({
   useEnableHook: () => ({ mutate: enableMutate, isPending: false, error: null }),
-  useRotateHook: () => ({ mutate: vi.fn(), isPending: false, error: null }),
+  useRotateHook: () => ({ mutate: rotateMutate, isPending: false, error: null }),
   useDeleteHook: () => ({ mutateAsync: vi.fn(), isPending: false, error: null }),
 }));
 
@@ -342,5 +343,112 @@ describe('AppsSection in Japanese', () => {
     expect(screen.getByText('ボットのトークン')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '安全な場所に保存しました' })).toBeInTheDocument();
     expect(document.querySelector('[onerror]')).toBeNull();
+  });
+});
+
+describe('AppsSection app page in Japanese', () => {
+  beforeEach(async () => {
+    rotateMutate.mockReset();
+    await i18n.changeLanguage('ja');
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('shows an app page, and names it all as text', () => {
+    directory = {
+      ...directory,
+      installed: [
+        installed({
+          name: hostile,
+          added_by_name: hostile,
+          app_id: 'b-1',
+          health: { state: 'disabled', reason: 'Its URL kept failing', since: '2026-10-29T11:00:00Z' },
+        }),
+        installed({ kind: 'bot_app', id: 'b-1', name: hostile }),
+      ],
+    };
+    rotateMutate.mockImplementation((_id: string, options?: { onSuccess?: (made: unknown) => void }) =>
+      options?.onSuccess?.({ incoming_url: 'https://chat.example/api/hooks/incoming/tok-r', config: {} }),
+    );
+    render(<AppsSection workspaceId="ws-1" />);
+    fireEvent.click(rows()[0]);
+
+    const page = screen.getByTestId('app-page');
+    expect(screen.getByRole('button', { name: 'すべてのアプリ' })).toBeInTheDocument();
+    expect(page).toHaveTextContent(`Incoming Webhook · ${hostile} さんが追加 · `);
+    expect(screen.getByTestId('app-page-owner').textContent).toBe(`${hostile} の一部`);
+    expect(screen.getByTestId('app-page-health')).toHaveTextContent(
+      /^.+ から停止しています: Its URL kept failing$/,
+    );
+    expect(screen.getByText('できること')).toBeInTheDocument();
+    expect(screen.getByText('チャンネル')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '再インストール' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'URL を再発行' }));
+    expect(screen.getByText('Webhook の URL')).toBeInTheDocument();
+    expect(screen.getByTestId('app-rotated-url')).toHaveTextContent(
+      '今すぐコピーしてください。二度と表示されません。古い URL は使えなくなりました。',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '削除' }));
+    expect(screen.getByText(`${hostile} を削除しますか?`)).toBeInTheDocument();
+    expect(screen.getByText('すぐに止まります。すでに投稿した内容は残ります。')).toBeInTheDocument();
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
+
+  it('hands over a new signing secret when an outgoing webhook is reinstalled', () => {
+    directory = {
+      ...directory,
+      installed: [installed({ kind: 'outgoing_webhook', id: 'o-1', health: { state: 'off' } })],
+    };
+    enableMutate.mockImplementation((_id: string, options?: { onSuccess?: (turnedOn: unknown) => void }) =>
+      options?.onSuccess?.({ hook: {}, secrets: { config: { secret: 's3cret' } } }),
+    );
+    render(<AppsSection workspaceId="ws-1" />);
+    fireEvent.click(rows()[0]);
+
+    expect(screen.getByTestId('app-page-health')).toHaveTextContent('オフになっています。');
+    expect(screen.queryByRole('button', { name: 'URL を再発行' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '再インストール' }));
+    expect(screen.getByText('署名シークレット')).toBeInTheDocument();
+    expect(screen.getByTestId('app-rotated-url')).toHaveTextContent(
+      '今すぐコピーしてください。二度と表示されません。これから送るものは、すべてこのシークレットで署名されます。',
+    );
+  });
+
+  it('says how it stopped, with and without a time or a reason', () => {
+    const cases = [
+      [{ state: 'failing' }, 'エラーが発生しています。'],
+      [{ state: 'failing', since: '2026-10-29T11:00:00Z' }, / からエラーが発生しています。$/],
+      [{ state: 'failing', reason: 'It answered 500' }, 'エラーが発生しています: It answered 500'],
+      [{ state: 'disabled' }, '停止しています。'],
+      [{ state: 'disabled', since: '2026-10-29T11:00:00Z' }, / から停止しています。$/],
+      [{ state: 'disabled', reason: 'It kept failing' }, '停止しています: It kept failing'],
+    ] as const;
+    for (const [health, text] of cases) {
+      directory = { ...directory, installed: [installed({ health })] };
+      const { unmount } = render(<AppsSection workspaceId="ws-1" />);
+      fireEvent.click(rows()[0]);
+      expect(screen.getByTestId('app-page-health')).toHaveTextContent(text);
+      unmount();
+    }
+  });
+
+  it('tells a member who can change it, and where a workflow is changed', () => {
+    directory = { ...directory, can_manage: false };
+    const { unmount } = render(<AppsSection workspaceId="ws-1" />);
+    fireEvent.click(rows()[0]);
+    expect(screen.getByTestId('app-page-read-only')).toHaveTextContent(
+      '変更や削除ができるのは、ワークスペースの管理者だけです。',
+    );
+    unmount();
+
+    directory = { ...directory, can_manage: true };
+    render(<AppsSection workspaceId="ws-1" initialApp={{ kind: 'workflow', id: 'w-1' }} />);
+    expect(screen.getByTestId('app-page-workflow')).toHaveTextContent(
+      '変更やオフは「ワークフロー」で行います。',
+    );
   });
 });
