@@ -21,7 +21,7 @@ const shortcuts = vi.hoisted(() => ({
   saved: false,
   error: null as unknown,
 }));
-const domains = vi.hoisted(() => ({ listed: [] as string[] }));
+const domains = vi.hoisted(() => ({ listed: [] as string[], saved: false, error: null as unknown }));
 const saveWorkflowStepsMutate = vi.fn();
 const workflowSteps = vi.hoisted(() => ({ listed: [] as Array<Record<string, unknown>> }));
 
@@ -37,8 +37,8 @@ vi.mock('@/features/apps', () => ({
   useSaveBotAppUnfurlDomains: () => ({
     mutate: saveDomainsMutate,
     isPending: false,
-    isSuccess: false,
-    error: null,
+    isSuccess: domains.saved,
+    error: domains.error,
   }),
   useBotAppWorkflowSteps: () => ({ data: workflowSteps.listed, dataUpdatedAt: 1 }),
   useSaveBotAppWorkflowSteps: () => ({
@@ -397,8 +397,8 @@ describe('BotAppControls in Japanese', () => {
       /^.+ からエラーが発生しています: The request URL answered 503$/,
     );
     expect(screen.getByText('イベント')).toBeInTheDocument();
-    expect(screen.getByText('誰かがこのアプリをメンションした')).toBeInTheDocument();
-    expect(screen.getByText('公開チャンネルが作られた')).toBeInTheDocument();
+    expect(screen.getByText('誰かがこのアプリをメンションしたとき')).toBeInTheDocument();
+    expect(screen.getByText('公開チャンネルが作られたとき')).toBeInTheDocument();
     expect(screen.getByLabelText('ソケットモード')).not.toBeChecked();
     expect(
       screen.getByText(
@@ -516,7 +516,7 @@ describe('BotAppControls Home and shortcuts in Japanese', () => {
         'このアプリとの会話に「ホーム」タブが追加され、アプリはユーザーごとに、その人に合わせたビューを表示できるようになります（アプリが views.publish で表示内容を送ります）。',
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText('誰かがこのアプリのホームタブを開いた')).toBeInTheDocument();
+    expect(screen.getByText('誰かがこのアプリのホームタブを開いたとき')).toBeInTheDocument();
   });
 
   it('labels the shortcuts form', () => {
@@ -554,5 +554,63 @@ describe('BotAppControls Home and shortcuts in Japanese', () => {
     shortcuts.error = {};
     renderControls();
     expect(screen.getByRole('alert')).toHaveTextContent('ショートカットを保存できませんでした');
+  });
+});
+
+describe('BotAppControls link previews in Japanese', () => {
+  beforeEach(async () => {
+    saveDomainsMutate.mockReset();
+    await i18n.changeLanguage('ja');
+  });
+
+  afterEach(async () => {
+    domains.listed = [];
+    domains.saved = false;
+    domains.error = null;
+    await i18n.changeLanguage('en');
+  });
+
+  it('labels the domains and their event, naming a domain as text', () => {
+    domains.listed = [hostile];
+    renderControls({ scopes: ['chat:write', 'links:read', 'links:write'] });
+
+    const form = screen.getByTestId('bot-app-unfurl-domains');
+    expect(within(form).getByText('リンクのプレビュー')).toBeInTheDocument();
+    expect(
+      within(form).getByText(
+        'これらのドメインおよびそのサブドメインへのリンクは、アプリによってプレビュー表示されます。アプリは link_shared イベントを受け取り、ブロック形式で応答します。最大数は 5 です。',
+      ),
+    ).toBeInTheDocument();
+    expect(within(form).getByLabelText('ドメイン 1')).toHaveValue(hostile);
+    expect(document.querySelector('[onerror]')).toBeNull();
+    fireEvent.click(within(form).getByRole('button', { name: `${hostile} を削除` }));
+    fireEvent.click(within(form).getByRole('button', { name: 'ドメインを追加' }));
+    expect(within(form).getByRole('button', { name: '1 を削除' })).toBeInTheDocument();
+    expect(within(form).getByRole('button', { name: 'ドメインを保存' })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        '参加しているチャンネルで、誰かが「リンクのプレビュー」に登録したドメインへのリンクを投稿したとき',
+      ),
+    ).toBeInTheDocument();
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
+
+  it('says an app needs the links scopes', () => {
+    renderControls();
+    expect(screen.getByTestId('bot-app-unfurl-needs-scopes')).toHaveTextContent(
+      'ドメインを登録するには、アプリに links:read と links:write のスコープを付与してください。',
+    );
+  });
+
+  it('says it saved', () => {
+    domains.saved = true;
+    renderControls({ scopes: ['chat:write', 'links:read', 'links:write'] });
+    expect(screen.getByTestId('bot-app-unfurl-domains-saved')).toHaveTextContent('保存しました');
+  });
+
+  it('says what failed when the server gives no message', () => {
+    domains.error = {};
+    renderControls({ scopes: ['chat:write', 'links:read', 'links:write'] });
+    expect(screen.getByRole('alert')).toHaveTextContent('ドメインを保存できませんでした');
   });
 });

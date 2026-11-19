@@ -148,16 +148,6 @@ describe('workspace settings strings', () => {
 
   const AWAITING_JAPANESE = [
     'apps.events.kinds.function_executed',
-    'apps.events.kinds.link_shared',
-    'apps.unfurls.add',
-    'apps.unfurls.domain',
-    'apps.unfurls.failed',
-    'apps.unfurls.hint',
-    'apps.unfurls.legend',
-    'apps.unfurls.needsScopes',
-    'apps.unfurls.remove',
-    'apps.unfurls.save',
-    'apps.unfurls.saved',
     'apps.workflowSteps.add',
     'apps.workflowSteps.addInput',
     'apps.workflowSteps.addOutput',
