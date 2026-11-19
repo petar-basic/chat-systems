@@ -16,6 +16,7 @@ vi.mock('./useWorkflows', () => ({
     rotate: { isPending: false },
     remove: { isPending: false },
   }),
+  useWorkflowStepApps: () => ({ data: [] }),
 }));
 
 vi.mock('@/features/lists/useLists', () => ({
