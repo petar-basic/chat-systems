@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ReactNode } from 'react';
-import '@/lib/i18n';
+import i18n from '@/lib/i18n';
 import { render, screen, act, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { globalEventBus } from '@/lib/globalEventBus';
@@ -189,5 +189,41 @@ describe('the thread panel', () => {
 
     expect(panel.runCommand).not.toHaveBeenCalled();
     expect(panel.sendReply).toHaveBeenCalledWith(expect.objectContaining({ content: '/away' }));
+  });
+});
+
+describe('the thread panel in Japanese', () => {
+  beforeEach(async () => {
+    panel.replies = [];
+    panel.composer = {};
+    panel.fetched = design;
+    useCommandAnswerStore.setState({ answers: {} });
+    await i18n.changeLanguage('ja');
+  });
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('tells someone only in the huddle that the thread closes when they leave', () => {
+    openPanel([], false);
+    expect(screen.getByTestId('thread-huddle-only').textContent).toBe(
+      'このスレッドは、通話に参加している間だけ読み書きできます。通話から退出すると、見られなくなります。',
+    );
+  });
+});
+
+describe('the thread strings', () => {
+  function leaves(value: unknown, prefix = ''): string[] {
+    if (typeof value !== 'object' || value === null) return [prefix];
+    return Object.entries(value).flatMap(([key, child]) => leaves(child, prefix ? `${prefix}.${key}` : key));
+  }
+  const counted = (keys: string[]) =>
+    [...new Set(keys.map((key) => key.replace(/_(one|other)$/, '')))].sort();
+
+  it('has Japanese for every one', () => {
+    const english = leaves(i18n.getResource('en', 'threads', ''));
+    const japanese = leaves(i18n.getResource('ja', 'threads', ''));
+    expect(english.length).toBeGreaterThan(0);
+    expect(counted(japanese)).toEqual(counted(english));
   });
 });

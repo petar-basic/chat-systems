@@ -155,7 +155,11 @@ function ThreadToggle({ thread }: { thread: HuddleThreadToggle }) {
   return (
     <button
       onClick={thread.onToggle}
-      aria-label={unread ? `${label}, ${t('thread.unread', { count: thread.unread })}` : label}
+      aria-label={
+        unread
+          ? `${label}${t('listSeparator', { ns: 'common' })}${t('thread.unread', { count: thread.unread })}`
+          : label
+      }
       data-tooltip={label}
       aria-pressed={thread.open}
       data-qa="huddle-thread-toggle"
