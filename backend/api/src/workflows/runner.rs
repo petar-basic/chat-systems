@@ -1,16 +1,21 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use chrono::{Duration, Utc};
+use chrono::{Duration, NaiveDate, Utc};
+use serde_json::{json, Value};
 use tracing::{info, warn};
 use uuid::Uuid;
 
 use shared_common::errors::AppError;
+use shared_events::Event;
 
 use super::models::*;
-use super::repo::{Output, StepRow};
+use super::repo::{NewCall, Output, StepRow};
+use crate::app_events::{self, repo::NewDelivery};
+use crate::app_workflow_steps::models::{ProviderRow, StepParam, StepParamKind, STEP_TIMEOUT_SECS};
 use crate::audit::ClientIp;
 use crate::authz::{self, Stopped};
+use crate::bots::models::AppEvent;
 use crate::messaging::models::{Message, MessageField};
 use crate::profile_fields::models::ProfileFieldKind;
 use crate::state::AppState;
@@ -24,6 +29,7 @@ const SCHEDULE_BATCH: i64 = 50;
 const RUN_BATCH: i64 = 20;
 const RESUME_BATCH: i64 = 50;
 const LATE_LIMIT_MINUTES: i64 = 15;
+const APP_TIMED_OUT: &str = "The app did not finish";
 
 pub async fn start_runner(state: Arc<AppState>) {
     info!("Workflow runner started");
@@ -41,7 +47,18 @@ pub async fn start_runner(state: Arc<AppState>) {
         if let Err(e) = expire_forms(&state).await {
             warn!("Failed to expire workflow forms: {}", e);
         }
+        if let Err(e) = expire_app_calls(&state).await {
+            warn!("Failed to time out workflow app steps: {}", e);
+        }
     }
+}
+
+pub async fn expire_app_calls(state: &AppState) -> sqlx::Result<usize> {
+    Ok(state
+        .workflow_repo
+        .expire_calls(RESUME_BATCH, APP_TIMED_OUT)
+        .await?
+        .len())
 }
 
 pub async fn queue_due_schedules(state: &AppState) -> sqlx::Result<usize> {
@@ -133,6 +150,13 @@ enum Kept {
     Matched(bool),
     Channel(Channel),
     Reply { channel_id: Uuid, message_id: Uuid },
+    App(Vec<AppOutput>),
+}
+
+struct AppOutput {
+    name: String,
+    text: String,
+    raw: String,
 }
 
 enum Outcome {
@@ -147,6 +171,7 @@ struct Context<'a> {
     fired: Fired,
     base: String,
     outputs: HashMap<String, String>,
+    raw: HashMap<String, String>,
     channels: HashMap<usize, Uuid>,
 }
 
@@ -191,6 +216,33 @@ impl Context<'_> {
             return self.outputs.get(name).cloned().unwrap_or_default();
         }
         self.fired.values.get(name).cloned().unwrap_or_default()
+    }
+
+    fn typed(&self, name: &str) -> String {
+        match name {
+            "trigger.user" => return self.fired.user.map(|id| id.to_string()).unwrap_or_default(),
+            "trigger.channel" => {
+                return self
+                    .fired
+                    .channel
+                    .map(|id| id.to_string())
+                    .unwrap_or_default();
+            }
+            _ => {}
+        }
+        if let Some(raw) = self.raw.get(name) {
+            return raw.clone();
+        }
+        let made = name
+            .strip_prefix("step.")
+            .and_then(|rest| rest.strip_suffix(".channel"))
+            .and_then(|number| number.parse::<usize>().ok())
+            .and_then(|number| number.checked_sub(1))
+            .and_then(|at| self.channels.get(&at));
+        match made {
+            Some(id) => id.to_string(),
+            None => self.value(name),
+        }
     }
 
     fn trusted(&self, name: &str) -> bool {
@@ -271,12 +323,65 @@ impl Context<'_> {
                     format!("{}/{channel_id}/{message_id}", self.base),
                 );
             }
+            Kept::App(outputs) => {
+                for output in outputs {
+                    let name = format!("step.{number}.{}", output.name);
+                    self.outputs.insert(name.clone(), output.text.clone());
+                    self.raw.insert(name, output.raw.clone());
+                }
+            }
         }
+    }
+
+    async fn app_outputs(
+        &self,
+        state: &AppState,
+        declared: &[StepParam],
+        values: &Value,
+    ) -> Vec<AppOutput> {
+        let workspace_id = self.workflow.workspace_id;
+        let mut kept = Vec::with_capacity(declared.len());
+        for param in declared {
+            let raw = match &values[&param.name] {
+                Value::Null => String::new(),
+                Value::String(text) => text.clone(),
+                other => other.to_string(),
+            };
+            let id = raw.parse::<Uuid>().ok();
+            let text = match (param.kind, id) {
+                (StepParamKind::Person, Some(id)) => mention_of(state, workspace_id, id)
+                    .await
+                    .ok()
+                    .flatten()
+                    .unwrap_or_default(),
+                (StepParamKind::Channel, Some(id)) => state
+                    .workspace_service
+                    .repo
+                    .find_channel_by_id(id)
+                    .await
+                    .ok()
+                    .flatten()
+                    .and_then(|channel| channel.name)
+                    .map(|name| format!("#{name}"))
+                    .unwrap_or_default(),
+                (StepParamKind::Person | StepParamKind::Channel, None) => String::new(),
+                _ => raw.clone(),
+            };
+            kept.push(AppOutput {
+                name: param.name.clone(),
+                text,
+                raw,
+            });
+        }
+        kept
     }
 
     async fn recall(&self, state: &AppState, step: Option<&Step>, row: &StepRow) -> Kept {
         if let Some(matched) = row.matched {
             return Kept::Matched(matched);
+        }
+        if let (Some(Step::AppStep { outputs, .. }), Some(values)) = (step, row.outputs.as_ref()) {
+            return Kept::App(self.app_outputs(state, outputs, values).await);
         }
         match (step, row.channel_id, row.message_id, self.fired.channel) {
             (Some(Step::CreateChannel { .. }), Some(channel_id), _, _) => {
@@ -442,6 +547,7 @@ async fn steps(state: &AppState, workflow: &WorkflowRow, run: &RunRow) -> Result
         fired: fired(state, workflow, run).await.map_err(internal)?,
         base: format!("{}/app/{}", state.config.public_url, workflow.workspace_id),
         outputs: HashMap::new(),
+        raw: HashMap::new(),
         channels: HashMap::new(),
     };
 
@@ -796,6 +902,49 @@ async fn run_step(
             record(state, context, position, Output::channel(channel.id)).await?;
             Ok(Outcome::Done(Kept::Nothing))
         }
+        Step::AppStep {
+            app_id,
+            callback_id,
+            title,
+            inputs,
+            outputs,
+            values,
+        } => {
+            let (app, offered) = state
+                .app_workflow_step_repo
+                .provider(*app_id, callback_id)
+                .await
+                .map_err(internal)?
+                .filter(|(app, _)| app.workspace_id == workspace_id)
+                .ok_or_else(|| "The app that runs this step was removed".to_string())?;
+            if let Some(problem) = app.problem() {
+                return Err(problem);
+            }
+            if offered.is_none() {
+                return Err(format!("{} no longer offers this step", app.name));
+            }
+            let mut sent = serde_json::Map::new();
+            for input in inputs {
+                let raw = values.get(&input.name).map_or("", String::as_str);
+                sent.insert(
+                    input.name.clone(),
+                    input_value(state, context, input, raw).await?,
+                );
+            }
+            call_app(
+                state,
+                context,
+                position,
+                &app,
+                callback_id,
+                title,
+                &Value::Object(sent),
+                outputs,
+            )
+            .await
+            .map_err(internal)?;
+            Ok(Outcome::Waiting)
+        }
         Step::ArchiveChannel { channel } => {
             let channel = context.channel(state, channel).await?;
             authz::require_not_conversation(&channel).map_err(reason)?;
@@ -809,6 +958,142 @@ async fn run_step(
             Ok(Outcome::Done(Kept::Nothing))
         }
     }
+}
+
+async fn input_value(
+    state: &AppState,
+    context: &Context<'_>,
+    input: &StepParam,
+    raw: &str,
+) -> Result<Value, String> {
+    let label = input.title.trim();
+    let raw = raw.trim();
+    let text = match (input.kind, lone_placeholder(raw)) {
+        (StepParamKind::Text, _) => context.rendered(raw),
+        (_, Some(name)) => context.typed(name),
+        (_, None) => raw.to_string(),
+    };
+    let text = text.trim();
+    if text.is_empty() {
+        if input.required {
+            return Err(format!("\u{201c}{label}\u{201d} came out empty"));
+        }
+        return Ok(Value::Null);
+    }
+    let wrong = || format!("\u{201c}{label}\u{201d} isn't {}", input.kind.noun());
+    let workspace_id = context.workflow.workspace_id;
+    Ok(match input.kind {
+        StepParamKind::Text => Value::String(text.to_string()),
+        StepParamKind::Number => {
+            let cleaned = text.replace(',', "");
+            match cleaned.parse::<i64>() {
+                Ok(whole) => json!(whole),
+                Err(_) => cleaned
+                    .parse::<f64>()
+                    .ok()
+                    .and_then(serde_json::Number::from_f64)
+                    .map(Value::Number)
+                    .ok_or_else(wrong)?,
+            }
+        }
+        StepParamKind::Boolean => match text.to_lowercase().as_str() {
+            "true" => Value::Bool(true),
+            "false" => Value::Bool(false),
+            _ => return Err(wrong()),
+        },
+        StepParamKind::Date => NaiveDate::parse_from_str(text, "%Y-%m-%d")
+            .map(|date| Value::String(date.format("%Y-%m-%d").to_string()))
+            .map_err(|_| wrong())?,
+        StepParamKind::Person => {
+            let id = super::cells::person_id(text).ok_or_else(wrong)?;
+            state
+                .workspace_service
+                .repo
+                .get_member(workspace_id, id)
+                .await
+                .map_err(internal)?
+                .ok_or_else(|| {
+                    format!("The person for \u{201c}{label}\u{201d} left the workspace")
+                })?;
+            Value::String(id.to_string())
+        }
+        StepParamKind::Channel => {
+            let id = text.parse::<Uuid>().map_err(|_| wrong())?;
+            state
+                .workspace_service
+                .repo
+                .find_channel_by_id(id)
+                .await
+                .map_err(internal)?
+                .filter(|channel| channel.workspace_id == workspace_id)
+                .ok_or_else(|| format!("The channel for \u{201c}{label}\u{201d} was deleted"))?;
+            Value::String(id.to_string())
+        }
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn call_app(
+    state: &AppState,
+    context: &Context<'_>,
+    position: usize,
+    app: &ProviderRow,
+    callback_id: &str,
+    title: &str,
+    inputs: &Value,
+    outputs: &[StepParam],
+) -> shared_common::errors::AppResult<()> {
+    let declared = serde_json::to_value(outputs).map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut tx = state.pool.begin().await?;
+    let call = state
+        .workflow_repo
+        .call_app_in(
+            &mut tx,
+            NewCall {
+                run_id: context.run.id,
+                position: position as i32,
+                app_id: app.id,
+                title,
+                inputs,
+                outputs: &declared,
+                timeout_secs: STEP_TIMEOUT_SECS,
+            },
+        )
+        .await?;
+    let source = Event {
+        id: call.id,
+        ..Event::new("workflow.app_step", json!({}))
+    };
+    let body = json!({
+        "execution_id": call.id,
+        "run_id": context.run.id,
+        "workflow": { "id": context.workflow.id, "name": context.workflow.name },
+        "step": { "callback_id": callback_id, "title": title, "position": position + 1 },
+        "inputs": inputs,
+        "expires_at": call.expires_at,
+    });
+    let envelope = app_events::envelope(
+        &source,
+        context.workflow.workspace_id,
+        AppEvent::FunctionExecuted,
+        &body,
+    );
+    state
+        .app_event_repo
+        .enqueue_in(
+            &mut tx,
+            NewDelivery {
+                app_id: app.id,
+                event_id: app_events::event_id(source.id, AppEvent::FunctionExecuted),
+                channel_id: context.run.id,
+                kind: app_events::KIND_EVENT,
+                body: &envelope,
+                ttl_secs: STEP_TIMEOUT_SECS,
+            },
+        )
+        .await?;
+    tx.commit().await?;
+    Ok(())
 }
 
 async fn subject(

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT r.id, r.workflow_id, r.workflow_version, r.status AS \"status: RunStatus\",\n                   r.context, r.error, r.started_at, r.finished_at, r.waiting_at,\n                   COALESCE(r.resume_at, f.expires_at) AS waiting_until\n              FROM workflow_runs r\n              LEFT JOIN workflow_forms f\n                     ON f.run_id = r.id AND f.position = r.waiting_at AND f.answered_at IS NULL\n             WHERE r.workflow_id = $1\n             ORDER BY r.started_at DESC, r.id\n             LIMIT $2\n            ",
+  "query": "\n            SELECT r.id, r.workflow_id, r.workflow_version, r.status AS \"status: RunStatus\",\n                   r.context, r.error, r.started_at, r.finished_at, r.waiting_at,\n                   COALESCE(r.resume_at, f.expires_at, c.expires_at) AS waiting_until\n              FROM workflow_runs r\n              LEFT JOIN workflow_forms f\n                     ON f.run_id = r.id AND f.position = r.waiting_at AND f.answered_at IS NULL\n              LEFT JOIN workflow_app_calls c\n                     ON c.run_id = r.id AND c.position = r.waiting_at AND c.finished_at IS NULL\n             WHERE r.workflow_id = $1\n             ORDER BY r.started_at DESC, r.id\n             LIMIT $2\n            ",
   "describe": {
     "columns": [
       {
@@ -142,5 +142,5 @@
       null
     ]
   },
-  "hash": "c8c39bf55814bf5d00fcc764a5dc8fa1e36f19872b2103bf7cb02bc5a6dd3fcd"
+  "hash": "b77c06ebc9c746117d3f87767114b73c4b9e0a068aa27324e7128cfb0820f32c"
 }

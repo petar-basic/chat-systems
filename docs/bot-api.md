@@ -52,6 +52,7 @@ security scheme.
 | `commands` | own slash commands |
 | `links:read` | hear about links to [its domains](#link-previews) posted where it is a member |
 | `links:write` | show its own previews of those links |
+| `workflow.steps:execute` | run the [workflow steps](#workflow-steps) it offers, and define them itself |
 
 A route the token has no scope for answers `403` with the scope's name:
 `This bot token does not have the reactions:write scope`. An admin can change an app's scopes
@@ -79,6 +80,9 @@ at any time without a new token.
 | POST | `/views/update` | — | `{ view_id or external_id, hash?, view }` |
 | POST | `/views/publish` | — | `{ user_id, view, hash? }`; see [App Home](#app-home-and-shortcuts) |
 | POST | `/messages/{msg_id}/unfurls` | `links:write` | `{ unfurls: { <url>: { blocks } } }`; see [link previews](#link-previews) |
+| PUT | `/bot-apps/me/workflow-steps` | `workflow.steps:execute` | `{ steps }`, the whole list; see [workflow steps](#workflow-steps) |
+| POST | `/workflow-executions/{execution_id}/complete` | `workflow.steps:execute` | `{ outputs }` |
+| POST | `/workflow-executions/{execution_id}/fail` | `workflow.steps:execute` | `{ error }` |
 
 `client_message_id` is a version 4 UUID the bot picks. Sending the same one twice posts once,
 so a bot that retries after a timeout does not double-post.
@@ -219,6 +223,7 @@ app gets them over HTTP, at a request URL, or over a socket it opens itself (soc
 | `channel_archived` | a channel the bot is in is archived | `channels:read` |
 | `app_home_opened` | somebody opens the app's [Home tab](#app-home-and-shortcuts) | — |
 | `link_shared` | a message in a channel the bot is in links to one of [its domains](#link-previews) | `links:read` |
+| `function_executed` | a workflow run gets to one of [its steps](#workflow-steps) | `workflow.steps:execute` |
 
 An app never hears about a channel it is not in. `channel_created` is the one exception, and
 it is only sent for public channels, which every member of the workspace can already browse. An
@@ -254,6 +259,7 @@ Every event arrives in the same envelope:
 | `channel_archived` | `channel_id` |
 | `app_home_opened` | `channel_id` (the person's conversation with the app), `user_id`, `tab` (`home`), `view` (the Home last published for them, or `null`) |
 | `link_shared` | `channel_id`, `message_id`, `user_id` (who posted it), `links` (`[{ domain, url }]`, the links not answered yet) |
+| `function_executed` | `execution_id`, `run_id`, `workflow` (`{ id, name }`), `step` (`{ callback_id, title, position }`), `inputs`, `expires_at` |
 
 Delivery is at least once and in order within a channel: the next event in a channel waits
 until the one before it is delivered or given up on. A retry carries the same `event_id`, so an
@@ -627,6 +633,97 @@ Authorization: Bearer cbot-…
 }
 ```
 
+## Workflow steps
+
+An app can offer steps that people add to their workflows, next to the built-in
+ones: open a ticket, look a customer up, page whoever is on call.
+
+- **Definitions.** An admin lists them under *Workflow steps* on the app's page, or the app
+  sends the whole list itself with `PUT /bot-apps/me/workflow-steps`. An app offers at most 20.
+  - Each has a `callback_id` the app knows it by (unique within the app), a `title` of up to
+    80 characters and an optional `description`.
+  - `inputs` and `outputs` are up to 10 each: `{ name, title, kind, required }`. A `name` is
+    lowercase letters, digits and `_`; `kind` is one of `text`, `number`, `boolean`,
+    `person`, `channel`, `date`.
+  - Sending the list again replaces it. A step keeps its id while its `callback_id` stays.
+- **The builder.** The steps of an app that can run them are listed under the app's name.
+  - That means the app is on, has `workflow.steps:execute`, is subscribed to
+    `function_executed`, and has a request URL or socket mode.
+  - Each input is a fixed value or a variable from an earlier step, of the input's kind:
+    a person input takes *Person who ran it* or a form's person question, not a text answer.
+  - The outputs become variables for the steps after it and for branches.
+- **Running.** When a run gets to the step, the app is sent `function_executed` and the run
+  waits for it, as it waits for a form.
+  - `inputs` are typed: a number is a JSON number, a boolean `true` or `false`, a date
+    `YYYY-MM-DD`, a person or a channel its id. An input left empty is `null`.
+  - The app finishes the step with `POST /workflow-executions/{execution_id}/complete` and a
+    value for each output, or fails it with `POST /workflow-executions/{execution_id}/fail`
+    and a message of up to 500 characters. The run history shows that message, and the
+    steps after it don't run.
+  - An app that answers neither within an hour (`expires_at`) fails the step as *The app did
+    not finish*.
+- **Refused answers.**
+  - An output the step doesn't declare, a required one missing, or one of the wrong kind
+    (`422`): `outputs.ticket_id needs text`. A person must be in the workspace and a channel
+    must be one of its channels. The step keeps waiting for a valid answer.
+  - Another app's execution, or one that doesn't exist (`404`).
+  - A step that already finished or ran out of time (`409`).
+- **An app that goes away.** When an admin turns the app off or removes it, each workflow
+  that uses its steps tells its owner once, in Activity. The builder warns on the step, and a
+  run that gets there fails with the reason: the app was turned off or removed, lost the
+  scope or the event, or no longer offers the step.
+
+An *Open ticket* step that takes a title and hands back the ticket's id:
+
+```http
+PUT /api/bot-apps/me/workflow-steps
+Authorization: Bearer cbot-…
+
+{
+  "steps": [{
+    "callback_id": "open_ticket",
+    "title": "Open ticket",
+    "description": "Files a ticket with the help desk",
+    "inputs": [
+      { "name": "title", "title": "Title", "kind": "text", "required": true },
+      { "name": "reporter", "title": "Reporter", "kind": "person" }
+    ],
+    "outputs": [{ "name": "ticket_id", "title": "Ticket ID", "kind": "text", "required": true }]
+  }]
+}
+```
+
+A workflow runs it, then posts `Ticket {{step.1.ticket_id}} opened`. The app is sent:
+
+```json
+{
+  "event_id": "5a1c…",
+  "type": "function_executed",
+  "workspace_id": "1b2c…",
+  "event": {
+    "execution_id": "e7f0…",
+    "run_id": "a2b3…",
+    "workflow": { "id": "0c9d…", "name": "Help desk" },
+    "step": { "callback_id": "open_ticket", "title": "Open ticket", "position": 1 },
+    "inputs": { "title": "Printer on 3 is out", "reporter": "c3d4…" },
+    "expires_at": "2026-11-19T11:00:00Z"
+  }
+}
+```
+
+It opens the ticket and answers:
+
+```http
+POST /api/workflow-executions/e7f0…/complete
+Authorization: Bearer cbot-…
+
+{ "outputs": { "ticket_id": "HD-42" } }
+```
+
+The run goes on and posts *Ticket HD-42 opened*. Had the help desk been down, the app would
+have sent `POST /api/workflow-executions/e7f0…/fail` with
+`{ "error": "The help desk is down" }`.
+
 ## Example
 
 [`examples/echo-bot`](../examples/echo-bot/) is a whole bot in one file: it answers
@@ -692,5 +789,13 @@ fields:
 await call(botToken, 'POST', `/messages/${event.message_id}/unfurls`, { unfurls });
 ```
 
-CI runs all five against a seeded instance on every pull request that runs the end-to-end
+[`examples/ticketing-step`](../examples/ticketing-step/) adds an *Open ticket*
+[workflow step](#workflow-steps): it defines the step when it starts, and on
+`function_executed` it opens the ticket and hands its id back:
+
+```js
+await call(botToken, 'POST', `/workflow-executions/${id}/complete`, { outputs: { ticket_id: ticketId } });
+```
+
+CI runs all six against a seeded instance on every pull request that runs the end-to-end
 suite.

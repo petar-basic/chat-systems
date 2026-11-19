@@ -15,6 +15,7 @@ import type { AppPermission } from '@/features/workspace/hooks/useAppDirectory';
 import { BotAppEvents } from './BotAppEvents';
 import { BotAppShortcuts } from './BotAppShortcuts';
 import { BotAppUnfurlDomains } from './BotAppUnfurlDomains';
+import { BotAppWorkflowSteps } from './BotAppWorkflowSteps';
 import { ConsentDialog } from './ConsentDialog';
 import { TokenReveal } from './TokenReveal';
 
@@ -120,6 +121,7 @@ export function BotAppControls({ app, scopes: offered, onRemoved }: Props) {
       <BotAppEvents app={app} />
       <BotAppShortcuts appId={app.id} />
       <BotAppUnfurlDomains app={app} />
+      <BotAppWorkflowSteps app={app} />
 
       {failure && (
         <p role="alert" className="text-sm text-danger">

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    UPDATE workflow_runs\n                       SET status = 'failed', error = $2, waiting_at = NULL, finished_at = NOW()\n                     WHERE id = $1\n                    ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "62100520cd76d9bbe3b8dfb75f0621b367c6856d629afea9a7530067c49d738e"
+}

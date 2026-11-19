@@ -28,6 +28,14 @@ function systemText(t: Translate, data: NotificationData, said: string, sender: 
             })
           : said,
       };
+    case 'workflow_app_gone':
+      return {
+        title: t('activity.workflowAppGone'),
+        body: t('activity.workflowAppGoneBody', {
+          workflow: data.workflow_name ?? '',
+          app: data.app_name ?? '',
+        }),
+      };
     case 'app_requested':
       return { title: t('activity.appRequested', { sender }), body: said };
     case 'guest_ending':

@@ -59,6 +59,8 @@ pub struct StepRow {
     pub channel_id: Option<Uuid>,
     pub error: Option<String>,
     pub finished_at: DateTime<Utc>,
+    pub inputs: Option<serde_json::Value>,
+    pub outputs: Option<serde_json::Value>,
 }
 
 #[derive(Default)]
@@ -66,6 +68,43 @@ pub struct Output {
     pub message_id: Option<Uuid>,
     pub channel_id: Option<Uuid>,
     pub matched: Option<bool>,
+}
+
+pub struct NewCall<'a> {
+    pub run_id: Uuid,
+    pub position: i32,
+    pub app_id: Uuid,
+    pub title: &'a str,
+    pub inputs: &'a serde_json::Value,
+    pub outputs: &'a serde_json::Value,
+    pub timeout_secs: f64,
+}
+
+pub struct OpenCall {
+    pub id: Uuid,
+    pub run_id: Uuid,
+    pub position: i32,
+    pub app_id: Uuid,
+    pub title: String,
+    pub inputs: serde_json::Value,
+    pub outputs: serde_json::Value,
+    pub expires_at: DateTime<Utc>,
+    pub finished_at: Option<DateTime<Utc>>,
+    pub run_status: RunStatus,
+    pub waiting_at: Option<i32>,
+    pub workspace_id: Uuid,
+}
+
+pub struct AppCall {
+    pub id: Uuid,
+    pub expires_at: DateTime<Utc>,
+}
+
+pub struct AppUser {
+    pub id: Uuid,
+    pub workspace_id: Uuid,
+    pub name: String,
+    pub created_by: Uuid,
 }
 
 impl Output {
@@ -469,7 +508,7 @@ impl WorkflowRepo {
             StepRow,
             r"
             SELECT position, succeeded, matched, message_id, list_item_id, channel_id, error,
-                   finished_at
+                   finished_at, inputs, outputs
               FROM workflow_run_steps
              WHERE run_id = $1 AND succeeded
              ORDER BY position
@@ -671,10 +710,12 @@ impl WorkflowRepo {
             r#"
             SELECT r.id, r.workflow_id, r.workflow_version, r.status AS "status: RunStatus",
                    r.context, r.error, r.started_at, r.finished_at, r.waiting_at,
-                   COALESCE(r.resume_at, f.expires_at) AS waiting_until
+                   COALESCE(r.resume_at, f.expires_at, c.expires_at) AS waiting_until
               FROM workflow_runs r
               LEFT JOIN workflow_forms f
                      ON f.run_id = r.id AND f.position = r.waiting_at AND f.answered_at IS NULL
+              LEFT JOIN workflow_app_calls c
+                     ON c.run_id = r.id AND c.position = r.waiting_at AND c.finished_at IS NULL
              WHERE r.workflow_id = $1
              ORDER BY r.started_at DESC, r.id
              LIMIT $2
@@ -690,7 +731,7 @@ impl WorkflowRepo {
         let rows = sqlx::query!(
             r"
             SELECT run_id, position, succeeded, matched, message_id, list_item_id, channel_id,
-                   error, finished_at
+                   error, finished_at, inputs, outputs
               FROM workflow_run_steps
              WHERE run_id = ANY($1)
              ORDER BY run_id, position
@@ -713,6 +754,8 @@ impl WorkflowRepo {
                         channel_id: row.channel_id,
                         error: row.error,
                         finished_at: row.finished_at,
+                        inputs: row.inputs,
+                        outputs: row.outputs,
                     },
                 )
             })
@@ -918,6 +961,180 @@ impl WorkflowRepo {
         .execute(&self.pool)
         .await?;
         Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn call_app_in(
+        &self,
+        conn: &mut PgConnection,
+        call: NewCall<'_>,
+    ) -> sqlx::Result<AppCall> {
+        let saved = sqlx::query_as!(
+            AppCall,
+            r"
+            INSERT INTO workflow_app_calls (run_id, position, app_id, title, inputs, outputs, expires_at)
+            VALUES ($1, $2, $3, $4, $5, $6, NOW() + make_interval(secs => $7))
+            ON CONFLICT (run_id, position) DO UPDATE
+               SET app_id = EXCLUDED.app_id, title = EXCLUDED.title, inputs = EXCLUDED.inputs,
+                   outputs = EXCLUDED.outputs, expires_at = EXCLUDED.expires_at, finished_at = NULL
+            RETURNING id, expires_at
+            ",
+            call.run_id,
+            call.position,
+            call.app_id,
+            call.title,
+            call.inputs,
+            call.outputs,
+            call.timeout_secs
+        )
+        .fetch_one(&mut *conn)
+        .await?;
+        sqlx::query!(
+            "UPDATE workflow_runs SET status = 'waiting', waiting_at = $2 WHERE id = $1",
+            call.run_id,
+            call.position
+        )
+        .execute(&mut *conn)
+        .await?;
+        Ok(saved)
+    }
+
+    pub async fn call_for_update_in(
+        &self,
+        conn: &mut PgConnection,
+        id: Uuid,
+    ) -> sqlx::Result<Option<OpenCall>> {
+        sqlx::query_as!(
+            OpenCall,
+            r#"
+            SELECT c.id, c.run_id, c.position, c.app_id, c.title, c.inputs, c.outputs,
+                   c.expires_at, c.finished_at, r.status AS "run_status: RunStatus",
+                   r.waiting_at, w.workspace_id
+              FROM workflow_app_calls c
+              JOIN workflow_runs r ON r.id = c.run_id
+              JOIN workflows w ON w.id = r.workflow_id
+             WHERE c.id = $1
+             FOR UPDATE OF c, r
+            "#,
+            id
+        )
+        .fetch_optional(&mut *conn)
+        .await
+    }
+
+    pub async fn settle_call_in(
+        &self,
+        conn: &mut PgConnection,
+        call: &OpenCall,
+        outcome: Result<&serde_json::Value, &str>,
+    ) -> sqlx::Result<()> {
+        sqlx::query!(
+            "UPDATE workflow_app_calls SET finished_at = NOW() WHERE id = $1",
+            call.id
+        )
+        .execute(&mut *conn)
+        .await?;
+        let (outputs, error) = match outcome {
+            Ok(outputs) => (Some(outputs), None),
+            Err(error) => (None, Some(error)),
+        };
+        sqlx::query!(
+            r"
+            INSERT INTO workflow_run_steps (run_id, position, succeeded, inputs, outputs, error)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (run_id, position) DO UPDATE
+               SET succeeded = EXCLUDED.succeeded, inputs = EXCLUDED.inputs,
+                   outputs = EXCLUDED.outputs, error = EXCLUDED.error, finished_at = NOW()
+            ",
+            call.run_id,
+            call.position,
+            error.is_none(),
+            call.inputs,
+            outputs,
+            error
+        )
+        .execute(&mut *conn)
+        .await?;
+        match error {
+            None => {
+                sqlx::query!(
+                    r"
+                    UPDATE workflow_runs
+                       SET status = 'pending', claimed_at = NULL, waiting_at = NULL
+                     WHERE id = $1
+                    ",
+                    call.run_id
+                )
+                .execute(&mut *conn)
+                .await?;
+            }
+            Some(error) => {
+                sqlx::query!(
+                    r"
+                    UPDATE workflow_runs
+                       SET status = 'failed', error = $2, waiting_at = NULL, finished_at = NOW()
+                     WHERE id = $1
+                    ",
+                    call.run_id,
+                    format!("Step {} ({}): {error}", call.position + 1, call.title)
+                )
+                .execute(&mut *conn)
+                .await?;
+            }
+        }
+        Ok(())
+    }
+
+    pub async fn expire_calls(&self, limit: i64, reason: &str) -> sqlx::Result<Vec<Uuid>> {
+        sqlx::query_scalar!(
+            r"
+            WITH due AS (
+                SELECT c.id, c.run_id, c.position, c.title, c.inputs
+                  FROM workflow_app_calls c
+                 WHERE c.finished_at IS NULL AND c.expires_at <= NOW()
+                 ORDER BY c.expires_at
+                 LIMIT $1
+                 FOR UPDATE SKIP LOCKED
+            ), closed AS (
+                UPDATE workflow_app_calls c SET finished_at = NOW()
+                  FROM due WHERE c.id = due.id
+            ), failed AS (
+                INSERT INTO workflow_run_steps (run_id, position, succeeded, inputs, error)
+                SELECT run_id, position, FALSE, inputs, $2::text FROM due
+                ON CONFLICT (run_id, position) DO UPDATE
+                   SET succeeded = FALSE, inputs = EXCLUDED.inputs, outputs = NULL,
+                       error = EXCLUDED.error, finished_at = NOW()
+            )
+            UPDATE workflow_runs r
+               SET status = 'failed',
+                   error = 'Step ' || (due.position + 1) || ' (' || due.title || '): ' || $2::text,
+                   waiting_at = NULL, finished_at = NOW()
+              FROM due
+             WHERE r.id = due.run_id AND r.status = 'waiting' AND r.waiting_at = due.position
+            RETURNING r.id
+            ",
+            limit,
+            reason
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn using_app(&self, app_id: Uuid) -> sqlx::Result<Vec<AppUser>> {
+        sqlx::query_as!(
+            AppUser,
+            r#"
+            SELECT id, workspace_id, name, created_by
+              FROM workflows
+             WHERE enabled
+               AND jsonb_path_exists(definition,
+                                     'strict $.**.app_id ? (@ == $a)',
+                                     jsonb_build_object('a', $1::text))
+             ORDER BY lower(name)
+            "#,
+            app_id.to_string()
+        )
+        .fetch_all(&self.pool)
+        .await
     }
 
     pub async fn admin_ids(&self, workspace_id: Uuid) -> sqlx::Result<Vec<Uuid>> {

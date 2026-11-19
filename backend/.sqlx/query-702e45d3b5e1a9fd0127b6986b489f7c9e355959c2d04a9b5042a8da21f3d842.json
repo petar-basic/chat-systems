@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO app_workflow_steps (app_id, callback_id, title, description, inputs, outputs, position)\n             SELECT $1, callback_id, title, description, inputs, outputs, position\n               FROM UNNEST($2::text[], $3::text[], $4::text[], $5::jsonb[], $6::jsonb[], $7::smallint[])\n                 AS t(callback_id, title, description, inputs, outputs, position)\n             ON CONFLICT (app_id, callback_id) DO UPDATE\n                SET title = EXCLUDED.title, description = EXCLUDED.description,\n                    inputs = EXCLUDED.inputs, outputs = EXCLUDED.outputs,\n                    position = EXCLUDED.position",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "JsonbArray",
+        "JsonbArray",
+        "Int2Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "702e45d3b5e1a9fd0127b6986b489f7c9e355959c2d04a9b5042a8da21f3d842"
+}

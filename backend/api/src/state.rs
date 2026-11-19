@@ -31,6 +31,7 @@ pub struct AppState {
     pub app_event_repo: crate::app_events::repo::AppEventRepo,
     pub interaction_repo: crate::interactions::repo::InteractionRepo,
     pub app_shortcut_repo: crate::app_shortcuts::repo::AppShortcutRepo,
+    pub app_workflow_step_repo: crate::app_workflow_steps::repo::AppWorkflowStepRepo,
     pub app_unfurl_repo: crate::app_unfurls::repo::AppUnfurlRepo,
     pub app_home_repo: crate::app_home::repo::AppHomeRepo,
     pub app_directory_repo: crate::app_directory::repo::AppDirectoryRepo,

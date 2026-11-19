@@ -31,6 +31,7 @@ pub enum NotifyLevel {
 #[serde(rename_all = "snake_case")]
 pub enum SystemNotice {
     WorkflowStopped,
+    WorkflowAppGone,
     AppRequested,
     NotDelivered,
     GuestEnding,
@@ -80,6 +81,8 @@ pub struct NotificationData {
     pub stopped: Option<crate::authz::Stopped>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub app_request: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub app_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub requested_by: Option<Uuid>,
     #[serde(skip_serializing_if = "Option::is_none")]

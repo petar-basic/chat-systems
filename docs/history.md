@@ -4133,3 +4133,58 @@ from a script and the database:
   admin again, the run archived it.
 
 The QA found no bugs.
+
+### [CS-139] Workflow steps from apps ✅ shipped
+A workflow could only do what the app ships. A team's own systems, such as the help desk, the
+HR tool or the deploy pipeline, could start a workflow through its webhook but couldn't take
+part in one. In Slack an app offers custom steps, and Workflow Builder lists them next to the
+built-in ones.
+
+**Definitions.** An app offers up to 20 steps. An admin defines them on the app's page, or the
+app sends the list itself (`PUT /bot-apps/me/workflow-steps`). Each step has a callback ID, a
+title, a description, and up to 10 inputs and 10 outputs. Each input or output is text, a
+number, true or false, a person, a channel or a date, and an input can be required. The new
+scope `workflow.steps:execute` lets an app run its steps and define them.
+
+**In the builder,** the steps of each app that can run them are listed under the app's name.
+An input takes a fixed value or a variable from an earlier step of the same kind: a person
+input offers *Person who ran it* and person answers, not text. The step's outputs become
+`{{step.N.<name>}}` variables for later steps and branches. The server checks the same rules
+when a workflow is saved. It also refreshes the step's title, inputs and outputs from the
+app, and refuses to save while the app can't run the step.
+
+**Running.** The run sends `function_executed` with the inputs as typed JSON, over HTTP or the
+app's socket, and waits the way it waits for a form. The app finishes the step with outputs
+the server checks against the definition, or fails it with a message that the run history
+shows. A step nobody finishes in an hour fails as *The app did not finish*. The run history
+shows what each app step was given and what it handed back.
+
+**When an app goes away.** If an admin turns the app off or removes it, the owner of each
+workflow that uses its steps gets one Activity item. The builder warns on the step, and a run
+that reaches it fails with the reason. `docs/bot-api.md` documents all of it, and
+`examples/ticketing-step` is an *Open ticket* app that the end-to-end suite runs.
+
+**QA** on the Docker stack, with Bob building and Alice running the workflows, checked from a
+script and the database, a socket-mode app from `examples/ticketing-step`, and an HTTP app
+the script served on the host:
+- The example app defined *Open ticket* itself. An app without the scope was refused (403).
+  So were 21 steps, a callback ID used twice and a name with spaces (422).
+- *Open ticket → post* posted *Ticket HD-101 opened*. History showed the title and Alice's id
+  going in and `ticket_id` coming back. A title saying the help desk is down failed the run
+  with the app's message, and nothing more was posted.
+- Saving refused a number input holding words, a person in a channel input, a channel in a
+  person input, a missing required input, a badly written date and an input the step doesn't
+  have.
+- The HTTP app got severity `3` as a number, the channel id and Alice's id. It answered with
+  text for a boolean, an undeclared output, a missing required one, a person from outside the
+  workspace and text for a number. Each was refused with its reason, and the run kept waiting.
+  Another app, an app without the scope and a person were refused too. A valid answer ran the
+  branch on `step.1.urgent` and posted *Paging @Bob Smith, score 9.5*. A second answer got 409.
+- The call was set to expire one hour after it was made. With the clock moved past that, the
+  run failed with *Step 1 (Triage): The app did not finish*.
+- With the app turned off, the builder listed it with *… was turned off*. Saving was refused,
+  and a run failed with that reason. Removing the socket app gave Bob one Activity item. Saving
+  then said *the app that runs this step was removed*, and a run failed the same way.
+
+The QA found one bug. An answer that came after the step ran out of time was told *This step
+already finished*. It now says *This step ran out of time*.

@@ -164,6 +164,36 @@ export function useSaveBotAppShortcuts(appId: string) {
   });
 }
 
+export type WorkflowStepDraft = components['schemas']['WorkflowStepInput'];
+
+export function useBotAppWorkflowSteps(appId: string) {
+  const apiClient = useCurrentApi();
+  return useQuery({
+    queryKey: QUERY_KEYS.botAppWorkflowSteps(appId),
+    queryFn: () =>
+      apiClient
+        .typed((c) => c.GET('/bot-apps/{app_id}/workflow-steps', { params: { path: { app_id: appId } } }))
+        .then((listed) => listed.steps),
+  });
+}
+
+export function useSaveBotAppWorkflowSteps(appId: string) {
+  const apiClient = useCurrentApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (steps: WorkflowStepDraft[]) =>
+      apiClient
+        .typed((c) =>
+          c.PUT('/bot-apps/{app_id}/workflow-steps', {
+            params: { path: { app_id: appId } },
+            body: { steps },
+          }),
+        )
+        .then((saved) => saved.steps),
+    onSuccess: (saved) => queryClient.setQueryData(QUERY_KEYS.botAppWorkflowSteps(appId), saved),
+  });
+}
+
 export function useBotAppUnfurlDomains(appId: string) {
   const apiClient = useCurrentApi();
   return useQuery({

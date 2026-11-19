@@ -1,0 +1,174 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT c.id, c.run_id, c.position, c.app_id, c.title, c.inputs, c.outputs,\n                   c.expires_at, c.finished_at, r.status AS \"run_status: RunStatus\",\n                   r.waiting_at, w.workspace_id\n              FROM workflow_app_calls c\n              JOIN workflow_runs r ON r.id = c.run_id\n              JOIN workflows w ON w.id = r.workflow_id\n             WHERE c.id = $1\n             FOR UPDATE OF c, r\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "workflow_app_calls",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "run_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "workflow_app_calls",
+            "name": "run_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "position",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "workflow_app_calls",
+            "name": "position"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "app_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "workflow_app_calls",
+            "name": "app_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "title",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "workflow_app_calls",
+            "name": "title"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "inputs",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "workflow_app_calls",
+            "name": "inputs"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "outputs",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "workflow_app_calls",
+            "name": "outputs"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "expires_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "workflow_app_calls",
+            "name": "expires_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "finished_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "workflow_app_calls",
+            "name": "finished_at"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "run_status: RunStatus",
+        "type_info": {
+          "Custom": {
+            "name": "workflow_run_status",
+            "kind": {
+              "Enum": [
+                "pending",
+                "running",
+                "succeeded",
+                "failed",
+                "waiting",
+                "expired"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "workflow_runs",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "waiting_at",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "workflow_runs",
+            "name": "waiting_at"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "workflows",
+            "name": "workspace_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "9552479c221ca94b39025480a6bc3fb42c7b0a62198372cf6d22b8158bac9b0c"
+}

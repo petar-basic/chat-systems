@@ -128,6 +128,7 @@ pub fn required_scope(event: AppEvent, channel_type: &str) -> Option<Scope> {
         }
         AppEvent::AppHomeOpened => None,
         AppEvent::LinkShared => Some(Scope::LinksRead),
+        AppEvent::FunctionExecuted => Some(Scope::WorkflowStepsExecute),
     }
 }
 

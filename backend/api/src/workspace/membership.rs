@@ -199,6 +199,9 @@ pub async fn stand_down(
         for workspace_id in touched {
             crate::bots::announce_apps(state, workspace_id).await;
         }
+        for app in &apps {
+            crate::workflows::service::tell_app_gone(state, app.id, &app.name).await;
+        }
         let invites = state
             .workspace_service
             .repo

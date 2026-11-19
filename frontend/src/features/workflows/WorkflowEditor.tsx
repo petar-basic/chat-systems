@@ -10,7 +10,7 @@ import type { Channel, WorkspaceMember } from '@/stores/workspace';
 import { TriggerCard } from './TriggerCard';
 import { StepTree } from './StepTree';
 import { RunHistory } from './RunHistory';
-import { useWorkflowActions } from './useWorkflows';
+import { useWorkflowActions, useWorkflowStepApps } from './useWorkflows';
 import type { Starter } from './templates';
 import {
   MAX_STEPS,
@@ -63,6 +63,7 @@ export function WorkflowEditor({
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const actions = useWorkflowActions(workspaceId, instanceUrl);
+  const providers = useWorkflowStepApps(workspaceId, instanceUrl).data;
 
   const mine = !workflow || workflow.created_by === currentUserId;
   const readOnly = !mine || !canBuild;
@@ -265,6 +266,7 @@ export function WorkflowEditor({
             channels={postable}
             people={people}
             members={members}
+            providers={providers}
             full={full}
             readOnly={readOnly}
             onEdit={edit}

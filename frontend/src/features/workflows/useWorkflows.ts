@@ -71,6 +71,18 @@ export const useWorkflows = (workspaceId: string, instanceUrl?: string) =>
     staleTime: 1000 * 30,
   });
 
+export const useWorkflowStepApps = (workspaceId: string, instanceUrl?: string) =>
+  useQuery({
+    queryKey: QUERY_KEYS.workflowStepApps(workspaceId),
+    queryFn: async () => {
+      const res = await getApiForInstance(instanceUrl).typed((c) =>
+        c.GET('/workspaces/{ws_id}/workflow-step-apps', { params: { path: { ws_id: workspaceId } } }),
+      );
+      return res.data;
+    },
+    staleTime: 0,
+  });
+
 export const useWorkflowRuns = (workflowId: string | null, instanceUrl?: string) =>
   useQuery({
     queryKey: QUERY_KEYS.workflowRuns(workflowId ?? ''),
