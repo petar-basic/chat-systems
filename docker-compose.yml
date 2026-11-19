@@ -277,6 +277,7 @@ services:
       JWT_SIGNING_KEYS: ${JWT_SIGNING_KEYS:?JWT_SIGNING_KEYS must be set (see .env.example)}
       SECRETS_KEYS: ${SECRETS_KEYS:?SECRETS_KEYS must be set (see .env.example)}
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
+      WEBHOOK_ALLOW_PRIVATE_TARGETS: ${WEBHOOK_ALLOW_PRIVATE_TARGETS:-false}
       # The worker is what sends the pushes, so it needs the pair too.
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
