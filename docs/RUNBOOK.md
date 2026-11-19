@@ -666,7 +666,9 @@ command that needs longer should acknowledge and post back through an incoming w
 Outbound targets are still refused if they resolve to a private, loopback or link-local
 address. If your CI is on the same private network and you accept that anyone who can create
 a hook then has the server's network position, set
-`WEBHOOK_ALLOW_PRIVATE_TARGETS=true`.
+`WEBHOOK_ALLOW_PRIVATE_TARGETS=true` on both `chat-api` and `chat-worker`: the api checks a
+URL when it is saved, and the worker checks it again on every delivery of an outgoing
+webhook or an app event.
 
 **Nothing to migrate by hand.** Migrations 27 to 35 are additive apart from dropping the old
 `content_search` column, which is a catalog change rather than a rewrite.
