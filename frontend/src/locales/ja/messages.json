@@ -124,7 +124,21 @@
     "broadcastTitle": "{{count}}人に通知されます。送信しますか?",
     "waitForUploads": "ファイルアップロードが終わるまでお待ちください",
     "uploadFailed": "ファイルアップロードに失敗しました。再試行するか、一度選択しているファイルを外してください。",
-    "pollFailed": "投票を作成できませんでした"
+    "pollFailed": "投票を作成できませんでした",
+    "gif": "GIF を送信"
+  },
+  "gifs": {
+    "search": "GIPHY を検索",
+    "placeholder": "GIPHY を検索",
+    "loading": "GIF を読み込み中",
+    "failed": "GIPHY から応答がありませんでした。しばらくしてから、もう一度お試しください。",
+    "none": "GIF が見つかりません",
+    "results": "GIF の検索結果",
+    "trending": "人気の GIF",
+    "more": "さらに GIF を表示",
+    "poweredBy": "Powered by GIPHY",
+    "untitled": "GIF",
+    "via": "via GIPHY"
   },
   "schedule": {
     "label": "予約送信",

@@ -4,7 +4,10 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GifPicker } from './GifPicker';
 import { GIF_PAGE } from './giphy';
-import { SETTINGS, answer, giphyPage } from '@/test/giphy';
+import { SETTINGS, answer, giphyItem, giphyPage } from '@/test/giphy';
+import i18n from '@/lib/i18n';
+
+const hostile = '<img src=x onerror="alert(1)"> {{name}}';
 
 const onPick = vi.fn();
 const fetch = vi.fn();
@@ -126,5 +129,67 @@ describe('GifPicker', () => {
     expect(choices[0]).toHaveFocus();
     fireEvent.keyDown(choices[0]!, { key: 'ArrowUp' });
     expect(search).toHaveFocus();
+  });
+});
+
+describe('GifPicker in Japanese', () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('ja');
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('opens on trending GIFs named as text, and credits GIPHY', async () => {
+    fetch.mockImplementation(() =>
+      answer({
+        data: [giphyItem('a', hostile), giphyItem('b', '')],
+        pagination: { total_count: 2, count: 2, offset: 0 },
+      }),
+    );
+    const picker = open();
+
+    await waitFor(() => expect(within(picker).getAllByTestId('gif-choice')).toHaveLength(2));
+    expect(within(picker).getByRole('list', { name: '人気の GIF' })).toBeInTheDocument();
+    expect(within(picker).getByRole('textbox', { name: 'GIPHY を検索' })).toHaveAttribute(
+      'placeholder',
+      'GIPHY を検索',
+    );
+    const [named, untitled] = within(picker).getAllByTestId('gif-choice');
+    expect(named).toHaveAttribute('aria-label', hostile);
+    expect(named).toHaveAttribute('data-tooltip', hostile);
+    expect(untitled).toHaveAttribute('aria-label', 'GIF');
+    expect(within(picker).getByTestId('gif-attribution')).toHaveTextContent('Powered by GIPHY');
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
+
+  it('says while GIFs load', async () => {
+    fetch.mockImplementation(() => new Promise(() => undefined));
+    const picker = open();
+    expect(await within(picker).findByRole('status', { name: 'GIF を読み込み中' })).toBeInTheDocument();
+  });
+
+  it('names the results of a search, and offers more', async () => {
+    const ids = Array.from({ length: GIF_PAGE }, (_, i) => `g${i}`);
+    fetch.mockImplementation(() => answer(giphyPage(ids, 100, 0)));
+    const picker = open('cat');
+
+    expect(await within(picker).findByRole('list', { name: 'GIF の検索結果' })).toBeInTheDocument();
+    expect(await within(picker).findByTestId('gif-more')).toHaveTextContent('さらに GIF を表示');
+  });
+
+  it('says when nothing matches', async () => {
+    fetch.mockImplementation(() => answer(giphyPage([])));
+    const picker = open('zzzz');
+    expect(await within(picker).findByTestId('gif-none')).toHaveTextContent('GIF が見つかりません');
+  });
+
+  it('says when GIPHY cannot be reached', async () => {
+    fetch.mockImplementation(() => answer({ message: 'Invalid key' }, 403));
+    const picker = open();
+    expect(await within(picker).findByTestId('gif-error')).toHaveTextContent(
+      'GIPHY から応答がありませんでした。しばらくしてから、もう一度お試しください。',
+    );
   });
 });
