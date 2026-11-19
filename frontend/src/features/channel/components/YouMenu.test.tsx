@@ -106,7 +106,7 @@ describe('YouMenu in Japanese', () => {
 
   it('names the menu and the buttons', () => {
     renderMenu();
-    for (const name of ['離席中にする', 'プロフィール', '設定', '後で']) {
+    for (const name of ['離席中にする', 'プロフィール', '設定', '下書きと送信済み', '後で']) {
       expect(screen.getByRole('button', { name })).toBeInTheDocument();
     }
     expect(screen.getByRole('button', { name: 'プロフィールを編集' })).toBeInTheDocument();
