@@ -11,7 +11,7 @@ use super::common::*;
 use crate::state::AppState;
 use crate::workflows::{listener, runner};
 
-fn post_to(channel: Uuid, text: &str) -> Value {
+pub(super) fn post_to(channel: Uuid, text: &str) -> Value {
     json!({ "type": "send_message", "channel_id": channel, "text": text })
 }
 
@@ -29,18 +29,18 @@ fn scheduled(name: &str, steps: Vec<Value>) -> Value {
     })
 }
 
-fn webhook(name: &str, variables: &[&str], steps: Vec<Value>) -> Value {
+pub(super) fn webhook(name: &str, variables: &[&str], steps: Vec<Value>) -> Value {
     json!({
         "name": name,
         "definition": { "trigger": { "type": "webhook", "variables": variables }, "steps": steps },
     })
 }
 
-fn dm_back(text: &str) -> Value {
+pub(super) fn dm_back(text: &str) -> Value {
     json!({ "type": "send_dm", "to": { "kind": "trigger_user" }, "text": text })
 }
 
-fn on_reaction(name: &str, channel: Uuid, emoji: &str, steps: Vec<Value>) -> Value {
+pub(super) fn on_reaction(name: &str, channel: Uuid, emoji: &str, steps: Vec<Value>) -> Value {
     json!({
         "name": name,
         "definition": {
@@ -50,14 +50,14 @@ fn on_reaction(name: &str, channel: Uuid, emoji: &str, steps: Vec<Value>) -> Val
     })
 }
 
-fn on_join(name: &str, channel: Uuid, steps: Vec<Value>) -> Value {
+pub(super) fn on_join(name: &str, channel: Uuid, steps: Vec<Value>) -> Value {
     json!({
         "name": name,
         "definition": { "trigger": { "type": "member_joined", "channel_id": channel }, "steps": steps },
     })
 }
 
-async fn deliver(state: &AppState) {
+pub(super) async fn deliver(state: &AppState) {
     let rows = sqlx::query_as::<_, (Uuid, String, Value, chrono::DateTime<chrono::Utc>)>(
         "SELECT event_id, event_type, payload, created_at FROM event_outbox
           WHERE event_type IN ('reaction.added', 'channel.member_joined') ORDER BY id",
@@ -78,7 +78,7 @@ async fn deliver(state: &AppState) {
     }
 }
 
-async fn dms(state: &AppState, ws: Uuid, from: Uuid, to: Uuid) -> Vec<String> {
+pub(super) async fn dms(state: &AppState, ws: Uuid, from: Uuid, to: Uuid) -> Vec<String> {
     let Some(conversation) = state
         .conversation_repo
         .find_direct(ws, from, to)
@@ -94,7 +94,12 @@ async fn dms(state: &AppState, ws: Uuid, from: Uuid, to: Uuid) -> Vec<String> {
         .collect()
 }
 
-async fn create(app: &axum::Router, token: &str, ws: Uuid, body: Value) -> (StatusCode, Value) {
+pub(super) async fn create(
+    app: &axum::Router,
+    token: &str,
+    ws: Uuid,
+    body: Value,
+) -> (StatusCode, Value) {
     send(
         app,
         "POST",
@@ -105,7 +110,7 @@ async fn create(app: &axum::Router, token: &str, ws: Uuid, body: Value) -> (Stat
     .await
 }
 
-async fn built(app: &axum::Router, token: &str, ws: Uuid, body: Value) -> Value {
+pub(super) async fn built(app: &axum::Router, token: &str, ws: Uuid, body: Value) -> Value {
     let (status, workflow) = create(app, token, ws, body).await;
     assert_eq!(status, StatusCode::OK, "{workflow:?}");
     workflow
@@ -148,12 +153,12 @@ async fn list(app: &axum::Router, token: &str, ws: Uuid) -> Vec<String> {
         .collect()
 }
 
-fn hook_path(workflow: &Value) -> String {
+pub(super) fn hook_path(workflow: &Value) -> String {
     let url = workflow["webhook_url"].as_str().expect("a webhook url");
     url[url.find("/api/").unwrap()..].to_string()
 }
 
-async fn call(
+pub(super) async fn call(
     app: &axum::Router,
     path: &str,
     key: Option<&str>,
@@ -180,7 +185,7 @@ async fn call(
     )
 }
 
-async fn runs(app: &axum::Router, token: &str, workflow: &Value) -> Vec<Value> {
+pub(super) async fn runs(app: &axum::Router, token: &str, workflow: &Value) -> Vec<Value> {
     let (status, body) = send(
         app,
         "GET",
@@ -193,7 +198,7 @@ async fn runs(app: &axum::Router, token: &str, workflow: &Value) -> Vec<Value> {
     body["data"].as_array().unwrap().clone()
 }
 
-async fn bot_messages(state: &AppState, channel: Uuid) -> Vec<(String, Value)> {
+pub(super) async fn bot_messages(state: &AppState, channel: Uuid) -> Vec<(String, Value)> {
     sqlx::query_as::<_, (String, Value)>(
         "SELECT content, metadata FROM messages WHERE channel_id = $1 AND metadata ? 'bot' ORDER BY created_at",
     )
@@ -203,7 +208,7 @@ async fn bot_messages(state: &AppState, channel: Uuid) -> Vec<(String, Value)> {
     .unwrap()
 }
 
-async fn workspace_with_member(
+pub(super) async fn workspace_with_member(
     app: &axum::Router,
     state: &AppState,
     prefix: &str,
@@ -1295,7 +1300,7 @@ async fn a_busy_event_trigger_is_rate_limited(pool: PgPool) {
     );
 }
 
-fn shortcut(name: &str, channel: Uuid, steps: Vec<Value>) -> Value {
+pub(super) fn shortcut(name: &str, channel: Uuid, steps: Vec<Value>) -> Value {
     json!({
         "name": name,
         "definition": { "trigger": { "type": "shortcut", "channel_id": channel }, "steps": steps },
@@ -1316,7 +1321,7 @@ fn time_off_form() -> Value {
     })
 }
 
-async fn start(
+pub(super) async fn start(
     app: &axum::Router,
     token: &str,
     workflow: &Value,
@@ -1372,7 +1377,7 @@ async fn shortcut_names(
     (status, names)
 }
 
-async fn join(state: &AppState, channel: Uuid, users: &[Uuid]) {
+pub(super) async fn join(state: &AppState, channel: Uuid, users: &[Uuid]) {
     for user in users {
         state
             .workspace_service
@@ -1387,7 +1392,7 @@ async fn join(state: &AppState, channel: Uuid, users: &[Uuid]) {
     }
 }
 
-async fn fill(
+pub(super) async fn fill(
     app: &axum::Router,
     token: &str,
     form: &Value,
@@ -1694,7 +1699,12 @@ async fn a_form_for_its_builder_waits_in_the_channel_until_it_expires(pool: PgPo
     assert_eq!(bot_messages(&state, requests).await.len(), 1);
 }
 
-async fn requests_list(app: &axum::Router, token: &str, ws: Uuid, channel: Option<Uuid>) -> Value {
+pub(super) async fn requests_list(
+    app: &axum::Router,
+    token: &str,
+    ws: Uuid,
+    channel: Option<Uuid>,
+) -> Value {
     let choices = |labels: &[&str]| json!({ "choices": labels.iter().map(|l| json!({ "label": l })).collect::<Vec<_>>() });
     let (status, list) = send(
         app,
@@ -1719,7 +1729,7 @@ async fn requests_list(app: &axum::Router, token: &str, ws: Uuid, channel: Optio
     list
 }
 
-fn column_id(list: &Value, name: &str) -> String {
+pub(super) fn column_id(list: &Value, name: &str) -> String {
     list["columns"]
         .as_array()
         .unwrap()
@@ -1731,7 +1741,7 @@ fn column_id(list: &Value, name: &str) -> String {
         .to_string()
 }
 
-fn choice_id(list: &Value, column: &str, label: &str) -> Value {
+pub(super) fn choice_id(list: &Value, column: &str, label: &str) -> Value {
     list["columns"]
         .as_array()
         .unwrap()
@@ -1746,11 +1756,11 @@ fn choice_id(list: &Value, column: &str, label: &str) -> Value {
         .clone()
 }
 
-fn fill_cell(list: &Value, column: &str, value: &str) -> Value {
+pub(super) fn fill_cell(list: &Value, column: &str, value: &str) -> Value {
     json!({ "column_id": column_id(list, column), "value": value })
 }
 
-fn add_to(list: &Value, cells: Vec<Value>) -> Value {
+pub(super) fn add_to(list: &Value, cells: Vec<Value>) -> Value {
     json!({ "type": "add_list_item", "list_id": list["list"]["id"], "cells": cells })
 }
 

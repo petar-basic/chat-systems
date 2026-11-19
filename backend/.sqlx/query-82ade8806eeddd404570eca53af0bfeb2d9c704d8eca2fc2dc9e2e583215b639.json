@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE workflow_runs\n               SET context = jsonb_set(context, '{form}', COALESCE(context->'form', '{}'::jsonb) || $2::jsonb),\n                   status = 'pending', claimed_at = NULL, waiting_at = NULL\n             WHERE id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "82ade8806eeddd404570eca53af0bfeb2d9c704d8eca2fc2dc9e2e583215b639"
+}

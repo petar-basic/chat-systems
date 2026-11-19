@@ -1,7 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import type { ListColumn } from '@/features/lists/listModel';
 import {
+  addStep,
   blankField,
+  blankStep,
+  flatten,
+  inLane,
+  opsFor,
+  replaceStep,
+  testFor,
+  withOp,
   canBuild,
   cleanDefinition,
   fieldNameFrom,
@@ -106,13 +114,13 @@ describe('workflowModel', () => {
       channel_id: 'c',
       text,
     }));
-    expect(moveStep(steps, 2, 0).map((s) => ('text' in s ? s.text : s.type))).toEqual([
+    expect(moveStep(steps, 2, -2).map((s) => ('text' in s ? s.text : s.type))).toEqual([
       'three',
       'one',
       'two',
     ]);
     expect(moveStep(steps, 0, -1)).toBe(steps);
-    expect(moveStep(steps, 2, 3)).toBe(steps);
+    expect(moveStep(steps, 2, 1)).toBe(steps);
   });
 
   it('checks a variable name the way the server does', () => {
@@ -276,5 +284,158 @@ describe('workflowModel', () => {
       }),
     ).toBe('Step 1: pick a person');
     expect(unpicked({ trigger: { type: 'webhook', variables: [] }, steps: steps.slice(0, 2) })).toBeNull();
+  });
+
+  const say = (text: string): Step => ({ type: 'send_message', channel_id: 'c', text });
+  const branch = (then: Step[], otherwise: Step[] = [], value = 'form.urgency'): Step => ({
+    type: 'branch',
+    value,
+    test: { op: 'equals', value: 'urgent' },
+    then,
+    otherwise,
+  });
+  const ask = (name: string, kind: FormStep['fields'][number]['kind'] = 'short_text'): Step => ({
+    type: 'form',
+    to: { kind: 'trigger_user' },
+    title: 'Ask',
+    fields: [{ name, label: name, kind, options: [], required: true }],
+  });
+  const textOf = (step: Step) => ('text' in step ? step.text : step.type);
+
+  it('numbers the steps of a branch the way the server does, each path seeing what came before it', () => {
+    const steps = [ask('urgency'), branch([say('page'), ask('pager')], [say('file')]), say('done')];
+    const flat = flatten(steps);
+    expect(flat.map((node) => textOf(node.step))).toEqual(['form', 'branch', 'page', 'form', 'file', 'done']);
+    expect(flat.map((node) => node.depth)).toEqual([0, 0, 1, 1, 1, 0]);
+    expect(flat[4].before).toEqual([0, 1]);
+    expect(flat[5].before).toEqual([0, 1]);
+    expect(flat[3].path).toEqual([[1, true]]);
+    expect(inLane(flat, [1, false]).map((node) => node.position)).toEqual([4]);
+    expect(inLane(flat, null).map((node) => node.position)).toEqual([0, 1, 5]);
+
+    const definition: Definition = { trigger: { type: 'shortcut', channel_id: 'c' }, steps };
+    expect(stepVariables(definition, 3).map((v) => v.token)).toContain('{{form.urgency}}');
+    expect(stepVariables(definition, 4).map((v) => v.token)).not.toContain('{{form.pager}}');
+    expect(stepVariables(definition, 5).map((v) => v.token)).not.toContain('{{form.pager}}');
+  });
+
+  it('offers what a created channel and a thread reply leave behind to the steps after them', () => {
+    const definition: Definition = {
+      trigger: { type: 'reaction_added', channel_id: 'c', emoji: '👀' },
+      steps: [
+        { type: 'create_channel', name: 'proj', private: false },
+        { type: 'reply_in_thread', text: 'Made {{step.1.channel}}' },
+        say('end'),
+      ],
+    };
+    expect(stepVariables(definition, 0).map((v) => v.token)).not.toContain('{{step.1.channel}}');
+    expect(stepVariables(definition, 2).slice(-3)).toEqual([
+      { token: '{{step.1.channel}}', label: 'Step 1: the new channel' },
+      { token: '{{step.1.channel_link}}', label: 'Step 1: link to the new channel' },
+      { token: '{{step.2.message_link}}', label: 'Step 2: link to the reply' },
+    ]);
+  });
+
+  it('keeps every reference on its step when a step is added, moved or removed around it', () => {
+    const steps: Step[] = [
+      { type: 'create_channel', name: 'proj', private: false },
+      { type: 'add_list_item', list_id: 'l', cells: [] },
+      branch([say('a')], [], 'step.2.column.col'),
+      {
+        type: 'update_list_item',
+        from_step: 1,
+        cells: [{ column_id: 'x', value: '{{step.1.channel_link}}' }],
+      },
+      { type: 'set_topic', channel: { kind: 'from_step', step: 0 }, topic: 'In {{step.1.channel}}' },
+    ];
+    const added = addStep(steps, [2, true], say('b'));
+    expect(flatten(added).map((node) => textOf(node.step))).toEqual([
+      'create_channel',
+      'add_list_item',
+      'branch',
+      'a',
+      'b',
+      'update_list_item',
+      'set_topic',
+    ]);
+    expect(added[3]).toEqual({ ...steps[3], from_step: 1 });
+
+    const moved = moveStep(steps, 0, 1);
+    expect(moved[2]).toMatchObject({ value: 'step.1.column.col' });
+    expect(moved[3]).toEqual({
+      type: 'update_list_item',
+      from_step: 0,
+      cells: [{ column_id: 'x', value: '{{step.2.channel_link}}' }],
+    });
+    expect(moved[4]).toEqual({
+      type: 'set_topic',
+      channel: { kind: 'from_step', step: 1 },
+      topic: 'In {{step.2.channel}}',
+    });
+
+    const removed = removeStep(steps, 0);
+    expect(removed[3]).toEqual({
+      type: 'set_topic',
+      channel: { kind: 'from_step', step: 4 },
+      topic: 'In {{step.5.channel}}',
+    });
+    expect(removed[1]).toMatchObject({ value: 'step.1.column.col' });
+  });
+
+  it('moves a branch with its paths and drops them when it stops being a branch', () => {
+    const steps = [say('one'), branch([say('a')], [say('b')]), say('two')];
+    expect(flatten(moveStep(steps, 1, -1)).map((node) => textOf(node.step))).toEqual([
+      'branch',
+      'a',
+      'b',
+      'one',
+      'two',
+    ]);
+    expect(moveStep(steps, 2, 1)).toBe(steps);
+    const condition = { ...(steps[1] as Extract<Step, { type: 'branch' }>), then: [], otherwise: [] };
+    expect(flatten(replaceStep(steps, 1, { ...condition, value: 'form.x' })).length).toBe(5);
+    expect(replaceStep(steps, 1, say('flat'))).toEqual([say('one'), say('flat'), say('two')]);
+    expect(blankStep('branch')).toEqual({
+      type: 'branch',
+      value: '',
+      test: { op: 'equals', value: '' },
+      then: [],
+      otherwise: [],
+    });
+  });
+
+  it('tests a person, a choice or a date only in ways that make sense for it', () => {
+    expect(opsFor({ kind: 'person' })).toEqual(['equals', 'one_of', 'is_empty']);
+    expect(opsFor({ kind: 'date' })).not.toContain('contains');
+    expect(withOp({ op: 'equals', value: 'a' }, 'one_of')).toEqual({ op: 'one_of', values: ['a'] });
+    expect(withOp({ op: 'one_of', values: ['a', 'b'] }, 'contains')).toEqual({ op: 'contains', value: 'a' });
+    expect(withOp({ op: 'contains', value: 'a' }, 'is_empty')).toEqual({ op: 'is_empty' });
+    expect(testFor({ op: 'contains', value: 'x' }, { kind: 'person' })).toEqual({ op: 'equals', value: 'x' });
+  });
+
+  it('finds what is unpicked inside a branch and cleans its values', () => {
+    const steps = [say('one'), branch([{ type: 'add_reaction', emoji: '' }])];
+    const trigger = { type: 'reaction_added' as const, channel_id: 'c', emoji: '👀' };
+    expect(unpicked({ trigger, steps })).toBe('Step 3: pick an emoji');
+    expect(unpicked({ trigger, steps: [say('one'), branch([], [], '')] })).toBe(
+      'Step 2: pick what the branch tests',
+    );
+    expect(unpicked({ trigger, steps: [branch([])] })).toBe('Step 1: add a step to one of its branches');
+    expect(
+      unpicked({
+        trigger,
+        steps: [{ type: 'archive_channel', channel: { kind: 'channel', channel_id: '' } }],
+      }),
+    ).toBe('Step 1: pick a channel');
+    const cleaned = cleanDefinition({
+      trigger,
+      steps: [
+        {
+          ...(branch([say('x')]) as Extract<Step, { type: 'branch' }>),
+          test: { op: 'one_of', values: [' a', '', 'b '] },
+        },
+      ],
+    });
+    expect(cleaned.steps[0]).toMatchObject({ test: { op: 'one_of', values: ['a', 'b'] } });
   });
 });

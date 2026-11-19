@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT run_id, position, succeeded, message_id, list_item_id, error, finished_at\n              FROM workflow_run_steps\n             WHERE run_id = ANY($1)\n             ORDER BY run_id, position\n            ",
+  "query": "\n            SELECT run_id, position, succeeded, matched, message_id, list_item_id, channel_id,\n                   error, finished_at\n              FROM workflow_run_steps\n             WHERE run_id = ANY($1)\n             ORDER BY run_id, position\n            ",
   "describe": {
     "columns": [
       {
@@ -38,6 +38,17 @@
       },
       {
         "ordinal": 3,
+        "name": "matched",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "workflow_run_steps",
+            "name": "matched"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
         "name": "message_id",
         "type_info": "Uuid",
         "origin": {
@@ -48,7 +59,7 @@
         }
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "list_item_id",
         "type_info": "Uuid",
         "origin": {
@@ -59,7 +70,18 @@
         }
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
+        "name": "channel_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "workflow_run_steps",
+            "name": "channel_id"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
         "name": "error",
         "type_info": "Text",
         "origin": {
@@ -70,7 +92,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 8,
         "name": "finished_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -93,8 +115,10 @@
       true,
       true,
       true,
+      true,
+      true,
       false
     ]
   },
-  "hash": "e1bff592dd026605c6f20863f26cbee94e400559512b41dfc0ac1992cfc32cd8"
+  "hash": "dd44b9da41158f637d4d447e78faf8713b5aa07d40fbd7a2bca829a674539b78"
 }

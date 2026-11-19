@@ -734,35 +734,44 @@ async fn create_channel(
         None => channel,
     };
 
+    announce_created(&state, &channel, auth.user_id, &ip).await?;
+    Ok(Json(channel))
+}
+
+pub(crate) async fn announce_created(
+    state: &AppState,
+    channel: &Channel,
+    actor: Uuid,
+    ip: &ClientIp,
+) -> AppResult<()> {
     state
         .publisher
         .publish_scoped(
             "channel.created",
-            ws_id,
+            channel.workspace_id,
             serde_json::json!({
                 "channel_id": channel.id,
-                "workspace_id": ws_id,
+                "workspace_id": channel.workspace_id,
                 "name": channel.name,
                 "channel_type": channel.channel_type,
-                "created_by": auth.user_id,
+                "created_by": actor,
             }),
         )
         .await?;
 
     audit::record(
-        &state,
-        AuditEntry::new(AuditAction::ChannelCreated, auth.user_id)
-            .workspace(ws_id)
+        state,
+        AuditEntry::new(AuditAction::ChannelCreated, actor)
+            .workspace(channel.workspace_id)
             .resource(channel.id)
-            .ip(&ip)
+            .ip(ip)
             .details(serde_json::json!({
                 "name": channel.name,
-                "channel_type": channel_type,
+                "channel_type": channel.channel_type,
             })),
     )
     .await;
-
-    Ok(Json(channel))
+    Ok(())
 }
 
 #[utoipa::path(get, path = "/channels/{ch_id}", tag = "channels", responses((status = 200, body = Channel)))]

@@ -1,0 +1,36 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH w AS (\n                INSERT INTO workflows (workspace_id, created_by, name, description, definition,\n                                       webhook_token, enabled, next_run_at)\n                VALUES ($1, $2, $3, $4, $5, $6, TRUE,\n                        CASE WHEN $7::smallint[] IS NOT NULL\n                             THEN workflow_next_run($7, $8, $9, NOW()) END)\n                RETURNING id, version, definition\n            )\n            INSERT INTO workflow_versions (workflow_id, version, definition)\n            SELECT id, version, definition FROM w\n            RETURNING workflow_id AS \"id!\"\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "workflow_versions",
+            "name": "workflow_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Jsonb",
+        "Text",
+        "Int2Array",
+        "Time",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "8be0486badca95c65a2eec6b8ef18222d8ad70100b4f03b556a36189c8e91ae4"
+}

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use chrono::{Duration, Utc};
@@ -8,15 +8,21 @@ use uuid::Uuid;
 use shared_common::errors::AppError;
 
 use super::models::*;
+use super::repo::{Output, StepRow};
+use crate::audit::ClientIp;
 use crate::authz::{self, Stopped};
-use crate::messaging::models::MessageField;
+use crate::messaging::models::{Message, MessageField};
+use crate::profile_fields::models::ProfileFieldKind;
 use crate::state::AppState;
-use crate::workspace::membership::stand_down;
-use crate::workspace::models::WorkspaceRole;
+use crate::workspace::details::{self, Details};
+use crate::workspace::membership::{self, stand_down};
+use crate::workspace::models::{Channel, ChannelRole, ChannelType, WorkspaceMember, WorkspaceRole};
+use crate::workspace::repo::WorkspaceRepo;
 
 const TICK_SECS: u64 = 5;
 const SCHEDULE_BATCH: i64 = 50;
 const RUN_BATCH: i64 = 20;
+const RESUME_BATCH: i64 = 50;
 const LATE_LIMIT_MINUTES: i64 = 15;
 
 pub async fn start_runner(state: Arc<AppState>) {
@@ -25,6 +31,9 @@ pub async fn start_runner(state: Arc<AppState>) {
         tokio::time::sleep(std::time::Duration::from_secs(TICK_SECS)).await;
         if let Err(e) = queue_due_schedules(&state).await {
             warn!("Failed to queue scheduled workflows: {}", e);
+        }
+        if let Err(e) = resume_delays(&state).await {
+            warn!("Failed to resume waiting workflows: {}", e);
         }
         if let Err(e) = run_pending(&state).await {
             warn!("Failed to run pending workflows: {}", e);
@@ -78,6 +87,10 @@ pub async fn run_pending(state: &AppState) -> sqlx::Result<usize> {
     Ok(count)
 }
 
+pub async fn resume_delays(state: &AppState) -> sqlx::Result<usize> {
+    Ok(state.workflow_repo.resume_due(RESUME_BATCH).await?.len())
+}
+
 pub async fn expire_forms(state: &AppState) -> sqlx::Result<usize> {
     let mut tx = state.pool.begin().await?;
     let expired = state
@@ -115,8 +128,15 @@ pub async fn expire_forms(state: &AppState) -> sqlx::Result<usize> {
     Ok(expired.len())
 }
 
+enum Kept {
+    Nothing,
+    Matched(bool),
+    Channel(Channel),
+    Reply { channel_id: Uuid, message_id: Uuid },
+}
+
 enum Outcome {
-    Done,
+    Done(Kept),
     Waiting,
 }
 
@@ -125,10 +145,15 @@ struct Context<'a> {
     run: &'a RunRow,
     definition: &'a Definition,
     fired: Fired,
+    base: String,
+    outputs: HashMap<String, String>,
+    channels: HashMap<usize, Uuid>,
 }
 
 struct Fired {
     user: Option<Uuid>,
+    channel: Option<Uuid>,
+    message: Option<Uuid>,
     values: HashMap<&'static str, String>,
 }
 
@@ -140,6 +165,20 @@ fn text_of(value: &serde_json::Value) -> String {
     }
 }
 
+fn reason(error: AppError) -> String {
+    match error {
+        AppError::Validation(message)
+        | AppError::NotFound(message)
+        | AppError::Forbidden(message)
+        | AppError::Conflict(message) => message,
+        other => other.to_string(),
+    }
+}
+
+fn internal(error: impl std::fmt::Display) -> String {
+    error.to_string()
+}
+
 impl Context<'_> {
     fn value(&self, name: &str) -> String {
         if let Some(variable) = name.strip_prefix("webhook.") {
@@ -148,17 +187,21 @@ impl Context<'_> {
         if let Some(field) = name.strip_prefix("form.") {
             return text_of(&self.run.context["form"][field]);
         }
+        if name.starts_with("step.") {
+            return self.outputs.get(name).cloned().unwrap_or_default();
+        }
         self.fired.values.get(name).cloned().unwrap_or_default()
     }
 
     fn trusted(&self, name: &str) -> bool {
-        if name.starts_with("webhook.") || name == "trigger.message" {
+        if name.starts_with("webhook.") || name.starts_with("step.") || name == "trigger.message" {
             return false;
         }
         match name.strip_prefix("form.") {
             Some(field) => self
                 .definition
-                .fields_before(self.definition.steps.len())
+                .fields()
+                .iter()
                 .any(|f| f.name == field && f.kind == FieldKind::Person),
             None => true,
         }
@@ -181,6 +224,7 @@ impl Context<'_> {
     fn answers(&self, position: usize, only_trusted: bool) -> Vec<MessageField> {
         self.definition
             .fields_before(position)
+            .into_iter()
             .map(|field| {
                 let name = format!("form.{}", field.name);
                 let value = if only_trusted && !self.trusted(&name) {
@@ -199,6 +243,98 @@ impl Context<'_> {
     fn metadata(&self) -> serde_json::Value {
         serde_json::json!({ "bot": { "workflow_id": self.workflow.id, "name": self.workflow.name } })
     }
+
+    fn keep(&mut self, position: usize, kept: &Kept, taken: &mut HashMap<usize, bool>) {
+        let number = position + 1;
+        match kept {
+            Kept::Nothing => {}
+            Kept::Matched(matched) => {
+                taken.insert(position, *matched);
+            }
+            Kept::Channel(channel) => {
+                self.channels.insert(position, channel.id);
+                self.outputs.insert(
+                    format!("step.{number}.channel"),
+                    format!("#{}", channel.name.as_deref().unwrap_or_default()),
+                );
+                self.outputs.insert(
+                    format!("step.{number}.channel_link"),
+                    format!("{}/{}", self.base, channel.id),
+                );
+            }
+            Kept::Reply {
+                channel_id,
+                message_id,
+            } => {
+                self.outputs.insert(
+                    format!("step.{number}.message_link"),
+                    format!("{}/{channel_id}/{message_id}", self.base),
+                );
+            }
+        }
+    }
+
+    async fn recall(&self, state: &AppState, step: Option<&Step>, row: &StepRow) -> Kept {
+        if let Some(matched) = row.matched {
+            return Kept::Matched(matched);
+        }
+        match (step, row.channel_id, row.message_id, self.fired.channel) {
+            (Some(Step::CreateChannel { .. }), Some(channel_id), _, _) => {
+                match state
+                    .workspace_service
+                    .repo
+                    .find_channel_by_id(channel_id)
+                    .await
+                {
+                    Ok(Some(channel)) => Kept::Channel(channel),
+                    _ => Kept::Nothing,
+                }
+            }
+            (Some(Step::ReplyInThread { .. }), _, Some(message_id), Some(channel_id)) => {
+                Kept::Reply {
+                    channel_id,
+                    message_id,
+                }
+            }
+            _ => Kept::Nothing,
+        }
+    }
+
+    async fn channel(&self, state: &AppState, channel: &ChannelRef) -> Result<Channel, String> {
+        let id = match channel {
+            ChannelRef::Channel { channel_id } => *channel_id,
+            ChannelRef::TriggerChannel => self
+                .fired
+                .channel
+                .ok_or_else(|| "This trigger has no channel".to_string())?,
+            ChannelRef::FromStep { step } => *self
+                .channels
+                .get(step)
+                .ok_or_else(|| "The channel that step made is gone".to_string())?,
+        };
+        state
+            .workspace_service
+            .repo
+            .find_channel_by_id(id)
+            .await
+            .map_err(internal)?
+            .filter(|channel| channel.workspace_id == self.workflow.workspace_id)
+            .ok_or_else(|| "That channel was deleted".to_string())
+    }
+
+    async fn trigger_message(&self, state: &AppState) -> Result<Message, String> {
+        let id = self
+            .fired
+            .message
+            .ok_or_else(|| "This trigger has no message".to_string())?;
+        state
+            .message_repo
+            .find_by_id(id)
+            .await
+            .map_err(internal)?
+            .filter(|message| message.deleted_at.is_none())
+            .ok_or_else(|| "The message it acts on was deleted".to_string())
+    }
 }
 
 fn summary(answers: &[MessageField]) -> String {
@@ -216,6 +352,18 @@ fn summary(answers: &[MessageField]) -> String {
         .join("\n\n")
 }
 
+fn channel_name(rendered: &str) -> String {
+    rendered
+        .trim()
+        .trim_start_matches('#')
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join("-")
+        .to_lowercase()
+        .trim_matches('-')
+        .to_string()
+}
+
 pub async fn execute(state: &AppState, run: &RunRow) {
     let workflow = match state.workflow_repo.find(run.workflow_id).await {
         Ok(Some(workflow)) => workflow,
@@ -227,12 +375,12 @@ pub async fn execute(state: &AppState, run: &RunRow) {
     };
     let (status, error) = match steps(state, &workflow, run).await {
         Ok(Outcome::Waiting) => return,
-        Ok(Outcome::Done) => (RunStatus::Succeeded, None),
+        Ok(Outcome::Done(_)) => (RunStatus::Succeeded, None),
         Err(reason) => (RunStatus::Failed, Some(reason)),
     };
     if let Err(e) = state
         .workflow_repo
-        .finish(run.id, workflow.version, status, error.as_deref())
+        .finish(run.id, status, error.as_deref())
         .await
     {
         warn!(run_id = %run.id, "could not finish a workflow run: {}", e);
@@ -243,8 +391,12 @@ async fn steps(state: &AppState, workflow: &WorkflowRow, run: &RunRow) -> Result
     if !workflow.enabled {
         return Err("The workflow was turned off before it ran".into());
     }
-    let definition = workflow
-        .definition()
+    let definition: Definition = state
+        .workflow_repo
+        .definition_at(workflow.id, run.workflow_version)
+        .await
+        .map_err(internal)?
+        .and_then(|value| serde_json::from_value(value).ok())
         .ok_or_else(|| "The workflow can't be read".to_string())?;
     let stopped = authz::still_acting(
         state,
@@ -253,7 +405,7 @@ async fn steps(state: &AppState, workflow: &WorkflowRow, run: &RunRow) -> Result
         definition.trigger.channel(),
     )
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(internal)?;
     match stopped {
         None => {}
         Some(Stopped::LostChannel) => {
@@ -275,46 +427,59 @@ async fn steps(state: &AppState, workflow: &WorkflowRow, run: &RunRow) -> Result
         .repo
         .get_member(workflow.workspace_id, workflow.created_by)
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(internal)?
         .ok_or_else(|| "The person who built it is no longer in this workspace".to_string())?;
     let done = state
         .workflow_repo
-        .finished_positions(run.id)
+        .finished_steps(run.id)
         .await
-        .map_err(|e| e.to_string())?;
-    if !done.is_empty() && workflow.version != run.workflow_version {
-        return Err("The workflow was edited while this run was under way".into());
-    }
-    let context = Context {
+        .map_err(internal)?;
+    let flat = definition.flat();
+    let mut context = Context {
         workflow,
         run,
         definition: &definition,
-        fired: fired(state, workflow, run)
-            .await
-            .map_err(|e| e.to_string())?,
+        fired: fired(state, workflow, run).await.map_err(internal)?,
+        base: format!("{}/app/{}", state.config.public_url, workflow.workspace_id),
+        outputs: HashMap::new(),
+        channels: HashMap::new(),
     };
 
-    for (index, step) in definition.steps.iter().enumerate() {
-        let position = index as i32;
-        if done.contains(&position) {
+    let mut taken = HashMap::new();
+    let mut finished = HashSet::new();
+    for row in &done {
+        let position = row.position as usize;
+        finished.insert(position);
+        let kept = context
+            .recall(state, flat.get(position).map(|node| node.step), row)
+            .await;
+        context.keep(position, &kept, &mut taken);
+    }
+
+    for (index, node) in flat.iter().enumerate() {
+        if finished.contains(&index) || !node.reached(|branch| taken.get(&branch).copied()) {
             continue;
         }
-        match run_step(state, &context, &creator, position, step).await {
-            Ok(Outcome::Done) => {}
+        match run_step(state, &context, &creator, index, node.step).await {
+            Ok(Outcome::Done(kept)) => context.keep(index, &kept, &mut taken),
             Ok(Outcome::Waiting) => return Ok(Outcome::Waiting),
             Err(reason) => {
                 if let Err(e) = state
                     .workflow_repo
-                    .record_step(run.id, position, Err(&reason))
+                    .record_step(run.id, index as i32, Err(&reason))
                     .await
                 {
                     warn!(run_id = %run.id, "could not record a failed step: {}", e);
                 }
-                return Err(format!("Step {} ({}): {reason}", index + 1, step.label()));
+                return Err(format!(
+                    "Step {} ({}): {reason}",
+                    index + 1,
+                    node.step.label()
+                ));
             }
         }
     }
-    Ok(Outcome::Done)
+    Ok(Outcome::Done(Kept::Nothing))
 }
 
 fn recipient_of(to: &Recipient, context: &Context<'_>) -> Result<Uuid, String> {
@@ -325,66 +490,100 @@ fn recipient_of(to: &Recipient, context: &Context<'_>) -> Result<Uuid, String> {
     }
 }
 
+async fn record(
+    state: &AppState,
+    context: &Context<'_>,
+    position: usize,
+    output: Output,
+) -> Result<(), String> {
+    state
+        .workflow_repo
+        .record_step(context.run.id, position as i32, Ok(output))
+        .await
+        .map_err(internal)
+}
+
 async fn run_step(
     state: &AppState,
     context: &Context<'_>,
-    creator: &crate::workspace::models::WorkspaceMember,
-    position: i32,
+    creator: &WorkspaceMember,
+    position: usize,
     step: &Step,
 ) -> Result<Outcome, String> {
-    let channel_id = match step {
+    let owner = creator.user_id;
+    let workspace_id = context.workflow.workspace_id;
+    match step {
         Step::SendMessage { channel_id, .. } => {
-            let access = authz::require_channel_post(state, *channel_id, creator.user_id)
+            let access = authz::require_channel_post(state, *channel_id, owner)
                 .await
                 .map_err(|_| "Its creator can no longer post in that channel".to_string())?;
             if access.channel.is_archived {
                 return Err("That channel is archived".into());
             }
-            *channel_id
+            post(state, context, creator, position, *channel_id, None, step).await?;
+            Ok(Outcome::Done(Kept::Nothing))
         }
         Step::SendDm { to, .. } => {
             let recipient = recipient_of(to, context)?;
-            if recipient == creator.user_id && *to == Recipient::TriggerUser {
-                state
-                    .workflow_repo
-                    .record_step(context.run.id, position, Ok(None))
-                    .await
-                    .map_err(|e| e.to_string())?;
-                return Ok(Outcome::Done);
+            if recipient == owner && *to == Recipient::TriggerUser {
+                record(state, context, position, Output::default()).await?;
+                return Ok(Outcome::Done(Kept::Nothing));
             }
-            dm_channel(state, creator, recipient).await?
+            let channel_id = dm_channel(state, creator, recipient).await?;
+            post(state, context, creator, position, channel_id, None, step).await?;
+            Ok(Outcome::Done(Kept::Nothing))
+        }
+        Step::ReplyInThread { .. } => {
+            let message = context.trigger_message(state).await?;
+            let access = authz::require_channel_post(state, message.channel_id, owner)
+                .await
+                .map_err(|_| "Its creator can no longer post in that channel".to_string())?;
+            if access.channel.is_archived {
+                return Err("That channel is archived".into());
+            }
+            let root = crate::messaging::routes::thread_root(state, message.channel_id, message.id)
+                .await
+                .map_err(|_| "The message it replies to was deleted".to_string())?;
+            let message_id = post(
+                state,
+                context,
+                creator,
+                position,
+                message.channel_id,
+                Some(root.id),
+                step,
+            )
+            .await?;
+            Ok(Outcome::Done(Kept::Reply {
+                channel_id: message.channel_id,
+                message_id,
+            }))
         }
         Step::AddListItem { list_id, cells } => {
-            return write_item(
-                state,
-                context,
-                creator.user_id,
-                position,
-                Item::New(*list_id),
-                cells,
-            )
-            .await;
+            write_item(state, context, owner, position, Item::New(*list_id), cells).await?;
+            Ok(Outcome::Done(Kept::Nothing))
         }
         Step::UpdateListItem { from_step, cells } => {
-            return write_item(
+            write_item(
                 state,
                 context,
-                creator.user_id,
+                owner,
                 position,
                 Item::From(*from_step),
                 cells,
             )
-            .await;
+            .await?;
+            Ok(Outcome::Done(Kept::Nothing))
         }
         Step::Form { to, title, fields } => {
             let recipient = recipient_of(to, context)?;
-            let channel_id = if recipient == creator.user_id {
+            let channel_id = if recipient == owner {
                 let channel_id = context
                     .definition
                     .trigger
                     .channel()
                     .ok_or_else(|| "A workflow can't send its creator a form".to_string())?;
-                authz::require_channel_post(state, channel_id, creator.user_id)
+                authz::require_channel_post(state, channel_id, owner)
                     .await
                     .map_err(|_| "Its creator can no longer post in that channel".to_string())?;
                 channel_id
@@ -394,29 +593,319 @@ async fn run_step(
             post_form(
                 state,
                 context,
-                creator.user_id,
-                position,
+                owner,
+                position as i32,
                 channel_id,
                 recipient,
                 title.trim(),
                 fields,
             )
             .await
-            .map_err(|e| e.to_string())?;
-            return Ok(Outcome::Waiting);
+            .map_err(internal)?;
+            Ok(Outcome::Waiting)
         }
-    };
+        Step::Branch { value, test, .. } => {
+            let subject = subject(state, context, owner, position, value).await?;
+            let matched = test.holds(&subject);
+            record(
+                state,
+                context,
+                position,
+                Output {
+                    matched: Some(matched),
+                    ..Output::default()
+                },
+            )
+            .await?;
+            Ok(Outcome::Done(Kept::Matched(matched)))
+        }
+        Step::Delay { wait } => {
+            let wake = state
+                .workflow_repo
+                .wake_time(wait)
+                .await
+                .map_err(internal)?;
+            if wake.too_far {
+                return Err(format!("It would wait more than {MAX_DELAY_DAYS} days"));
+            }
+            if wake.due {
+                record(state, context, position, Output::default()).await?;
+                return Ok(Outcome::Done(Kept::Nothing));
+            }
+            state
+                .workflow_repo
+                .sleep(context.run.id, position as i32, wake.at)
+                .await
+                .map_err(internal)?;
+            Ok(Outcome::Waiting)
+        }
+        Step::AddReaction { emoji } => {
+            let message = context.trigger_message(state).await?;
+            let access =
+                authz::require_message_access(state, message.channel_id, message.id, owner)
+                    .await
+                    .map_err(|_| "Its creator can no longer see that message".to_string())?;
+            if access.channel.is_archived {
+                return Err("That channel is archived".into());
+            }
+            if let Some(name) = shared_common::validation::custom_emoji_name(emoji) {
+                state
+                    .emoji_repo
+                    .find_by_name(workspace_id, name)
+                    .await
+                    .map_err(internal)?
+                    .ok_or_else(|| format!(":{name}: is not an emoji in this workspace"))?;
+            }
+            let mut tx = state.pool.begin().await.map_err(internal)?;
+            match state
+                .message_repo
+                .add_reaction_in(&mut tx, message.id, owner, emoji)
+                .await
+            {
+                Ok(reaction) => {
+                    state
+                        .workflow_repo
+                        .record_step_in(
+                            &mut tx,
+                            context.run.id,
+                            position as i32,
+                            Ok(Output::default()),
+                        )
+                        .await
+                        .map_err(internal)?;
+                    let staged = state
+                        .publisher
+                        .stage_reaction_added(&mut tx, &reaction, &message, workspace_id)
+                        .await
+                        .map_err(internal)?;
+                    tx.commit().await.map_err(internal)?;
+                    state.publisher.dispatch(staged).await;
+                }
+                Err(e) if shared_common::errors::is_unique_violation(&e) => {
+                    drop(tx);
+                    record(state, context, position, Output::default()).await?;
+                }
+                Err(e) => return Err(e.to_string()),
+            }
+            Ok(Outcome::Done(Kept::Nothing))
+        }
+        Step::CreateChannel { name, private } => {
+            let name = channel_name(&context.rendered(name));
+            shared_common::validation::validate_channel_name(&name).map_err(reason)?;
+            let kind = if *private {
+                ChannelType::Private
+            } else {
+                ChannelType::Public
+            };
+            authz::require_channel_creator(state, workspace_id, owner, &kind)
+                .await
+                .map_err(reason)?;
+            let mut tx = state.pool.begin().await.map_err(internal)?;
+            let channel = WorkspaceRepo::create_channel_tx(
+                &mut tx,
+                workspace_id,
+                &name,
+                &kind,
+                None,
+                owner,
+                false,
+            )
+            .await
+            .map_err(|e| {
+                if shared_common::errors::is_unique_violation(&e) {
+                    format!("A channel named #{name} already exists")
+                } else {
+                    e.to_string()
+                }
+            })?;
+            WorkspaceRepo::add_channel_member_tx(&mut tx, channel.id, owner, &ChannelRole::Admin)
+                .await
+                .map_err(internal)?;
+            state
+                .workflow_repo
+                .record_step_in(
+                    &mut tx,
+                    context.run.id,
+                    position as i32,
+                    Ok(Output::channel(channel.id)),
+                )
+                .await
+                .map_err(internal)?;
+            tx.commit().await.map_err(internal)?;
+            crate::workspace::routes::announce_created(state, &channel, owner, &ClientIp(None))
+                .await
+                .map_err(reason)?;
+            Ok(Outcome::Done(Kept::Channel(channel)))
+        }
+        Step::AddToChannel { channel, people } => {
+            let channel = context.channel(state, channel).await?;
+            let mut invited = Vec::new();
+            for invitee in people {
+                match invitee {
+                    Invitee::TriggerUser => invited.extend(context.fired.user),
+                    Invitee::Answer { field } => invited.extend(super::cells::person_id(
+                        &context.value(&format!("form.{field}")),
+                    )),
+                    Invitee::Group { group_id } => {
+                        let group = state
+                            .group_repo
+                            .find(*group_id)
+                            .await
+                            .map_err(internal)?
+                            .filter(|group| group.workspace_id == workspace_id)
+                            .ok_or_else(|| "The group it adds was deleted".to_string())?;
+                        invited.extend(
+                            state
+                                .group_repo
+                                .list_member_ids(group.id)
+                                .await
+                                .map_err(internal)?,
+                        );
+                    }
+                }
+            }
+            let mut seen = HashSet::new();
+            invited.retain(|user_id| seen.insert(*user_id));
+            for user_id in invited {
+                membership::invite(state, &channel, owner, user_id, &ClientIp(None))
+                    .await
+                    .map_err(reason)?;
+            }
+            record(state, context, position, Output::channel(channel.id)).await?;
+            Ok(Outcome::Done(Kept::Nothing))
+        }
+        Step::SetTopic { channel, topic } => {
+            let channel = context.channel(state, channel).await?;
+            authz::require_channel_edit(state, &channel, owner, authz::ChannelEdit::About)
+                .await
+                .map_err(|_| "Its creator can no longer change that channel's topic".to_string())?;
+            let topic = context.rendered(topic).trim().to_string();
+            shared_common::validation::validate_channel_topic(&topic).map_err(reason)?;
+            details::update(
+                state,
+                &channel,
+                owner,
+                &ClientIp(None),
+                Details {
+                    topic: Some(&topic),
+                    ..Details::default()
+                },
+            )
+            .await
+            .map_err(reason)?;
+            record(state, context, position, Output::channel(channel.id)).await?;
+            Ok(Outcome::Done(Kept::Nothing))
+        }
+        Step::ArchiveChannel { channel } => {
+            let channel = context.channel(state, channel).await?;
+            authz::require_not_conversation(&channel).map_err(reason)?;
+            if !authz::can_moderate_channel(state, &channel, owner).await {
+                return Err("Its creator can no longer archive that channel".into());
+            }
+            crate::workspace::routes::set_archived(state, &channel, owner, &ClientIp(None), true)
+                .await
+                .map_err(reason)?;
+            record(state, context, position, Output::channel(channel.id)).await?;
+            Ok(Outcome::Done(Kept::Nothing))
+        }
+    }
+}
 
+async fn subject(
+    state: &AppState,
+    context: &Context<'_>,
+    owner: Uuid,
+    position: usize,
+    value: &str,
+) -> Result<String, String> {
+    let workspace_id = context.workflow.workspace_id;
+    match source(value) {
+        Some(Source::Profile(field_id)) => {
+            let Some(user_id) = context.fired.user else {
+                return Ok(String::new());
+            };
+            let field = state
+                .profile_field_repo
+                .find(workspace_id, field_id)
+                .await
+                .map_err(internal)?
+                .ok_or_else(|| "The profile field it tests was deleted".to_string())?;
+            let raw = state
+                .profile_field_repo
+                .values_of(workspace_id, user_id)
+                .await
+                .map_err(internal)?
+                .remove(&field_id)
+                .unwrap_or_default();
+            Ok(match field.kind {
+                ProfileFieldKind::Options => raw
+                    .parse::<Uuid>()
+                    .ok()
+                    .and_then(|id| field.options.iter().find(|option| option.id == id))
+                    .map(|option| option.label.clone())
+                    .unwrap_or_default(),
+                _ => raw,
+            })
+        }
+        Some(Source::Column { step, column_id }) => {
+            let gone = || "The list item it tests was deleted".to_string();
+            let item_id = state
+                .workflow_repo
+                .item_of(context.run.id, step as i32)
+                .await
+                .map_err(internal)?
+                .ok_or_else(gone)?;
+            let list_id = context
+                .definition
+                .list_of(step)
+                .ok_or_else(|| "The step that added the item is gone".to_string())?;
+            crate::lists::service::readable(state, owner, list_id)
+                .await
+                .map_err(|_| "Its creator can no longer see that list".to_string())?;
+            let columns = state.list_repo.columns(list_id).await.map_err(internal)?;
+            let column = columns
+                .iter()
+                .find(|column| column.id == column_id)
+                .ok_or_else(|| "The column it tests was deleted".to_string())?;
+            let value = state
+                .workflow_repo
+                .item_value(item_id, column_id)
+                .await
+                .map_err(internal)?
+                .ok_or_else(gone)?;
+            Ok(super::cells::text(column, value.as_ref()))
+        }
+        Some(Source::Variable(name)) => {
+            let text = context.value(name);
+            Ok(match context.definition.variable_kind(position, name) {
+                VariableKind::Person => super::cells::person_id(&text)
+                    .map(|id| id.to_string())
+                    .unwrap_or_default(),
+                _ => text,
+            })
+        }
+        None => Ok(String::new()),
+    }
+}
+
+async fn post(
+    state: &AppState,
+    context: &Context<'_>,
+    creator: &WorkspaceMember,
+    position: usize,
+    channel_id: Uuid,
+    thread: Option<Uuid>,
+    step: &Step,
+) -> Result<Uuid, String> {
     let text = step.text().unwrap_or_default();
     let mut metadata = context.metadata();
     let (content, authored) = if step.summary() {
-        let at = position as usize;
-        let answers = context.answers(at, false);
+        let answers = context.answers(position, false);
         let content = format!("{}\n\n{}", context.rendered(text), summary(&answers));
         let authored = format!(
             "{}\n\n{}",
             context.authored(text),
-            summary(&context.answers(at, true))
+            summary(&context.answers(position, true))
         );
         metadata["fields"] = serde_json::json!(answers);
         (content, authored)
@@ -427,13 +916,14 @@ async fn run_step(
         crate::messaging::routes::expand_mentions(state, channel_id, creator.user_id, &authored)
             .await;
 
-    let internal = |e: sqlx::Error| e.to_string();
+    let workspace_id = context.workflow.workspace_id;
     let mut tx = state.pool.begin().await.map_err(internal)?;
     let message = state
         .message_repo
-        .create_bot_message_in(
+        .create_bot_reply_in(
             &mut tx,
             channel_id,
+            thread,
             creator.user_id,
             &content,
             &metadata,
@@ -443,17 +933,25 @@ async fn run_step(
         .map_err(internal)?;
     state
         .workflow_repo
-        .record_step_in(&mut tx, context.run.id, position, Ok(Some(message.id)))
+        .record_step_in(
+            &mut tx,
+            context.run.id,
+            position as i32,
+            Ok(Output::message(message.id)),
+        )
         .await
         .map_err(internal)?;
     let staged = state
         .publisher
-        .stage_message_created(&mut tx, &message, context.workflow.workspace_id, &mentioned)
+        .stage_message_created(&mut tx, &message, workspace_id, &mentioned)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(internal)?;
     tx.commit().await.map_err(internal)?;
     state.publisher.dispatch(staged).await;
-    Ok(Outcome::Done)
+    if let Some(root) = thread {
+        crate::threads::routes::announce_reply(state, root, workspace_id).await;
+    }
+    Ok(message.id)
 }
 
 enum Item {
@@ -461,24 +959,14 @@ enum Item {
     From(usize),
 }
 
-fn list_error(error: AppError) -> String {
-    match error {
-        AppError::Validation(message)
-        | AppError::NotFound(message)
-        | AppError::Forbidden(message)
-        | AppError::Conflict(message) => message,
-        other => other.to_string(),
-    }
-}
-
 async fn write_item(
     state: &AppState,
     context: &Context<'_>,
     creator: Uuid,
-    position: i32,
+    position: usize,
     target: Item,
     cells: &[CellValue],
-) -> Result<Outcome, String> {
+) -> Result<(), String> {
     let (list_id, item_id) = match target {
         Item::New(list_id) => (list_id, None),
         Item::From(step) => {
@@ -486,7 +974,7 @@ async fn write_item(
                 .workflow_repo
                 .item_of(context.run.id, step as i32)
                 .await
-                .map_err(|e| e.to_string())?
+                .map_err(internal)?
                 .ok_or_else(|| "The item it updates was deleted".to_string())?;
             let list_id = context
                 .definition
@@ -498,11 +986,7 @@ async fn write_item(
     let list = crate::lists::service::writable(state, creator, list_id)
         .await
         .map_err(|_| "Its creator can no longer add to that list".to_string())?;
-    let columns = state
-        .list_repo
-        .columns(list_id)
-        .await
-        .map_err(|e| e.to_string())?;
+    let columns = state.list_repo.columns(list_id).await.map_err(internal)?;
     let mut values = serde_json::Map::new();
     for cell in cells {
         let column = columns
@@ -514,7 +998,7 @@ async fn write_item(
         }
     }
 
-    let mut tx = state.pool.begin().await.map_err(|e| e.to_string())?;
+    let mut tx = state.pool.begin().await.map_err(internal)?;
     let write = match item_id {
         None => {
             crate::lists::service::create_item_in(state, &mut tx, creator, list_id, &values, None)
@@ -525,15 +1009,15 @@ async fn write_item(
                 .await
         }
     }
-    .map_err(list_error)?;
+    .map_err(reason)?;
     state
         .workflow_repo
-        .record_item_step_in(&mut tx, context.run.id, position, write.item.id)
+        .record_item_step_in(&mut tx, context.run.id, position as i32, write.item.id)
         .await
-        .map_err(|e| e.to_string())?;
-    tx.commit().await.map_err(|e| e.to_string())?;
+        .map_err(internal)?;
+    tx.commit().await.map_err(internal)?;
     write.announce(state).await;
-    Ok(Outcome::Done)
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -650,12 +1134,17 @@ async fn fired(state: &AppState, workflow: &WorkflowRow, run: &RunRow) -> sqlx::
             );
         }
     }
-    Ok(Fired { user, values })
+    Ok(Fired {
+        user,
+        channel: id("channel_id"),
+        message: id("message_id"),
+        values,
+    })
 }
 
 async fn dm_channel(
     state: &AppState,
-    creator: &crate::workspace::models::WorkspaceMember,
+    creator: &WorkspaceMember,
     recipient: Uuid,
 ) -> Result<Uuid, String> {
     if recipient == creator.user_id {

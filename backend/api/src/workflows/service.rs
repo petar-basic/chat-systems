@@ -6,15 +6,17 @@ use uuid::Uuid;
 use shared_common::errors::{AppError, AppResult};
 
 use super::models::*;
+use super::repo::{Output, StepRow};
 use super::routes::RUNS_PER_MINUTE;
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
 use crate::lists::models::ColumnKind;
 use crate::messaging::publisher::Staged;
 use crate::notifications::models::{NotificationData, NotificationType, SystemNotice};
+use crate::profile_fields::models::ProfileFieldKind;
 use crate::rate_limit::{self, LimiterFailure};
 use crate::state::AppState;
-use crate::workspace::models::{ChannelType, WhoMay, WorkspaceMember, WorkspaceRole};
+use crate::workspace::models::{Channel, ChannelType, WhoMay, WorkspaceMember, WorkspaceRole};
 
 pub fn webhook_url(state: &AppState, token: &str) -> String {
     format!("{}/api/workflows/webhook/{token}", state.config.public_url)
@@ -138,8 +140,17 @@ pub async fn check_authority(
             ));
         }
     }
-    for (index, step) in definition.steps.iter().enumerate() {
+    let flat = definition.flat();
+    for (index, node) in flat.iter().enumerate() {
         let at = format!("Step {}", index + 1);
+        let step = node.step;
+        let refused = |error: AppError| match error {
+            AppError::Validation(message)
+            | AppError::Forbidden(message)
+            | AppError::NotFound(message)
+            | AppError::Conflict(message) => AppError::Validation(format!("{at}: {message}")),
+            other => other,
+        };
         match step {
             Step::SendMessage {
                 channel_id, text, ..
@@ -229,9 +240,201 @@ pub async fn check_authority(
                 })?;
                 check_cells(state, workspace_id, definition, index, list_id, cells, true).await?;
             }
+            Step::Branch { value, test, .. } => {
+                check_branch(state, workspace_id, definition, &at, value, test).await?;
+            }
+            Step::Delay { wait } => {
+                if let Wait::Until { timezone, .. } = wait {
+                    if !state.workflow_repo.timezone_exists(timezone).await? {
+                        return Err(AppError::Validation(format!(
+                            "{at}: \"{timezone}\" isn't a timezone"
+                        )));
+                    }
+                    let wake = state.workflow_repo.wake_time(wait).await?;
+                    if wake.due {
+                        return Err(AppError::Validation(format!("{at}: that time has passed")));
+                    }
+                    if wake.too_far {
+                        return Err(AppError::Validation(format!(
+                            "{at}: a workflow waits at most {MAX_DELAY_DAYS} days"
+                        )));
+                    }
+                }
+            }
+            Step::AddReaction { emoji } => {
+                if let Some(name) = shared_common::validation::custom_emoji_name(emoji) {
+                    if state
+                        .emoji_repo
+                        .find_by_name(workspace_id, name)
+                        .await?
+                        .is_none()
+                    {
+                        return Err(AppError::Validation(format!(
+                            "{at}: :{name}: is not an emoji in this workspace"
+                        )));
+                    }
+                }
+            }
+            Step::ReplyInThread { text } => {
+                if let Some(channel_id) = definition.trigger.channel() {
+                    let access = authz::require_channel_post(state, channel_id, creator)
+                        .await
+                        .map_err(|_| {
+                            AppError::Validation(format!(
+                                "{at}: you can't post in the channel it listens to"
+                            ))
+                        })?;
+                    if crate::messaging::routes::mentions_everyone(text)
+                        && !authz::can_broadcast(state, &access.channel, creator).await?
+                    {
+                        return Err(AppError::Validation(format!(
+                            "{at}: you can't use @channel, @here or @everyone in that channel"
+                        )));
+                    }
+                }
+            }
+            Step::CreateChannel { private, .. } => {
+                let kind = if *private {
+                    ChannelType::Private
+                } else {
+                    ChannelType::Public
+                };
+                authz::require_channel_creator(state, workspace_id, creator, &kind)
+                    .await
+                    .map_err(refused)?;
+            }
+            Step::AddToChannel { channel, people } => {
+                fixed_channel(state, workspace_id, creator, &at, channel).await?;
+                for invitee in people {
+                    if let Invitee::Group { group_id } = invitee {
+                        let known = state
+                            .group_repo
+                            .find(*group_id)
+                            .await?
+                            .is_some_and(|group| group.workspace_id == workspace_id);
+                        if !known {
+                            return Err(AppError::Validation(format!(
+                                "{at}: that group isn't in this workspace"
+                            )));
+                        }
+                    }
+                }
+            }
+            Step::SetTopic { channel, .. } => {
+                if let Some(channel) =
+                    fixed_channel(state, workspace_id, creator, &at, channel).await?
+                {
+                    authz::require_channel_edit(
+                        state,
+                        &channel,
+                        creator,
+                        authz::ChannelEdit::About,
+                    )
+                    .await
+                    .map_err(|_| {
+                        AppError::Validation(format!("{at}: you can't change that channel's topic"))
+                    })?;
+                }
+            }
+            Step::ArchiveChannel { channel } => {
+                if let Some(channel) =
+                    fixed_channel(state, workspace_id, creator, &at, channel).await?
+                {
+                    if !authz::can_moderate_channel(state, &channel, creator).await {
+                        return Err(AppError::Validation(format!(
+                            "{at}: you can't archive that channel"
+                        )));
+                    }
+                }
+            }
         }
     }
     Ok(())
+}
+
+async fn fixed_channel(
+    state: &AppState,
+    workspace_id: Uuid,
+    creator: Uuid,
+    at: &str,
+    channel: &ChannelRef,
+) -> AppResult<Option<Channel>> {
+    let ChannelRef::Channel { channel_id } = channel else {
+        return Ok(None);
+    };
+    let refused = || AppError::Validation(format!("{at}: you can't see that channel"));
+    let access = authz::require_channel_access(state, *channel_id, creator)
+        .await
+        .map_err(|_| refused())?;
+    if access.channel.workspace_id != workspace_id
+        || !matches!(
+            access.channel.channel_type,
+            ChannelType::Public | ChannelType::Private
+        )
+    {
+        return Err(refused());
+    }
+    if access.channel.is_archived {
+        return Err(AppError::Validation(format!(
+            "{at}: that channel is archived"
+        )));
+    }
+    Ok(Some(access.channel))
+}
+
+async fn check_branch(
+    state: &AppState,
+    workspace_id: Uuid,
+    definition: &Definition,
+    at: &str,
+    value: &str,
+    test: &Test,
+) -> AppResult<()> {
+    match source(value) {
+        Some(Source::Profile(field_id)) => {
+            let field = state
+                .profile_field_repo
+                .find(workspace_id, field_id)
+                .await?
+                .ok_or_else(|| {
+                    AppError::Validation(format!("{at}: that profile field was deleted"))
+                })?;
+            let labels: Vec<String> = field.options.iter().map(|o| o.label.clone()).collect();
+            let kind = match field.kind {
+                ProfileFieldKind::Person => VariableKind::Person,
+                ProfileFieldKind::Options => VariableKind::Choice(&labels),
+                ProfileFieldKind::Date => VariableKind::Date,
+                ProfileFieldKind::Text | ProfileFieldKind::Link => VariableKind::Text,
+            };
+            check_test(at, test, kind)
+        }
+        Some(Source::Column { step, column_id }) => {
+            let list_id = definition.list_of(step).ok_or_else(|| {
+                AppError::Validation(format!("{at}: pick an earlier step that adds a list item"))
+            })?;
+            let columns = state.list_repo.columns(list_id).await?;
+            let column = columns
+                .iter()
+                .find(|column| column.id == column_id)
+                .ok_or_else(|| {
+                    AppError::Validation(format!("{at}: that list has no such column"))
+                })?;
+            let labels: Vec<String> = column
+                .options
+                .choices
+                .iter()
+                .map(|choice| choice.label.clone())
+                .collect();
+            let kind = match column.kind {
+                ColumnKind::Person => VariableKind::Person,
+                ColumnKind::Select => VariableKind::Choice(&labels),
+                ColumnKind::Date => VariableKind::Date,
+                _ => VariableKind::Text,
+            };
+            check_test(at, test, kind)
+        }
+        _ => Ok(()),
+    }
 }
 
 async fn check_cells(
@@ -533,20 +736,72 @@ pub async fn runs(state: &AppState, id: Uuid, user_id: Uuid) -> AppResult<Vec<Wo
     find_manageable(state, id, user_id).await?;
     let runs = state.workflow_repo.runs(id, HISTORY_LIMIT).await?;
     let ids: Vec<Uuid> = runs.iter().map(|run| run.id).collect();
-    let mut steps: HashMap<Uuid, Vec<RunStep>> = HashMap::new();
+    let mut versions: Vec<i32> = runs.iter().map(|run| run.workflow_version).collect();
+    versions.sort_unstable();
+    versions.dedup();
+    let labels: HashMap<i32, Vec<&'static str>> = state
+        .workflow_repo
+        .versions(id, &versions)
+        .await?
+        .into_iter()
+        .filter_map(|version| {
+            let definition: Definition = serde_json::from_value(version.definition).ok()?;
+            let labels = definition
+                .flat()
+                .iter()
+                .map(|node| node.step.label())
+                .collect();
+            Some((version.version, labels))
+        })
+        .collect();
+    let label_of = |version: i32, position: i32| {
+        labels
+            .get(&version)
+            .and_then(|labels| labels.get(position as usize))
+            .copied()
+            .unwrap_or("Step")
+            .to_string()
+    };
+    let mut steps: HashMap<Uuid, Vec<StepRow>> = HashMap::new();
     for (run_id, step) in state.workflow_repo.steps_of(&ids).await? {
         steps.entry(run_id).or_default().push(step);
     }
     Ok(runs
         .into_iter()
-        .map(|run| WorkflowRun {
-            steps: steps.remove(&run.id).unwrap_or_default(),
-            id: run.id,
-            workflow_version: run.workflow_version,
-            status: run.status,
-            error: run.error,
-            started_at: run.started_at,
-            finished_at: run.finished_at,
+        .map(|run| {
+            let version = run.workflow_version;
+            WorkflowRun {
+                steps: steps
+                    .remove(&run.id)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|row| RunStep {
+                        label: label_of(version, row.position),
+                        position: row.position,
+                        succeeded: row.succeeded,
+                        matched: row.matched,
+                        message_id: row.message_id,
+                        list_item_id: row.list_item_id,
+                        channel_id: row.channel_id,
+                        error: row.error,
+                        finished_at: row.finished_at,
+                    })
+                    .collect(),
+                waiting: run
+                    .waiting_at
+                    .filter(|_| run.status == RunStatus::Waiting)
+                    .map(|position| RunWaiting {
+                        position,
+                        label: label_of(version, position),
+                        until: run.waiting_until,
+                    }),
+                id: run.id,
+                workflow_version: version,
+                status: run.status,
+                error: run.error,
+                started_at: run.started_at,
+                finished_at: run.finished_at,
+            }
         })
         .collect())
 }
@@ -677,7 +932,7 @@ async fn answer_form(
         .await?;
     state
         .workflow_repo
-        .record_step_in(tx, run_id, position, Ok(Some(form.message_id)))
+        .record_step_in(tx, run_id, position, Ok(Output::message(form.message_id)))
         .await?;
     let message = state
         .message_repo

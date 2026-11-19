@@ -8,24 +8,22 @@ import { ConfirmDialog } from '@/shared/components/ConfirmDialog/ConfirmDialog';
 import { toUserMessage } from '@/lib/errors';
 import type { Channel, WorkspaceMember } from '@/stores/workspace';
 import { TriggerCard } from './TriggerCard';
-import { StepCard } from './StepCard';
+import { StepTree } from './StepTree';
 import { RunHistory } from './RunHistory';
 import { useWorkflowActions } from './useWorkflows';
 import type { Starter } from './templates';
 import {
   MAX_STEPS,
   NAME_MAX,
+  addStep,
   blankDefinition,
   blankStep,
   cleanDefinition,
-  formsBefore,
-  moveStep,
-  removeStep,
-  stepVariables,
-  triggerPerson,
+  flatten,
   unpicked,
   type Definition,
   type SaveWorkflow,
+  type Step,
   type Workflow,
 } from './workflowModel';
 
@@ -129,8 +127,10 @@ export function WorkflowEditor({
       if (workflow) setWorkflow(await actions.rotate.mutateAsync(workflow.id));
     }, "Couldn't make a new URL");
 
-  const setStep = (index: number, step: Definition['steps'][number]) =>
-    setDefinition((d) => ({ ...d, steps: d.steps.map((s, i) => (i === index ? step : s)) }));
+  const flat = flatten(definition.steps);
+  const full = flat.length >= MAX_STEPS;
+  const edit = (change: (steps: Step[]) => Step[]) =>
+    setDefinition((d) => ({ ...d, steps: change(d.steps) }));
 
   return (
     <Modal
@@ -223,7 +223,7 @@ export function WorkflowEditor({
       }
     >
       {view === 'history' && workflow ? (
-        <RunHistory workflowId={workflow.id} steps={definition.steps} instanceUrl={instanceUrl} />
+        <RunHistory workflowId={workflow.id} instanceUrl={instanceUrl} />
       ) : (
         <div className="space-y-4 py-3">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -256,39 +256,25 @@ export function WorkflowEditor({
             rotating={actions.rotate.isPending}
             onChange={(trigger) => setDefinition((d) => ({ ...d, trigger }))}
           />
-          <ol className="space-y-3" aria-label="Steps">
-            {definition.steps.map((step, index) => (
-              <li key={index}>
-                <StepCard
-                  step={step}
-                  index={index}
-                  count={definition.steps.length}
-                  definition={definition}
-                  workspaceId={workspaceId}
-                  instanceUrl={instanceUrl}
-                  channels={postable}
-                  people={people}
-                  members={members}
-                  variables={stepVariables(definition, index)}
-                  formBefore={formsBefore(definition.steps, index).length > 0}
-                  triggerPerson={triggerPerson(definition.trigger)}
-                  readOnly={readOnly}
-                  onChange={(next) => setStep(index, next)}
-                  onMove={(to) => setDefinition((d) => ({ ...d, steps: moveStep(d.steps, index, to) }))}
-                  onRemove={() => setDefinition((d) => ({ ...d, steps: removeStep(d.steps, index) }))}
-                />
-              </li>
-            ))}
-          </ol>
-          {!readOnly && definition.steps.length < MAX_STEPS && (
+          <StepTree
+            lane={null}
+            flat={flat}
+            definition={definition}
+            workspaceId={workspaceId}
+            instanceUrl={instanceUrl}
+            channels={postable}
+            people={people}
+            members={members}
+            full={full}
+            readOnly={readOnly}
+            onEdit={edit}
+          />
+          {!readOnly && !full && (
             <Button
               variant="ghost"
               icon={<Plus className="h-4 w-4" />}
               onClick={() =>
-                setDefinition((d) => ({
-                  ...d,
-                  steps: [...d.steps, blankStep('send_message', postable[0]?.id ?? '')],
-                }))
+                edit((steps) => addStep(steps, null, blankStep('send_message', postable[0]?.id ?? '')))
               }
               data-qa="workflow-step-add"
             >

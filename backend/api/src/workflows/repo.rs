@@ -50,6 +50,51 @@ pub struct StoppedWorkflow {
     pub name: String,
 }
 
+pub struct StepRow {
+    pub position: i32,
+    pub succeeded: bool,
+    pub matched: Option<bool>,
+    pub message_id: Option<Uuid>,
+    pub list_item_id: Option<Uuid>,
+    pub channel_id: Option<Uuid>,
+    pub error: Option<String>,
+    pub finished_at: DateTime<Utc>,
+}
+
+#[derive(Default)]
+pub struct Output {
+    pub message_id: Option<Uuid>,
+    pub channel_id: Option<Uuid>,
+    pub matched: Option<bool>,
+}
+
+impl Output {
+    pub fn message(message_id: Uuid) -> Self {
+        Self {
+            message_id: Some(message_id),
+            ..Self::default()
+        }
+    }
+
+    pub fn channel(channel_id: Uuid) -> Self {
+        Self {
+            channel_id: Some(channel_id),
+            ..Self::default()
+        }
+    }
+}
+
+pub struct WakeTime {
+    pub at: DateTime<Utc>,
+    pub due: bool,
+    pub too_far: bool,
+}
+
+pub struct Version {
+    pub version: i32,
+    pub definition: serde_json::Value,
+}
+
 impl WorkflowRepo {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
@@ -64,14 +109,19 @@ impl WorkflowRepo {
         schedule: Option<&Schedule<'_>>,
     ) -> sqlx::Result<Uuid> {
         sqlx::query_scalar!(
-            r"
-            INSERT INTO workflows (workspace_id, created_by, name, description, definition,
-                                   webhook_token, enabled, next_run_at)
-            VALUES ($1, $2, $3, $4, $5, $6, TRUE,
-                    CASE WHEN $7::smallint[] IS NOT NULL
-                         THEN workflow_next_run($7, $8, $9, NOW()) END)
-            RETURNING id
-            ",
+            r#"
+            WITH w AS (
+                INSERT INTO workflows (workspace_id, created_by, name, description, definition,
+                                       webhook_token, enabled, next_run_at)
+                VALUES ($1, $2, $3, $4, $5, $6, TRUE,
+                        CASE WHEN $7::smallint[] IS NOT NULL
+                             THEN workflow_next_run($7, $8, $9, NOW()) END)
+                RETURNING id, version, definition
+            )
+            INSERT INTO workflow_versions (workflow_id, version, definition)
+            SELECT id, version, definition FROM w
+            RETURNING workflow_id AS "id!"
+            "#,
             workspace_id,
             created_by,
             workflow.name,
@@ -94,10 +144,15 @@ impl WorkflowRepo {
     ) -> sqlx::Result<()> {
         sqlx::query!(
             r"
-            UPDATE workflows
-               SET name = $2, description = $3, definition = $4, webhook_token = $5,
-                   version = version + 1, updated_at = NOW()
-             WHERE id = $1
+            WITH w AS (
+                UPDATE workflows
+                   SET name = $2, description = $3, definition = $4, webhook_token = $5,
+                       version = version + 1, updated_at = NOW()
+                 WHERE id = $1
+                RETURNING id, version, definition
+            )
+            INSERT INTO workflow_versions (workflow_id, version, definition)
+            SELECT id, version, definition FROM w
             ",
             id,
             workflow.name,
@@ -163,6 +218,36 @@ impl WorkflowRepo {
             id
         )
         .fetch_optional(&self.pool)
+        .await
+    }
+
+    pub async fn definition_at(
+        &self,
+        workflow_id: Uuid,
+        version: i32,
+    ) -> sqlx::Result<Option<serde_json::Value>> {
+        sqlx::query_scalar!(
+            "SELECT definition FROM workflow_versions WHERE workflow_id = $1 AND version = $2",
+            workflow_id,
+            version
+        )
+        .fetch_optional(&self.pool)
+        .await
+    }
+
+    pub async fn versions(
+        &self,
+        workflow_id: Uuid,
+        versions: &[i32],
+    ) -> sqlx::Result<Vec<Version>> {
+        sqlx::query_as!(
+            Version,
+            "SELECT version, definition FROM workflow_versions
+              WHERE workflow_id = $1 AND version = ANY($2)",
+            workflow_id,
+            versions
+        )
+        .fetch_all(&self.pool)
         .await
     }
 
@@ -370,7 +455,8 @@ impl WorkflowRepo {
               ) due
              WHERE r.id = due.id
             RETURNING r.id, r.workflow_id, r.workflow_version, r.status AS "status: RunStatus",
-                      r.context, r.error, r.started_at, r.finished_at
+                      r.context, r.error, r.started_at, r.finished_at,
+                      r.waiting_at, r.resume_at AS waiting_until
             "#,
             limit
         )
@@ -378,12 +464,102 @@ impl WorkflowRepo {
         .await
     }
 
-    pub async fn finished_positions(&self, run_id: Uuid) -> sqlx::Result<Vec<i32>> {
-        sqlx::query_scalar!(
-            "SELECT position FROM workflow_run_steps WHERE run_id = $1 AND succeeded",
+    pub async fn finished_steps(&self, run_id: Uuid) -> sqlx::Result<Vec<StepRow>> {
+        sqlx::query_as!(
+            StepRow,
+            r"
+            SELECT position, succeeded, matched, message_id, list_item_id, channel_id, error,
+                   finished_at
+              FROM workflow_run_steps
+             WHERE run_id = $1 AND succeeded
+             ORDER BY position
+            ",
             run_id
         )
         .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn wake_time(&self, wait: &Wait) -> sqlx::Result<WakeTime> {
+        let moment = wait.moment();
+        sqlx::query_as!(
+            WakeTime,
+            r#"
+            SELECT at AS "at!", at <= NOW() AS "due!",
+                   at > NOW() + make_interval(days => $5) AS "too_far!"
+              FROM (SELECT COALESCE(($1::date + $2::time) AT TIME ZONE $3,
+                                    NOW() + make_interval(mins => $4::int)) AS at) w
+            "#,
+            moment.map(|(date, _, _)| date),
+            moment.map(|(_, time, _)| time),
+            moment.map(|(_, _, timezone)| timezone),
+            wait.minutes().map(|minutes| minutes as i32),
+            MAX_DELAY_DAYS as i32
+        )
+        .fetch_one(&self.pool)
+        .await
+    }
+
+    pub async fn sleep(
+        &self,
+        run_id: Uuid,
+        position: i32,
+        until: DateTime<Utc>,
+    ) -> sqlx::Result<()> {
+        sqlx::query!(
+            r"
+            UPDATE workflow_runs
+               SET status = 'waiting', waiting_at = $2, resume_at = $3
+             WHERE id = $1
+            ",
+            run_id,
+            position,
+            until
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn resume_due(&self, limit: i64) -> sqlx::Result<Vec<Uuid>> {
+        sqlx::query_scalar!(
+            r"
+            WITH due AS (
+                SELECT id, waiting_at FROM workflow_runs
+                 WHERE status = 'waiting' AND resume_at <= NOW()
+                 ORDER BY resume_at
+                 LIMIT $1
+                 FOR UPDATE SKIP LOCKED
+            ), slept AS (
+                INSERT INTO workflow_run_steps (run_id, position, succeeded)
+                SELECT id, waiting_at, TRUE FROM due WHERE waiting_at IS NOT NULL
+                ON CONFLICT (run_id, position) DO UPDATE
+                   SET succeeded = TRUE, error = NULL, finished_at = NOW()
+            )
+            UPDATE workflow_runs r
+               SET status = 'pending', claimed_at = NULL, waiting_at = NULL, resume_at = NULL
+              FROM due
+             WHERE r.id = due.id
+            RETURNING r.id
+            ",
+            limit
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn item_value(
+        &self,
+        item_id: Uuid,
+        column_id: Uuid,
+    ) -> sqlx::Result<Option<Option<serde_json::Value>>> {
+        sqlx::query_scalar!(
+            r#"SELECT "values" -> $2::text AS "value" FROM list_items
+                WHERE id = $1 AND deleted_at IS NULL"#,
+            item_id,
+            column_id.to_string()
+        )
+        .fetch_optional(&self.pool)
         .await
     }
 
@@ -427,24 +603,28 @@ impl WorkflowRepo {
         conn: &mut PgConnection,
         run_id: Uuid,
         position: i32,
-        outcome: Result<Option<Uuid>, &str>,
+        outcome: Result<Output, &str>,
     ) -> sqlx::Result<()> {
-        let (succeeded, message_id, error) = match outcome {
-            Ok(message_id) => (true, message_id, None),
-            Err(error) => (false, None, Some(error)),
+        let (succeeded, output, error) = match outcome {
+            Ok(output) => (true, output, None),
+            Err(error) => (false, Output::default(), Some(error)),
         };
         sqlx::query!(
             r"
-            INSERT INTO workflow_run_steps (run_id, position, succeeded, message_id, error)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO workflow_run_steps
+                   (run_id, position, succeeded, message_id, channel_id, matched, error)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             ON CONFLICT (run_id, position) DO UPDATE
                SET succeeded = EXCLUDED.succeeded, message_id = EXCLUDED.message_id,
+                   channel_id = EXCLUDED.channel_id, matched = EXCLUDED.matched,
                    error = EXCLUDED.error, finished_at = NOW()
             ",
             run_id,
             position,
             succeeded,
-            message_id,
+            output.message_id,
+            output.channel_id,
+            output.matched,
             error
         )
         .execute(&mut *conn)
@@ -456,7 +636,7 @@ impl WorkflowRepo {
         &self,
         run_id: Uuid,
         position: i32,
-        outcome: Result<Option<Uuid>, &str>,
+        outcome: Result<Output, &str>,
     ) -> sqlx::Result<()> {
         let mut conn = self.pool.acquire().await?;
         self.record_step_in(&mut conn, run_id, position, outcome)
@@ -466,18 +646,17 @@ impl WorkflowRepo {
     pub async fn finish(
         &self,
         run_id: Uuid,
-        version: i32,
         status: RunStatus,
         error: Option<&str>,
     ) -> sqlx::Result<()> {
         sqlx::query!(
             r"
             UPDATE workflow_runs
-               SET status = $3, error = $4, workflow_version = $2, finished_at = NOW()
+               SET status = $2, error = $3, waiting_at = NULL, resume_at = NULL,
+                   finished_at = NOW()
              WHERE id = $1
             ",
             run_id,
-            version,
             status as RunStatus,
             error
         )
@@ -490,11 +669,14 @@ impl WorkflowRepo {
         sqlx::query_as!(
             RunRow,
             r#"
-            SELECT id, workflow_id, workflow_version, status AS "status: RunStatus",
-                   context, error, started_at, finished_at
-              FROM workflow_runs
-             WHERE workflow_id = $1
-             ORDER BY started_at DESC, id
+            SELECT r.id, r.workflow_id, r.workflow_version, r.status AS "status: RunStatus",
+                   r.context, r.error, r.started_at, r.finished_at, r.waiting_at,
+                   COALESCE(r.resume_at, f.expires_at) AS waiting_until
+              FROM workflow_runs r
+              LEFT JOIN workflow_forms f
+                     ON f.run_id = r.id AND f.position = r.waiting_at AND f.answered_at IS NULL
+             WHERE r.workflow_id = $1
+             ORDER BY r.started_at DESC, r.id
              LIMIT $2
             "#,
             workflow_id,
@@ -504,10 +686,11 @@ impl WorkflowRepo {
         .await
     }
 
-    pub async fn steps_of(&self, run_ids: &[Uuid]) -> sqlx::Result<Vec<(Uuid, RunStep)>> {
+    pub async fn steps_of(&self, run_ids: &[Uuid]) -> sqlx::Result<Vec<(Uuid, StepRow)>> {
         let rows = sqlx::query!(
             r"
-            SELECT run_id, position, succeeded, message_id, list_item_id, error, finished_at
+            SELECT run_id, position, succeeded, matched, message_id, list_item_id, channel_id,
+                   error, finished_at
               FROM workflow_run_steps
              WHERE run_id = ANY($1)
              ORDER BY run_id, position
@@ -521,11 +704,13 @@ impl WorkflowRepo {
             .map(|row| {
                 (
                     row.run_id,
-                    RunStep {
+                    StepRow {
                         position: row.position,
                         succeeded: row.succeeded,
+                        matched: row.matched,
                         message_id: row.message_id,
                         list_item_id: row.list_item_id,
+                        channel_id: row.channel_id,
                         error: row.error,
                         finished_at: row.finished_at,
                     },
@@ -545,9 +730,8 @@ impl WorkflowRepo {
             SELECT id, name, enabled, created_by
               FROM workflows
              WHERE workspace_id = $1
-               AND (definition #>> '{trigger,channel_id}' = $2
-                    OR definition->'steps' @> jsonb_build_array(
-                         jsonb_build_object('type', 'send_message', 'channel_id', $2::text)))
+               AND jsonb_path_exists(definition, 'strict $.**.channel_id ? (@ == $c)',
+                                     jsonb_build_object('c', $2::text))
              ORDER BY lower(name)
             ",
             workspace_id,
@@ -600,8 +784,9 @@ impl WorkflowRepo {
         .execute(&mut *conn)
         .await?;
         sqlx::query!(
-            "UPDATE workflow_runs SET status = 'waiting' WHERE id = $1",
-            run_id
+            "UPDATE workflow_runs SET status = 'waiting', waiting_at = $2 WHERE id = $1",
+            run_id,
+            position
         )
         .execute(&mut *conn)
         .await?;
@@ -654,7 +839,7 @@ impl WorkflowRepo {
             r"
             UPDATE workflow_runs
                SET context = jsonb_set(context, '{form}', COALESCE(context->'form', '{}'::jsonb) || $2::jsonb),
-                   status = 'pending', claimed_at = NULL
+                   status = 'pending', claimed_at = NULL, waiting_at = NULL
              WHERE id = $1
             ",
             run_id,
@@ -674,7 +859,7 @@ impl WorkflowRepo {
             ExpiredForm,
             r"
             UPDATE workflow_runs r
-               SET status = 'expired', error = $1, finished_at = NOW()
+               SET status = 'expired', error = $1, waiting_at = NULL, finished_at = NOW()
               FROM workflow_forms f, workflows w
              WHERE f.run_id = r.id AND w.id = r.workflow_id
                AND r.status = 'waiting' AND f.answered_at IS NULL AND f.expires_at <= NOW()

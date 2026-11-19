@@ -10,7 +10,7 @@ pub fn single_variable(template: &str) -> Option<&str> {
     (!inner.contains("{{") && !inner.contains("}}")).then(|| inner.trim())
 }
 
-fn person(text: &str) -> Option<Uuid> {
+pub fn person_id(text: &str) -> Option<Uuid> {
     let text = text.trim();
     if let Ok(id) = text.parse() {
         return Some(id);
@@ -73,7 +73,7 @@ pub fn value(column: &ListColumn, rendered: &str) -> Result<Option<Value>, Strin
             }
             Value::Array(ids)
         }
-        ColumnKind::Person => person(text)
+        ColumnKind::Person => person_id(text)
             .map(|id| Value::String(id.to_string()))
             .ok_or_else(|| format!("\u{201c}{name}\u{201d} needs a person"))?,
         ColumnKind::Date => NaiveDate::parse_from_str(text, "%Y-%m-%d")
@@ -84,6 +84,25 @@ pub fn value(column: &ListColumn, rendered: &str) -> Result<Option<Value>, Strin
             .ok_or_else(|| format!("\u{201c}{name}\u{201d} needs yes or no"))?,
     };
     Ok(Some(value))
+}
+
+pub fn text(column: &ListColumn, value: Option<&Value>) -> String {
+    let label = |id: &Value| {
+        id.as_str()
+            .and_then(|id| column.options.choice(id))
+            .map(|choice| choice.label.clone())
+    };
+    match (column.kind, value) {
+        (_, None | Some(Value::Null)) => String::new(),
+        (ColumnKind::Select, Some(id)) => label(id).unwrap_or_default(),
+        (ColumnKind::MultiSelect, Some(Value::Array(ids))) => {
+            ids.iter().filter_map(label).collect::<Vec<_>>().join(", ")
+        }
+        (ColumnKind::Checkbox, Some(Value::Bool(true))) => "true".into(),
+        (ColumnKind::Checkbox, Some(_)) => String::new(),
+        (_, Some(Value::String(text))) => text.clone(),
+        (_, Some(other)) => other.to_string(),
+    }
 }
 
 pub fn check<'a>(

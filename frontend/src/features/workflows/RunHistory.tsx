@@ -1,12 +1,11 @@
 import { CheckCircle2, CircleDashed, XCircle } from 'lucide-react';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { formatDateTime } from '@/lib/datetime';
-import { stepLabel, type Step, type WorkflowRun } from './workflowModel';
+import type { WorkflowRun } from './workflowModel';
 import { useWorkflowRuns } from './useWorkflows';
 
 interface Props {
   workflowId: string;
-  steps: Step[];
   instanceUrl?: string;
 }
 
@@ -15,11 +14,11 @@ const STATUS: Record<WorkflowRun['status'], { label: string; className: string }
   running: { label: 'Running', className: 'text-accent' },
   succeeded: { label: 'Succeeded', className: 'text-success' },
   failed: { label: 'Failed', className: 'text-danger' },
-  waiting: { label: 'Waiting for a form', className: 'text-accent' },
+  waiting: { label: 'Waiting', className: 'text-accent' },
   expired: { label: 'Expired', className: 'text-muted' },
 };
 
-export function RunHistory({ workflowId, steps, instanceUrl }: Props) {
+export function RunHistory({ workflowId, instanceUrl }: Props) {
   const runs = useWorkflowRuns(workflowId, instanceUrl);
 
   if (runs.isLoading) {
@@ -57,33 +56,45 @@ export function RunHistory({ workflowId, steps, instanceUrl }: Props) {
                 {run.error}
               </p>
             )}
-            {run.steps.length > 0 && (
+            {(run.steps.length > 0 || run.waiting) && (
               <ul className="mt-2 space-y-1">
-                {run.steps.map((outcome) => {
-                  const step = steps[outcome.position];
-                  return (
-                    <li
-                      key={outcome.position}
-                      className="flex items-center gap-1.5 text-xs text-fg-soft"
-                      data-qa="workflow-run-step"
-                    >
+                {run.steps.map((outcome) => (
+                  <li key={outcome.position} className="text-xs text-fg-soft" data-qa="workflow-run-step">
+                    <span className="flex items-center gap-1.5">
                       {outcome.succeeded ? (
                         <CheckCircle2 className="h-3.5 w-3.5 text-success" aria-label="Done" />
                       ) : (
                         <XCircle className="h-3.5 w-3.5 text-danger" aria-label="Failed" />
                       )}
-                      Step {outcome.position + 1}
-                      {step && ` · ${stepLabel(step)}`}
-                    </li>
-                  );
-                })}
-                {(run.status === 'running' || run.status === 'waiting') &&
-                  steps.slice(run.steps.length).map((step, i) => (
-                    <li key={`todo-${i}`} className="flex items-center gap-1.5 text-xs text-muted">
-                      <CircleDashed className="h-3.5 w-3.5" aria-label="Waiting" />
-                      Step {run.steps.length + i + 1} · {stepLabel(step)}
-                    </li>
-                  ))}
+                      Step {outcome.position + 1} · {outcome.label}
+                      {outcome.matched != null && (
+                        <span className="text-muted" data-qa="workflow-run-path">
+                          — took the {outcome.matched ? '“If it matches”' : '“Otherwise”'} path
+                        </span>
+                      )}
+                    </span>
+                    {outcome.error && (
+                      <span className="ml-5 block text-danger" data-qa="workflow-run-step-error">
+                        {outcome.error}
+                      </span>
+                    )}
+                  </li>
+                ))}
+                {run.waiting && (
+                  <li
+                    className="flex items-center gap-1.5 text-xs text-accent"
+                    data-qa="workflow-run-waiting"
+                  >
+                    <CircleDashed className="h-3.5 w-3.5" aria-label="Waiting" />
+                    Waiting at step {run.waiting.position + 1} · {run.waiting.label}
+                    {run.waiting.until && (
+                      <>
+                        {' '}
+                        until <time dateTime={run.waiting.until}>{formatDateTime(run.waiting.until)}</time>
+                      </>
+                    )}
+                  </li>
+                )}
               </ul>
             )}
           </li>

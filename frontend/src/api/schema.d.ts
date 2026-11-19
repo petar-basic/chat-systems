@@ -4791,6 +4791,19 @@ export interface components {
             messages: number;
             private: boolean;
         };
+        ChannelRef: {
+            /** Format: uuid */
+            channel_id: string;
+            /** @enum {string} */
+            kind: "channel";
+        } | {
+            /** @enum {string} */
+            kind: "trigger_channel";
+        } | {
+            /** @enum {string} */
+            kind: "from_step";
+            step: number;
+        };
         ChannelRetention: {
             channel?: components["schemas"]["ChannelOverride"] | null;
             overrides_allowed: boolean;
@@ -5914,6 +5927,7 @@ export interface components {
                 started_at: string;
                 status: components["schemas"]["RunStatus"];
                 steps: components["schemas"]["RunStep"][];
+                waiting?: components["schemas"]["RunWaiting"] | null;
                 /** Format: int32 */
                 workflow_version: number;
             }[];
@@ -6016,6 +6030,8 @@ export interface components {
             steps: components["schemas"]["Step"][];
             trigger: components["schemas"]["Trigger"];
         };
+        /** @enum {string} */
+        DelayUnit: "minutes" | "hours" | "days";
         /** @enum {string} */
         Density: "clean" | "compact";
         DepartedParticipant: {
@@ -6499,6 +6515,19 @@ export interface components {
         };
         /** @enum {string} */
         InviteRequestStatus: "pending" | "approved" | "declined" | "expired";
+        Invitee: {
+            /** @enum {string} */
+            kind: "trigger_user";
+        } | {
+            field: string;
+            /** @enum {string} */
+            kind: "answer";
+        } | {
+            /** Format: uuid */
+            group_id: string;
+            /** @enum {string} */
+            kind: "group";
+        };
         InvokeRequest: {
             command: string;
             text?: string;
@@ -7237,16 +7266,27 @@ export interface components {
         /** @enum {string} */
         RunStatus: "pending" | "running" | "succeeded" | "failed" | "waiting" | "expired";
         RunStep: {
+            /** Format: uuid */
+            channel_id?: string | null;
             error?: string | null;
             /** Format: date-time */
             finished_at: string;
+            label: string;
             /** Format: uuid */
             list_item_id?: string | null;
+            matched?: boolean | null;
             /** Format: uuid */
             message_id?: string | null;
             /** Format: int32 */
             position: number;
             succeeded: boolean;
+        };
+        RunWaiting: {
+            label: string;
+            /** Format: int32 */
+            position: number;
+            /** Format: date-time */
+            until?: string | null;
         };
         SaveDraftRequest: {
             /** Format: uuid */
@@ -7508,6 +7548,44 @@ export interface components {
             from_step: number;
             /** @enum {string} */
             type: "update_list_item";
+        } | {
+            otherwise: components["schemas"]["Step"][];
+            test: components["schemas"]["Test"];
+            then: components["schemas"]["Step"][];
+            /** @enum {string} */
+            type: "branch";
+            value: string;
+        } | {
+            /** @enum {string} */
+            type: "delay";
+            wait: components["schemas"]["Wait"];
+        } | {
+            emoji: string;
+            /** @enum {string} */
+            type: "add_reaction";
+        } | {
+            text: string;
+            /** @enum {string} */
+            type: "reply_in_thread";
+        } | {
+            name: string;
+            private?: boolean;
+            /** @enum {string} */
+            type: "create_channel";
+        } | {
+            channel: components["schemas"]["ChannelRef"];
+            people: components["schemas"]["Invitee"][];
+            /** @enum {string} */
+            type: "add_to_channel";
+        } | {
+            channel: components["schemas"]["ChannelRef"];
+            topic: string;
+            /** @enum {string} */
+            type: "set_topic";
+        } | {
+            channel: components["schemas"]["ChannelRef"];
+            /** @enum {string} */
+            type: "archive_channel";
         };
         /** @enum {string} */
         Stopped: "inactive" | "left_workspace" | "lost_channel" | "demoted";
@@ -7551,6 +7629,26 @@ export interface components {
         };
         /** @enum {string} */
         SystemNotice: "workflow_stopped" | "app_requested" | "not_delivered" | "guest_ending" | "invite_requested" | "invite_request_approved" | "invite_request_declined" | "invite_request_expired";
+        Test: {
+            /** @enum {string} */
+            op: "equals";
+            value: string;
+        } | {
+            /** @enum {string} */
+            op: "contains";
+            value: string;
+        } | {
+            /** @enum {string} */
+            op: "is_empty";
+        } | {
+            /** @enum {string} */
+            op: "greater_than";
+            value: string;
+        } | {
+            /** @enum {string} */
+            op: "one_of";
+            values: string[];
+        };
         /** @enum {string} */
         TextKind: "plain_text" | "mrkdwn";
         /** @enum {string} */
@@ -7979,6 +8077,19 @@ export interface components {
             option_ids: string[];
             poll: components["schemas"]["PollSummary"];
         };
+        Wait: {
+            /** Format: int64 */
+            amount: number;
+            /** @enum {string} */
+            kind: "for";
+            unit: components["schemas"]["DelayUnit"];
+        } | {
+            date: string;
+            /** @enum {string} */
+            kind: "until";
+            time: string;
+            timezone: string;
+        };
         /** @enum {string} */
         Weekday: "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
         WeeklyActivity: {
@@ -8022,6 +8133,7 @@ export interface components {
             started_at: string;
             status: components["schemas"]["RunStatus"];
             steps: components["schemas"]["RunStep"][];
+            waiting?: components["schemas"]["RunWaiting"] | null;
             /** Format: int32 */
             workflow_version: number;
         };
