@@ -167,6 +167,43 @@
     "file": "プロフィール写真のファイル",
     "upload": "写真をアップロード"
   },
+  "editProfile": {
+    "title": "プロフィールを編集",
+    "intro": "<workspace>{{name}}</workspace> でのあなたのプロフィールです。空欄の項目には、アカウントの内容が使われます。",
+    "displayName": "表示名",
+    "jobTitle": "肩書き",
+    "titlePlaceholder": "担当や役職。例: 経理部長",
+    "pronouns": "代名詞",
+    "pronounsPlaceholder": "例: they/them",
+    "bio": "自己紹介",
+    "bioPlaceholder": "担当している仕事、勤務地、連絡方法など",
+    "useAccountPhoto": "アカウントの写真を使う",
+    "removePhoto": "写真を削除",
+    "save": "変更を保存",
+    "saveFailed": "プロフィールを保存できませんでした。",
+    "uploadFailed": "写真をアップロードできませんでした。"
+  },
+  "status": {
+    "label": "ステータス",
+    "emoji": "ステータスの絵文字 {{emoji}}",
+    "chooseEmoji": "ステータスの絵文字を選択",
+    "placeholder": "今どうしていますか？",
+    "clear": "ステータスをクリア",
+    "presets": {
+      "meeting": "会議中",
+      "lunch": "昼休み中",
+      "sick": "病欠",
+      "holiday": "休暇中"
+    },
+    "clearAfter": "クリアするまで",
+    "durations": {
+      "never": "クリアしない",
+      "minutes_other": "{{count}} 分",
+      "hours_other": "{{count}} 時間",
+      "today": "12 時間"
+    },
+    "clearsAt": "{{time}} にクリアされます"
+  },
   "twoFactor": {
     "title": "2要素認証",
     "on_other": "オン。リカバリーコードは残り {{count}} 個です。",
