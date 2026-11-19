@@ -66,7 +66,26 @@ describe('SidebarChannelRow with a draft', () => {
 
 describe('SidebarChannelRow in Japanese', () => {
   afterEach(async () => {
+    useDraftStore.setState({ drafts: {} });
     await i18n.changeLanguage('en');
+  });
+
+  it('names the pencil of a channel holding a draft', async () => {
+    await i18n.changeLanguage('ja');
+    useDraftStore.getState().setDraft('ch-1', 'half a thought');
+    render(
+      <SidebarChannelRow
+        channel={channel}
+        active={false}
+        muted={false}
+        unread={false}
+        mentioned={false}
+        unreadCount={undefined}
+        mentionCount={undefined}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('sidebar-channel-draft')).toHaveAttribute('aria-label', '下書き');
   });
 
   it('names the move button after the channel, as text', async () => {

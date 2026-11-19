@@ -1,10 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import type { Channel } from '@/stores/workspace';
 import type { Conversation } from '@/features/messaging';
 import { REMOTE_DRAFT_EVENT, useDraftStore, type DraftPlace } from '@/stores/drafts';
+import i18n from '@/lib/i18n';
 import { DraftsList } from './DraftsList';
+
+const hostile = '<img src=x onerror="alert(1)"> {{name}}';
 
 const URL = 'https://chat.example';
 const place = (
@@ -108,5 +111,40 @@ describe('DraftsList', () => {
     expect(useDraftStore.getState().entry('ch-1')).toMatchObject({ text: '', pending: true });
     expect(heard).toEqual(['ch-1']);
     window.removeEventListener(REMOTE_DRAFT_EVENT, listen);
+  });
+});
+
+describe('DraftsList in Japanese', () => {
+  beforeEach(async () => {
+    vi.useRealTimers();
+    useDraftStore.setState({ drafts: {} });
+    await i18n.changeLanguage('ja');
+  });
+
+  afterEach(async () => {
+    useDraftStore.setState({ drafts: {} });
+    await i18n.changeLanguage('en');
+  });
+
+  it('says there are no drafts and that they wait on every device', () => {
+    renderList();
+    expect(screen.getByTestId('drafts-empty').textContent).toBe(
+      '下書きはありません。メッセージを書きかけのまま送信せずにおくと、ここに残ります。サインインしているどの端末からでも見られます。',
+    );
+  });
+
+  it('shows a draft as text, and says its files stayed behind', () => {
+    useDraftStore
+      .getState()
+      .setDraft('ch-1/m-1', hostile, { place: place('ch-1', 'm-1'), filesLeftBehind: true });
+    renderList();
+
+    expect(screen.getByTestId('draft-content').textContent).toBe(hostile);
+    expect(screen.getByTestId('draft-target')).toHaveTextContent('#design · スレッド');
+    expect(screen.getByTestId('draft-files-left').textContent).toBe(
+      '添付ファイルは、追加した端末にだけ残っています',
+    );
+    expect(screen.getByRole('button', { name: '下書きを削除' })).toBeInTheDocument();
+    expect(document.querySelector('[onerror]')).toBeNull();
   });
 });
