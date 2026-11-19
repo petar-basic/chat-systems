@@ -2,6 +2,7 @@ import type { TFunction } from 'i18next';
 import type { components } from '@/api/schema';
 import { failureKey } from '@/lib/scheduledFailure';
 import { formatDay } from '@/lib/datetime';
+import i18n from '@/lib/i18n';
 
 export type NotificationData = components['schemas']['NotificationData'];
 
@@ -13,7 +14,7 @@ export interface NotificationText {
 type Translate = TFunction<['notifications', 'messages']>;
 
 function emailsOf(data: NotificationData, said: string): string {
-  return data.invite_emails?.join(', ') || said;
+  return data.invite_emails?.join(i18n.t('common:listSeparator')) || said;
 }
 
 function systemText(t: Translate, data: NotificationData, said: string, sender: string): NotificationText {

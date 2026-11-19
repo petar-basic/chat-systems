@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import i18n from '@/lib/i18n';
 import NotificationsPanel from './NotificationsPanel';
 import type { AppNotification } from './hooks/useNotifications';
 
@@ -25,7 +26,10 @@ function row(overrides: Partial<AppNotification>): AppNotification {
   };
 }
 
-const rows = [
+const hostile = '<img src=x onerror="alert(1)"> {{name}}';
+
+let rows: AppNotification[] = [];
+const english = [
   row({ notification_type: 'dm', data: { sender_name: 'Ana' }, body: 'lunch?' }),
   row({
     notification_type: 'keyword',
@@ -38,6 +42,8 @@ const rows = [
     data: { notice: 'not_delivered', failure: 'recipient_left' },
   }),
 ];
+
+rows = english;
 
 vi.mock('react-router', () => ({ useNavigate: () => vi.fn() }));
 vi.mock('./hooks/useNotifications', () => ({
@@ -61,5 +67,32 @@ describe('NotificationsPanel', () => {
     ]);
     expect(screen.getByText('Someone is starting a huddle')).toBeInTheDocument();
     expect(screen.getByText('The person you wrote to has left the workspace.')).toBeInTheDocument();
+  });
+});
+
+describe('NotificationsPanel in Japanese', () => {
+  afterEach(async () => {
+    rows = english;
+    await i18n.changeLanguage('en');
+  });
+
+  it('writes each row in Japanese, with names as text', async () => {
+    rows = [
+      row({
+        notification_type: 'reaction',
+        data: { sender_name: hostile, channel_name: 'ops' },
+        body: hostile,
+      }),
+      row({ notification_type: 'call' }),
+    ];
+    await i18n.changeLanguage('ja');
+    render(<NotificationsPanel workspaceId="ws-1" onClose={vi.fn()} />);
+
+    expect(screen.getAllByTestId('notification-title').map((el) => el.textContent)).toEqual([
+      `${hostile} さん（#ops）`,
+      '通話の着信',
+    ]);
+    expect(screen.getByText('誰かが通話を始めようとしています')).toBeInTheDocument();
+    expect(document.querySelector('[onerror]')).toBeNull();
   });
 });
