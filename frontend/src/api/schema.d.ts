@@ -809,6 +809,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/bot-apps/me/workflow-steps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * The app replaces the workflow steps it offers, as an admin would on its
+         *     page.
+         */
+        put: operations["save_own_workflow_steps"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/bot-apps/{app_id}": {
         parameters: {
             query?: never;
@@ -923,6 +943,27 @@ export interface paths {
          *     built-in preview's domain is refused while that integration is on.
          */
         put: operations["save_unfurl_domains"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bot-apps/{app_id}/workflow-steps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_app_workflow_steps"];
+        /**
+         * Replaces the workflow steps an app offers. A step keeps its id while its
+         *     `callback_id` stays the same; a workflow that uses a removed step fails
+         *     when it gets there.
+         */
+        put: operations["save_app_workflow_steps"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2537,6 +2578,46 @@ export interface paths {
          *     `update` and `push` change the stack, and `clear` closes all of it.
          */
         post: operations["submit_app_view"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflow-executions/{execution_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The app finishes a step that `function_executed` asked it to run, with a
+         *     value for each output the step declares. The workflow then goes on.
+         */
+        post: operations["complete_workflow_step"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflow-executions/{execution_id}/fail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The app fails a step that `function_executed` asked it to run. Its
+         *     message shows in the run history, and the steps after it don't run.
+         */
+        post: operations["fail_workflow_step"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4188,6 +4269,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{ws_id}/workflow-step-apps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The apps of the workspace that offer workflow steps, with their steps.
+         *     An app with a `problem` can't run them now, and the builder warns about
+         *     workflows that use them.
+         */
+        get: operations["workflow_step_apps"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{ws_id}/workflows": {
         parameters: {
             query?: never;
@@ -4318,7 +4420,7 @@ export interface components {
             installed: components["schemas"]["InstalledApp"][];
         };
         /** @enum {string} */
-        AppEvent: "message" | "app_mention" | "reaction_added" | "reaction_removed" | "member_joined_channel" | "channel_created" | "channel_archived" | "app_home_opened" | "link_shared";
+        AppEvent: "message" | "app_mention" | "reaction_added" | "reaction_removed" | "member_joined_channel" | "channel_created" | "channel_archived" | "app_home_opened" | "link_shared" | "function_executed";
         AppHome: components["schemas"]["HomeView"] & {
             /** Format: uuid */
             app_id: string;
@@ -4379,6 +4481,20 @@ export interface components {
             previous_view_id?: string | null;
             /** Format: uuid */
             root_view_id: string;
+        };
+        AppWorkflowStep: {
+            /** Format: uuid */
+            app_id: string;
+            callback_id: string;
+            description: string;
+            /** Format: uuid */
+            id: string;
+            inputs: components["schemas"]["StepParam"][];
+            outputs: components["schemas"]["StepParam"][];
+            title: string;
+        };
+        AppWorkflowSteps: {
+            steps: components["schemas"]["AppWorkflowStep"][];
         };
         AppointOwnerRequest: {
             /** Format: uuid */
@@ -4922,6 +5038,13 @@ export interface components {
             return_to?: string | null;
             /** Format: uuid */
             workspace_id: string;
+        };
+        CompleteStepRequest: {
+            /**
+             * @description A value for each output the step declares, by name. A required output
+             *     can't be missing or null.
+             */
+            outputs?: Record<string, never>;
         };
         ConfigureAppRequest: {
             client_id: string;
@@ -5874,6 +5997,17 @@ export interface components {
                 name: string;
             }[];
         };
+        DataList_StepProvider: {
+            data: {
+                /** Format: uuid */
+                app_id: string;
+                icon_url?: string | null;
+                name: string;
+                /** @description Why workflows can't use its steps right now; none when they can. */
+                problem?: string | null;
+                steps: components["schemas"]["AppWorkflowStep"][];
+            }[];
+        };
         DataList_UserGroupSummary: {
             data: {
                 description?: string | null;
@@ -6175,6 +6309,13 @@ export interface components {
         ExportScope: "workspace" | "user";
         /** @enum {string} */
         ExportStatus: "pending" | "running" | "complete" | "failed";
+        FailStepRequest: {
+            /**
+             * @description Why the step failed, shown in the workflow's run history; at most 500
+             *     characters.
+             */
+            error: string;
+        };
         /** @enum {string} */
         FieldKind: "short_text" | "long_text" | "select" | "person" | "date";
         /** @enum {string} */
@@ -6889,6 +7030,7 @@ export interface components {
             workspace_id: string;
         };
         NotificationData: {
+            app_name?: string | null;
             app_request?: string | null;
             assigned?: boolean;
             /** Format: uuid */
@@ -7271,12 +7413,16 @@ export interface components {
             error?: string | null;
             /** Format: date-time */
             finished_at: string;
+            /** @description What an app step was handed, by input name. */
+            inputs?: Record<string, never> | null;
             label: string;
             /** Format: uuid */
             list_item_id?: string | null;
             matched?: boolean | null;
             /** Format: uuid */
             message_id?: string | null;
+            /** @description What an app step handed back, by output name. */
+            outputs?: Record<string, never> | null;
             /** Format: int32 */
             position: number;
             succeeded: boolean;
@@ -7309,6 +7455,13 @@ export interface components {
             definition: components["schemas"]["Definition"];
             description?: string | null;
             name: string;
+        };
+        SaveWorkflowStepsRequest: {
+            /**
+             * @description Every step the app offers, in the order the workflow builder lists
+             *     them; at most 20.
+             */
+            steps: components["schemas"]["WorkflowStepInput"][];
         };
         ScheduledMessage: {
             also_in_channel: boolean;
@@ -7348,7 +7501,7 @@ export interface components {
             revoked_at?: string | null;
         };
         /** @enum {string} */
-        Scope: "chat:write" | "chat:write.public" | "channels:read" | "channels:history" | "groups:history" | "im:write" | "reactions:write" | "files:write" | "users:read" | "commands" | "links:read" | "links:write";
+        Scope: "chat:write" | "chat:write.public" | "channels:read" | "channels:history" | "groups:history" | "im:write" | "reactions:write" | "files:write" | "users:read" | "commands" | "links:read" | "links:write" | "workflow.steps:execute";
         SearchFilters: {
             /** Format: date */
             after?: string | null;
@@ -7586,6 +7739,38 @@ export interface components {
             channel: components["schemas"]["ChannelRef"];
             /** @enum {string} */
             type: "archive_channel";
+        } | {
+            /** Format: uuid */
+            app_id: string;
+            callback_id: string;
+            inputs?: components["schemas"]["StepParam"][];
+            outputs?: components["schemas"]["StepParam"][];
+            title?: string;
+            /** @enum {string} */
+            type: "app_step";
+            values?: {
+                [key: string]: string;
+            };
+        };
+        StepParam: {
+            kind: components["schemas"]["StepParamKind"];
+            /** @description Its key in `inputs` or `outputs`: lowercase letters, digits and `_`. */
+            name: string;
+            required?: boolean;
+            /** @description What the workflow builder calls it. */
+            title: string;
+        };
+        /** @enum {string} */
+        StepParamKind: "text" | "number" | "boolean" | "person" | "channel" | "date";
+        /** @description An app that offers workflow steps. */
+        StepProvider: {
+            /** Format: uuid */
+            app_id: string;
+            icon_url?: string | null;
+            name: string;
+            /** @description Why workflows can't use its steps right now; none when they can. */
+            problem?: string | null;
+            steps: components["schemas"]["AppWorkflowStep"][];
         };
         /** @enum {string} */
         Stopped: "inactive" | "left_workspace" | "lost_channel" | "demoted";
@@ -7628,7 +7813,7 @@ export interface components {
             p256dh: string;
         };
         /** @enum {string} */
-        SystemNotice: "workflow_stopped" | "app_requested" | "not_delivered" | "guest_ending" | "invite_requested" | "invite_request_approved" | "invite_request_declined" | "invite_request_expired";
+        SystemNotice: "workflow_stopped" | "workflow_app_gone" | "app_requested" | "not_delivered" | "guest_ending" | "invite_requested" | "invite_request_approved" | "invite_request_declined" | "invite_request_expired";
         Test: {
             /** @enum {string} */
             op: "equals";
@@ -8136,6 +8321,16 @@ export interface components {
             waiting?: components["schemas"]["RunWaiting"] | null;
             /** Format: int32 */
             workflow_version: number;
+        };
+        WorkflowStepInput: {
+            /** @description Sent back in `function_executed`, so the app knows which step to run. */
+            callback_id: string;
+            description?: string;
+            /** @description What a workflow hands the step; at most ten. */
+            inputs?: components["schemas"]["StepParam"][];
+            /** @description What the step hands back for later steps; at most ten. */
+            outputs?: components["schemas"]["StepParam"][];
+            title: string;
         };
         Workspace: {
             /** Format: date-time */
@@ -9391,6 +9586,29 @@ export interface operations {
             };
         };
     };
+    save_own_workflow_steps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveWorkflowStepsRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppWorkflowSteps"];
+                };
+            };
+        };
+    };
     get_bot_app: {
         parameters: {
             query?: never;
@@ -9651,6 +9869,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UnfurlDomains"];
+                };
+            };
+        };
+    };
+    list_app_workflow_steps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                app_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppWorkflowSteps"];
+                };
+            };
+        };
+    };
+    save_app_workflow_steps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                app_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveWorkflowStepsRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppWorkflowSteps"];
                 };
             };
         };
@@ -12577,6 +12841,56 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SubmitOutcome"];
+                };
+            };
+        };
+    };
+    complete_workflow_step: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                execution_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteStepRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    fail_workflow_step: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                execution_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FailStepRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
                 };
             };
         };
@@ -15767,6 +16081,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UnreadsPage"];
+                };
+            };
+        };
+    };
+    workflow_step_apps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataList_StepProvider"];
                 };
             };
         };

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT run_id, position, succeeded, matched, message_id, list_item_id, channel_id,\n                   error, finished_at\n              FROM workflow_run_steps\n             WHERE run_id = ANY($1)\n             ORDER BY run_id, position\n            ",
+  "query": "\n            SELECT run_id, position, succeeded, matched, message_id, list_item_id, channel_id,\n                   error, finished_at, inputs, outputs\n              FROM workflow_run_steps\n             WHERE run_id = ANY($1)\n             ORDER BY run_id, position\n            ",
   "describe": {
     "columns": [
       {
@@ -101,6 +101,28 @@
             "name": "finished_at"
           }
         }
+      },
+      {
+        "ordinal": 9,
+        "name": "inputs",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "workflow_run_steps",
+            "name": "inputs"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "outputs",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "workflow_run_steps",
+            "name": "outputs"
+          }
+        }
       }
     ],
     "parameters": {
@@ -117,8 +139,10 @@
       true,
       true,
       true,
-      false
+      false,
+      true,
+      true
     ]
   },
-  "hash": "dd44b9da41158f637d4d447e78faf8713b5aa07d40fbd7a2bca829a674539b78"
+  "hash": "5ae607870b48929d64cbdd1bcf5037ba528d6f5aaf0b905aff5c1b3271a450e8"
 }

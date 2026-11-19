@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { Channel, WorkspaceMember } from '@/stores/workspace';
 import type { ListColumn } from '@/features/lists/listModel';
 import { WorkflowEditor } from './WorkflowEditor';
-import type { Definition, SaveWorkflow, Workflow } from './workflowModel';
+import type { Definition, OfferedStep, SaveWorkflow, StepProvider, Workflow } from './workflowModel';
 
 const create = vi.fn<(body: SaveWorkflow) => Promise<Workflow>>();
 const update = vi.fn<(vars: { id: string; body: SaveWorkflow }) => Promise<Workflow>>();
@@ -14,6 +14,7 @@ const takeOver = vi.fn<(id: string) => Promise<Workflow>>();
 const rotate = vi.fn<(id: string) => Promise<Workflow>>();
 const remove = vi.fn<(id: string) => Promise<unknown>>();
 const history = vi.hoisted(() => ({ runs: [] as unknown[] }));
+const stepApps = vi.hoisted(() => ({ providers: [] as unknown[] }));
 
 const FAILED_RUN = {
   id: 'r-1',
@@ -51,6 +52,7 @@ vi.mock('./useWorkflows', () => ({
     remove: { mutateAsync: remove, isPending: false },
   }),
   useWorkflowRuns: () => ({ isLoading: false, data: history.runs }),
+  useWorkflowStepApps: () => ({ data: stepApps.providers }),
 }));
 
 vi.mock('@/features/messaging/EmojiPicker', () => ({
@@ -188,8 +190,33 @@ const optionsOf = (select: HTMLElement) =>
 const texts = () =>
   screen.getAllByTestId('workflow-step-text').map((area) => (area as HTMLTextAreaElement).value);
 
+const OPEN_TICKET: OfferedStep = {
+  id: 's-1',
+  app_id: 'app-1',
+  callback_id: 'open_ticket',
+  title: 'Open ticket',
+  description: 'Files a ticket with the help desk',
+  inputs: [
+    { name: 'title', title: 'Title', kind: 'text', required: true },
+    { name: 'priority', title: 'Priority', kind: 'number', required: false },
+    { name: 'reporter', title: 'Reporter', kind: 'person', required: false },
+  ],
+  outputs: [
+    { name: 'ticket_id', title: 'Ticket ID', kind: 'text', required: true },
+    { name: 'urgent', title: 'Urgent', kind: 'boolean', required: false },
+  ],
+};
+const TICKETING: StepProvider = {
+  app_id: 'app-1',
+  name: 'Ticketing',
+  icon_url: null,
+  problem: null,
+  steps: [OPEN_TICKET],
+};
+
 beforeEach(() => {
   history.runs = [FAILED_RUN];
+  stepApps.providers = [];
   create.mockReset();
   update.mockReset();
   enable.mockReset();
@@ -827,6 +854,113 @@ describe('WorkflowEditor', () => {
       },
       { type: 'send_dm', to: { kind: 'trigger_user' }, text: 'Made {{step.2.channel_link}}' },
     ]);
+  });
+
+  it('runs a step from an app and hands what it gives back to the steps after it', async () => {
+    stepApps.providers = [TICKETING];
+    create.mockResolvedValue(saved());
+    renderEditor();
+    fireEvent.change(screen.getByTestId('workflow-trigger-type'), { target: { value: 'shortcut' } });
+    const action = screen.getByTestId('workflow-step-type');
+    expect(within(action).getByRole('group', { name: 'Ticketing' })).toHaveTextContent('Open ticket');
+    fireEvent.change(action, { target: { value: 'app:app-1:open_ticket' } });
+    expect(screen.getByTestId('workflow-step-title')).toHaveTextContent('Open ticket');
+    expect(screen.getByText(/Files a ticket with the help desk/)).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId('workflow-app-input-title'), { target: { value: 'Printer is out' } });
+    fireEvent.change(screen.getByTestId('workflow-app-input-priority'), { target: { value: '2' } });
+    const reporter = screen.getByTestId('workflow-app-input-reporter');
+    expect(optionsOf(reporter)).toEqual(['Leave it empty', 'Person who ran it', 'Me', 'Bob']);
+    fireEvent.change(reporter, { target: { value: '{{trigger.user}}' } });
+    expect(screen.getByTestId('workflow-app-outputs')).toHaveTextContent(
+      'Later steps can use what it hands back: Ticket ID, Urgent.',
+    );
+
+    fireEvent.click(screen.getByTestId('workflow-step-add'));
+    expect(optionsOf(within(steps()[1]).getByTestId('workflow-step-variable'))).toEqual(
+      expect.arrayContaining(['Step 1: Ticket ID', 'Step 1: Urgent']),
+    );
+    fireEvent.change(within(steps()[1]).getByTestId('workflow-step-text'), {
+      target: { value: 'Ticket {{step.1.ticket_id}} opened' },
+    });
+    fireEvent.click(screen.getByTestId('workflow-save'));
+
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+    expect(create.mock.calls[0][0].definition.steps).toEqual([
+      {
+        type: 'app_step',
+        app_id: 'app-1',
+        callback_id: 'open_ticket',
+        title: 'Open ticket',
+        inputs: OPEN_TICKET.inputs,
+        outputs: OPEN_TICKET.outputs,
+        values: { title: 'Printer is out', priority: '2', reporter: '{{trigger.user}}' },
+      },
+      { type: 'send_message', channel_id: 'c-general', text: 'Ticket {{step.1.ticket_id}} opened' },
+    ]);
+  });
+
+  it('won’t save an app step whose number input holds words', async () => {
+    stepApps.providers = [TICKETING];
+    renderEditor();
+    fireEvent.change(screen.getByTestId('workflow-step-type'), {
+      target: { value: 'app:app-1:open_ticket' },
+    });
+    fireEvent.change(screen.getByTestId('workflow-app-input-title'), { target: { value: 'Printer' } });
+    fireEvent.change(screen.getByTestId('workflow-app-input-priority'), { target: { value: 'high' } });
+    fireEvent.click(screen.getByTestId('workflow-save'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Step 1: “Priority” needs a number');
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('warns about a step whose app was turned off and shows what each run gave it and got back', () => {
+    stepApps.providers = [{ ...TICKETING, problem: 'Ticketing was turned off' }];
+    history.runs = [
+      {
+        id: 'r-3',
+        workflow_version: 1,
+        status: 'succeeded',
+        started_at: '2026-10-24T08:00:00Z',
+        finished_at: '2026-10-24T08:00:05Z',
+        steps: [
+          {
+            position: 0,
+            label: 'Open ticket',
+            succeeded: true,
+            inputs: { title: 'Printer' },
+            outputs: { ticket_id: 'T-42', urgent: true },
+            finished_at: '2026-10-24T08:00:05Z',
+          },
+        ],
+      },
+    ];
+    renderEditor(
+      saved({
+        definition: {
+          trigger: { type: 'shortcut', channel_id: 'c-general' },
+          steps: [
+            {
+              type: 'app_step',
+              app_id: 'app-1',
+              callback_id: 'open_ticket',
+              title: 'Open ticket',
+              inputs: OPEN_TICKET.inputs,
+              outputs: OPEN_TICKET.outputs,
+              values: { title: 'Printer' },
+            },
+          ],
+        },
+      }),
+    );
+    expect(screen.getByTestId('workflow-app-warning')).toHaveTextContent(
+      "Ticketing was turned off. Runs fail here until that's fixed or you replace the step.",
+    );
+    expect(screen.getByTestId('workflow-step-type')).toHaveValue('app:app-1:open_ticket');
+    fireEvent.click(screen.getByTestId('workflow-history-toggle'));
+    expect(screen.getByTestId('workflow-run-inputs')).toHaveTextContent('Gave it: title Printer');
+    expect(screen.getByTestId('workflow-run-outputs')).toHaveTextContent(
+      'Got back: ticket_id T-42, urgent true',
+    );
   });
 
   it('says which path a run took and where it waits, and until when', () => {

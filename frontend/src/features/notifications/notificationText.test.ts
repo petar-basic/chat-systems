@@ -58,6 +58,12 @@ describe('notificationText', () => {
       title: 'A workflow was turned off',
       body: '“Pager” stopped because the person who built it left the workspace.',
     });
+    expect(
+      text('system', { notice: 'workflow_app_gone', workflow_name: 'Triage', app_name: 'Ticketing' }, null),
+    ).toEqual({
+      title: "A workflow step can't run",
+      body: '“Triage” uses a step from Ticketing, which is no longer available. Runs fail at that step until you replace it.',
+    });
     expect(text('system', { notice: 'app_requested', sender_name: 'Bo' }, 'PagerDuty: alerts')).toEqual({
       title: 'Bo asked for an app',
       body: 'PagerDuty: alerts',

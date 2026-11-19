@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM app_workflow_steps WHERE app_id = $1 AND callback_id <> ALL($2::text[])",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4516270804ec4f763afeba7a654094bb655f24d81a9d918f53e071d4b81a493c"
+}

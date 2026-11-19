@@ -948,7 +948,8 @@ for itself. Channel listings and conversation summaries carry the caller's `noti
 **In the reader's words.** A notification has no title. Its `data` (`NotificationData`) holds
 the ids it opens and what its words need: `sender_name`, `channel_name`, `keyword`,
 `item_title`, `list_title` and `assigned`, and on a `system` row a `notice`
-(`workflow_stopped` with `workflow_name` and `stopped`, `app_requested` with `app_request`,
+(`workflow_stopped` with `workflow_name` and `stopped`, `workflow_app_gone` with
+`workflow_name` and `app_name`, `app_requested` with `app_request`,
 `not_delivered` with `failure`). `body` is only what somebody wrote: the message, the comment,
 the request. The `notification` frame carries the same `kind`, `body` and `data`, so the client
 writes the title, and any line the server used to write, from its own translations in
@@ -1414,6 +1415,23 @@ most 10, added through `membership::invite`. At run time each step checks that t
 still create the channel, edit its topic or archive it, and fails with the reason; saving
 checks the same for a fixed channel.
 
+An `app_step` runs a step an app offers (`app_workflow_steps`, see
+[bot-api.md](./bot-api.md#workflow-steps)). The step keeps a copy of its `title`, `inputs` and
+`outputs`, which `service::with_current_app_steps` refreshes from the app on every save; saving
+is refused while the app can't run it (off, removed, missing `workflow.steps:execute` or
+`function_executed`, nowhere to deliver) or no longer offers the step. `values` maps an input
+to a template, checked against the input's kind like a list cell: a fixed value must parse, a
+lone `{{…}}` must be a variable of that kind (`Definition::param_kind`), and text takes any
+template. Its outputs are `{{step.N.<name>}}`. At run time the runner renders the inputs into
+typed JSON, writes a `workflow_app_calls` row (`expires_at` an hour on), leaves the run
+`waiting` and queues `function_executed` in `app_deliveries` (the run id as its `channel_id`),
+all in one transaction. `settle_app_step` takes the app's answer under `FOR UPDATE`: outputs
+checked by `app_workflow_steps::checked_outputs`, stored with the inputs on the step's
+`workflow_run_steps` row, and the run `pending` again; a failure stores the app's message and
+fails the run. Each tick `expire_app_calls` fails the steps nobody finished as *The app did not
+finish*. Turning an app off (`stand_down`) or removing it tells the owner of each enabled
+workflow that uses it once, as a `workflow_app_gone` notice.
+
 Every save also writes `workflow_versions (workflow_id, version, definition)`. A run executes
 the version it started on (`WorkflowRun.workflow_version`), so a run waiting through an edit
 finishes the old way, and its history labels each step (`RunStep.label`) from that version.
@@ -1448,6 +1466,9 @@ webhook values or the reacted message.
 | GET | `/workflows/:workflow_id/runs` | — | `{ data: WorkflowRun[] }`, the last 50, newest first, each with its steps (`label`, `matched` for a branch, `error`) and `waiting` (`position`, `label`, `until`) while it waits |
 | POST | `/workflows/:workflow_id/start` | header `Idempotency-Key` optional | 202 `{ status: "accepted", run_id }` — a shortcut, by someone who can post in its channel; 404 otherwise, 409 turned off, 429 above 30 a minute |
 | GET | `/channels/:ch_id/workflow-shortcuts` | — | `{ data: Shortcut[] }` — the enabled shortcuts of a channel you can post in |
+| GET | `/workspaces/:ws_id/workflow-step-apps` | — | `{ data: StepProvider[] }` — a builder; the apps that offer steps, each with its steps and a `problem` (`null`, or why it can't run them now) |
+| POST | `/workflow-executions/:execution_id/complete` | bot token, `workflow.steps:execute`; `{ outputs }` | `{ status: "ok" }` — the app the step was sent to (404 otherwise); 422 an output it doesn't declare, a required one missing or one of the wrong kind; 409 finished, timed out or no longer waiting |
+| POST | `/workflow-executions/:execution_id/fail` | bot token, `workflow.steps:execute`; `{ error }` | `{ status: "ok" }` — as complete; `error` is 1 to 500 characters and shows in the run history |
 | POST | `/workflow-runs/:run_id/forms/:position` | `{ answers: { [name]: string } }` | `{ status: "submitted" }` — its recipient only (403); 422 a bad answer, 409 answered, expired or no longer waiting |
 | POST | `/workflows/webhook/:token` | any JSON object; header `Idempotency-Key` optional | 202 `{ status: "accepted", run_id }`; 401 unknown token, 409 turned off, 429 above 30 a minute |
 
@@ -1516,6 +1537,9 @@ writes one is [bot-api.md](./bot-api.md).
 | PUT | `/bot-apps/:app_id/shortcuts` | `{ shortcuts: [{ kind: global\|message, name, description, callback_id }] }` | `{ data: AppShortcut[] }` — admin; the whole list, at most five of each kind, `callback_id` unique in the app; audited as `bot_app.updated` |
 | GET | `/bot-apps/:app_id/unfurl-domains` | — | `{ domains }` — admin |
 | PUT | `/bot-apps/:app_id/unfurl-domains` | `{ domains }` | `{ domains }` — admin; the whole list, lowercased, at most five; 422 without `links:read` and `links:write` or for something that is not a host name; 409 for a domain another app holds or a built-in preview's while it is on; audited as `bot_app.updated` |
+| GET | `/bot-apps/:app_id/workflow-steps` | — | `{ steps: AppWorkflowStep[] }` — admin |
+| PUT | `/bot-apps/:app_id/workflow-steps` | `{ steps: [{ callback_id, title, description?, inputs, outputs }] }` | `{ steps }` — admin; the whole list, at most 20, `callback_id` unique in the app, up to 10 inputs and 10 outputs `{ name, title, kind, required }`; a step keeps its id while its `callback_id` stays; audited as `bot_app.updated` |
+| PUT | `/bot-apps/me/workflow-steps` | bot token, `workflow.steps:execute`; as above | `{ steps }` — the app defines its own steps |
 | POST | `/apps/connections.open` | `capp-` app-level token | `{ url }` — a `ws(s)://…/ws/apps?ticket=` good once, for 30 seconds; 403 while socket mode is off |
 
 Creating an app inserts a `users` row with `is_bot = true`, an address under `bots.invalid`,

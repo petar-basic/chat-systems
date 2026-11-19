@@ -30,10 +30,12 @@ pub enum Scope {
     LinksRead,
     #[serde(rename = "links:write")]
     LinksWrite,
+    #[serde(rename = "workflow.steps:execute")]
+    WorkflowStepsExecute,
 }
 
 impl Scope {
-    pub const ALL: [Scope; 12] = [
+    pub const ALL: [Scope; 13] = [
         Scope::ChatWrite,
         Scope::ChatWritePublic,
         Scope::ChannelsRead,
@@ -46,6 +48,7 @@ impl Scope {
         Scope::Commands,
         Scope::LinksRead,
         Scope::LinksWrite,
+        Scope::WorkflowStepsExecute,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -62,6 +65,7 @@ impl Scope {
             Scope::Commands => "commands",
             Scope::LinksRead => "links:read",
             Scope::LinksWrite => "links:write",
+            Scope::WorkflowStepsExecute => "workflow.steps:execute",
         }
     }
 
@@ -83,6 +87,7 @@ impl Scope {
             Scope::Commands => "Own slash commands",
             Scope::LinksRead => "See links to its domains that are posted where it is a member",
             Scope::LinksWrite => "Show its own previews of links to its domains",
+            Scope::WorkflowStepsExecute => "Run the workflow steps it offers",
         }
     }
 }
@@ -99,10 +104,11 @@ pub enum AppEvent {
     ChannelArchived,
     AppHomeOpened,
     LinkShared,
+    FunctionExecuted,
 }
 
 impl AppEvent {
-    pub const ALL: [AppEvent; 9] = [
+    pub const ALL: [AppEvent; 10] = [
         AppEvent::Message,
         AppEvent::AppMention,
         AppEvent::ReactionAdded,
@@ -112,6 +118,7 @@ impl AppEvent {
         AppEvent::ChannelArchived,
         AppEvent::AppHomeOpened,
         AppEvent::LinkShared,
+        AppEvent::FunctionExecuted,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -125,6 +132,7 @@ impl AppEvent {
             AppEvent::ChannelArchived => "channel_archived",
             AppEvent::AppHomeOpened => "app_home_opened",
             AppEvent::LinkShared => "link_shared",
+            AppEvent::FunctionExecuted => "function_executed",
         }
     }
 

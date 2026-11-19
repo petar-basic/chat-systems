@@ -6,11 +6,13 @@ export {
   useAppOfUser,
   useBotAppShortcuts,
   useBotAppUnfurlDomains,
+  useBotAppWorkflowSteps,
   useGlobalShortcuts,
   useMessageShortcuts,
   useRunAppShortcut,
   useSaveBotAppShortcuts,
   useSaveBotAppUnfurlDomains,
+  useSaveBotAppWorkflowSteps,
 } from './useApps';
 export type {
   ActiveApp,
@@ -21,4 +23,5 @@ export type {
   HomeTab,
   ShortcutDraft,
   ShortcutUse,
+  WorkflowStepDraft,
 } from './useApps';

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    UPDATE workflow_runs\n                       SET status = 'pending', claimed_at = NULL, waiting_at = NULL\n                     WHERE id = $1\n                    ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "49ccc7b9e575e1d63a0fa6247a1ee92a943ddcc7dc80244d6c4cbe04946c5855"
+}

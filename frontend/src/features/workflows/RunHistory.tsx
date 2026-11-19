@@ -78,6 +78,12 @@ export function RunHistory({ workflowId, instanceUrl }: Props) {
                         {outcome.error}
                       </span>
                     )}
+                    {outcome.inputs && (
+                      <Handed label="Gave it" values={outcome.inputs} dataQa="workflow-run-inputs" />
+                    )}
+                    {outcome.outputs && (
+                      <Handed label="Got back" values={outcome.outputs} dataQa="workflow-run-outputs" />
+                    )}
                   </li>
                 ))}
                 {run.waiting && (
@@ -101,5 +107,26 @@ export function RunHistory({ workflowId, instanceUrl }: Props) {
         );
       })}
     </ol>
+  );
+}
+
+function shown(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '—';
+  return typeof value === 'string' ? value : JSON.stringify(value);
+}
+
+function Handed({ label, values, dataQa }: { label: string; values: object; dataQa: string }) {
+  const entries = Object.entries(values);
+  if (entries.length === 0) return null;
+  return (
+    <span className="ml-5 block text-muted" data-qa={dataQa}>
+      {label}:{' '}
+      {entries.map(([name, value], index) => (
+        <span key={name}>
+          {index > 0 && ', '}
+          <span className="font-mono">{name}</span> {shown(value)}
+        </span>
+      ))}
+    </span>
   );
 }

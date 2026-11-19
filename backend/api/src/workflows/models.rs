@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 
 use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -6,6 +6,8 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 
 use shared_common::errors::{AppError, AppResult};
+
+use crate::app_workflow_steps::models::{StepParam, StepParamKind};
 
 pub const NAME_MAX_CHARS: usize = 80;
 pub const DESCRIPTION_MAX_CHARS: usize = 300;
@@ -379,6 +381,18 @@ pub enum Step {
     ArchiveChannel {
         channel: ChannelRef,
     },
+    AppStep {
+        app_id: Uuid,
+        callback_id: String,
+        #[serde(default)]
+        title: String,
+        #[serde(default)]
+        inputs: Vec<StepParam>,
+        #[serde(default)]
+        outputs: Vec<StepParam>,
+        #[serde(default)]
+        values: BTreeMap<String, String>,
+    },
 }
 
 impl Step {
@@ -428,7 +442,7 @@ impl Step {
         }
     }
 
-    pub fn label(&self) -> &'static str {
+    pub fn label(&self) -> &str {
         match self {
             Self::SendMessage { .. } => "Send a message",
             Self::SendDm { .. } => "Send a DM",
@@ -443,6 +457,7 @@ impl Step {
             Self::AddToChannel { .. } => "Add people to a channel",
             Self::SetTopic { .. } => "Set a channel topic",
             Self::ArchiveChannel { .. } => "Archive a channel",
+            Self::AppStep { title, .. } => title,
         }
     }
 
@@ -458,6 +473,10 @@ impl Step {
                 format!("step.{number}.channel_link"),
             ],
             Self::ReplyInThread { .. } => vec![format!("step.{number}.message_link")],
+            Self::AppStep { outputs, .. } => outputs
+                .iter()
+                .map(|output| format!("step.{number}.{}", output.name))
+                .collect(),
             _ => Vec::new(),
         }
     }
@@ -576,6 +595,13 @@ impl Definition {
         if name == "trigger.user" {
             return VariableKind::Person;
         }
+        if name.starts_with("step.") {
+            return match self.param_kind(&self.flat(), position, name) {
+                StepParamKind::Person => VariableKind::Person,
+                StepParamKind::Date => VariableKind::Date,
+                _ => VariableKind::Text,
+            };
+        }
         let Some(field) = name.strip_prefix("form.").and_then(|field| {
             self.fields_before(position)
                 .into_iter()
@@ -588,6 +614,49 @@ impl Definition {
             FieldKind::Date => VariableKind::Date,
             FieldKind::Select => VariableKind::Choice(&field.options),
             FieldKind::ShortText | FieldKind::LongText => VariableKind::Text,
+        }
+    }
+
+    pub fn param_kind(&self, flat: &[Node<'_>], position: usize, name: &str) -> StepParamKind {
+        match name {
+            "trigger.user" => return StepParamKind::Person,
+            "trigger.channel" => return StepParamKind::Channel,
+            _ => {}
+        }
+        if let Some(field) = name.strip_prefix("form.") {
+            return match self
+                .fields_before(position)
+                .into_iter()
+                .find(|f| f.name == field)
+                .map(|f| f.kind)
+            {
+                Some(FieldKind::Person) => StepParamKind::Person,
+                Some(FieldKind::Date) => StepParamKind::Date,
+                _ => StepParamKind::Text,
+            };
+        }
+        let Some((number, rest)) = name
+            .strip_prefix("step.")
+            .and_then(|rest| rest.split_once('.'))
+        else {
+            return StepParamKind::Text;
+        };
+        let Some(step) = number
+            .parse::<usize>()
+            .ok()
+            .and_then(|n| n.checked_sub(1))
+            .and_then(|at| flat.get(at))
+            .map(|node| node.step)
+        else {
+            return StepParamKind::Text;
+        };
+        match step {
+            Step::CreateChannel { .. } if rest == "channel" => StepParamKind::Channel,
+            Step::AppStep { outputs, .. } => outputs
+                .iter()
+                .find(|output| output.name == rest)
+                .map_or(StepParamKind::Text, |output| output.kind),
+            _ => StepParamKind::Text,
         }
     }
 
@@ -794,8 +863,69 @@ impl Definition {
                     }
                     check_placeholders(&at, topic, &available)?;
                 }
+                Step::AppStep {
+                    callback_id,
+                    title,
+                    inputs,
+                    values,
+                    ..
+                } => {
+                    if callback_id.trim().is_empty() || title.trim().is_empty() {
+                        return invalid(&format!("{at}: pick the app step to run"));
+                    }
+                    if let Some(name) = values
+                        .keys()
+                        .find(|name| !inputs.iter().any(|input| &input.name == *name))
+                    {
+                        return invalid(&format!("{at}: \"{name}\" isn't an input of this step"));
+                    }
+                    for input in inputs {
+                        let value = values.get(&input.name).map_or("", |v| v.trim());
+                        self.check_input(&at, &flat, index, input, value, &available)?;
+                    }
+                }
                 _ => {}
             }
+        }
+        Ok(())
+    }
+
+    fn check_input(
+        &self,
+        at: &str,
+        flat: &[Node<'_>],
+        position: usize,
+        input: &StepParam,
+        value: &str,
+        available: &[String],
+    ) -> AppResult<()> {
+        let label = input.title.trim();
+        if value.is_empty() {
+            if input.required {
+                return invalid(&format!("{at}: fill in \u{201c}{label}\u{201d}"));
+            }
+            return Ok(());
+        }
+        if value.chars().count() > TEXT_MAX_CHARS {
+            return invalid(&format!(
+                "{at}: \u{201c}{label}\u{201d} can be at most {TEXT_MAX_CHARS} characters"
+            ));
+        }
+        if input.kind == StepParamKind::Text {
+            return check_placeholders(at, value, available);
+        }
+        let noun = input.kind.noun();
+        if let Some(name) = lone_placeholder(value) {
+            check_placeholders(at, value, available)?;
+            if self.param_kind(flat, position, name) != input.kind {
+                return invalid(&format!(
+                    "{at}: \u{201c}{label}\u{201d} needs {noun}, and {{{{{name}}}}} isn't one"
+                ));
+            }
+            return Ok(());
+        }
+        if !fits(input.kind, value) {
+            return invalid(&format!("{at}: \u{201c}{label}\u{201d} needs {noun}"));
         }
         Ok(())
     }
@@ -820,6 +950,21 @@ impl Definition {
             }
             _ => Ok(()),
         }
+    }
+}
+
+pub fn lone_placeholder(value: &str) -> Option<&str> {
+    let name = value.trim().strip_prefix("{{")?.strip_suffix("}}")?.trim();
+    (!name.is_empty() && !name.contains(['{', '}'])).then_some(name)
+}
+
+pub fn fits(kind: StepParamKind, value: &str) -> bool {
+    match kind {
+        StepParamKind::Text => true,
+        StepParamKind::Number => number(value).is_some(),
+        StepParamKind::Boolean => matches!(value.trim().to_lowercase().as_str(), "true" | "false"),
+        StepParamKind::Person | StepParamKind::Channel => value.trim().parse::<Uuid>().is_ok(),
+        StepParamKind::Date => parse_date(value).is_some(),
     }
 }
 
@@ -1206,6 +1351,12 @@ pub struct RunStep {
     pub channel_id: Option<Uuid>,
     pub error: Option<String>,
     pub finished_at: DateTime<Utc>,
+    /// What an app step was handed, by input name.
+    #[schema(value_type = Option<Object>)]
+    pub inputs: Option<serde_json::Value>,
+    /// What an app step handed back, by output name.
+    #[schema(value_type = Option<Object>)]
+    pub outputs: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]

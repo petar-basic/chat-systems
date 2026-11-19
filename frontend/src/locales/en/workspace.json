@@ -644,7 +644,8 @@
           "channel_created": "A public channel is made",
           "channel_archived": "A channel it is in is archived",
           "app_home_opened": "Somebody opens its Home tab",
-          "link_shared": "Somebody posts a link to one of its domains where it is a member"
+          "link_shared": "Somebody posts a link to one of its domains where it is a member",
+          "function_executed": "A workflow gets to one of its steps"
         },
         "socketMode": "Socket mode",
         "socketModeHint": "The app opens a socket to this instance and takes its events and slash commands there, so it needs no public URL.",
@@ -695,6 +696,40 @@
         "save": "Save shortcuts",
         "saved": "Saved",
         "failed": "The shortcuts could not be saved"
+      },
+      "workflowSteps": {
+        "title": "Workflow steps",
+        "intro": "Steps people can add to their workflows. When a run gets to one, the app gets function_executed with the step's callback ID and inputs, and has an hour to finish it with its outputs. At most {{max}}.",
+        "needs": "Give the app the workflow.steps:execute scope and subscribe it to function_executed, so workflows can run these steps.",
+        "callbackId": "Callback ID",
+        "stepTitle": "Title",
+        "titlePlaceholder": "Open ticket",
+        "description": "Description",
+        "descriptionPlaceholder": "Files a ticket with the help desk",
+        "inputs": "Inputs",
+        "outputs": "Outputs",
+        "noInputs": "No inputs",
+        "noOutputs": "No outputs",
+        "paramName": "Name",
+        "paramTitle": "Label",
+        "paramKind": "Type",
+        "required": "Required",
+        "kinds": {
+          "text": "Text",
+          "number": "Number",
+          "boolean": "True or false",
+          "person": "Person",
+          "channel": "Channel",
+          "date": "Date"
+        },
+        "addInput": "Add an input",
+        "addOutput": "Add an output",
+        "removeParam": "Remove this one",
+        "remove": "Remove this step",
+        "add": "Add a step",
+        "save": "Save steps",
+        "saved": "Saved",
+        "failed": "The steps could not be saved"
       }
     },
     "integrations": {

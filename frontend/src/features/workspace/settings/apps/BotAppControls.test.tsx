@@ -22,6 +22,8 @@ const shortcuts = vi.hoisted(() => ({
   error: null as unknown,
 }));
 const domains = vi.hoisted(() => ({ listed: [] as string[], saved: false, error: null as unknown }));
+const saveWorkflowStepsMutate = vi.fn();
+const workflowSteps = vi.hoisted(() => ({ listed: [] as Array<Record<string, unknown>> }));
 
 vi.mock('@/features/apps', () => ({
   useBotAppShortcuts: () => ({ data: shortcuts.listed, dataUpdatedAt: 1 }),
@@ -37,6 +39,13 @@ vi.mock('@/features/apps', () => ({
     isPending: false,
     isSuccess: domains.saved,
     error: domains.error,
+  }),
+  useBotAppWorkflowSteps: () => ({ data: workflowSteps.listed, dataUpdatedAt: 1 }),
+  useSaveBotAppWorkflowSteps: () => ({
+    mutate: saveWorkflowStepsMutate,
+    isPending: false,
+    isSuccess: false,
+    error: null,
   }),
 }));
 
@@ -277,6 +286,62 @@ describe('BotAppControls', () => {
     fireEvent.click(screen.getByTestId('bot-app-events-save'));
 
     expect(configureMutate.mock.calls[0][0].settings).toMatchObject({ events: ['link_shared'] });
+  });
+
+  it('defines the workflow steps it runs, with typed inputs and outputs', () => {
+    saveWorkflowStepsMutate.mockReset();
+    renderControls({
+      scopes: ['chat:write', 'workflow.steps:execute'],
+      events: ['function_executed'],
+    });
+    const form = screen.getByTestId('bot-app-workflow-steps');
+    fireEvent.click(within(form).getByTestId('bot-app-workflow-step-add'));
+    fireEvent.change(within(form).getByLabelText('Title'), { target: { value: 'Open ticket' } });
+    fireEvent.change(within(form).getByLabelText('Callback ID'), { target: { value: 'open_ticket' } });
+
+    fireEvent.click(within(form).getByTestId('bot-app-workflow-inputs-add'));
+    const inputs = within(form).getByTestId('bot-app-workflow-step-inputs');
+    fireEvent.change(within(inputs).getByLabelText('Label'), { target: { value: 'Title' } });
+    fireEvent.change(within(inputs).getByLabelText('Name'), { target: { value: 'title' } });
+    fireEvent.click(within(inputs).getByLabelText('Required'));
+
+    fireEvent.click(within(form).getByTestId('bot-app-workflow-outputs-add'));
+    const outputs = within(form).getByTestId('bot-app-workflow-step-outputs');
+    fireEvent.change(within(outputs).getByLabelText('Label'), { target: { value: 'Urgent' } });
+    fireEvent.change(within(outputs).getByLabelText('Name'), { target: { value: 'urgent' } });
+    fireEvent.change(within(outputs).getByLabelText('Type'), { target: { value: 'boolean' } });
+    expect(screen.queryByTestId('bot-app-workflow-steps-needs')).not.toBeInTheDocument();
+    fireEvent.click(within(form).getByTestId('bot-app-workflow-steps-save'));
+
+    expect(saveWorkflowStepsMutate).toHaveBeenCalledWith([
+      {
+        callback_id: 'open_ticket',
+        title: 'Open ticket',
+        description: '',
+        inputs: [{ name: 'title', title: 'Title', kind: 'text', required: true }],
+        outputs: [{ name: 'urgent', title: 'Urgent', kind: 'boolean', required: false }],
+      },
+    ]);
+  });
+
+  it('says what an app needs before workflows can run its steps', () => {
+    workflowSteps.listed = [
+      {
+        id: 'step-1',
+        app_id: 'app-1',
+        callback_id: 'open_ticket',
+        title: 'Open ticket',
+        description: '',
+        inputs: [],
+        outputs: [],
+      },
+    ];
+    renderControls();
+    expect(screen.getByTestId('bot-app-workflow-steps-needs')).toHaveTextContent(
+      'Give the app the workflow.steps:execute scope and subscribe it to function_executed',
+    );
+    expect(screen.getByLabelText('Callback ID')).toHaveValue('open_ticket');
+    workflowSteps.listed = [];
   });
 
   it('an app in socket mode gets an app-level token shown once and no request URL', () => {
