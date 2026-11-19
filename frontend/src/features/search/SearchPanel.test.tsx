@@ -4,6 +4,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import SearchPanel from './SearchPanel';
 import { useWorkspaceStore } from '@/stores/workspace';
 import type { RecentSearch } from './useRecentSearches';
+import type { WorkspaceMember } from '@/stores/workspace';
 
 const get = vi.fn();
 vi.mock('@/shared/hooks/useCurrentApi', () => ({
@@ -53,9 +54,9 @@ const files = [
   hit('2', 'budget-chart.png', 'image/png', 'image'),
 ];
 
-function renderPanel() {
+function renderPanel(members: WorkspaceMember[] = []) {
   const onOpenMessage = vi.fn();
-  render(<SearchPanel members={[]} onClose={vi.fn()} onOpenMessage={onOpenMessage} />);
+  render(<SearchPanel members={members} onClose={vi.fn()} onOpenMessage={onOpenMessage} />);
   return onOpenMessage;
 }
 
@@ -196,16 +197,16 @@ describe('SearchPanel', () => {
   });
 });
 
-describe('SearchPanel recent searches', () => {
-  const kept = (over: Partial<RecentSearch>): RecentSearch => ({
-    id: 'r-1',
-    query: 'deploy',
-    tab: 'messages',
-    filters: {},
-    searched_at: '2026-11-16T09:00:00Z',
-    ...over,
-  });
+const kept = (over: Partial<RecentSearch>): RecentSearch => ({
+  id: 'r-1',
+  query: 'deploy',
+  tab: 'messages',
+  filters: {},
+  searched_at: '2026-11-16T09:00:00Z',
+  ...over,
+});
 
+describe('SearchPanel recent searches', () => {
   beforeEach(() => {
     get.mockReset();
     get.mockImplementation(async () => ({ data: [] }));
@@ -280,6 +281,14 @@ describe('SearchPanel recent searches', () => {
     expect(recent.clear).toHaveBeenCalled();
   });
 
+  it('names a search with no words by its filters', () => {
+    recent.searches = [kept({ id: 'r-3', query: '', filters: { in: 'c-1', has: 'link' } })];
+    renderPanel();
+    expect(
+      screen.getByRole('button', { name: 'Remove “In #finance, Links” from recent searches' }),
+    ).toBeInTheDocument();
+  });
+
   it('keeps a search when it is submitted or a result is opened, not while it is typed', async () => {
     get.mockImplementation(async (path: string) => ({
       data:
@@ -347,6 +356,25 @@ describe('SearchPanel in Japanese', () => {
     typeAndSubmit(hostile);
     expect(await screen.findByText(`「${hostile}」に一致するメッセージはありません`)).toBeInTheDocument();
     expect(screen.getByTestId('search-summary').textContent).toBe('0 件');
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
+
+  it('lists recent searches and names them as text', () => {
+    recent.clear.mockReset();
+    recent.searches = [
+      kept({ id: 'r-1', query: hostile }),
+      kept({ id: 'r-2', query: '', filters: { from: 'u-h', has: 'link' } }),
+    ];
+    renderPanel([{ user_id: 'u-h', display_name: hostile } as WorkspaceMember]);
+
+    expect(screen.getByRole('heading', { name: '最近の検索' })).toBeInTheDocument();
+    expect(screen.getByTestId('recent-search-query').textContent).toBe(hostile);
+    expect(screen.getByRole('button', { name: `「${hostile}」を最近の検索から削除` })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: `「送信者 ${hostile}、リンク」を最近の検索から削除` }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'すべて消去' }));
+    expect(recent.clear).toHaveBeenCalled();
     expect(document.querySelector('[onerror]')).toBeNull();
   });
 
