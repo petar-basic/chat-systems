@@ -64,6 +64,80 @@ test('a member builds a webhook workflow and a call to it posts in the channel',
   }
 });
 
+test('a webhook workflow branches on a value and posts down the path it took', async ({
+  page,
+  playwright,
+}) => {
+  const { ctx: admin } = await userContext('admin@dev.local');
+  const { ctx: bob, userId: bobId } = await userContext('bob@dev.local');
+  const caller = await playwright.request.newContext();
+  const workspace = await devWorkspace(admin);
+  const channel = await createChannel(admin, workspace.id, 'triage');
+  await admin.post(`${API}/channels/${channel.id}/members`, { data: { user_id: bobId } });
+  const name = `Triage ${Date.now()}`;
+
+  try {
+    await login(page, 'bob@dev.local');
+    await page.goto(`/app/${workspace.id}/${channel.id}`);
+    await openWorkspaceMenu(page);
+    await page.getByTestId('open-workflows').click();
+    await page.getByTestId('workflow-new').click();
+    await page.getByTestId('new-workflow-submit').click();
+    const editor = page.getByTestId('workflow-editor');
+    await editor.getByTestId('workflow-name').fill(name);
+    await editor.getByTestId('workflow-trigger-type').selectOption('webhook');
+    await editor.getByTestId('workflow-variable-add').click();
+    await editor.getByTestId('workflow-variable-name').fill('severity');
+
+    await editor.getByTestId('workflow-step-type').selectOption('branch');
+    await editor.getByTestId('workflow-branch-value').selectOption({ label: 'severity' });
+    await editor.getByTestId('workflow-branch-operand').fill('high');
+    const lanes = editor.getByTestId('workflow-lane');
+    await expect(lanes).toHaveCount(2);
+    for (const [at, text] of [
+      [0, 'Paging on-call'],
+      [1, 'Filed for later'],
+    ] as const) {
+      const lane = lanes.nth(at);
+      await lane.getByTestId('workflow-lane-add').click();
+      await lane.getByTestId('workflow-step-channel').selectOption(channel.id);
+      await lane.getByTestId('workflow-step-text').fill(text);
+    }
+    await expect(editor.getByTestId('workflow-step')).toHaveCount(3);
+
+    await editor.getByTestId('workflow-save').click();
+    await expect(editor.getByTestId('workflow-disable')).toBeVisible();
+    const url = await editor.getByTestId('workflow-webhook-url').innerText();
+    await editor.getByRole('button', { name: 'Close' }).last().click();
+
+    const list = page.locator('[data-qa="message-list"]');
+    expect((await caller.post(url, { data: { severity: 'HIGH' } })).status()).toBe(202);
+    await expect(list.getByText('Paging on-call')).toBeVisible({ timeout: 30_000 });
+    expect((await caller.post(url, { data: { severity: 'low' } })).status()).toBe(202);
+    await expect(list.getByText('Filed for later')).toBeVisible({ timeout: 30_000 });
+    await expect(list.getByText('Paging on-call')).toHaveCount(1);
+
+    await page.getByTestId('workflow-row').filter({ hasText: name }).click();
+    await page.getByTestId('workflow-history-toggle').click();
+    const paths = page.getByTestId('workflow-run-path');
+    await expect(paths).toHaveCount(2);
+    await expect(paths.nth(0)).toHaveText('— took the “Otherwise” path');
+    await expect(paths.nth(1)).toHaveText('— took the “If it matches” path');
+    await expect(page.getByTestId('workflow-run').first().getByTestId('workflow-run-step').last()).toHaveText(
+      'Step 3 · Send a message',
+    );
+  } finally {
+    const listed = await (await bob.get(`${API}/workspaces/${workspace.id}/workflows`)).json();
+    for (const workflow of listed.data ?? []) {
+      if (workflow.name === name) await bob.delete(`${API}/workflows/${workflow.id}`);
+    }
+    await admin.delete(`${API}/channels/${channel.id}`);
+    await caller.dispose();
+    await admin.dispose();
+    await bob.dispose();
+  }
+});
+
 test('a member-joined workflow welcomes the newcomer with a DM', async ({ page }) => {
   const { ctx: admin } = await userContext('admin@dev.local');
   const { ctx: bob, userId: bobId } = await userContext('bob@dev.local');

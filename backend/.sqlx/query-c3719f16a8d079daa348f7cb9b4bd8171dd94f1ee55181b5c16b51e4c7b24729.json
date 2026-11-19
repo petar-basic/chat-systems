@@ -1,0 +1,112 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT position, succeeded, matched, message_id, list_item_id, channel_id, error,\n                   finished_at\n              FROM workflow_run_steps\n             WHERE run_id = $1 AND succeeded\n             ORDER BY position\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "position",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "workflow_run_steps",
+            "name": "position"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "succeeded",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "workflow_run_steps",
+            "name": "succeeded"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "matched",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "workflow_run_steps",
+            "name": "matched"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "message_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "workflow_run_steps",
+            "name": "message_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "list_item_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "workflow_run_steps",
+            "name": "list_item_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "channel_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "workflow_run_steps",
+            "name": "channel_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "error",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "workflow_run_steps",
+            "name": "error"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "finished_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "workflow_run_steps",
+            "name": "finished_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "c3719f16a8d079daa348f7cb9b4bd8171dd94f1ee55181b5c16b51e4c7b24729"
+}

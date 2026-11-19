@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            UPDATE workflow_runs r\n               SET status = 'expired', error = $1, finished_at = NOW()\n              FROM workflow_forms f, workflows w\n             WHERE f.run_id = r.id AND w.id = r.workflow_id\n               AND r.status = 'waiting' AND f.answered_at IS NULL AND f.expires_at <= NOW()\n            RETURNING f.message_id, w.workspace_id\n            ",
+  "query": "\n            UPDATE workflow_runs r\n               SET status = 'expired', error = $1, waiting_at = NULL, finished_at = NOW()\n              FROM workflow_forms f, workflows w\n             WHERE f.run_id = r.id AND w.id = r.workflow_id\n               AND r.status = 'waiting' AND f.answered_at IS NULL AND f.expires_at <= NOW()\n            RETURNING f.message_id, w.workspace_id\n            ",
   "describe": {
     "columns": [
       {
@@ -36,5 +36,5 @@
       false
     ]
   },
-  "hash": "752f1f0ae1972462b7ada68d17702804f6cf0b4f2070c597f58d1e6cf75a383a"
+  "hash": "1e321d817affa8c8ae643a572eac6b2712fd3c9caa8964c3ab20611dcf4fff40"
 }

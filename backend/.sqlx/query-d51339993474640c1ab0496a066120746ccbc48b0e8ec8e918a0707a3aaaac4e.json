@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, workflow_id, workflow_version, status AS \"status: RunStatus\",\n                   context, error, started_at, finished_at\n              FROM workflow_runs\n             WHERE workflow_id = $1\n             ORDER BY started_at DESC, id\n             LIMIT $2\n            ",
+  "query": "\n            UPDATE workflow_runs r\n               SET status = 'running', claimed_at = NOW()\n              FROM (\n                  SELECT id FROM workflow_runs\n                   WHERE status = 'pending'\n                      OR (status = 'running' AND claimed_at < NOW() - INTERVAL '5 minutes')\n                   ORDER BY started_at\n                   LIMIT $1\n                   FOR UPDATE SKIP LOCKED\n              ) due\n             WHERE r.id = due.id\n            RETURNING r.id, r.workflow_id, r.workflow_version, r.status AS \"status: RunStatus\",\n                      r.context, r.error, r.started_at, r.finished_at,\n                      r.waiting_at, r.resume_at AS waiting_until\n            ",
   "describe": {
     "columns": [
       {
@@ -104,11 +104,32 @@
             "name": "finished_at"
           }
         }
+      },
+      {
+        "ordinal": 8,
+        "name": "waiting_at",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "workflow_runs",
+            "name": "waiting_at"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "waiting_until",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "workflow_runs",
+            "name": "resume_at"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid",
         "Int8"
       ]
     },
@@ -120,8 +141,10 @@
       false,
       true,
       false,
+      true,
+      true,
       true
     ]
   },
-  "hash": "4164c4b694e9d3146ccd756c7b6a2d81f7c28a957904f41c5b91d83ea276626d"
+  "hash": "d51339993474640c1ab0496a066120746ccbc48b0e8ec8e918a0707a3aaaac4e"
 }

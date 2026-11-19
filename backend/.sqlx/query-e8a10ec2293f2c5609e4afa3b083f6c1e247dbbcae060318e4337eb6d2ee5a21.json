@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE workflow_runs\n               SET status = 'waiting', waiting_at = $2, resume_at = $3\n             WHERE id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e8a10ec2293f2c5609e4afa3b083f6c1e247dbbcae060318e4337eb6d2ee5a21"
+}

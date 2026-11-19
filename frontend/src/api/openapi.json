@@ -14421,6 +14421,62 @@
           }
         }
       },
+      "ChannelRef": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "channel_id",
+              "kind"
+            ],
+            "properties": {
+              "channel_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "channel"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "trigger_channel"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "step",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "from_step"
+                ]
+              },
+              "step": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        ]
+      },
       "ChannelRetention": {
         "type": "object",
         "required": [
@@ -18611,6 +18667,16 @@
                     "$ref": "#/components/schemas/RunStep"
                   }
                 },
+                "waiting": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/RunWaiting"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "workflow_version": {
                   "type": "integer",
                   "format": "int32"
@@ -19009,6 +19075,14 @@
             "$ref": "#/components/schemas/Trigger"
           }
         }
+      },
+      "DelayUnit": {
+        "type": "string",
+        "enum": [
+          "minutes",
+          "hours",
+          "days"
+        ]
       },
       "Density": {
         "type": "string",
@@ -20746,6 +20820,61 @@
           "approved",
           "declined",
           "expired"
+        ]
+      },
+      "Invitee": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "trigger_user"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "field",
+              "kind"
+            ],
+            "properties": {
+              "field": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "answer"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "group_id",
+              "kind"
+            ],
+            "properties": {
+              "group_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "group"
+                ]
+              }
+            }
+          }
         ]
       },
       "InvokeRequest": {
@@ -23395,10 +23524,18 @@
         "type": "object",
         "required": [
           "position",
+          "label",
           "succeeded",
           "finished_at"
         ],
         "properties": {
+          "channel_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
           "error": {
             "type": [
               "string",
@@ -23409,12 +23546,21 @@
             "type": "string",
             "format": "date-time"
           },
+          "label": {
+            "type": "string"
+          },
           "list_item_id": {
             "type": [
               "string",
               "null"
             ],
             "format": "uuid"
+          },
+          "matched": {
+            "type": [
+              "boolean",
+              "null"
+            ]
           },
           "message_id": {
             "type": [
@@ -23429,6 +23575,29 @@
           },
           "succeeded": {
             "type": "boolean"
+          }
+        }
+      },
+      "RunWaiting": {
+        "type": "object",
+        "required": [
+          "position",
+          "label"
+        ],
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "position": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -24397,6 +24566,182 @@
                 ]
               }
             }
+          },
+          {
+            "type": "object",
+            "required": [
+              "value",
+              "test",
+              "then",
+              "otherwise",
+              "type"
+            ],
+            "properties": {
+              "otherwise": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Step"
+                }
+              },
+              "test": {
+                "$ref": "#/components/schemas/Test"
+              },
+              "then": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Step"
+                }
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "branch"
+                ]
+              },
+              "value": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "wait",
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "delay"
+                ]
+              },
+              "wait": {
+                "$ref": "#/components/schemas/Wait"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "emoji",
+              "type"
+            ],
+            "properties": {
+              "emoji": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "add_reaction"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "text",
+              "type"
+            ],
+            "properties": {
+              "text": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "reply_in_thread"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "name",
+              "type"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "private": {
+                "type": "boolean"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "create_channel"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "channel",
+              "people",
+              "type"
+            ],
+            "properties": {
+              "channel": {
+                "$ref": "#/components/schemas/ChannelRef"
+              },
+              "people": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Invitee"
+                }
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "add_to_channel"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "channel",
+              "topic",
+              "type"
+            ],
+            "properties": {
+              "channel": {
+                "$ref": "#/components/schemas/ChannelRef"
+              },
+              "topic": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "set_topic"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "channel",
+              "type"
+            ],
+            "properties": {
+              "channel": {
+                "$ref": "#/components/schemas/ChannelRef"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "archive_channel"
+                ]
+              }
+            }
           }
         ]
       },
@@ -24541,6 +24886,99 @@
           "invite_request_approved",
           "invite_request_declined",
           "invite_request_expired"
+        ]
+      },
+      "Test": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "value",
+              "op"
+            ],
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "equals"
+                ]
+              },
+              "value": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "value",
+              "op"
+            ],
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "contains"
+                ]
+              },
+              "value": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "op"
+            ],
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "is_empty"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "value",
+              "op"
+            ],
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "greater_than"
+                ]
+              },
+              "value": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "values",
+              "op"
+            ],
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "one_of"
+                ]
+              },
+              "values": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
         ]
       },
       "TextKind": {
@@ -26417,6 +26855,59 @@
           }
         }
       },
+      "Wait": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "amount",
+              "unit",
+              "kind"
+            ],
+            "properties": {
+              "amount": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "for"
+                ]
+              },
+              "unit": {
+                "$ref": "#/components/schemas/DelayUnit"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "date",
+              "time",
+              "timezone",
+              "kind"
+            ],
+            "properties": {
+              "date": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "until"
+                ]
+              },
+              "time": {
+                "type": "string"
+              },
+              "timezone": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
       "Weekday": {
         "type": "string",
         "enum": [
@@ -26574,6 +27065,16 @@
             "items": {
               "$ref": "#/components/schemas/RunStep"
             }
+          },
+          "waiting": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/RunWaiting"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "workflow_version": {
             "type": "integer",

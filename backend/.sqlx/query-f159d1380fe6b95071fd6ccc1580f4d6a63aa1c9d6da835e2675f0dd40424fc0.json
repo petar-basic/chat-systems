@@ -1,12 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            UPDATE workflow_runs\n               SET status = $3, error = $4, workflow_version = $2, finished_at = NOW()\n             WHERE id = $1\n            ",
+  "query": "\n            UPDATE workflow_runs\n               SET status = $2, error = $3, waiting_at = NULL, resume_at = NULL,\n                   finished_at = NOW()\n             WHERE id = $1\n            ",
   "describe": {
     "columns": [],
     "parameters": {
       "Left": [
         "Uuid",
-        "Int4",
         {
           "Custom": {
             "name": "workflow_run_status",
@@ -27,5 +26,5 @@
     },
     "nullable": []
   },
-  "hash": "05cccd4c37151d35351f77afc7348deb815a91c40c8f2129e5c86e3b05d25e3d"
+  "hash": "f159d1380fe6b95071fd6ccc1580f4d6a63aa1c9d6da835e2675f0dd40424fc0"
 }

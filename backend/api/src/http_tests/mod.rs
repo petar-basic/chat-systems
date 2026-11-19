@@ -67,5 +67,6 @@ mod searches;
 mod sidebar;
 mod thread_keep_up;
 mod threads;
+mod workflow_branches;
 mod workflows;
 mod workspace;

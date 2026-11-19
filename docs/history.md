@@ -4083,3 +4083,53 @@ The QA found two bugs, both fixed before the PR. An edit replaced the app's shar
 links only, so the app could no longer change an earlier preview; a share now adds the new
 links to the ones it had. Changing a preview also moved it to the end; previews now keep the
 order of the links in the message.
+
+### [CS-138] Workflows that branch, wait and do more ✅ shipped
+A workflow ran its steps top to bottom. It could not page on-call for an urgent request and
+file the rest, wait a day after someone joined, or make the channel for a new project. Slack's
+Workflow Builder does all three.
+
+**Branches.** A *Branch* step tests one value: a trigger variable, a form answer, a profile
+field of the person who set the workflow off, or a column of an item an earlier step added.
+The test is *is*, *contains*, *is empty*, *is greater than* (a number or a date) or *is one
+of*. A person can be tested only against people, and a choice only against its own choices.
+Each path is a list of steps, branches nest two deep, and the run carries on after the branch.
+Steps are numbered depth first, the way the builder shows them. An answer or a channel made on
+one path is offered only to the steps further down that path. The builder draws the two paths
+as indented lanes, *If it matches* and *Otherwise*, each with its own *Add a step*.
+
+**Waits.** A *Wait* step waits a number of minutes, hours or days, or until a date and time in
+a timezone, at most 30 days. The run waits the way a form does. The worker puts due runs back
+in the queue and records the wait in one statement, so two workers resume a run only once.
+
+**New steps,** each run as the workflow's builder and checked against their rights when it
+runs: react to the message, reply in its thread, create a public or private channel under the
+channel-creator rules, add people to a channel (a person answer, the person who set it off, or
+a group), set a channel's topic, and archive a channel. A new channel and a reply become
+variables, such as `{{step.2.channel_link}}`, for the steps after them.
+
+**Run history** shows the path each branch took, where a run waits and until when, and a failed
+step with its error. Every save keeps a copy of that version, and a run finishes on the version
+it started with, so an edit doesn't change a run that is waiting.
+
+**QA** on the Docker stack, with Bob building and Alice setting the workflows off, checked
+from a script and the database:
+- An *Urgency* form sent *urgent* to the on-call channel and *normal* to the requests channel.
+  Both runs then logged in the requests channel, and history showed each branch's path. A
+  choice it doesn't offer, three levels of branches and *contains* on a person were refused.
+- A project form made `#proj-apollo-…` with the topic from the answer. Bob was its admin, and
+  the lead from the form and Alice were added. Alice got a DM with the channel's name and link.
+  The same name again failed with *A channel named … already exists*.
+- With public channels limited to admins, the same run failed with *Only admins can create
+  public channels in this workspace*, and no channel was made. Saving such a step was refused.
+- A 👀 on Alice's message got Bob's ✅, a thread reply that mentioned Alice, and a post linking
+  to that reply.
+- *Member joined → wait 1 day → DM* waited with its resume time a day away, and sent nothing
+  before then. The worker was restarted and scaled to two, then the clock was moved: the DM
+  went once, with one row per step. 31 days and a moment already past were refused.
+- A workflow edited while its run waited for a form finished on version 1.
+- Archiving a channel Bob can't archive was refused when saving. Once Bob was no longer that
+  channel's admin, the run failed with *Its creator can no longer archive that channel*. As its
+  admin again, the run archived it.
+
+The QA found no bugs.
