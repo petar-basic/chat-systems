@@ -54,7 +54,7 @@ export function RecentSearches({ searches, context, onPick, onForget, onClear, o
       <ul className="space-y-0.5">
         {searches.map((search) => {
           const chips = chipsOf(search);
-          const named = search.query || chips.join(', ');
+          const named = search.query || chips.join(t('listSeparator', { ns: 'common' }));
           return (
             <li key={search.id} className="flex items-center gap-1 rounded-lg hover:bg-raised/30">
               <button
