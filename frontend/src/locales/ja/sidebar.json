@@ -24,7 +24,8 @@
     "notificationsOff": "通知オフ",
     "move": "{{name}} をセクションに移動",
     "moveHint": "移動…",
-    "moveTo": "移動先"
+    "moveTo": "移動先",
+    "draft": "下書き"
   },
   "section": {
     "options": "{{name}} の操作",
@@ -49,6 +50,7 @@
     "setActive": "オンラインに戻す",
     "profile": "プロフィール",
     "preferences": "設定",
+    "drafts": "下書きと送信済み",
     "later": "後で",
     "notifications": "通知",
     "paused": "通知({{time}} まで一時停止中)",
