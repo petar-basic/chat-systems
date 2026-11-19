@@ -8,6 +8,7 @@ use shared_common::errors::{AppError, AppResult};
 use super::models::*;
 use super::repo::{Output, StepRow};
 use super::routes::RUNS_PER_MINUTE;
+use crate::app_workflow_steps::models::{StepParamKind, StepProvider};
 use crate::audit::{self, AuditAction, AuditEntry, ClientIp};
 use crate::authz;
 use crate::lists::models::ColumnKind;
@@ -347,6 +348,137 @@ pub async fn check_authority(
                     }
                 }
             }
+            Step::AppStep { inputs, values, .. } => {
+                for input in inputs {
+                    let value = values.get(&input.name).map_or("", |v| v.trim());
+                    let Ok(id) = value.parse::<Uuid>() else {
+                        continue;
+                    };
+                    match input.kind {
+                        StepParamKind::Channel => {
+                            fixed_channel(
+                                state,
+                                workspace_id,
+                                creator,
+                                &at,
+                                &ChannelRef::Channel { channel_id: id },
+                            )
+                            .await?;
+                        }
+                        StepParamKind::Person
+                            if state
+                                .workspace_service
+                                .repo
+                                .get_member(workspace_id, id)
+                                .await?
+                                .is_none() =>
+                        {
+                            return Err(AppError::Validation(format!(
+                                "{at}: that person isn't in this workspace"
+                            )));
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+pub async fn with_current_app_steps(
+    state: &AppState,
+    workspace_id: Uuid,
+    req: &SaveWorkflowRequest,
+) -> AppResult<SaveWorkflowRequest> {
+    let mut definition = req.definition.clone();
+    let mut providers = None;
+    let mut number = 0;
+    refresh_app_steps(
+        state,
+        workspace_id,
+        &mut definition.steps,
+        &mut providers,
+        &mut number,
+    )
+    .await?;
+    Ok(SaveWorkflowRequest {
+        name: req.name.clone(),
+        description: req.description.clone(),
+        definition,
+    })
+}
+
+async fn refresh_app_steps(
+    state: &AppState,
+    workspace_id: Uuid,
+    steps: &mut [Step],
+    providers: &mut Option<Vec<StepProvider>>,
+    number: &mut usize,
+) -> AppResult<()> {
+    for step in steps {
+        *number += 1;
+        let at = format!("Step {number}");
+        match step {
+            Step::AppStep {
+                app_id,
+                callback_id,
+                title,
+                inputs,
+                outputs,
+                ..
+            } => {
+                if providers.is_none() {
+                    *providers =
+                        Some(crate::app_workflow_steps::providers(state, workspace_id).await?);
+                }
+                let app = providers
+                    .iter()
+                    .flatten()
+                    .find(|app| app.app_id == *app_id)
+                    .ok_or_else(|| {
+                        AppError::Validation(format!(
+                            "{at}: the app that runs this step was removed"
+                        ))
+                    })?;
+                if let Some(problem) = &app.problem {
+                    return Err(AppError::Validation(format!("{at}: {problem}")));
+                }
+                let offered = app
+                    .steps
+                    .iter()
+                    .find(|offered| offered.callback_id == *callback_id)
+                    .ok_or_else(|| {
+                        AppError::Validation(format!(
+                            "{at}: {} no longer offers this step",
+                            app.name
+                        ))
+                    })?;
+                title.clone_from(&offered.title);
+                inputs.clone_from(&offered.inputs);
+                outputs.clone_from(&offered.outputs);
+            }
+            Step::Branch {
+                then, otherwise, ..
+            } => {
+                Box::pin(refresh_app_steps(
+                    state,
+                    workspace_id,
+                    then,
+                    providers,
+                    number,
+                ))
+                .await?;
+                Box::pin(refresh_app_steps(
+                    state,
+                    workspace_id,
+                    otherwise,
+                    providers,
+                    number,
+                ))
+                .await?;
+            }
+            _ => {}
         }
     }
     Ok(())
@@ -596,6 +728,7 @@ pub async fn create(
     req: &SaveWorkflowRequest,
 ) -> AppResult<Workflow> {
     require_builder(state, workspace_id, user_id).await?;
+    let req = &with_current_app_steps(state, workspace_id, req).await?;
     let checked = req.checked()?;
     check_authority(state, workspace_id, user_id, &req.definition).await?;
     let token = matches!(req.definition.trigger, Trigger::Webhook { .. }).then(generate_token);
@@ -632,6 +765,7 @@ pub async fn update(
     req: &SaveWorkflowRequest,
 ) -> AppResult<Workflow> {
     let row = find_own(state, id, user_id).await?;
+    let req = &with_current_app_steps(state, row.workspace_id, req).await?;
     let checked = req.checked()?;
     check_authority(state, row.workspace_id, user_id, &req.definition).await?;
     let token = match req.definition.trigger {
@@ -739,7 +873,7 @@ pub async fn runs(state: &AppState, id: Uuid, user_id: Uuid) -> AppResult<Vec<Wo
     let mut versions: Vec<i32> = runs.iter().map(|run| run.workflow_version).collect();
     versions.sort_unstable();
     versions.dedup();
-    let labels: HashMap<i32, Vec<&'static str>> = state
+    let labels: HashMap<i32, Vec<String>> = state
         .workflow_repo
         .versions(id, &versions)
         .await?
@@ -749,7 +883,7 @@ pub async fn runs(state: &AppState, id: Uuid, user_id: Uuid) -> AppResult<Vec<Wo
             let labels = definition
                 .flat()
                 .iter()
-                .map(|node| node.step.label())
+                .map(|node| node.step.label().to_string())
                 .collect();
             Some((version.version, labels))
         })
@@ -758,9 +892,8 @@ pub async fn runs(state: &AppState, id: Uuid, user_id: Uuid) -> AppResult<Vec<Wo
         labels
             .get(&version)
             .and_then(|labels| labels.get(position as usize))
-            .copied()
-            .unwrap_or("Step")
-            .to_string()
+            .cloned()
+            .unwrap_or_else(|| "Step".to_string())
     };
     let mut steps: HashMap<Uuid, Vec<StepRow>> = HashMap::new();
     for (run_id, step) in state.workflow_repo.steps_of(&ids).await? {
@@ -785,6 +918,8 @@ pub async fn runs(state: &AppState, id: Uuid, user_id: Uuid) -> AppResult<Vec<Wo
                         channel_id: row.channel_id,
                         error: row.error,
                         finished_at: row.finished_at,
+                        inputs: row.inputs,
+                        outputs: row.outputs,
                     })
                     .collect(),
                 waiting: run
@@ -1036,6 +1171,78 @@ async fn checked_answers(
         checked.insert(field.name.clone(), serde_json::Value::String(value));
     }
     Ok(serde_json::Value::Object(checked))
+}
+
+pub async fn settle_app_step(
+    state: &AppState,
+    app_id: Uuid,
+    execution_id: Uuid,
+    outcome: Result<&HashMap<String, serde_json::Value>, &str>,
+) -> AppResult<()> {
+    let mut tx = state.pool.begin().await?;
+    let call = state
+        .workflow_repo
+        .call_for_update_in(&mut tx, execution_id)
+        .await?
+        .filter(|call| call.app_id == app_id)
+        .ok_or_else(|| AppError::NotFound("Step execution not found".into()))?;
+    if call.finished_at.unwrap_or_else(chrono::Utc::now) >= call.expires_at {
+        return Err(AppError::Conflict("This step ran out of time".into()));
+    }
+    if call.finished_at.is_some() {
+        return Err(AppError::Conflict("This step already finished".into()));
+    }
+    if call.run_status != RunStatus::Waiting || call.waiting_at != Some(call.position) {
+        return Err(AppError::Conflict(
+            "The workflow is no longer waiting for this step".into(),
+        ));
+    }
+    match outcome {
+        Ok(given) => {
+            let declared: Vec<crate::app_workflow_steps::models::StepParam> =
+                serde_json::from_value(call.outputs.clone())
+                    .map_err(|e| AppError::Internal(e.to_string()))?;
+            let outputs = crate::app_workflow_steps::checked_outputs(
+                state,
+                call.workspace_id,
+                &declared,
+                given,
+            )
+            .await?;
+            state
+                .workflow_repo
+                .settle_call_in(&mut tx, &call, Ok(&outputs))
+                .await?;
+        }
+        Err(error) => {
+            state
+                .workflow_repo
+                .settle_call_in(&mut tx, &call, Err(error))
+                .await?;
+        }
+    }
+    tx.commit().await?;
+    Ok(())
+}
+
+pub async fn tell_app_gone(state: &AppState, app_id: Uuid, app_name: &str) {
+    let users = match state.workflow_repo.using_app(app_id).await {
+        Ok(users) => users,
+        Err(e) => {
+            tracing::warn!("could not find the workflows that use an app: {}", e);
+            return;
+        }
+    };
+    for workflow in users {
+        let data = NotificationData {
+            notice: Some(SystemNotice::WorkflowAppGone),
+            workflow_id: Some(workflow.id),
+            workflow_name: Some(workflow.name.clone()),
+            app_name: Some(app_name.to_string()),
+            ..Default::default()
+        };
+        tell(state, workflow.created_by, workflow.workspace_id, &data).await;
+    }
 }
 
 pub async fn stop_creators_workflows(

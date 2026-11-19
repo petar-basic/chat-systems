@@ -65,6 +65,15 @@ impl AppEventRepo {
     }
 
     pub async fn enqueue(&self, delivery: NewDelivery<'_>) -> sqlx::Result<bool> {
+        let mut conn = self.pool.acquire().await?;
+        self.enqueue_in(&mut conn, delivery).await
+    }
+
+    pub async fn enqueue_in(
+        &self,
+        conn: &mut sqlx::PgConnection,
+        delivery: NewDelivery<'_>,
+    ) -> sqlx::Result<bool> {
         let inserted = sqlx::query!(
             "INSERT INTO app_deliveries (app_id, event_id, channel_id, kind, body, expires_at)
              VALUES ($1, $2, $3, $4, $5, NOW() + make_interval(secs => $6))
@@ -76,7 +85,7 @@ impl AppEventRepo {
             delivery.body,
             delivery.ttl_secs
         )
-        .execute(&self.pool)
+        .execute(&mut *conn)
         .await?;
         Ok(inserted.rows_affected() == 1)
     }

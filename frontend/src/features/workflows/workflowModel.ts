@@ -20,6 +20,11 @@ export type ListStep = AddItemStep | UpdateItemStep;
 export type BranchStep = Extract<Step, { type: 'branch' }>;
 export type DelayStep = Extract<Step, { type: 'delay' }>;
 export type ChannelStep = Extract<Step, { type: 'add_to_channel' | 'set_topic' | 'archive_channel' }>;
+export type AppStep = Extract<Step, { type: 'app_step' }>;
+export type StepParam = components['schemas']['StepParam'];
+export type StepParamKind = components['schemas']['StepParamKind'];
+export type StepProvider = components['schemas']['StepProvider'];
+export type OfferedStep = components['schemas']['AppWorkflowStep'];
 export type Test = components['schemas']['Test'];
 export type TestOp = Test['op'];
 export type Wait = components['schemas']['Wait'];
@@ -165,6 +170,101 @@ export function blankStep(
       return { type: 'set_topic', channel, topic: '' };
     case 'archive_channel':
       return { type: 'archive_channel', channel };
+    case 'app_step':
+      return { type: 'app_step', app_id: '', callback_id: '', values: {} };
+  }
+}
+
+export function appStepKey(appId: string, callbackId: string): string {
+  return `app:${appId}:${callbackId}`;
+}
+
+export function appStep(offered: OfferedStep, values: Record<string, string> = {}): AppStep {
+  const names = new Set(offered.inputs.map((input) => input.name));
+  return {
+    type: 'app_step',
+    app_id: offered.app_id,
+    callback_id: offered.callback_id,
+    title: offered.title,
+    inputs: offered.inputs,
+    outputs: offered.outputs,
+    values: Object.fromEntries(Object.entries(values).filter(([name]) => names.has(name))),
+  };
+}
+
+export function offeredStep(
+  providers: StepProvider[] | undefined,
+  step: AppStep,
+): { provider?: StepProvider; offered?: OfferedStep } {
+  const provider = providers?.find((p) => p.app_id === step.app_id);
+  return { provider, offered: provider?.steps.find((s) => s.callback_id === step.callback_id) };
+}
+
+export function appStepProblem(step: AppStep, providers: StepProvider[] | undefined): string | null {
+  if (!providers || !step.app_id) return null;
+  const { provider, offered } = offeredStep(providers, step);
+  if (!provider) return 'The app that runs this step was removed. Runs fail here until you replace the step.';
+  if (provider.problem)
+    return `${provider.problem}. Runs fail here until that's fixed or you replace the step.`;
+  if (!offered) return `${provider.name} no longer offers this step. Runs fail here until you replace it.`;
+  return null;
+}
+
+export function loneToken(value: string): string | null {
+  const match = /^\{\{\s*([^{}]+?)\s*\}\}$/.exec(value.trim());
+  return match ? `{{${match[1]}}}` : null;
+}
+
+export function paramKindOf(definition: Definition, index: number, token: string): StepParamKind {
+  const name = token.replace(/^\{\{\s*|\s*\}\}$/g, '');
+  if (name === 'trigger.user') return 'person';
+  if (name === 'trigger.channel') return 'channel';
+  if (name.startsWith('form.')) {
+    const field = formsBefore(definition.steps, index)
+      .flatMap((form) => form.fields)
+      .find((f) => f.name === name.slice('form.'.length));
+    if (field?.kind === 'person') return 'person';
+    if (field?.kind === 'date') return 'date';
+    return 'text';
+  }
+  const match = /^step\.(\d+)\.(.+)$/.exec(name);
+  if (!match) return 'text';
+  const step = flatten(definition.steps)[Number(match[1]) - 1]?.step;
+  if (step?.type === 'create_channel' && match[2] === 'channel') return 'channel';
+  if (step?.type === 'app_step')
+    return (step.outputs ?? []).find((output) => output.name === match[2])?.kind ?? 'text';
+  return 'text';
+}
+
+export function typedVariables(definition: Definition, index: number, kind: StepParamKind): Variable[] {
+  return stepVariables(definition, index).filter(
+    (variable) => paramKindOf(definition, index, variable.token) === kind,
+  );
+}
+
+const KIND_NOUNS: Record<StepParamKind, string> = {
+  text: 'text',
+  number: 'a number',
+  boolean: 'true or false',
+  person: 'a person',
+  channel: 'a channel',
+  date: 'a date',
+};
+
+function fitsKind(kind: StepParamKind, value: string): boolean {
+  const text = value.trim();
+  switch (kind) {
+    case 'text':
+      return true;
+    case 'number':
+      return text !== '' && Number.isFinite(Number(text.replace(/,/g, '')));
+    case 'boolean':
+      return text === 'true' || text === 'false';
+    case 'date':
+      return /^\d{4}-\d{2}-\d{2}$/.test(text);
+    case 'person':
+    case 'channel':
+      return /^[0-9a-f-]{36}$/i.test(text);
   }
 }
 
@@ -266,6 +366,13 @@ function renumbered(step: Step, to: (old: number) => number): Step {
     case 'add_to_channel':
     case 'archive_channel':
       return { ...step, channel: channel(step.channel) };
+    case 'app_step':
+      return {
+        ...step,
+        values: Object.fromEntries(
+          Object.entries(step.values ?? {}).map(([name, value]) => [name, tokens(value)]),
+        ),
+      };
     default:
       return step;
   }
@@ -390,6 +497,10 @@ export type VariableKind =
 export function variableKind(definition: Definition, index: number, token: string): VariableKind {
   const name = token.replace(/^\{\{\s*|\s*\}\}$/g, '');
   if (name === 'trigger.user') return { kind: 'person' };
+  if (name.startsWith('step.')) {
+    const kind = paramKindOf(definition, index, name);
+    return kind === 'person' || kind === 'date' ? { kind } : { kind: 'text' };
+  }
   const field = name.startsWith('form.')
     ? formsBefore(definition.steps, index)
         .flatMap((form) => form.fields)
@@ -496,14 +607,24 @@ export function stepVariables(definition: Definition, index: number): Variable[]
       ];
     if (step.type === 'reply_in_thread')
       return [{ token: `{{step.${position + 1}.message_link}}`, label: `${at}: link to the reply` }];
+    if (step.type === 'app_step')
+      return (step.outputs ?? []).map((output) => ({
+        token: `{{step.${position + 1}.${output.name}}}`,
+        label: `${at}: ${output.title}`,
+      }));
     return [];
   });
   return [...variablesOf(definition.trigger), ...earlier];
 }
 
+function fromAppStep(definition: Definition, token: string): boolean {
+  const match = /^\{\{step\.(\d+)\./.exec(token);
+  return Boolean(match) && flatten(definition.steps)[Number(match?.[1]) - 1]?.step.type === 'app_step';
+}
+
 export function branchVariables(definition: Definition, index: number): Variable[] {
   return stepVariables(definition, index)
-    .filter((variable) => !variable.token.startsWith('{{step.'))
+    .filter((variable) => !variable.token.startsWith('{{step.') || fromAppStep(definition, variable.token))
     .map((variable) => ({ ...variable, token: variable.token.slice(2, -2) }));
 }
 
@@ -662,9 +783,11 @@ const STEP_LABELS: Record<Step['type'], string> = {
   add_to_channel: 'Add people to a channel',
   set_topic: 'Set a channel topic',
   archive_channel: 'Archive a channel',
+  app_step: 'Run a step from an app',
 };
 
 export function stepLabel(step: Step): string {
+  if (step.type === 'app_step') return step.title || STEP_LABELS.app_step;
   return STEP_LABELS[step.type];
 }
 
@@ -694,6 +817,15 @@ function cleanSteps(steps: Step[]): Step[] {
               : step.test,
           then: cleanSteps(step.then),
           otherwise: cleanSteps(step.otherwise),
+        };
+      case 'app_step':
+        return {
+          ...step,
+          values: Object.fromEntries(
+            Object.entries(step.values ?? {})
+              .map(([name, value]): [string, string] => [name, value.trim()])
+              .filter(([, value]) => value),
+          ),
         };
       default:
         return step;
@@ -728,6 +860,18 @@ function missing(step: Step): string | null {
     case 'archive_channel':
       if (step.channel.kind === 'channel' && !step.channel.channel_id) return 'pick a channel';
       return step.type === 'add_to_channel' && step.people.length === 0 ? 'pick who to add' : null;
+    case 'app_step': {
+      if (!step.app_id || !step.callback_id) return 'pick the app step to run';
+      const empty = (step.inputs ?? []).find(
+        (input) => input.required && !(step.values ?? {})[input.name]?.trim(),
+      );
+      if (empty) return `fill in \u201c${empty.title}\u201d`;
+      const wrong = (step.inputs ?? []).find((input) => {
+        const value = (step.values ?? {})[input.name]?.trim();
+        return value && !loneToken(value) && !fitsKind(input.kind, value);
+      });
+      return wrong ? `\u201c${wrong.title}\u201d needs ${KIND_NOUNS[wrong.kind]}` : null;
+    }
     default:
       return null;
   }

@@ -1,0 +1,92 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT b.id, b.workspace_id, b.name, b.icon_url,\n                      b.disabled_at IS NOT NULL AS \"disabled!\",\n                      'workflow.steps:execute' = ANY(b.scopes) AS \"scoped!\",\n                      'function_executed' = ANY(b.events) AS \"listening!\",\n                      (b.socket_mode OR b.request_url IS NOT NULL) AS \"reachable!\"\n                 FROM bot_apps b\n                WHERE b.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "icon_url",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "bot_apps",
+            "name": "icon_url"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "disabled!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "scoped!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "listening!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "reachable!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "8f7fcdeb1e7c2c29914a1f4166bb4dca88d33b388321cbf23827a0944ecd0970"
+}

@@ -367,6 +367,7 @@ fn step_text(step: &Step) -> Option<(&'static str, &'static str)> {
         Step::AddToChannel { .. } => ("add_to_channel", "Adds people to channels"),
         Step::SetTopic { .. } => ("set_topic", "Changes channel topics"),
         Step::ArchiveChannel { .. } => ("archive_channel", "Archives channels"),
+        Step::AppStep { .. } => ("app_step", "Runs steps that apps provide"),
         Step::Branch { .. } | Step::Delay { .. } => return None,
     })
 }

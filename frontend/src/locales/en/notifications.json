@@ -126,6 +126,8 @@
     "callBody": "Someone is starting a huddle",
     "reminder": "Reminder",
     "reminderBody": "A message you saved for later",
+    "workflowAppGone": "A workflow step can't run",
+    "workflowAppGoneBody": "“{{workflow}}” uses a step from {{app}}, which is no longer available. Runs fail at that step until you replace it.",
     "workflowStopped": "A workflow was turned off",
     "workflowStoppedBody": "“{{workflow}}” stopped because {{reason}}.",
     "workflowStops": {

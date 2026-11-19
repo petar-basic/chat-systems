@@ -5,6 +5,7 @@ pub mod app_events;
 pub mod app_home;
 pub mod app_shortcuts;
 pub mod app_unfurls;
+pub mod app_workflow_steps;
 pub mod audit;
 pub mod auth;
 pub mod authz;
@@ -133,6 +134,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
     let app_event_repo = app_events::repo::AppEventRepo::new(pool.clone());
     let interaction_repo = interactions::repo::InteractionRepo::new(pool.clone());
     let app_shortcut_repo = app_shortcuts::repo::AppShortcutRepo::new(pool.clone());
+    let app_workflow_step_repo = app_workflow_steps::repo::AppWorkflowStepRepo::new(pool.clone());
     let app_unfurl_repo = app_unfurls::repo::AppUnfurlRepo::new(pool.clone());
     let app_home_repo = app_home::repo::AppHomeRepo::new(pool.clone());
     let app_directory_repo = app_directory::repo::AppDirectoryRepo::new(pool.clone());
@@ -194,6 +196,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
         app_event_repo,
         interaction_repo,
         app_shortcut_repo,
+        app_workflow_step_repo,
         app_unfurl_repo,
         app_home_repo,
         app_directory_repo,

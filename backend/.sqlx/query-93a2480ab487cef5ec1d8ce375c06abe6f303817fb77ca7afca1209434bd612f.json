@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH due AS (\n                SELECT c.id, c.run_id, c.position, c.title, c.inputs\n                  FROM workflow_app_calls c\n                 WHERE c.finished_at IS NULL AND c.expires_at <= NOW()\n                 ORDER BY c.expires_at\n                 LIMIT $1\n                 FOR UPDATE SKIP LOCKED\n            ), closed AS (\n                UPDATE workflow_app_calls c SET finished_at = NOW()\n                  FROM due WHERE c.id = due.id\n            ), failed AS (\n                INSERT INTO workflow_run_steps (run_id, position, succeeded, inputs, error)\n                SELECT run_id, position, FALSE, inputs, $2::text FROM due\n                ON CONFLICT (run_id, position) DO UPDATE\n                   SET succeeded = FALSE, inputs = EXCLUDED.inputs, outputs = NULL,\n                       error = EXCLUDED.error, finished_at = NOW()\n            )\n            UPDATE workflow_runs r\n               SET status = 'failed',\n                   error = 'Step ' || (due.position + 1) || ' (' || due.title || '): ' || $2::text,\n                   waiting_at = NULL, finished_at = NOW()\n              FROM due\n             WHERE r.id = due.run_id AND r.status = 'waiting' AND r.waiting_at = due.position\n            RETURNING r.id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "workflow_runs",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "93a2480ab487cef5ec1d8ce375c06abe6f303817fb77ca7afca1209434bd612f"
+}

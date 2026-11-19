@@ -598,11 +598,17 @@ and *Archive a channel* pick a fixed channel, the trigger's, or the one an earli
 a step offers only what came before it on its own path. `addStep`, `moveStep`, `removeStep` and
 `replaceStep` renumber every reference to a step (`from_step`, a channel step's `from_step`,
 `{{step.N.…}}`) so it keeps pointing at the same step, and a removed step's references fail
-validation instead of moving to another step. *Create workflow* saves a
+validation instead of moving to another step. The step menu lists the steps of each app that
+can run them (`useWorkflowStepApps`) under the app's name. `AppStepEditor` takes a value per
+input: text with *Insert variable*, a person, channel or yes/no from a select of fixed values
+and the earlier variables of that kind (`typedVariables`), a number or date typed in or taken
+from a variable, and it names the outputs later steps can use. A step whose app was removed,
+turned off or no longer offers it shows `appStepProblem` as a warning. *Create workflow* saves a
 new one and it runs at once; *Save changes* keeps it on or off as it was; *Turn off* and *Turn
 on* switch it. There are no drafts. *Run history* swaps the form for `RunHistory`, refetched
 every 10 seconds: each step with its label from the version the run used, the path a branch
-took, a failed step's error, and where a waiting run waits and until when. Someone else's workflow,
+took, a failed step's error, what an app step was given and handed back, and where a waiting
+run waits and until when. Someone else's workflow,
 or yours when only admins may build, opens read-only. `workflowModel.ts` holds the pure
 helpers (schedule presets, insertion, reordering, who may build).
 
@@ -764,7 +770,10 @@ beside its events (`BotAppEvents`), and `BotAppShortcuts` edits its shortcuts: w
 goes (*Global* or *On a message*), its callback ID, name and description, saved together
 with PUT `/bot-apps/{id}/shortcuts`. `BotAppUnfurlDomains` edits the domains whose links the
 app previews, up to five, saved with PUT `/bot-apps/{id}/unfurl-domains`; it says so, and adds
-none, until the app has `links:read` and `links:write`.
+none, until the app has `links:read` and `links:write`. `BotAppWorkflowSteps` edits the
+workflow steps the app offers, up to 20, each a callback ID, title, description and its typed
+inputs and outputs, saved with PUT `/bot-apps/{id}/workflow-steps`; it says what's missing
+while the app lacks `workflow.steps:execute` or `function_executed`.
 
 **API calls:** PATCH `/workspaces/{id}`, DELETE `/workspaces/{id}` (optionally `?hard=true`),
 POST `/workspaces/{id}/invites` `{ email, role }`, and each section's own.

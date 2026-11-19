@@ -296,6 +296,9 @@ async fn remove_bot_app(
     )
     .await;
     announce_apps(&state, app.workspace_id).await;
+    if app.disabled_at.is_none() {
+        crate::workflows::service::tell_app_gone(&state, app.id, &app.name).await;
+    }
 
     Ok(Json(StatusResponse::new("deleted")))
 }

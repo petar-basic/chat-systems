@@ -13,6 +13,7 @@ import {
   type FlatStep,
   type Lane,
   type Step,
+  type StepProvider,
 } from './workflowModel';
 
 export interface TreeProps {
@@ -23,6 +24,7 @@ export interface TreeProps {
   channels: Channel[];
   people: WorkspaceMember[];
   members: WorkspaceMember[];
+  providers?: StepProvider[];
   full: boolean;
   readOnly: boolean;
   onEdit: (change: (steps: Step[]) => Step[]) => void;
@@ -42,6 +44,7 @@ export function StepTree({ lane, ...props }: TreeProps & { lane: Lane | null }) 
             channels={props.channels}
             people={props.people}
             members={props.members}
+            providers={props.providers}
             removable={lane !== null || node.siblings > 1}
             readOnly={props.readOnly}
             onChange={(step) => props.onEdit((steps) => replaceStep(steps, node.position, step))}

@@ -5,6 +5,7 @@ import { TextArea } from '@/shared/components/Form/TextArea';
 import { IconButton } from '@/shared/components/IconButton/IconButton';
 import { displayNameOf } from '@/lib/userHelpers';
 import type { Channel, WorkspaceMember } from '@/stores/workspace';
+import { AppStepEditor } from './AppStepEditor';
 import { BranchEditor } from './BranchEditor';
 import {
   ChannelRefSelect,
@@ -22,6 +23,8 @@ import {
   MAX_BRANCH_DEPTH,
   TEXT_MAX,
   addStepsBefore,
+  appStep,
+  appStepKey,
   blankStep,
   channelRefFor,
   formsBefore,
@@ -31,13 +34,14 @@ import {
   type Definition,
   type FlatStep,
   type Step,
+  type StepProvider,
   type TextStep,
   type Variable,
 } from './workflowModel';
 
 const TRIGGER_PERSON = 'trigger_user';
 
-const ACTIONS: { type: Step['type']; label: string }[] = [
+const ACTIONS: { type: Exclude<Step['type'], 'app_step'>; label: string }[] = [
   { type: 'send_message', label: 'Send a message to a channel' },
   { type: 'send_dm', label: 'Send a DM to a person' },
   { type: 'form', label: 'Ask a person to fill in a form' },
@@ -61,6 +65,7 @@ interface Props {
   channels: Channel[];
   people: WorkspaceMember[];
   members: WorkspaceMember[];
+  providers?: StepProvider[];
   removable: boolean;
   readOnly: boolean;
   onChange: (step: Step) => void;
@@ -76,6 +81,7 @@ export function StepCard({
   channels,
   people,
   members,
+  providers,
   removable,
   readOnly,
   onChange,
@@ -95,6 +101,23 @@ export function StepCard({
     if (type === 'branch') return node.depth < MAX_BRANCH_DEPTH;
     if (type === 'add_reaction' || type === 'reply_in_thread') return onMessage;
     return true;
+  };
+
+  const current = step.type === 'app_step' ? appStepKey(step.app_id, step.callback_id) : step.type;
+  const usable = (providers ?? []).filter((provider) => !provider.problem && provider.steps.length > 0);
+  const listed = usable.some((provider) =>
+    provider.steps.some((offered) => appStepKey(offered.app_id, offered.callback_id) === current),
+  );
+
+  const changeAction = (value: string) => {
+    const picked = usable
+      .flatMap((provider) => provider.steps)
+      .find((candidate) => appStepKey(candidate.app_id, candidate.callback_id) === value);
+    if (picked) {
+      onChange(appStep(picked, step.type === 'app_step' ? step.values : {}));
+    } else if (value !== current) {
+      changeType(value as Step['type']);
+    }
   };
 
   const changeType = (type: Step['type']) => {
@@ -172,15 +195,28 @@ export function StepCard({
         <div className="grid gap-4 sm:grid-cols-2">
           <Select
             label="Action"
-            value={step.type}
+            value={current}
             disabled={readOnly}
-            onChange={(e) => changeType(e.target.value as Step['type'])}
+            onChange={(e) => changeAction(e.target.value)}
             dataQa="workflow-step-type"
           >
             {ACTIONS.filter((action) => offered(action.type)).map((action) => (
               <option key={action.type} value={action.type}>
                 {action.label}
               </option>
+            ))}
+            {step.type === 'app_step' && !listed && <option value={current}>{stepLabel(step)}</option>}
+            {usable.map((provider) => (
+              <optgroup key={provider.app_id} label={provider.name}>
+                {provider.steps.map((candidate) => (
+                  <option
+                    key={candidate.callback_id}
+                    value={appStepKey(candidate.app_id, candidate.callback_id)}
+                  >
+                    {candidate.title}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </Select>
           {step.type === 'send_message' ? (
@@ -274,6 +310,17 @@ export function StepCard({
           />
         ) : step.type === 'set_topic' ? (
           <TopicFields step={step} variables={variables} readOnly={readOnly} onChange={onChange} />
+        ) : step.type === 'app_step' ? (
+          <AppStepEditor
+            step={step}
+            position={position}
+            definition={definition}
+            channels={channels}
+            members={members}
+            providers={providers}
+            readOnly={readOnly}
+            onChange={onChange}
+          />
         ) : step.type === 'archive_channel' ? (
           <p className="text-xs text-muted">
             It archives the channel when the run gets here, as you. You have to be allowed to archive it.

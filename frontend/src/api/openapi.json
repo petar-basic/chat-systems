@@ -1635,6 +1635,44 @@
         ]
       }
     },
+    "/bot-apps/me/workflow-steps": {
+      "put": {
+        "tags": [
+          "bot-apps",
+          "bot"
+        ],
+        "summary": "The app replaces the workflow steps it offers, as an admin would on its\npage.",
+        "operationId": "save_own_workflow_steps",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveWorkflowStepsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppWorkflowSteps"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bot": [
+              "workflow.steps:execute"
+            ]
+          }
+        ]
+      }
+    },
     "/bot-apps/{app_id}": {
       "get": {
         "tags": [
@@ -2010,6 +2048,75 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/UnfurlDomains"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bot-apps/{app_id}/workflow-steps": {
+      "get": {
+        "tags": [
+          "bot-apps"
+        ],
+        "operationId": "list_app_workflow_steps",
+        "parameters": [
+          {
+            "name": "app_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppWorkflowSteps"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "bot-apps"
+        ],
+        "summary": "Replaces the workflow steps an app offers. A step keeps its id while its\n`callback_id` stays the same; a workflow that uses a removed step fails\nwhen it gets there.",
+        "operationId": "save_app_workflow_steps",
+        "parameters": [
+          {
+            "name": "app_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveWorkflowStepsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppWorkflowSteps"
                 }
               }
             }
@@ -6722,6 +6829,104 @@
             }
           }
         }
+      }
+    },
+    "/workflow-executions/{execution_id}/complete": {
+      "post": {
+        "tags": [
+          "workflows",
+          "bot"
+        ],
+        "summary": "The app finishes a step that `function_executed` asked it to run, with a\nvalue for each output the step declares. The workflow then goes on.",
+        "operationId": "complete_workflow_step",
+        "parameters": [
+          {
+            "name": "execution_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteStepRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bot": [
+              "workflow.steps:execute"
+            ]
+          }
+        ]
+      }
+    },
+    "/workflow-executions/{execution_id}/fail": {
+      "post": {
+        "tags": [
+          "workflows",
+          "bot"
+        ],
+        "summary": "The app fails a step that `function_executed` asked it to run. Its\nmessage shows in the run history, and the steps after it don't run.",
+        "operationId": "fail_workflow_step",
+        "parameters": [
+          {
+            "name": "execution_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FailStepRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bot": [
+              "workflow.steps:execute"
+            ]
+          }
+        ]
       }
     },
     "/workflow-runs/{run_id}/forms/{position}": {
@@ -12003,6 +12208,37 @@
         }
       }
     },
+    "/workspaces/{ws_id}/workflow-step-apps": {
+      "get": {
+        "tags": [
+          "workflows"
+        ],
+        "summary": "The apps of the workspace that offer workflow steps, with their steps.\nAn app with a `problem` can't run them now, and the builder warns about\nworkflows that use them.",
+        "operationId": "workflow_step_apps",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataList_StepProvider"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workspaces/{ws_id}/workflows": {
       "get": {
         "tags": [
@@ -12449,7 +12685,8 @@
           "channel_created",
           "channel_archived",
           "app_home_opened",
-          "link_shared"
+          "link_shared",
+          "function_executed"
         ]
       },
       "AppHome": {
@@ -12688,6 +12925,63 @@
             }
           }
         ]
+      },
+      "AppWorkflowStep": {
+        "type": "object",
+        "required": [
+          "id",
+          "app_id",
+          "callback_id",
+          "title",
+          "description",
+          "inputs",
+          "outputs"
+        ],
+        "properties": {
+          "app_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "callback_id": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "inputs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StepParam"
+            }
+          },
+          "outputs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StepParam"
+            }
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "AppWorkflowSteps": {
+        "type": "object",
+        "required": [
+          "steps"
+        ],
+        "properties": {
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AppWorkflowStep"
+            }
+          }
+        }
       },
       "AppointOwnerRequest": {
         "type": "object",
@@ -14942,6 +15236,15 @@
           "workspace_id": {
             "type": "string",
             "format": "uuid"
+          }
+        }
+      },
+      "CompleteStepRequest": {
+        "type": "object",
+        "properties": {
+          "outputs": {
+            "type": "object",
+            "description": "A value for each output the step declares, by name. A required output\ncan't be missing or null."
           }
         }
       },
@@ -18479,6 +18782,54 @@
           }
         }
       },
+      "DataList_StepProvider": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "description": "An app that offers workflow steps.",
+              "required": [
+                "app_id",
+                "name",
+                "steps"
+              ],
+              "properties": {
+                "app_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "icon_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                },
+                "problem": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Why workflows can't use its steps right now; none when they can."
+                },
+                "steps": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AppWorkflowStep"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       "DataList_UserGroupSummary": {
         "type": "object",
         "required": [
@@ -19559,6 +19910,18 @@
           "complete",
           "failed"
         ]
+      },
+      "FailStepRequest": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Why the step failed, shown in the workflow's run history; at most 500\ncharacters."
+          }
+        }
       },
       "FieldKind": {
         "type": "string",
@@ -22230,6 +22593,12 @@
       "NotificationData": {
         "type": "object",
         "properties": {
+          "app_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "app_request": {
             "type": [
               "string",
@@ -23546,6 +23915,13 @@
             "type": "string",
             "format": "date-time"
           },
+          "inputs": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "What an app step was handed, by input name."
+          },
           "label": {
             "type": "string"
           },
@@ -23568,6 +23944,13 @@
               "null"
             ],
             "format": "uuid"
+          },
+          "outputs": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "What an app step handed back, by output name."
           },
           "position": {
             "type": "integer",
@@ -23665,6 +24048,21 @@
           },
           "name": {
             "type": "string"
+          }
+        }
+      },
+      "SaveWorkflowStepsRequest": {
+        "type": "object",
+        "required": [
+          "steps"
+        ],
+        "properties": {
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkflowStepInput"
+            },
+            "description": "Every step the app offers, in the order the workflow builder lists\nthem; at most 20."
           }
         }
       },
@@ -23806,7 +24204,8 @@
           "users:read",
           "commands",
           "links:read",
-          "links:write"
+          "links:write",
+          "workflow.steps:execute"
         ]
       },
       "SearchFilters": {
@@ -24742,8 +25141,127 @@
                 ]
               }
             }
+          },
+          {
+            "type": "object",
+            "required": [
+              "app_id",
+              "callback_id",
+              "type"
+            ],
+            "properties": {
+              "app_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "callback_id": {
+                "type": "string"
+              },
+              "inputs": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/StepParam"
+                }
+              },
+              "outputs": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/StepParam"
+                }
+              },
+              "title": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "app_step"
+                ]
+              },
+              "values": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "propertyNames": {
+                  "type": "string"
+                }
+              }
+            }
           }
         ]
+      },
+      "StepParam": {
+        "type": "object",
+        "required": [
+          "name",
+          "title",
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/StepParamKind"
+          },
+          "name": {
+            "type": "string",
+            "description": "Its key in `inputs` or `outputs`: lowercase letters, digits and `_`."
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "title": {
+            "type": "string",
+            "description": "What the workflow builder calls it."
+          }
+        }
+      },
+      "StepParamKind": {
+        "type": "string",
+        "enum": [
+          "text",
+          "number",
+          "boolean",
+          "person",
+          "channel",
+          "date"
+        ]
+      },
+      "StepProvider": {
+        "type": "object",
+        "description": "An app that offers workflow steps.",
+        "required": [
+          "app_id",
+          "name",
+          "steps"
+        ],
+        "properties": {
+          "app_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "icon_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "problem": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why workflows can't use its steps right now; none when they can."
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AppWorkflowStep"
+            }
+          }
+        }
       },
       "Stopped": {
         "type": "string",
@@ -24879,6 +25397,7 @@
         "type": "string",
         "enum": [
           "workflow_stopped",
+          "workflow_app_gone",
           "app_requested",
           "not_delivered",
           "guest_ending",
@@ -27079,6 +27598,39 @@
           "workflow_version": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "WorkflowStepInput": {
+        "type": "object",
+        "required": [
+          "callback_id",
+          "title"
+        ],
+        "properties": {
+          "callback_id": {
+            "type": "string",
+            "description": "Sent back in `function_executed`, so the app knows which step to run."
+          },
+          "description": {
+            "type": "string"
+          },
+          "inputs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StepParam"
+            },
+            "description": "What a workflow hands the step; at most ten."
+          },
+          "outputs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StepParam"
+            },
+            "description": "What the step hands back for later steps; at most ten."
+          },
+          "title": {
+            "type": "string"
           }
         }
       },

@@ -32,12 +32,106 @@ import {
   variableNameError,
   variablesOf,
   workflowBuildersOf,
+  appStep,
+  appStepProblem,
+  branchVariables,
+  typedVariables,
   type Definition,
   type FormStep,
   type Step,
+  type StepProvider,
 } from './workflowModel';
 
 describe('workflowModel', () => {
+  describe('app steps', () => {
+    const provider = (over: Partial<StepProvider> = {}): StepProvider => ({
+      app_id: 'app-1',
+      name: 'Ticketing',
+      icon_url: null,
+      problem: null,
+      steps: [
+        {
+          id: 's-1',
+          app_id: 'app-1',
+          callback_id: 'open_ticket',
+          title: 'Open ticket',
+          description: 'Files a ticket',
+          inputs: [
+            { name: 'title', title: 'Title', kind: 'text', required: true },
+            { name: 'priority', title: 'Priority', kind: 'number', required: false },
+            { name: 'reporter', title: 'Reporter', kind: 'person', required: false },
+          ],
+          outputs: [
+            { name: 'ticket_id', title: 'Ticket ID', kind: 'text', required: true },
+            { name: 'owner', title: 'Owner', kind: 'person', required: false },
+          ],
+        },
+      ],
+      ...over,
+    });
+    const offered = provider().steps[0];
+    const trigger = { type: 'shortcut' as const, channel_id: 'c' };
+
+    it('keeps only the values of inputs the step still has', () => {
+      expect(appStep(offered, { title: 'Printer', gone: 'x' })).toEqual({
+        type: 'app_step',
+        app_id: 'app-1',
+        callback_id: 'open_ticket',
+        title: 'Open ticket',
+        inputs: offered.inputs,
+        outputs: offered.outputs,
+        values: { title: 'Printer' },
+      });
+    });
+
+    it('hands its outputs to later steps and branches, each typed', () => {
+      const definition: Definition = {
+        trigger,
+        steps: [
+          appStep(offered, { title: 'x' }),
+          { type: 'send_message', channel_id: 'c', text: 'Ticket {{step.1.ticket_id}} opened' },
+        ],
+      };
+      expect(stepVariables(definition, 1).slice(-2)).toEqual([
+        { token: '{{step.1.ticket_id}}', label: 'Step 1: Ticket ID' },
+        { token: '{{step.1.owner}}', label: 'Step 1: Owner' },
+      ]);
+      expect(typedVariables(definition, 1, 'person').map((v) => v.token)).toEqual([
+        '{{trigger.user}}',
+        '{{step.1.owner}}',
+      ]);
+      expect(variableKind(definition, 1, '{{step.1.owner}}')).toEqual({ kind: 'person' });
+      expect(branchVariables(definition, 1).map((v) => v.token)).toContain('step.1.ticket_id');
+    });
+
+    it('asks for required inputs and values of the right type, and trims them', () => {
+      const step = (values: Record<string, string>) => ({ trigger, steps: [appStep(offered, values)] });
+      expect(unpicked({ trigger, steps: [blankStep('app_step')] })).toBe('Step 1: pick the app step to run');
+      expect(unpicked(step({ title: ' ' }))).toBe('Step 1: fill in \u201cTitle\u201d');
+      expect(unpicked(step({ title: 'x', priority: 'high' }))).toBe(
+        'Step 1: \u201cPriority\u201d needs a number',
+      );
+      expect(cleanDefinition(step({ title: ' Printer ', priority: ' ' })).steps[0]).toMatchObject({
+        values: { title: 'Printer' },
+      });
+    });
+
+    it('warns when the app is gone, turned off or no longer offers the step', () => {
+      const step = appStep(offered);
+      expect(appStepProblem(step, undefined)).toBeNull();
+      expect(appStepProblem(step, [provider()])).toBeNull();
+      expect(appStepProblem(step, [])).toBe(
+        'The app that runs this step was removed. Runs fail here until you replace the step.',
+      );
+      expect(appStepProblem(step, [provider({ problem: 'Ticketing was turned off' })])).toBe(
+        "Ticketing was turned off. Runs fail here until that's fixed or you replace the step.",
+      );
+      expect(appStepProblem(step, [provider({ steps: [] })])).toBe(
+        'Ticketing no longer offers this step. Runs fail here until you replace it.',
+      );
+    });
+  });
+
   it('names the usual schedules and keeps chosen days in week order', () => {
     expect(repeatOf(['mon', 'tue', 'wed', 'thu', 'fri'])).toBe('weekdays');
     expect(repeatOf(['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'])).toBe('daily');

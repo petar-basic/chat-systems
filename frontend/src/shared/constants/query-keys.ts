@@ -66,6 +66,7 @@ export const QUERY_KEYS = {
   activeApps: (workspaceId: string) => ['bot-apps', workspaceId, 'active'] as const,
   botAppShortcuts: (appId: string) => ['bot-app-shortcuts', appId] as const,
   botAppUnfurlDomains: (appId: string) => ['bot-app-unfurl-domains', appId] as const,
+  botAppWorkflowSteps: (appId: string) => ['bot-app-workflow-steps', appId] as const,
   appHomeAll: () => ['app-home'] as const,
   appHome: (appId: string) => ['app-home', appId] as const,
 
@@ -125,6 +126,7 @@ export const QUERY_KEYS = {
   workflows: (workspaceId: string) => ['workflows', workspaceId] as const,
   workflowRuns: (workflowId: string) => ['workflows', 'runs', workflowId] as const,
   workflowShortcuts: (channelId: string) => ['workflows', 'shortcuts', channelId] as const,
+  workflowStepApps: (workspaceId: string) => ['workflows', 'step-apps', workspaceId] as const,
   slashCommandsAll: () => ['commands'] as const,
   slashCommands: (workspaceId: string) => ['commands', workspaceId] as const,
 
