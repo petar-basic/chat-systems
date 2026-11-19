@@ -146,24 +146,9 @@ describe('workspace settings strings', () => {
   const counted = (keys: string[]) =>
     [...new Set(keys.map((key) => key.replace(/_(one|other)$/, '')))].sort();
 
-  const AWAITING_JAPANESE = [
-    'apps.events.kinds.link_shared',
-    'apps.unfurls.add',
-    'apps.unfurls.domain',
-    'apps.unfurls.failed',
-    'apps.unfurls.hint',
-    'apps.unfurls.legend',
-    'apps.unfurls.needsScopes',
-    'apps.unfurls.remove',
-    'apps.unfurls.save',
-    'apps.unfurls.saved',
-  ];
-
-  it('has Japanese for every one but the ones awaiting it', () => {
-    const english = counted(leaves(i18n.getResource('en', 'workspace', 'settings')));
-    const japanese = counted(leaves(i18n.getResource('ja', 'workspace', 'settings')));
-    expect(english).toEqual(expect.arrayContaining(AWAITING_JAPANESE));
-    expect(japanese.filter((key) => AWAITING_JAPANESE.includes(key))).toEqual([]);
-    expect(japanese).toEqual(english.filter((key) => !AWAITING_JAPANESE.includes(key)));
+  it('has Japanese for every one', () => {
+    const english = leaves(i18n.getResource('en', 'workspace', 'settings'));
+    const japanese = leaves(i18n.getResource('ja', 'workspace', 'settings'));
+    expect(counted(japanese)).toEqual(counted(english));
   });
 });
