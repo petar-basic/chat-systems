@@ -124,3 +124,41 @@ describe('VideoTile drawing pen', () => {
     expect(useHuddleStore.getState().participants['u-x'].drawingEnabled).toBe(true);
   });
 });
+
+describe('VideoTile drawing pen in Japanese', () => {
+  beforeEach(async () => {
+    useUserCache.setState({ users: new Map([['u-x', { id: 'u-x', display_name: 'Ana' } as never]]) });
+    useHuddleStore.setState({
+      penOn: null,
+      participants: {
+        'u-x': {
+          userId: 'u-x',
+          audioStream: null,
+          cameraStream: null,
+          screenStream: null,
+          audioMuted: false,
+          cameraOn: false,
+          sharing: true,
+          drawingEnabled: true,
+          handRaised: false,
+        },
+      },
+    });
+    await i18n.changeLanguage('ja');
+  });
+  afterEach(async () => {
+    useHuddleStore.setState({ penOn: null });
+    await i18n.changeLanguage('en');
+  });
+
+  it('names the pen before and while drawing', () => {
+    render(tile({ kind: 'screen', tileId: 'u-x:screen', sharing: true, drawing: true }));
+    const pen = screen.getByRole('button', { name: 'この画面に描き込む' });
+    expect(pen).toHaveAttribute('data-tooltip', 'この画面に描き込む');
+    fireEvent.click(pen);
+    expect(screen.getByRole('button', { name: '描き込みをやめる（Esc）' })).toHaveAttribute(
+      'data-tooltip',
+      '描き込みをやめる（Esc）',
+    );
+  });
+});

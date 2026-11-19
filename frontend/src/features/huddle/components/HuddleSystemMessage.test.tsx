@@ -104,3 +104,41 @@ describe('HuddleSystemMessage once the huddle ended', () => {
     expect(onThreadOpen).toHaveBeenCalledWith(message);
   });
 });
+
+describe('HuddleSystemMessage once the huddle ended, in Japanese', () => {
+  beforeEach(async () => {
+    useUserCache.setState({ users: people(hostile, 'Bo', 'Cy', 'Di', 'Ed') });
+    useWorkspaceStore.setState({
+      currentWorkspace: { id: 'ws-1', instanceUrl: 'http://localhost:3000' } as never,
+      currentUserId: 'u-me',
+      activeHuddleChannels: new Map() as never,
+    });
+    useHuddleStore.setState({ active: null });
+    await i18n.changeLanguage('ja');
+  });
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  const ended = (endedAt: string, participantIds: string[] = []) =>
+    started({ user_id: 'u-1' }, { initiator_id: 'u-1', ended_at: endedAt, participant_ids: participantIds });
+
+  it('names three people as text and counts the rest', () => {
+    render(
+      <HuddleSystemMessage message={ended('2026-11-16T11:05:00Z', ['u-0', 'u-1', 'u-2', 'u-3', 'u-4'])} />,
+    );
+    expect(screen.getByTestId('huddle-summary').textContent).toBe(
+      `通話時間: 1 時間 5 分 · 参加者: ${hostile}、Bo、Cy、ほか 2 人`,
+    );
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
+
+  it('counts minutes, and calls a short huddle less than a minute', () => {
+    const { unmount } = render(<HuddleSystemMessage message={ended('2026-11-16T10:12:20Z', ['u-1'])} />);
+    expect(screen.getByTestId('huddle-summary').textContent).toBe('通話時間: 12 分 · 参加者: Bo');
+    unmount();
+
+    render(<HuddleSystemMessage message={ended('2026-11-16T10:00:20Z')} />);
+    expect(screen.getByTestId('huddle-summary').textContent).toBe('通話時間: 1 分未満');
+  });
+});

@@ -12,6 +12,11 @@
     "fullScreenTip": "全画面表示",
     "collapseTip": "縮小"
   },
+  "thread": {
+    "open": "通話のスレッドを開く",
+    "close": "通話のスレッドを閉じる",
+    "unread_other": "未読の返信 {{count}} 件"
+  },
   "controls": {
     "mute": "ミュート",
     "unmute": "ミュート解除",
@@ -19,6 +24,8 @@
     "cameraOff": "カメラをオフ",
     "share": "画面を共有",
     "stopSharing": "共有を停止",
+    "drawingOn": "ほかの人に画面への描き込みを許可",
+    "drawingOff": "ほかの人の描き込みを止める",
     "raiseHand": "手を挙げる",
     "lowerHand": "手を下ろす",
     "blur": "背景をぼかす",
@@ -40,7 +47,9 @@
     "handRaised": "挙手中",
     "waitingForScreen": "画面を待っています…",
     "pin": "固定表示",
-    "unpin": "固定を解除"
+    "unpin": "固定を解除",
+    "draw": "この画面に描き込む",
+    "stopDrawing": "描き込みをやめる（Esc）"
   },
   "incoming": {
     "title": "通話の着信",
@@ -50,7 +59,13 @@
   },
   "system": {
     "started": "<name>{{name}}</name> さんが通話を開始しました",
-    "join": "参加"
+    "join": "参加",
+    "lasted": "通話時間: {{duration}}",
+    "underMinute": "1 分未満",
+    "minutes_other": "{{count}} 分",
+    "hours": "{{hours}} 時間 {{minutes}} 分",
+    "with": "参加者: {{names}}",
+    "others_other": "ほか {{count}} 人"
   },
   "errors": {
     "micBlocked": "ブラウザがマイクをブロックしています。このサイトでマイクの使用を許可してから、もう一度お試しください。",
