@@ -3,7 +3,10 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { acquireCamera, acquireLocalAudio, acquireScreen, stopStream } from '@/lib/media';
 import { CLIP_MAX_MS } from '../lib/format';
 import { posterOf } from '../lib/poster';
+import { makeSeekable } from '../lib/remux';
+import i18n from '@/lib/i18n';
 import ClipRecorderDialog from './ClipRecorderDialog';
+import { ClipButton } from './ClipButton';
 
 vi.mock('@/lib/media', async (original) => ({
   ...(await original<typeof import('@/lib/media')>()),
@@ -220,5 +223,150 @@ describe('a clip nobody allowed', () => {
 
     fireEvent.click(screen.getByTestId('clip-retry'));
     expect(screen.getByTestId('clip-start')).toBeInTheDocument();
+  });
+});
+
+describe('recording a clip in Japanese', () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('ja');
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('names the clip button', () => {
+    share(true);
+    render(<ClipButton onClip={vi.fn()} />);
+    const button = screen.getByTestId('composer-clip');
+    expect(button).toHaveAttribute('aria-label', 'クリップを収録');
+    expect(button).toHaveAttribute('data-tooltip', 'クリップを収録');
+  });
+
+  it('labels each thing to record, and the bubble on a screen recording', () => {
+    share(true);
+    open();
+    expect(screen.getByText('クリップを収録')).toBeInTheDocument();
+    expect(screen.getByText('収録する内容')).toBeInTheDocument();
+    for (const [mode, label, hint] of [
+      ['audio', '音声', 'あなたの声だけ'],
+      ['camera', 'カメラ', 'カメラに映るあなたと、あなたの声'],
+      ['screen', '画面', 'あなたの画面と、あなたの声'],
+    ]) {
+      expect(screen.getByTestId(`clip-mode-${mode}`)).toHaveTextContent(`${label}${hint}`);
+    }
+    expect(screen.getByLabelText('自分のカメラ映像を丸窓で表示')).toBeInTheDocument();
+    expect(screen.getByText('画面収録の隅に表示されます')).toBeInTheDocument();
+    expect(screen.getByTestId('clip-start')).toHaveTextContent('収録を開始');
+  });
+
+  it('counts the time, counts down the end, gets the clip ready and offers it', async () => {
+    vi.useFakeTimers({
+      toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'performance', 'Date'],
+    });
+    vi.mocked(acquireLocalAudio).mockResolvedValue(microphone() as unknown as MediaStream);
+    let seekable: (value: { blob: Blob; durationMs: number }) => void = () => undefined;
+    vi.mocked(makeSeekable).mockImplementationOnce(
+      (blob: Blob) =>
+        new Promise((resolve) => {
+          seekable = () => resolve({ blob, durationMs: 4200 });
+        }),
+    );
+    open();
+    fireEvent.click(screen.getByTestId('clip-mode-audio'));
+    fireEvent.click(screen.getByTestId('clip-start'));
+    await act(() => vi.advanceTimersByTimeAsync(0));
+    expect(screen.getByTestId('clip-clock')).toHaveTextContent('0:00 / 5:00');
+    expect(screen.getByTestId('clip-stop')).toHaveTextContent('収録を停止');
+
+    await act(() => vi.advanceTimersByTimeAsync(CLIP_MAX_MS - 29_000));
+    expect(screen.getByTestId('clip-countdown')).toHaveTextContent('残り 0:29');
+
+    fireEvent.click(screen.getByTestId('clip-stop'));
+    await act(() => vi.advanceTimersByTimeAsync(0));
+    expect(screen.getByRole('status', { name: 'クリップを準備しています…' })).toBeInTheDocument();
+
+    seekable({ blob: new Blob(), durationMs: 4200 });
+    await act(() => vi.advanceTimersByTimeAsync(0));
+    expect(screen.getByTestId('clip-use')).toHaveTextContent('このクリップを使う');
+    expect(screen.getByTestId('clip-again')).toHaveTextContent('もう一度収録');
+    expect(
+      screen.getByText('クリップはメッセージに添付されます。必要なら文章を添えてから送信してください。'),
+    ).toBeInTheDocument();
+  });
+
+  it.each([
+    [
+      'the camera is blocked',
+      'NotAllowedError',
+      'ブラウザがカメラをブロックしています。このサイトでカメラの使用を許可してから、もう一度お試しください。',
+    ],
+    [
+      'there is no camera',
+      'NotFoundError',
+      'カメラが見つかりません。カメラを接続してから、もう一度お試しください。',
+    ],
+  ])('says when %s, and offers to try again', async (_, name, message) => {
+    vi.mocked(acquireLocalAudio).mockResolvedValue(microphone() as unknown as MediaStream);
+    vi.mocked(acquireCamera).mockRejectedValue(denied(name));
+    open();
+    fireEvent.click(screen.getByTestId('clip-start'));
+    await flush();
+    expect(screen.getByTestId('clip-error').textContent).toBe(message);
+    expect(screen.getByTestId('clip-retry')).toHaveTextContent('再試行');
+  });
+
+  it('says when sharing the screen was not allowed', async () => {
+    share(true);
+    vi.mocked(acquireScreen).mockRejectedValue(denied('NotAllowedError'));
+    open();
+    fireEvent.click(screen.getByTestId('clip-start'));
+    await flush();
+    expect(screen.getByTestId('clip-error').textContent).toBe(
+      '画面の共有が許可されなかったため、何も収録されていません。',
+    );
+  });
+
+  it('says when the browser cannot record', async () => {
+    FakeRecorder.isTypeSupported = () => false;
+    try {
+      open();
+      fireEvent.click(screen.getByTestId('clip-start'));
+      await flush();
+      expect(screen.getByTestId('clip-error').textContent).toBe(
+        'このブラウザでは、クリップを収録できません。',
+      );
+    } finally {
+      FakeRecorder.isTypeSupported = (type: string) => type.includes('webm');
+    }
+  });
+
+  it('says when the recording failed', async () => {
+    vi.mocked(acquireLocalAudio).mockResolvedValue(microphone() as unknown as MediaStream);
+    open();
+    fireEvent.click(screen.getByTestId('clip-mode-audio'));
+    fireEvent.click(screen.getByTestId('clip-start'));
+    await flush();
+    const [recorder] = FakeRecorder.made;
+    recorder.stop = () => recorder.onerror?.();
+    fireEvent.click(screen.getByTestId('clip-stop'));
+    await flush();
+    expect(screen.getByTestId('clip-error').textContent).toBe(
+      '収録中にエラーが起きたため、何も保存されていません。',
+    );
+  });
+});
+
+describe('the clip strings', () => {
+  function leaves(value: unknown, prefix = ''): string[] {
+    if (typeof value !== 'object' || value === null) return [prefix];
+    return Object.entries(value).flatMap(([key, child]) => leaves(child, prefix ? `${prefix}.${key}` : key));
+  }
+
+  it('has Japanese for every one', () => {
+    const english = leaves(i18n.getResource('en', 'messages', 'clips'));
+    const japanese = leaves(i18n.getResource('ja', 'messages', 'clips'));
+    expect(english.length).toBeGreaterThan(0);
+    expect(japanese).toEqual(english);
   });
 });
