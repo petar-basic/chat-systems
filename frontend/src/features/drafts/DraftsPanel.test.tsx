@@ -127,6 +127,37 @@ describe('DraftsPanel in English', () => {
     openSent();
     expect(screen.getByTestId('sent-more').textContent).toBe('Loading…');
   });
+
+  it('says a GIF was sent when the message is only a GIF', () => {
+    const gif = (title: string) => ({
+      provider: 'giphy',
+      id: 'g-1',
+      title,
+      url: 'https://media1.giphy.com/media/g-1/giphy.mp4',
+      still: 'https://media1.giphy.com/media/g-1/giphy_s.gif',
+      width: 480,
+      height: 270,
+    });
+    answer({
+      data: {
+        pages: [
+          {
+            data: [
+              message({ id: 'm-1', content: '', metadata: { gif: gif(hostile) } }),
+              message({ id: 'm-2', content: '', metadata: { gif: gif('') } }),
+            ],
+          },
+        ],
+      },
+    });
+    openSent();
+
+    const [titled, untitled] = screen.getAllByTestId('sent-gif');
+    expect(titled?.textContent).toBe(`GIF${hostile}`);
+    expect(untitled?.textContent).toBe('GIF');
+    expect(screen.queryByTestId('sent-content')).toBeNull();
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
 });
 
 describe('the drafts and sent strings', () => {

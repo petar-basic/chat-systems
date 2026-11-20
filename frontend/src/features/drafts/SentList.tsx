@@ -63,6 +63,7 @@ export function SentList({ workspaceId, instanceUrl, channels, conversations, on
           t('scheduled.leftChannel'),
         );
         const files = message.metadata?.attachments?.length ?? 0;
+        const gif = message.metadata?.gif;
         return (
           <button
             key={message.id}
@@ -86,6 +87,17 @@ export function SentList({ workspaceId, instanceUrl, channels, conversations, on
             {message.content && (
               <span className="block text-sm text-fg-soft mt-0.5 line-clamp-2" data-qa="sent-content">
                 {toPlainText(message.content)}
+              </span>
+            )}
+            {gif && (
+              <span
+                className="text-xs text-muted mt-0.5 flex items-center gap-1.5 min-w-0"
+                data-qa="sent-gif"
+              >
+                <span className="shrink-0 rounded border border-line px-1 text-2xs font-bold leading-3.5">
+                  {t('gifs.untitled')}
+                </span>
+                {gif.title && <span className="truncate text-fg-soft">{gif.title}</span>}
               </span>
             )}
             {files > 0 && (
