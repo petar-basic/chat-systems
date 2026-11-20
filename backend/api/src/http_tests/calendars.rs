@@ -594,6 +594,7 @@ async fn a_reminder_comes_a_minute_before_with_join_and_a_private_one_says_busy(
     let sent = bot_messages(&s, "google_calendar").await;
     assert_eq!(sent.len(), 1);
     assert_eq!(sent[0].0, "Standup starts in 1 minute");
+    assert_eq!(sent[0].1["calendar"], "reminder");
     let blocks = &sent[0].1["blocks"];
     assert!(
         blocks
@@ -681,6 +682,7 @@ async fn the_agenda_comes_at_the_chosen_time_once_a_day(pool: PgPool) {
     let sent = bot_messages(&s, "google_calendar").await;
     assert_eq!(sent.len(), 1);
     assert_eq!(sent[0].0, "You have 3 events today");
+    assert_eq!(sent[0].1["calendar"], "agenda");
     let blocks = sent[0].1["blocks"].to_string();
     assert!(blocks.contains("Lisbon trip"), "{blocks}");
     assert!(blocks.contains("All day"), "{blocks}");
