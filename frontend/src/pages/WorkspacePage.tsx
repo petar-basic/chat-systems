@@ -469,8 +469,10 @@ export default function WorkspacePage() {
 
         {leaving && <LeaveWorkspaceDialog workspace={leaving} onClose={() => setLeaving(null)} />}
 
-        {c.accountDialog === 'profile' && <EditProfileModal onClose={() => c.setAccountDialog(null)} />}
-        {c.accountDialog === 'preferences' && <PreferencesModal onClose={() => c.setAccountDialog(null)} />}
+        {c.accountDialog === 'profile' && <EditProfileModal onClose={c.closeAccountDialog} />}
+        {c.accountDialog === 'preferences' && (
+          <PreferencesModal initial={c.preferencesAt} onClose={c.closeAccountDialog} />
+        )}
         <TimezonePrompt />
 
         {c.quickSwitcherOpen && currentWorkspace && (

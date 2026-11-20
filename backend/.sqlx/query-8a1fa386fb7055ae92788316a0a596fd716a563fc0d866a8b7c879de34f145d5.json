@@ -1,0 +1,128 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE calendar_events e SET reminded_at = $1\n                 FROM calendar_syncs s, workspace_apps a, users u\n                WHERE s.workspace_id = e.workspace_id AND s.user_id = e.user_id\n                  AND s.provider = e.provider\n                  AND a.workspace_id = e.workspace_id AND a.provider = e.provider AND a.enabled\n                  AND u.id = e.user_id\n                  AND s.reminders_on AND e.attending AND NOT e.all_day\n                  AND e.kind <> 'out_of_office' AND e.reminded_at IS NULL\n                  AND e.starts_at > $1::timestamptz - interval '30 seconds'\n                  AND e.starts_at <= $1::timestamptz + interval '60 seconds'\n            RETURNING e.workspace_id, e.user_id, e.provider, e.event_id, e.title, e.private,\n                      e.join_url,\n                      e.starts_at AT TIME ZONE COALESCE(u.timezone, 'UTC') AS \"starts_local!\",\n                      e.ends_at AT TIME ZONE COALESCE(u.timezone, 'UTC') AS \"ends_local!\",\n                      u.preferences->>'language' AS language,\n                      u.preferences->>'clock' AS clock",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "calendar_events",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "calendar_events",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "provider",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "calendar_events",
+            "name": "provider"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "event_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "calendar_events",
+            "name": "event_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "title",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "calendar_events",
+            "name": "title"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "private",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "calendar_events",
+            "name": "private"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "join_url",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "calendar_events",
+            "name": "join_url"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "starts_local!",
+        "type_info": "Timestamp",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "ends_local!",
+        "type_info": "Timestamp",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 9,
+        "name": "language",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 10,
+        "name": "clock",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "8a1fa386fb7055ae92788316a0a596fd716a563fc0d866a8b7c879de34f145d5"
+}

@@ -448,6 +448,8 @@ async fn export_user(
         "profile_fields.jsonl",
         "drafts.jsonl",
         "recent_searches.jsonl",
+        "app_connections.jsonl",
+        "calendar_events.jsonl",
     ] {
         archive.declare(file);
     }
@@ -521,6 +523,44 @@ async fn export_user(
         .map_err(|e| e.to_string())?
     {
         archive.append("recent_searches.jsonl", &value);
+    }
+
+    let rows: Vec<serde_json::Value> = sqlx::query_scalar!(
+        r#"SELECT jsonb_build_object(
+                      'workspace_id', c.workspace_id,
+                      'provider', c.provider,
+                      'external_account', c.external_account,
+                      'connected_at', c.connected_at,
+                      'calendar', CASE WHEN s.user_id IS NULL THEN NULL ELSE jsonb_build_object(
+                          'status', s.status_on,
+                          'reminders', s.reminders_on,
+                          'agenda', s.agenda_on,
+                          'agenda_at', s.agenda_at,
+                          'last_synced_at', s.last_synced_at) END
+                  ) AS "row!"
+             FROM app_connections c
+             LEFT JOIN calendar_syncs s USING (workspace_id, user_id, provider)
+            WHERE c.user_id = $1
+            ORDER BY c.connected_at"#,
+        user_id
+    )
+    .fetch_all(&state.pool)
+    .await
+    .map_err(|e| e.to_string())?;
+    for row in rows {
+        archive.append("app_connections.jsonl", &row);
+    }
+
+    let rows: Vec<serde_json::Value> = sqlx::query_scalar!(
+        r#"SELECT to_jsonb(e) - 'user_id' AS "row!" FROM calendar_events e
+            WHERE e.user_id = $1 ORDER BY e.starts_at"#,
+        user_id
+    )
+    .fetch_all(&state.pool)
+    .await
+    .map_err(|e| e.to_string())?;
+    for row in rows {
+        archive.append("calendar_events.jsonl", &row);
     }
 
     Ok(())

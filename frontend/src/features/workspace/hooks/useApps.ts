@@ -69,14 +69,16 @@ export function useAppActions(workspaceId: string | undefined) {
     mutationFn: async ({
       provider,
       refreshMessageId,
+      returnTo = window.location.pathname,
     }: {
       provider: AppProvider;
       refreshMessageId?: string;
+      returnTo?: string;
     }) => {
       const response = await apiClient.typed((c) =>
         c.POST('/workspaces/{ws_id}/apps/{provider}/connect', {
           params: { path: { ws_id: ws, provider } },
-          body: { return_to: window.location.pathname },
+          body: { return_to: returnTo },
         }),
       );
       rememberPendingConnect({

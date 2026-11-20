@@ -1149,7 +1149,7 @@ a link while only an admin can create a webhook. Results are cached in Redis for
 URL. Preview images load in the reader's browser straight from the linked site. A workspace
 that wants none of this turns previews off under *Workspace settings → Link previews*.
 
-## Connected apps (Jira Cloud, Confluence, GitHub, Google Drive, Figma)
+## Connected apps (Jira Cloud, Confluence, GitHub, Google Drive, Figma, calendars)
 
 Links to Jira issues get a card with the issue's type, status, priority and assignee once a
 workspace admin connects Jira and the person posting the link connects their own Atlassian
@@ -1275,6 +1275,60 @@ Figma's access tokens last 90 days and are refreshed with the stored refresh tok
 people do not have to reconnect. Thumbnails are links Figma signs and eventually expires;
 a card whose picture has expired drops it, and the card's refresh button fetches a new one.
 `FIGMA_WEB_URL` and `FIGMA_API_URL` exist for an egress proxy.
+
+### Google Calendar and Outlook Calendar
+
+Each person connects their own calendar under *Preferences* → **Calendar**; an admin sets
+the app up once. From then on the worker (`calendar_worker` in `chat-worker`) reads that
+person's primary calendar every five minutes, for the next 48 hours, and:
+
+- sets their status to 🗓️ *In a meeting* during an accepted meeting with other people, and
+  clears it when the meeting ends; a private event says *Busy*;
+- shows them away with ⛔ *Out of office* for an out-of-office event;
+- sends them a direct message from the calendar's bot a minute before each event they
+  accepted, with a **Join** button for a Meet, Teams, Zoom, Webex or Whereby link;
+- sends them the day's events at 09:00 in their time zone, or the time they pick, on days
+  that have any.
+
+A status the person wrote themselves is never replaced, and one they cleared stays cleared
+until the next meeting. A private event is stored without its title. Each of the three can be
+turned off in *Preferences*. Disconnecting deletes the person's stored events and clears the
+status the calendar set; **Remove app** does that for everyone. A sync that fails is kept and
+shown under the calendar in *Preferences*, and the next one tries again. Erasing a person
+deletes their events; their export has `app_connections.jsonl` (no tokens) and
+`calendar_events.jsonl`.
+
+**Google Calendar.** The app asks for `calendar.events.readonly` only. If Google Drive is set
+up, reuse its OAuth client:
+
+1. In the Google Cloud console, in the Drive app's project, **enable the Google Calendar
+   API** (*APIs & Services → Library*), and add the `calendar.events.readonly` scope to the
+   *OAuth consent screen*. The callback URL is the same one Drive uses.
+2. In the app: *Workspace settings* → **Apps** → *Google Calendar* → *Set up*, keep **Use the
+   Google Drive app** ticked and save.
+
+Without Drive, set it up exactly like Google Drive above, with the Google Calendar API and
+the `calendar.events.readonly` scope.
+
+**Outlook Calendar** reads Microsoft 365 work and school calendars through Microsoft Graph,
+with `Calendars.Read` and `offline_access`:
+
+1. In the app: *Workspace settings* → **Apps** → *Outlook Calendar* → *Set up*.
+2. In the Microsoft Entra admin center (<https://entra.microsoft.com/>) → *App registrations*
+   → **New registration**, named after your instance.
+3. **Supported account types**: *Accounts in any organizational directory*. The app signs
+   people in through the `organizations` endpoint, which refuses a single-tenant
+   registration. Personal Microsoft accounts are not supported.
+4. **Redirect URI**: platform **Web**, and paste the *Callback URL* from the app.
+5. **API permissions** → *Add a permission* → **Microsoft Graph** → *Delegated permissions* →
+   `Calendars.Read` and `offline_access`, then **Grant admin consent** so nobody in your
+   organization is asked on their own, and nobody is refused where user consent is off.
+6. **Certificates & secrets** → *New client secret*. Copy its **Value** (not the *Secret ID*)
+   into the app, with the **Application (client) ID** from *Overview*, and save. A secret
+   expires after at most two years: note the date, and paste a new one before it does.
+7. Press **Connect** under *Preferences* → **Calendar**.
+
+`MICROSOFT_LOGIN_URL` and `MICROSOFT_GRAPH_URL` exist for an egress proxy.
 
 ## Huddle relay (TURN)
 

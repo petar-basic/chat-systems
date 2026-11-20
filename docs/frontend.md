@@ -786,8 +786,17 @@ POST `/workspaces/{id}/invites` `{ email, role }`, and each section's own.
 changed, so an untouched one keeps its expiry. An empty field shows the account's, as its
 placeholder, and *Use account photo* drops the workspace's. *Preferences* is a vertical tab
 list — *Notifications*, *Appearance*, *Messages & media*, *Language & region*, *Mark as read*,
-*Account*, *Security*, *Advanced* — over panels
+*Account*, *Security*, *Calendar*, *Advanced* — over panels
 that save as they change, except *Account*, the account's name, title, pronouns, bio and photo, which has its own save button.
+`?preferences=<section>` on a workspace URL opens it at that section (`preferencesSectionOf`),
+and the parameter is dropped at once.
+*Calendar* (`CalendarPanel`, `useCalendars`, `useUpdateCalendar`) lists Google Calendar and
+Outlook Calendar: *Ask a workspace admin* where the app is not set up, **Connect** where it is
+(the app connect flow, returning to `?preferences=calendar`), and for a connected one the
+account, **Disconnect**, the status, reminder and morning agenda switches, the agenda time
+(saved on blur) and when it last synced or why it could not. Switches update the cache at once
+and roll back on an error; disconnecting refetches the apps query, which the calendars key
+sits under.
 *Security* holds two-factor (`TwoFactorPanel`) and `PasskeysPanel`: the account's passkeys with
 when each was added and last used, renamed in place, and added or removed after the password or
 a TOTP code. `lib/webauthn.ts` turns the server's base64url options into what

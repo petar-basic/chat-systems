@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM calendar_events\n              WHERE workspace_id = $1 AND user_id = $2 AND provider = $3\n                AND (starts_at >= $4 OR ends_at <= $5::timestamptz - make_interval(hours => $6))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Timestamptz",
+        "Timestamptz",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "00dd2794452f87606448bde3b05a1e37ab8764bf1cd8625d25bc3d7a5d9ead23"
+}

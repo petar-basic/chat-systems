@@ -156,7 +156,7 @@ impl ProfileRepo {
         sqlx::query!(
             r#"
             UPDATE workspace_members
-               SET status_emoji = $3, status_text = $4, status_expires_at = $5
+               SET status_emoji = $3, status_text = $4, status_expires_at = $5, status_source = NULL
              WHERE workspace_id = $1 AND user_id = $2
             "#,
             workspace_id,

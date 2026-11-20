@@ -15,10 +15,35 @@
       "read": "Mark as read",
       "account": "Account",
       "security": "Security",
+      "calendar": "Calendar",
       "advanced": "Advanced"
     },
     "notificationsScope": "Except push and desktop notifications on this device, these are your settings in <workspace>{{name}}</workspace>; each workspace has its own.",
     "appearanceIntro": "Pick a theme, or follow your system setting."
+  },
+  "calendar": {
+    "intro": "Connect your calendar to show when you're in a meeting, get a reminder a minute before each one and your schedule every morning. Teammates see your status, never your events.",
+    "notSetUp": "Ask a workspace admin to set this up in Apps.",
+    "notConnected": "Not connected",
+    "connect": "Connect",
+    "disconnect": "Disconnect",
+    "status": {
+      "label": "Show when I'm in a meeting",
+      "description": "Sets your status during meetings and shows you away when you're out of office. A status you set yourself is never replaced."
+    },
+    "reminders": {
+      "label": "Remind me a minute before",
+      "description": "A message before each event you've accepted, with a button to join the call."
+    },
+    "agenda": {
+      "label": "Send my schedule each morning",
+      "description": "The day's events in one message, on days that have any."
+    },
+    "agendaAt": "Send at",
+    "agendaAtHint": "In your time zone.",
+    "synced": "Last synced {{at}}",
+    "syncing": "Getting your events…",
+    "syncFailed": "Couldn't sync: {{error}}"
   },
   "savedEverywhere": {
     "note": "These settings are the same in every workspace and on every device.",

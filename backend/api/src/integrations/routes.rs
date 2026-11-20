@@ -84,6 +84,7 @@ async fn remove_app(
     {
         return Err(AppError::NotFound("That app is not set up".into()));
     }
+    crate::calendars::service::forget_app(&state, ws_id, provider).await?;
     audit::record(
         &state,
         AuditEntry::new(AuditAction::AppRemoved, auth.user_id)
@@ -124,6 +125,9 @@ async fn disconnect_app(
         .await?
     {
         return Err(AppError::NotFound("Not connected".into()));
+    }
+    if provider.is_calendar() {
+        crate::calendars::service::forget(&state, ws_id, auth.user_id, provider).await?;
     }
     audit::record(
         &state,

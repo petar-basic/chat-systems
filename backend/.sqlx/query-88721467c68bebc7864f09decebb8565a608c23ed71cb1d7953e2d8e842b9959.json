@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH away AS (\n                   SELECT e.user_id, MAX(e.ends_at) AS until\n                     FROM calendar_events e\n                     JOIN calendar_syncs s USING (workspace_id, user_id, provider)\n                     JOIN workspace_apps a\n                       ON a.workspace_id = e.workspace_id AND a.provider = e.provider AND a.enabled\n                    WHERE s.status_on AND e.kind = 'out_of_office'\n                      AND e.starts_at <= $1 AND e.ends_at > $1\n                    GROUP BY e.user_id\n               ),\n               marked AS (\n                   UPDATE users u SET calendar_away_until = away.until\n                     FROM away\n                    WHERE u.id = away.user_id\n                      AND u.calendar_away_until IS DISTINCT FROM away.until\n                   RETURNING u.id\n               ),\n               cleared AS (\n                   UPDATE users u SET calendar_away_until = NULL\n                    WHERE u.calendar_away_until IS NOT NULL\n                      AND NOT EXISTS (SELECT 1 FROM away WHERE away.user_id = u.id)\n                   RETURNING u.id\n               )\n               SELECT id AS \"id!\" FROM marked UNION SELECT id FROM cleared",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "88721467c68bebc7864f09decebb8565a608c23ed71cb1d7953e2d8e842b9959"
+}

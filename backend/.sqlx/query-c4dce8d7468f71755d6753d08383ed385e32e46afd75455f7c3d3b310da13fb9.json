@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT status_source AS \"status_source!\" FROM workspace_members\n                WHERE workspace_id = $1 AND user_id = $2 AND status_source IS NOT NULL\n                  AND ($3::text IS NULL OR status_source = $3)\n                  FOR UPDATE",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "status_source!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "workspace_members",
+            "name": "status_source"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "c4dce8d7468f71755d6753d08383ed385e32e46afd75455f7c3d3b310da13fb9"
+}

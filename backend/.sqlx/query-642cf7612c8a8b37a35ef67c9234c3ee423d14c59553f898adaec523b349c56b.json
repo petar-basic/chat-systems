@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM calendar_events\n                  WHERE workspace_id = $1 AND user_id = $2 AND provider = $3\n                    AND event_id <> ALL($4)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "642cf7612c8a8b37a35ef67c9234c3ee423d14c59553f898adaec523b349c56b"
+}

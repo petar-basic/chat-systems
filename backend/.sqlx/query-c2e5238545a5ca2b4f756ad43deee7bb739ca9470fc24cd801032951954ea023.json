@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT jsonb_build_object(\n                      'workspace_id', c.workspace_id,\n                      'provider', c.provider,\n                      'external_account', c.external_account,\n                      'connected_at', c.connected_at,\n                      'calendar', CASE WHEN s.user_id IS NULL THEN NULL ELSE jsonb_build_object(\n                          'status', s.status_on,\n                          'reminders', s.reminders_on,\n                          'agenda', s.agenda_on,\n                          'agenda_at', s.agenda_at,\n                          'last_synced_at', s.last_synced_at) END\n                  ) AS \"row!\"\n             FROM app_connections c\n             LEFT JOIN calendar_syncs s USING (workspace_id, user_id, provider)\n            WHERE c.user_id = $1\n            ORDER BY c.connected_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "row!",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "c2e5238545a5ca2b4f756ad43deee7bb739ca9470fc24cd801032951954ea023"
+}

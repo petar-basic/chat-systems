@@ -39,6 +39,7 @@ vi.mock('@/features/profile/MarkAsReadPanel', () => ({
   default: () => <div data-qa="mark-as-read-panel" />,
 }));
 vi.mock('@/features/profile/AdvancedPanel', () => ({ default: () => <div data-qa="advanced-panel" /> }));
+vi.mock('@/features/profile/CalendarPanel', () => ({ default: () => <div data-qa="calendar-panel" /> }));
 
 const selected = () => screen.getByRole('tab', { selected: true });
 
@@ -104,6 +105,10 @@ describe('PreferencesModal', () => {
 
     fireEvent.keyDown(list, { key: 'ArrowDown' });
     expect(selected()).toHaveTextContent('Security');
+
+    fireEvent.keyDown(list, { key: 'ArrowDown' });
+    expect(selected()).toHaveTextContent('Calendar');
+    expect(screen.getByTestId('calendar-panel')).toBeInTheDocument();
 
     fireEvent.keyDown(list, { key: 'ArrowDown' });
     expect(selected()).toHaveTextContent('Advanced');

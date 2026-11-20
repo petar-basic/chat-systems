@@ -4,6 +4,7 @@ pub mod github;
 pub mod google;
 pub mod http;
 pub mod jira;
+pub mod microsoft;
 pub mod models;
 pub mod repo;
 pub mod routes;

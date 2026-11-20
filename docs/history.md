@@ -4188,3 +4188,65 @@ the script served on the host:
 
 The QA found one bug. An answer that came after the step ran out of time was told *This step
 already finished*. It now says *This step ran out of time*.
+
+### [CS-140] Google and Outlook calendars ✅ shipped
+Nothing in the app knew about anyone's calendar. People set *In a meeting* by hand and forgot
+to clear it, and the link to a call sat in another app. Slack's Google Calendar and Outlook
+Calendar apps set the status during meetings, remind people before each one and post the
+day's schedule in the morning.
+
+**Connecting.** Google Calendar and Outlook Calendar are two more connected apps. An admin sets
+each up once: Google Calendar can reuse Google Drive's OAuth client, and Outlook Calendar is an
+app registration in Microsoft Entra (RUNBOOK). Each person then connects their own calendar
+under *Preferences → Calendar*. Google is asked for `calendar.events.readonly`. Microsoft
+Graph is asked for `Calendars.Read` and `offline_access`, through the `organizations`
+endpoint. The OAuth flow comes back to `?preferences=calendar`, which opens Preferences at
+that section.
+
+**Syncing.** The worker reads the next 48 hours of each calendar every five minutes. It uses
+Google's sync token and Graph's delta link, and falls back to a full read when either is
+lost. Cancelled, declined and working-location events are dropped. A private event is stored
+without its title.
+
+**What the calendar does.** During an accepted meeting with other people, the person's status
+is 🗓️ *In a meeting*, or *Busy* for a private one, until the meeting ends. On an out-of-office
+event the status is ⛔ *Out of office*, and everyone sees the person away. A status the person
+wrote is never replaced. One they cleared stays cleared for that meeting. A minute before each
+event they accepted, the calendar's bot sends a DM with a **Join** button for Meet, Teams,
+Zoom, Webex or Whereby. Each morning at 09:00 in their time zone, or a time they pick, it
+sends the day's events. The status, reminders and agenda can each be turned off.
+
+**Leaving.** Disconnecting deletes the person's stored events and clears what the calendar
+set, and so does removing the app. Erasing a person deletes their events. Their export has
+their connections, without tokens, and their events.
+
+**QA** on the Docker stack ran against a fake Google and Graph server on the host. Alice used
+Google and Bob used Outlook, checked from a script, the database and Bob's and an admin's
+sockets:
+- Google Calendar reused Drive's client. Outlook could not reuse Drive (422). Settings before
+  connecting were 404.
+- Both connections came back to Preferences → Calendar with *ana@acme.test* and *Bob Smith
+  (bob@acme.test)*. Both code exchanges sent a PKCE verifier, and Graph was asked for UTC
+  times.
+- The first sync stored everything but the declined event, and the private event had no
+  title. Alice showed 🗓️ *In a meeting* until the standup's end. Bob's own *📚 Reading* stayed,
+  but he was away until midnight in his zone. Once he cleared it, ⛔ *Out of office*
+  appeared.
+- On the admin's socket, Bob went from online to away when his out-of-office day synced. He
+  stayed away while his own socket reported activity, and came back online when he
+  disconnected.
+- One reminder came for *Design review prep*, at 12:05 – 12:23 in Alice's zone, with **Join**
+  to its Meet link. None came for the tentative invite.
+- Alice cleared her meeting status, and it stayed cleared through the next syncs. A new
+  meeting set it again, and it was gone when that meeting ended.
+- An agenda time of `8:00` was refused (422). The agenda came once, with *All day*, and with
+  *Busy* in place of the private event's title.
+- A changed, a new and a deleted event arrived through the sync token. A 410 from each
+  provider led to a full read, with no error kept.
+- Disconnecting removed the events and the status and away. After that the fake servers got
+  no more requests.
+
+The QA found one bug. When Bob turned the calendar's status off and on again, ⛔ *Out of
+office* did not come back. Clearing its own status left the calendar's record of that event,
+which reads as the person having cleared it. The calendar now forgets the event whenever it
+clears its own status.

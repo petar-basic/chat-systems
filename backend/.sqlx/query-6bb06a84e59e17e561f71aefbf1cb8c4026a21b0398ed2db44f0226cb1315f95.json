@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE calendar_syncs\n                SET status_on = COALESCE($4, status_on),\n                    reminders_on = COALESCE($5, reminders_on),\n                    agenda_on = COALESCE($6, agenda_on),\n                    agenda_at = COALESCE($7, agenda_at)\n              WHERE workspace_id = $1 AND user_id = $2 AND provider = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Time"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6bb06a84e59e17e561f71aefbf1cb8c4026a21b0398ed2db44f0226cb1315f95"
+}

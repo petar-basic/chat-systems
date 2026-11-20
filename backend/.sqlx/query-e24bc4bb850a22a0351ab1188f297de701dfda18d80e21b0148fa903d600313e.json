@@ -45,7 +45,9 @@
             "name": "workspace_bot_kind",
             "kind": {
               "Enum": [
-                "responses"
+                "responses",
+                "google_calendar",
+                "outlook_calendar"
               ]
             }
           }

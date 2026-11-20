@@ -51,6 +51,7 @@ pub struct AppState {
     pub thread_repo: crate::threads::repo::ThreadRepo,
     pub sidebar_repo: SidebarRepo,
     pub integration_repo: IntegrationRepo,
+    pub calendar_repo: crate::calendars::repo::CalendarRepo,
     pub slack_import_repo: SlackImportRepo,
     pub scheduled_repo: ScheduledRepo,
     pub retention_repo: crate::retention::repo::RetentionRepo,

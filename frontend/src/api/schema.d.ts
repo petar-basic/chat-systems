@@ -3078,6 +3078,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{ws_id}/calendars": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The person's Google and Outlook calendars in this workspace: whether an admin set each up,
+         *     the account they connected and what it does for them.
+         */
+        get: operations["list_calendars"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{ws_id}/calendars/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Turns the status, the reminders or the agenda of a connected calendar on or off, or moves
+         *     the agenda to another time of day. Turning the status off clears one the calendar set.
+         */
+        patch: operations["update_calendar"];
+        trace?: never;
+    };
     "/workspaces/{ws_id}/channels": {
         parameters: {
             query?: never;
@@ -4314,6 +4354,8 @@ export interface components {
             /** Format: int64 */
             authenticators: number;
             /** Format: int64 */
+            calendar_events: number;
+            /** Format: int64 */
             drafts: number;
             /** Format: int64 */
             keywords: number;
@@ -4745,6 +4787,26 @@ export interface components {
         BuiltinSection: "channels" | "dms" | "people";
         /** @enum {string} */
         ButtonStyle: "primary" | "danger";
+        CalendarList: {
+            data: components["schemas"]["CalendarState"][];
+        };
+        CalendarSettings: {
+            agenda: boolean;
+            /** @example 09:00 */
+            agenda_at: string;
+            last_error?: string | null;
+            /** Format: date-time */
+            last_synced_at?: string | null;
+            reminders: boolean;
+            status: boolean;
+        };
+        CalendarState: {
+            connected_account?: string | null;
+            name: string;
+            provider: components["schemas"]["Provider"];
+            set_up: boolean;
+            settings?: components["schemas"]["CalendarSettings"] | null;
+        };
         CellValue: {
             /** Format: uuid */
             column_id: string;
@@ -7252,7 +7314,7 @@ export interface components {
             };
         };
         /** @enum {string} */
-        Provider: "jira" | "github" | "google_drive" | "figma" | "confluence";
+        Provider: "jira" | "github" | "google_drive" | "figma" | "confluence" | "google_calendar" | "outlook_calendar";
         PublishHomeRequest: {
             /**
              * @description The `hash` the app last saw; the publish is refused when this person's
@@ -8020,6 +8082,13 @@ export interface components {
             request_url?: string | null;
             scopes?: components["schemas"]["Scope"][] | null;
             socket_mode?: boolean | null;
+        };
+        UpdateCalendarSettings: {
+            agenda?: boolean | null;
+            /** @example 08:30 */
+            agenda_at?: string | null;
+            reminders?: boolean | null;
+            status?: boolean | null;
         };
         UpdateChannelMemberRoleRequest: {
             role: components["schemas"]["ChannelRole"];
@@ -13710,6 +13779,53 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BotAppWithToken"];
+                };
+            };
+        };
+    };
+    list_calendars: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarList"];
+                };
+            };
+        };
+    };
+    update_calendar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws_id: string;
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCalendarSettings"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarState"];
                 };
             };
         };

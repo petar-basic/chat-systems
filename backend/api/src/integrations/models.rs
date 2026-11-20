@@ -11,16 +11,26 @@ pub enum Provider {
     GoogleDrive,
     Figma,
     Confluence,
+    GoogleCalendar,
+    OutlookCalendar,
 }
 
 impl Provider {
-    pub const ALL: [Provider; 5] = [
+    pub const ALL: [Provider; 7] = [
         Provider::Jira,
         Provider::Confluence,
         Provider::Github,
         Provider::GoogleDrive,
         Provider::Figma,
+        Provider::GoogleCalendar,
+        Provider::OutlookCalendar,
     ];
+
+    pub const CALENDARS: [Provider; 2] = [Provider::GoogleCalendar, Provider::OutlookCalendar];
+
+    pub fn is_calendar(self) -> bool {
+        Self::CALENDARS.contains(&self)
+    }
 
     pub fn as_str(self) -> &'static str {
         match self {
@@ -29,6 +39,8 @@ impl Provider {
             Provider::GoogleDrive => "google_drive",
             Provider::Figma => "figma",
             Provider::Confluence => "confluence",
+            Provider::GoogleCalendar => "google_calendar",
+            Provider::OutlookCalendar => "outlook_calendar",
         }
     }
 
@@ -43,6 +55,8 @@ impl Provider {
             Provider::GoogleDrive => "Google Drive",
             Provider::Figma => "Figma",
             Provider::Confluence => "Confluence",
+            Provider::GoogleCalendar => "Google Calendar",
+            Provider::OutlookCalendar => "Outlook Calendar",
         }
     }
 
@@ -53,6 +67,9 @@ impl Provider {
             Provider::GoogleDrive => "Docs, Sheets, Slides and files with their owner",
             Provider::Figma => "Designs, FigJam boards and Slides with a thumbnail",
             Provider::Confluence => "Pages and blog posts with their space, owner and last edit",
+            Provider::GoogleCalendar | Provider::OutlookCalendar => {
+                "Your status during meetings, a reminder before each one and a morning agenda"
+            }
         }
     }
 
@@ -63,6 +80,8 @@ impl Provider {
             Provider::GoogleDrive => &[super::google::SCOPE],
             Provider::Figma => &super::figma::SCOPES,
             Provider::Confluence => &super::confluence::SCOPES,
+            Provider::GoogleCalendar => &[super::google::CALENDAR_SCOPE],
+            Provider::OutlookCalendar => &super::microsoft::SCOPES,
         }
     }
 
@@ -90,6 +109,17 @@ impl Provider {
                 "See the name of the account that connected",
                 "Stay connected until that person disconnects",
             ],
+            Provider::GoogleCalendar => &[
+                "See the times, titles and meeting links of the events on the calendar of each person who connects, never who else is invited or what the description says",
+                "Set that person's status while they are in a meeting or out of office",
+                "Send that person a reminder before each meeting and an agenda each morning",
+            ],
+            Provider::OutlookCalendar => &[
+                "See the times, titles and meeting links of the events on the calendar of each person who connects",
+                "Set that person's status while they are in a meeting or out of office",
+                "Send that person a reminder before each meeting and an agenda each morning",
+                "Stay connected until that person disconnects",
+            ],
         }
     }
 
@@ -100,6 +130,10 @@ impl Provider {
             Provider::GoogleDrive => "https://console.cloud.google.com/apis/credentials",
             Provider::Figma => "https://www.figma.com/developers/apps",
             Provider::Confluence => "https://developer.atlassian.com/console/myapps/",
+            Provider::GoogleCalendar => "https://console.cloud.google.com/apis/credentials",
+            Provider::OutlookCalendar => {
+                "https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade"
+            }
         }
     }
 
@@ -140,6 +174,19 @@ impl Provider {
                 "Under Permissions, add the Confluence API and, on its Granular scopes tab, grant read:page:confluence, read:space:confluence and read:user:confluence. Keep the User identity API (read:me).",
                 "Back here, tick Use the Jira app — or paste the Client ID and Secret of a separate app — and save.",
                 "Press Connect my account to test it: Atlassian asks each person to consent to Confluence separately from Jira.",
+            ],
+            Provider::GoogleCalendar => &[
+                "If Google Drive is set up here, open its project in the Google Cloud console. Otherwise create a project for this instance.",
+                "Enable the Google Calendar API, and add the scope below on the OAuth consent screen. Choose Internal if your organization uses Google Workspace.",
+                "Back here, tick Use the Google Drive app. Without Drive, choose Credentials → Create credentials → OAuth client ID → Web application, add the callback URL below under Authorized redirect URIs, and copy the Client ID and Client secret into the fields below.",
+                "Each person connects their own calendar under Preferences → Calendar.",
+            ],
+            Provider::OutlookCalendar => &[
+                "Open the Microsoft Entra admin center → App registrations → New registration.",
+                "Under Supported account types choose Accounts in any organizational directory. Under Redirect URI choose Web and paste the callback URL below.",
+                "Under API permissions add Microsoft Graph → Delegated permissions → Calendars.Read and offline_access, and choose Grant admin consent so nobody is asked on their own.",
+                "Under Certificates & secrets add a client secret. Copy the Application (client) ID and the secret's Value into the fields below.",
+                "Each person connects their own calendar under Preferences → Calendar.",
             ],
         }
     }
