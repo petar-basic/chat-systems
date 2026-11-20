@@ -4256,3 +4256,12 @@ before its transaction ended. sqlx then sends the rollback later, from the task 
 the connection to the pool, and until it does the run's row stays locked. A run made ready
 meanwhile was skipped by the runner's `FOR UPDATE SKIP LOCKED` claim. `settle_app_step` now
 rolls back before it answers, as `submit_form` does.
+
+The 4.8.0 release check found that a calendar reminder came back five minutes later as a
+"You have a direct message" email, for a meeting that had already started. The bot's DM went
+through the same notice as any DM, email included. Calendar messages now say what they
+are in `metadata.calendar` (`reminder` or `agenda`), and `notify_message` takes the email off
+a reminder's notice, leaving its push and Activity item; the morning agenda still emails.
+Checked with the branch's worker run on the host against the Docker stack: a meeting set
+100 seconds ahead brought Alice the agenda DM at once, queued for email, and the reminder a
+minute before it, in Activity with no `pending_mention_emails` row.
