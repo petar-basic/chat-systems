@@ -110,5 +110,43 @@
     "title": "見逃したメッセージをメールで受け取る",
     "on": "オン。メンションやダイレクトメッセージが5分たっても未読のままなら、そのメッセージへのリンクを付けて、メールを1回お送りします。",
     "off": "オフ。未読のメンションは、アプリを開くまで通知の一覧にたまります。"
+  },
+  "activity": {
+    "someone": "誰か",
+    "untitled": "無題",
+    "mention": "あなたがメンションされました",
+    "reply": "スレッドに新しい返信があります",
+    "keyword": "「{{keyword}}」に一致しました",
+    "keywordIn": "#{{channel}} で「{{keyword}}」に一致しました",
+    "message": "{{sender}} さん（#{{channel}}）",
+    "listAssigned": "{{sender}} さんが、あなたを「{{item}}」の担当にしました",
+    "listMentioned": "{{sender}} さんが「{{item}}」であなたをメンションしました",
+    "listIn": "リスト: {{list}}",
+    "call": "通話の着信",
+    "callBody": "誰かが通話を始めようとしています",
+    "reminder": "リマインダー",
+    "reminderBody": "「後で」に保存したメッセージ",
+    "workflowAppGone": "ワークフローのステップを実行できません",
+    "workflowAppGoneBody": "「{{workflow}}」は {{app}} のステップを使っていますが、このアプリはもう使えません。そのステップを置き換えるまで、実行はそのステップで失敗します。",
+    "workflowStopped": "ワークフローがオフになりました",
+    "workflowStoppedBody": "「{{workflow}}」は、{{reason}}ため停止しました。",
+    "workflowStops": {
+      "inactive": "作成した人のアカウントが停止された",
+      "left_workspace": "作成した人がワークスペースから退出した",
+      "lost_channel": "作成した人がそのチャンネルを見られなくなった",
+      "demoted": "作成した人に、その権限がなくなった"
+    },
+    "appRequested": "{{sender}} さんがアプリをリクエストしました",
+    "notDelivered": "予約したメッセージが送信されませんでした",
+    "notice": "お知らせ",
+    "guestEnding": "{{name}} さんのゲストアクセスがまもなく終了します",
+    "guestEndingBody": "{{date}} にアクセスが終了します。日付の変更や削除は、ワークスペースの設定 → メンバーで行えます。",
+    "inviteRequested": "{{sender}} さんが招待をリクエストしました",
+    "inviteRequestApproved": "{{sender}} さんが、あなたの招待のリクエストを承認しました",
+    "inviteRequestDeclined": "{{sender}} さんが、あなたの招待のリクエストを却下しました",
+    "inviteRequestExpired": "あなたの招待のリクエストは期限切れになりました",
+    "inviteRequestFor": "対象: {{emails}}",
+    "inviteRequestForWithNote": "対象: {{emails}}。管理者からのメモ: {{note}}",
+    "inviteRequestExpiredBody": "30日以内に管理者が対応しませんでした。対象: {{emails}}"
   }
 }

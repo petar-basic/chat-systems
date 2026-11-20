@@ -192,8 +192,7 @@ describe('NotificationStream', () => {
     expect(navigate).toHaveBeenCalledWith('/app/ws-1/lists/l-1?item=i-1');
   });
 
-  it('writes the banner in the language the app is in, English where a string is missing', async () => {
-    i18n.addResource('ja', 'notifications', 'activity.mention', 'メンションされました');
+  it('writes the banner in the language the app is in', async () => {
     await i18n.changeLanguage('ja');
     try {
       globalEventBus.emit(frame('mention'));
@@ -202,7 +201,7 @@ describe('NotificationStream', () => {
       await i18n.changeLanguage('en');
     }
 
-    expect(showNotification.mock.calls[0][0]).toBe('🔔 メンションされました');
-    expect(showNotification.mock.calls[1][0]).toBe('Matched "deploy" in #ops');
+    expect(showNotification.mock.calls[0][0]).toBe('🔔 あなたがメンションされました');
+    expect(showNotification.mock.calls[1][0]).toBe('#ops で「deploy」に一致しました');
   });
 });
