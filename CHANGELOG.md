@@ -17,6 +17,24 @@ instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ## [Unreleased]
 
+## [4.8.0] — 2026-11-20
+
+### Upgrading from 4.7.2
+
+- Set `VERSION=4.8.0`, pull the app images and restart `api`, `realtime`, `worker` and
+  `frontend` together. The `api` runs migrations 112 to 126 on start; Postgres stays as it is.
+- Guests already in a workspace become multi-channel guests with no end date, and a guest is
+  invited by email from now on (see *Changed*).
+- The `worker` reads `WEBHOOK_ALLOW_PRIVATE_TARGETS` too: it delivers outgoing webhooks and
+  app events, and checks the address again each time. The compose files pass the setting to
+  both services. If you run them another way and turned it on for the `api`, turn it on for
+  the `worker` as well.
+- Nothing new is required. GIFs wait for a GIPHY API key in *Instance admin*, and each
+  calendar for an OAuth app, set up as the
+  [RUNBOOK](docs/RUNBOOK.md#google-calendar-and-outlook-calendar) says.
+- The desktop app updates itself. Until it is on 4.8.0, someone sharing their screen from it
+  sees the others' drawing on their preview only, not over the screen.
+
 ### Added
 
 - A workspace admin can make a public channel private, or a private one public, in *Channel
@@ -90,11 +108,11 @@ instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   the same channel, or in the thread if it was a reply. Phrases match whole words whatever the
   case, and anywhere in Japanese and other text written without spaces. A response answers at
   most once a minute in a channel, never a message from a bot, an integration or a workflow,
-  never in a 1:1 DM, and only where the person who wrote could post. Every member can edit
-  them unless an admin sets *Who can edit custom responses* to admins in *General*; guests do
-  not see them. The bot is named after the instance until an admin renames it, shows the *App*
-  badge, and the audit log records every change as `custom_response.created`, `updated` and
-  `deleted`, and a rename as `workspace_bot.renamed`.
+  never in a DM or a group DM, and only where the person who wrote could post. Every member can
+  edit them unless an admin sets *Who can edit custom responses* to admins in *General*;
+  guests do not see them. The bot is named after the instance until an admin renames it,
+  shows the *App* badge, and the audit log records every change as `custom_response.created`,
+  `updated` and `deleted`, and a rename as `workspace_bot.renamed`.
 - Every huddle has a thread: the *Thread* button in the huddle window opens it beside the
   call, with mentions, files and emoji, and counts unread replies while it is closed. Everyone
   in the huddle follows it while there and keeps following it if they wrote in it; nobody
@@ -107,13 +125,69 @@ instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   person sharing sees the strokes on their own preview, and in the desktop app on the real
   screen too, through a see-through, click-through window over a shared display. They can
   turn drawing off from the control bar. Nothing is recorded.
-
 - Clips: the clapperboard in the composer records your voice, your camera, or your screen
   with your voice and, if you like, your camera in a bubble, for up to five minutes. You see
   the clip before it goes, record it again or put it in the message, and send it with text like
   any file. A video clip plays over its first frame and opens in the gallery with the images;
   an audio clip shows its waveform. Both play at 1×, 1.5× or 2× and seek without loading the
   whole clip. Clips are kept, erased, exported and found like the files they are.
+- Messages built from Slack's blocks. Bots, incoming webhooks and slash command answers send
+  Slack's `blocks` and legacy `attachments` in Slack's JSON, and the message shows them:
+  headers, sections with fields, dividers, images, context, buttons, menus and date pickers,
+  and attachments with their colour bar, author, fields and footer. A hook copied from Slack
+  that sends only blocks is no longer refused, and one that sends text as well keeps its
+  layout. What Slack would refuse is refused with a `422` that names the place, such as
+  `blocks[0].text: too long`. Search, notifications and emails read the message's `text`, or,
+  when a bot sends blocks alone, the text written out from them.
+- Buttons, menus and modals that reach the app. An app that turns on *Interactivity* on its
+  page hears when someone presses a button or picks from a menu or a date picker in its
+  message, as Slack's `block_actions`, over its request URL or its socket. It opens modals
+  with `views.open`, `views.push` and `views.update`, and answers a submission with errors by
+  block, an updated or pushed view, or nothing to close it. Through the `response_url` it
+  replaces or deletes its message, posts in the channel, or answers only the person who
+  clicked.
+- An app's *Home* tab and its shortcuts. An admin turns *Home tab* on for an app, and its DM
+  opens on *Home*, which the app draws for each person with `views.publish`; it changes
+  without a reload, and opening it sends `app_home_opened`. An app also offers up to five
+  global shortcuts, in the composer's ⚡ menu and the quick switcher, and five message
+  shortcuts, under *More actions* on messages in channels its bot is in. Using one sends
+  Slack's `shortcut` or `message_action`.
+- Apps that preview their own links. An app with `links:read` and `links:write` claims up to
+  five domains under *Link previews* on its page. A link to one, in a channel its bot is in,
+  sends Slack's `link_shared`, and the app answers with a preview for each link
+  (`POST /messages/{id}/unfurls`), drawn under the message with the app's name and icon. A
+  claimed link is not fetched by the server.
+- Workflows branch, wait and do more. A *Branch* step tests a trigger variable, a form answer,
+  a profile field of the person who set the workflow off, or a column of an item an earlier
+  step added, with *is*, *contains*, *is empty*, *is greater than* or *is one of*. Each path
+  has its own steps, branches nest two deep, and the run carries on after them. A *Wait* step
+  waits minutes, hours or days, or until a date and time, up to 30 days. New steps create a
+  channel, add people to a channel, set a channel's topic and archive a channel.
+- Workflow steps from apps. An app with the new `workflow.steps:execute` scope offers up to
+  20 steps of its own, each with typed inputs and outputs, defined on its page or by the app
+  (`PUT /bot-apps/me/workflow-steps`). Workflow Builder lists them under the app's name. A run
+  that reaches one sends Slack's `function_executed`, and the app finishes the step with its
+  outputs, which later steps and branches can use, or fails it with a message the run history
+  shows. If the app is turned off or removed, the owner of each workflow that uses it hears of
+  it in Activity.
+- Google Calendar and Outlook Calendar. Once an admin sets each up, every person connects
+  their own calendar in *Preferences → Calendar*. During a meeting with other people their
+  status says 🗓️ *In a meeting*, or *Busy* for a private event; an out-of-office event shows
+  them away. A minute before each event they accepted, the calendar's bot sends them a DM with
+  a **Join** button for a Meet, Teams, Zoom, Webex or Whereby link, by push and in Activity
+  but never by email, since the meeting has begun by the time an email would arrive. At 09:00,
+  or the time they choose, it sends the day's events. Each of the three can be turned off. A
+  status the person wrote themselves is never replaced. Disconnecting deletes the stored
+  events and clears the status the calendar set. A person export includes their events and
+  erasing a person deletes them.
+- More of the app is in Japanese, from cyberlib: the emails, channel privacy and group DMs
+  that become channels, guests, invite requests, profile fields and the People directory,
+  the audit log, workspace settings and members, retention, exports, the Slack import, SCIM,
+  emoji and groups, custom responses, the apps directory and app pages, integrations, app
+  Home, shortcuts and interactive messages, link previews, analytics, editing a profile,
+  recent searches, drafts and sent, huddles, GIFs, clips, notifications, and the new version
+  banner (#385, #393, #395, #396, #397, #399, #400, #402, #406, #410, #411, #413, #416, #419,
+  #420, #422, #423, #425, #426, #429, #430, #431, #432, #434, #435, #436).
 
 ### Changed
 
@@ -132,6 +206,16 @@ instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 - In a huddle on the mesh, another person's camera or screen could take the place of their
   sound, and a shared screen did not show. Each track now goes where it belongs. This was
   broken since 2.0.0.
+- People whose account was erased or suspended, and the bots of removed apps, were still
+  listed in the sidebar's *People*, the DM picker, the quick switcher and @-mention
+  suggestions, an erased one as *Deleted user*. They are left out now, as in Slack, and out of
+  the new *People directory* too; their old messages keep their author (#439).
+- *Workspace settings → General* showed every admin the *Danger zone*, and a soft-deleted
+  workspace's banner a *Restore workspace* button, though only an owner or an instance admin
+  may delete or restore a workspace. Other admins no longer see them (#407).
+- With `WEBHOOK_ALLOW_PRIVATE_TARGETS` on, an outgoing webhook or app request URL on a private
+  address was accepted and then never delivered, because only the `api` had the setting. The
+  `worker` gets it too, and the Coolify compose file passes it to both (#428).
 
 ## [4.7.2] — 2026-11-13
 
