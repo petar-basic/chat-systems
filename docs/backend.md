@@ -1482,7 +1482,7 @@ channel fails the run.
 
 ### integrations (apps)
 
-Per-workspace connected apps — Jira Cloud, Confluence, GitHub, Google Drive and Figma — and each person's own connection to them.
+Per-workspace connected apps — Jira Cloud, Confluence, GitHub, Google Drive, Figma, Google Calendar and Outlook Calendar — and each person's own connection to them.
 An admin stores the app's OAuth client (`workspace_apps`, secret sealed); a member connects
 through OAuth 2.0 with PKCE, the pending `state` and verifier held in Redis for ten minutes
 and readable once (`GETDEL`), bound to the member who started it. Tokens live sealed in
@@ -1506,7 +1506,7 @@ and its card joins the page with its space and the owner's and last editor's nam
 | Method | Route | Input | Output |
 |--------|-------|-------|--------|
 | GET | `/workspaces/:ws_id/apps` | — | `{ data: AppStatus[] }` — setup values (callback URL, scopes, steps), the caller's own connection and whether they turned the app's prompts off |
-| PUT | `/workspaces/:ws_id/apps/:provider` | `{ client_id, client_secret?, enabled, reuse_from? }` | `{ status: "saved" }` — admin; the secret is required the first time. `reuse_from: "jira"` (Confluence only) copies Jira's client ID and sealed secret server-side |
+| PUT | `/workspaces/:ws_id/apps/:provider` | `{ client_id, client_secret?, enabled, reuse_from? }` | `{ status: "saved" }` — admin; the secret is required the first time. `reuse_from: "jira"` (Confluence only) or `"google_drive"` (Google Calendar only) copies that app's client ID and sealed secret server-side |
 | DELETE | `/workspaces/:ws_id/apps/:provider` | — | `{ status: "removed" }` — admin; disconnects everyone |
 | POST | `/workspaces/:ws_id/apps/:provider/connect` | `{ return_to? }` | `{ authorize_url }` |
 | POST | `/apps/connections` | `{ code, state }` | `{ workspace_id, provider, external_account, return_to }` |
@@ -1514,6 +1514,42 @@ and its card joins the page with its space and the owner's and last editor's nam
 | PUT | `/workspaces/:ws_id/apps/:provider/prompts` | — | `{ status: "off" }` — *Never ask me again*: the caller's links to that app fall back to the OpenGraph preview; connecting turns prompts back on |
 | DELETE | `/workspaces/:ws_id/apps/:provider/prompts` | — | `{ status: "on" }` |
 | POST | `/messages/:msg_id/unfurls/refresh` | — | `{ status: "refreshing" }` — author; re-runs the previews |
+
+### calendars
+
+Google Calendar and Outlook Calendar are two more `integrations` providers; connecting one
+starts a `calendar_syncs` row for the person, and disconnecting it or removing the app deletes
+it, and by `ON DELETE CASCADE` their `calendar_events`. The `calendar_worker` in `chat-worker`
+ticks every 15 seconds (`calendars::service::tick`):
+
+- **Sync.** It claims due syncs (`next_sync_at`, a two-minute lease, `SKIP LOCKED`), refreshes
+  the token and reads changes: Google's `events.list` with `singleEvents` and a `syncToken`,
+  Graph's `calendarView/delta` with its `deltaLink` (followed only on the Graph host). The
+  first sync, and any after a 410 or Graph's `syncStateNotFound`, is a full read of the next 48
+  hours, which then replaces what is stored; the window is renewed daily. Cancelled, declined
+  and working-location events are removed; a private one is kept without its title. A failure
+  goes to `last_error` and the next sync is five minutes later.
+- **Status.** For each person whose status is on, the out-of-office event wins, otherwise the
+  current accepted meeting with others that ends last. It writes 🗓️ *In a meeting* (*Busy* for
+  a private one) or ⛔ *Out of office* with `status_source` set to the provider and
+  `status_event_id`, expiring when the event ends. A status the person set (`status_source IS
+  NULL`) is never written over, and one they cleared for that event stays cleared;
+  setting or clearing it through `/workspaces/:ws_id/profile/status` clears `status_source`.
+- **Away.** An out-of-office event sets `users.calendar_away_until`; the realtime presence
+  query treats it like `manual_away` until then.
+- **Reminders.** A minute before each event the person attends, the provider's workspace bot
+  (`workspace_bots` kind `google_calendar` / `outlook_calendar`) sends a DM with the time in
+  their clock format and a **Join** link button. `reminded_at` makes it once per start time.
+- **Agenda.** At `agenda_at` in the person's time zone (within two hours of it, once a day via
+  `agenda_sent_on`), the day's events in one message, up to 20, on days that have any.
+
+| Method | Route | Input | Output |
+|--------|-------|-------|--------|
+| GET | `/workspaces/:ws_id/calendars` | — | `{ data: CalendarState[] }` — both providers: whether set up, the caller's account and settings (`status`, `reminders`, `agenda`, `agenda_at`, `last_synced_at`, `last_error`) |
+| PATCH | `/workspaces/:ws_id/calendars/:provider` | `{ status?, reminders?, agenda?, agenda_at? }` | `CalendarState` — 404 before connecting, 422 for an `agenda_at` that is not `HH:MM`; turning `status` off clears the status and away the calendar set |
+
+Erasing a person deletes their calendar events and clears both; the person's export has
+`app_connections.jsonl` (no tokens) and `calendar_events.jsonl`.
 
 ### bots
 

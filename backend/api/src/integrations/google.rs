@@ -7,6 +7,7 @@ use super::http::{self, TokenSet};
 use crate::messaging::models::{Unfurl, UnfurlField};
 
 pub const SCOPE: &str = "https://www.googleapis.com/auth/drive.metadata.readonly";
+pub const CALENDAR_SCOPE: &str = "https://www.googleapis.com/auth/calendar.events.readonly";
 const FILE_FIELDS: &str =
     "name,mimeType,owners(displayName,photoLink),modifiedTime,lastModifyingUser(displayName)";
 
@@ -27,6 +28,7 @@ impl Google {
         redirect_uri: &str,
         state: &str,
         challenge: &str,
+        scope: &str,
     ) -> String {
         let mut url = reqwest::Url::parse(&format!("{}/o/oauth2/v2/auth", self.accounts_base))
             .expect("the Google accounts base is a valid url");
@@ -34,7 +36,7 @@ impl Google {
             .append_pair("client_id", client_id)
             .append_pair("redirect_uri", redirect_uri)
             .append_pair("response_type", "code")
-            .append_pair("scope", SCOPE)
+            .append_pair("scope", scope)
             .append_pair("access_type", "offline")
             .append_pair("prompt", "consent")
             .append_pair("include_granted_scopes", "true")
@@ -110,6 +112,22 @@ impl Google {
             reqwest::StatusCode::NOT_FOUND | reqwest::StatusCode::FORBIDDEN => Ok(None),
             status => Err(provider_error("request", status)),
         }
+    }
+
+    pub async fn calendar_account(&self, token: &str) -> AppResult<String> {
+        let calendar = self
+            .get(
+                "/calendar/v3/calendars/primary/events?maxResults=1&fields=summary",
+                token,
+            )
+            .await?
+            .unwrap_or(Value::Null);
+        Ok(calendar
+            .get("summary")
+            .and_then(Value::as_str)
+            .filter(|name| !name.trim().is_empty())
+            .unwrap_or("Google Calendar")
+            .to_string())
     }
 
     pub async fn account_name(&self, token: &str) -> AppResult<String> {

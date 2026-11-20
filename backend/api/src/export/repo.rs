@@ -84,6 +84,7 @@ pub struct AccountErased {
     pub profile_fields: u64,
     pub drafts: u64,
     pub searches: u64,
+    pub calendar_events: u64,
     pub photos: u64,
 }
 
@@ -421,6 +422,11 @@ impl ExportRepo {
             .execute(&mut *tx)
             .await?
             .rows_affected();
+        let calendar_events =
+            sqlx::query!("DELETE FROM calendar_events WHERE user_id = $1", user_id)
+                .execute(&mut *tx)
+                .await?
+                .rows_affected();
 
         sqlx::query!(
             r"
@@ -432,7 +438,8 @@ impl ExportRepo {
                    pronouns = NULL,
                    status_emoji = NULL,
                    status_text = NULL,
-                   status_expires_at = NULL
+                   status_expires_at = NULL,
+                   status_source = NULL
              WHERE user_id = $1
             ",
             user_id
@@ -456,6 +463,7 @@ impl ExportRepo {
                    pronouns = NULL,
                    timezone = NULL,
                    preferences = '{}'::jsonb,
+                   calendar_away_until = NULL,
                    password_hash = NULL,
                    status = 'suspended',
                    updated_at = NOW()
@@ -477,6 +485,7 @@ impl ExportRepo {
             profile_fields,
             drafts,
             searches,
+            calendar_events,
             photos: 0,
         })
     }

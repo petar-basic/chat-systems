@@ -141,6 +141,7 @@ pub fn typed_routes() -> OpenApiRouter<Arc<AppState>> {
         .merge(crate::threads::routes::router())
         .merge(crate::sidebar::routes::router())
         .merge(crate::integrations::routes::router())
+        .merge(crate::calendars::routes::router())
         .merge(crate::scheduled::routes::router())
         .merge(crate::admin::routes::router())
         .merge(crate::scim::routes::token_router())

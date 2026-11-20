@@ -11,6 +11,7 @@ pub mod auth;
 pub mod authz;
 pub mod blocks;
 pub mod bots;
+pub mod calendars;
 pub mod channel_context;
 pub mod channel_integrations;
 pub mod commands;
@@ -154,6 +155,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
     let thread_repo = threads::repo::ThreadRepo::new(pool.clone());
     let sidebar_repo = sidebar::repo::SidebarRepo::new(pool.clone());
     let integration_repo = integrations::repo::IntegrationRepo::new(pool.clone());
+    let calendar_repo = calendars::repo::CalendarRepo::new(pool.clone());
     let slack_import_repo = slack_import::repo::SlackImportRepo::new(pool.clone());
     let scheduled_repo = scheduled::repo::ScheduledRepo::new(pool.clone());
     let retention_repo = retention::repo::RetentionRepo::new(pool.clone());
@@ -216,6 +218,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
         thread_repo,
         sidebar_repo,
         integration_repo,
+        calendar_repo,
         slack_import_repo,
         scheduled_repo,
         retention_repo,

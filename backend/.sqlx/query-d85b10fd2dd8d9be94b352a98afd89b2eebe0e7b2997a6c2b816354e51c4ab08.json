@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE calendar_syncs SET status_event_id = $4\n                  WHERE workspace_id = $1 AND user_id = $2 AND provider = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d85b10fd2dd8d9be94b352a98afd89b2eebe0e7b2997a6c2b816354e51c4ab08"
+}

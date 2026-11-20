@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO calendar_events\n                   (workspace_id, user_id, provider, event_id, title, starts_at, ends_at, all_day,\n                    kind, attending, private, join_url)\n               VALUES ($1, $2, $3, $4, $5,\n                       COALESCE($6::timestamptz, $7::date::timestamp AT TIME ZONE $10::text),\n                       COALESCE($8::timestamptz, $9::date::timestamp AT TIME ZONE $10::text),\n                       $6::timestamptz IS NULL, $11, $12, $13, $14)\n               ON CONFLICT (workspace_id, user_id, provider, event_id) DO UPDATE\n                  SET title = EXCLUDED.title,\n                      reminded_at = CASE WHEN calendar_events.starts_at = EXCLUDED.starts_at\n                                         THEN calendar_events.reminded_at END,\n                      starts_at = EXCLUDED.starts_at,\n                      ends_at = EXCLUDED.ends_at,\n                      all_day = EXCLUDED.all_day,\n                      kind = EXCLUDED.kind,\n                      attending = EXCLUDED.attending,\n                      private = EXCLUDED.private,\n                      join_url = EXCLUDED.join_url",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Date",
+        "Timestamptz",
+        "Date",
+        "Text",
+        "Text",
+        "Bool",
+        "Bool",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9d028fe4c2e4a6c065bdc0c3c66f0660aa949531b14f51fb5fc29e2be7f413e7"
+}

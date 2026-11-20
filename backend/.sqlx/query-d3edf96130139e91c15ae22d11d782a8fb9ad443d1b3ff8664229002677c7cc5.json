@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id FROM users WHERE id = ANY($1) AND manual_away",
+  "query": "SELECT id FROM users WHERE id = ANY($1) AND (manual_away OR calendar_away_until > NOW())",
   "describe": {
     "columns": [
       {
@@ -24,5 +24,5 @@
       false
     ]
   },
-  "hash": "991384cb2315d59be09a7f6bc9db1bff81c86984b741de63161e74be6e884e67"
+  "hash": "d3edf96130139e91c15ae22d11d782a8fb9ad443d1b3ff8664229002677c7cc5"
 }

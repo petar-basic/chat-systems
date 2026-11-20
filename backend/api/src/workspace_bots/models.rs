@@ -7,12 +7,16 @@ use uuid::Uuid;
 #[serde(rename_all = "snake_case")]
 pub enum WorkspaceBotKind {
     Responses,
+    GoogleCalendar,
+    OutlookCalendar,
 }
 
 impl WorkspaceBotKind {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Responses => "responses",
+            Self::GoogleCalendar => "google_calendar",
+            Self::OutlookCalendar => "outlook_calendar",
         }
     }
 }

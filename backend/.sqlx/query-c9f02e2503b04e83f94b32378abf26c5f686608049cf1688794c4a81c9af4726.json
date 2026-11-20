@@ -1,0 +1,82 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT title, private, all_day, join_url,\n                      starts_at AT TIME ZONE $5 AS \"starts_local!\",\n                      ends_at AT TIME ZONE $5 AS \"ends_local!\"\n                 FROM calendar_events\n                WHERE workspace_id = $1 AND user_id = $2 AND provider = $3\n                  AND starts_at < ($4::date + 1)::timestamp AT TIME ZONE $5\n                  AND ends_at > $4::date::timestamp AT TIME ZONE $5\n                ORDER BY all_day DESC, starts_at, ends_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "title",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "calendar_events",
+            "name": "title"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "private",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "calendar_events",
+            "name": "private"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "all_day",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "calendar_events",
+            "name": "all_day"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "join_url",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "calendar_events",
+            "name": "join_url"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "starts_local!",
+        "type_info": "Timestamp",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "ends_local!",
+        "type_info": "Timestamp",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Date",
+        "Text"
+      ]
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      true,
+      null,
+      null
+    ]
+  },
+  "hash": "c9f02e2503b04e83f94b32378abf26c5f686608049cf1688794c4a81c9af4726"
+}

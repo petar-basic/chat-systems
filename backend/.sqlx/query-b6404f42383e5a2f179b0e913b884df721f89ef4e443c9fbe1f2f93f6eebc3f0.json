@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE users SET calendar_away_until = NULL\n              WHERE id = $1 AND calendar_away_until IS NOT NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b6404f42383e5a2f179b0e913b884df721f89ef4e443c9fbe1f2f93f6eebc3f0"
+}

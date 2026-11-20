@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE workspace_members\n                SET status_emoji = $3, status_text = $4, status_expires_at = $5, status_source = $6\n              WHERE workspace_id = $1 AND user_id = $2\n                AND (status_source IS NOT NULL\n                     OR (status_emoji IS NULL AND status_text IS NULL)\n                     OR status_expires_at <= $7)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Varchar",
+        "Varchar",
+        "Timestamptz",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "75816c447fda34781bbac5d470d3fcb471f162664c9bc10d41875ec2c8336fc3"
+}

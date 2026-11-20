@@ -1,0 +1,112 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT e.workspace_id, e.user_id, e.provider, e.event_id, e.kind, e.private, e.ends_at,\n                      s.status_event_id\n                 FROM calendar_events e\n                 JOIN calendar_syncs s USING (workspace_id, user_id, provider)\n                 JOIN workspace_apps a\n                   ON a.workspace_id = e.workspace_id AND a.provider = e.provider AND a.enabled\n                WHERE s.status_on AND e.starts_at <= $1 AND e.ends_at > $1\n                  AND (e.kind = 'out_of_office'\n                       OR (e.kind = 'meeting' AND e.attending AND NOT e.all_day))",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "calendar_events",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "calendar_events",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "provider",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "calendar_events",
+            "name": "provider"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "event_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "calendar_events",
+            "name": "event_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "calendar_events",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "private",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "calendar_events",
+            "name": "private"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "ends_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "calendar_events",
+            "name": "ends_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "status_event_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "calendar_syncs",
+            "name": "status_event_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "0852b113f19ae56abff52802f18795ecd4a9a1f6f9f6b9b96e7d8d9b6027c1c3"
+}

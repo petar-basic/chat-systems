@@ -1,0 +1,84 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE calendar_syncs s\n                  SET leased_until = $1::timestamptz + interval '2 minutes'\n                 FROM (SELECT d.workspace_id, d.user_id, d.provider\n                         FROM calendar_syncs d\n                         JOIN workspace_apps a\n                           ON a.workspace_id = d.workspace_id AND a.provider = d.provider AND a.enabled\n                        WHERE d.next_sync_at <= $1\n                          AND (d.leased_until IS NULL OR d.leased_until < $1)\n                        ORDER BY d.next_sync_at\n                        LIMIT $2\n                        FOR UPDATE OF d SKIP LOCKED) due,\n                      users u\n                WHERE s.workspace_id = due.workspace_id AND s.user_id = due.user_id\n                  AND s.provider = due.provider AND u.id = s.user_id\n            RETURNING s.workspace_id, s.user_id, s.provider, s.sync_token, s.window_end,\n                      COALESCE(u.timezone, 'UTC') AS \"timezone!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "workspace_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "calendar_syncs",
+            "name": "workspace_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "calendar_syncs",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "provider",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "calendar_syncs",
+            "name": "provider"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "sync_token",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "calendar_syncs",
+            "name": "sync_token"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "window_end",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "calendar_syncs",
+            "name": "window_end"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "timezone!",
+        "type_info": "Varchar",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      null
+    ]
+  },
+  "hash": "d50a49cab86ce763e07d33275131e0b82728b2a40e78ee4cf50cf158b36f5928"
+}

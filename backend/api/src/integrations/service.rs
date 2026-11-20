@@ -14,6 +14,7 @@ use super::github::{self, Fetched, GitHub};
 use super::google::{self, Google};
 use super::http::TokenSet;
 use super::jira::{self, Atlassian};
+use super::microsoft::Microsoft;
 use super::models::*;
 use super::repo::NewConnection;
 use crate::messaging::models::Unfurl;
@@ -82,6 +83,21 @@ fn google_client(state: &AppState) -> Google {
         api_base: state
             .config
             .google_api_url
+            .trim_end_matches('/')
+            .to_string(),
+    }
+}
+
+fn microsoft_client(state: &AppState) -> Microsoft {
+    Microsoft {
+        login_base: state
+            .config
+            .microsoft_login_url
+            .trim_end_matches('/')
+            .to_string(),
+        graph_base: state
+            .config
+            .microsoft_graph_url
             .trim_end_matches('/')
             .to_string(),
     }
@@ -185,29 +201,35 @@ pub async fn configure(
     req: &ConfigureAppRequest,
 ) -> AppResult<()> {
     if let Some(source) = req.reuse_from {
-        if (source, provider) != (Provider::Jira, Provider::Confluence) {
+        if !matches!(
+            (source, provider),
+            (Provider::Jira, Provider::Confluence)
+                | (Provider::GoogleDrive, Provider::GoogleCalendar)
+        ) {
             return Err(AppError::Validation(
-                "Only Confluence can reuse another app's credentials, and only Jira's".into(),
+                "Only Confluence can reuse Jira's credentials, and only Google Calendar Google Drive's"
+                    .into(),
             ));
         }
-        let jira = state
+        let shared = state
             .integration_repo
             .app(workspace_id, source.as_str())
             .await?
-            .ok_or_else(|| AppError::Validation("Set Jira up first".into()))?;
+            .ok_or_else(|| AppError::Validation(format!("Set {} up first", source.name())))?;
         state
             .integration_repo
             .save_app(
                 workspace_id,
                 provider.as_str(),
-                &jira.client_id,
+                &shared.client_id,
                 &Sealed {
-                    ciphertext: jira.client_secret_encrypted,
-                    nonce: jira.client_secret_nonce,
-                    key_id: jira.client_secret_key_id.ok_or_else(|| {
-                        AppError::Internal(
-                            "Jira's secret has not been re-sealed since the upgrade".into(),
-                        )
+                    ciphertext: shared.client_secret_encrypted,
+                    nonce: shared.client_secret_nonce,
+                    key_id: shared.client_secret_key_id.ok_or_else(|| {
+                        AppError::Internal(format!(
+                            "{}'s secret has not been re-sealed since the upgrade",
+                            source.name()
+                        ))
                     })?,
                 },
                 req.enabled,
@@ -308,9 +330,26 @@ pub async fn start_connection(
         Provider::Github => {
             github_client(state).authorize_url(&app.client_id, &redirect, &oauth_state, &challenge)
         }
-        Provider::GoogleDrive => {
-            google_client(state).authorize_url(&app.client_id, &redirect, &oauth_state, &challenge)
-        }
+        Provider::GoogleDrive => google_client(state).authorize_url(
+            &app.client_id,
+            &redirect,
+            &oauth_state,
+            &challenge,
+            google::SCOPE,
+        ),
+        Provider::GoogleCalendar => google_client(state).authorize_url(
+            &app.client_id,
+            &redirect,
+            &oauth_state,
+            &challenge,
+            google::CALENDAR_SCOPE,
+        ),
+        Provider::OutlookCalendar => microsoft_client(state).authorize_url(
+            &app.client_id,
+            &redirect,
+            &oauth_state,
+            &challenge,
+        ),
         Provider::Figma => {
             figma_client(state).authorize_url(&app.client_id, &redirect, &oauth_state, &challenge)
         }
@@ -399,6 +438,34 @@ pub async fn complete_connection(
             let account = client.account_name(&tokens.access_token).await?;
             (tokens, account, serde_json::json!([]))
         }
+        Provider::GoogleCalendar => {
+            let client = google_client(state);
+            let tokens = client
+                .exchange(
+                    &app.client_id,
+                    &secret,
+                    &req.code,
+                    &redirect,
+                    &pending.code_verifier,
+                )
+                .await?;
+            let account = client.calendar_account(&tokens.access_token).await?;
+            (tokens, account, serde_json::json!([]))
+        }
+        Provider::OutlookCalendar => {
+            let client = microsoft_client(state);
+            let tokens = client
+                .exchange(
+                    &app.client_id,
+                    &secret,
+                    &req.code,
+                    &redirect,
+                    &pending.code_verifier,
+                )
+                .await?;
+            let account = client.account_name(&tokens.access_token).await?;
+            (tokens, account, serde_json::json!([]))
+        }
         Provider::Figma => {
             let client = figma_client(state);
             let tokens = client
@@ -437,6 +504,12 @@ pub async fn complete_connection(
         .integration_repo
         .turn_prompts_on(pending.workspace_id, user_id, pending.provider.as_str())
         .await?;
+    if pending.provider.is_calendar() {
+        state
+            .calendar_repo
+            .start_sync(pending.workspace_id, user_id, pending.provider.as_str())
+            .await?;
+    }
     let external_account = account;
 
     Ok(CompleteConnectionResponse {
@@ -447,7 +520,7 @@ pub async fn complete_connection(
     })
 }
 
-async fn access_token(
+pub(crate) async fn access_token(
     state: &AppState,
     app: &WorkspaceApp,
     user_id: Uuid,
@@ -495,8 +568,13 @@ async fn access_token(
                 .refresh(&app.client_id, &secret, &refresh_token)
                 .await?
         }
-        Some(Provider::GoogleDrive) => {
+        Some(Provider::GoogleDrive | Provider::GoogleCalendar) => {
             google_client(state)
+                .refresh(&app.client_id, &secret, &refresh_token)
+                .await?
+        }
+        Some(Provider::OutlookCalendar) => {
+            microsoft_client(state)
                 .refresh(&app.client_id, &secret, &refresh_token)
                 .await?
         }
@@ -577,7 +655,7 @@ async fn provider_unfurl(
     Ok(AppUnfurl::Unclaimed)
 }
 
-async fn enabled_app(
+pub(crate) async fn enabled_app(
     state: &AppState,
     workspace_id: Uuid,
     provider: Provider,

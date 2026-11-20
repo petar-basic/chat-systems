@@ -61,6 +61,7 @@ export const QUERY_KEYS = {
   sidebarAll: () => ['sidebar'] as const,
   sidebar: (workspaceId: string) => ['sidebar', workspaceId] as const,
   apps: (workspaceId: string) => ['apps', workspaceId] as const,
+  calendars: (workspaceId: string) => ['apps', workspaceId, 'calendars'] as const,
   appDirectory: (workspaceId: string) => ['apps', workspaceId, 'directory'] as const,
   botApps: (workspaceId: string) => ['bot-apps', workspaceId] as const,
   activeApps: (workspaceId: string) => ['bot-apps', workspaceId, 'active'] as const,

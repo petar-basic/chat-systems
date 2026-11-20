@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE workspace_members\n                SET status_emoji = NULL, status_text = NULL, status_expires_at = NULL,\n                    status_source = NULL\n              WHERE workspace_id = $1 AND user_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "26263ad4b7428e723201eb012fa1dc8bf4f4168bd369cf76c52ea14c80a88764"
+}

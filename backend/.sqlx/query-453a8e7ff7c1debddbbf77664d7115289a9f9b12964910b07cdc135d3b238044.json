@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM calendar_events WHERE ends_at < $1::timestamptz - make_interval(hours => $2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "453a8e7ff7c1debddbbf77664d7115289a9f9b12964910b07cdc135d3b238044"
+}

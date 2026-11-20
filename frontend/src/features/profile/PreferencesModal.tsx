@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Bell,
+  CalendarDays,
   CheckCheck,
   Globe,
   MessageSquare,
@@ -30,10 +31,9 @@ import MessagesMediaPanel from '@/features/profile/MessagesMediaPanel';
 import AccountPanel from '@/features/profile/AccountPanel';
 import MarkAsReadPanel from '@/features/profile/MarkAsReadPanel';
 import AdvancedPanel from '@/features/profile/AdvancedPanel';
+import CalendarPanel from '@/features/profile/CalendarPanel';
 import { useWorkspaceStore } from '@/stores/workspace';
-
-export type PreferencesSection =
-  'notifications' | 'appearance' | 'messages' | 'region' | 'read' | 'account' | 'security' | 'advanced';
+import type { PreferencesSection } from './preferencesSection';
 
 const SECTIONS: Omit<ModalSection<PreferencesSection>, 'label'>[] = [
   { key: 'notifications', Icon: Bell },
@@ -43,6 +43,7 @@ const SECTIONS: Omit<ModalSection<PreferencesSection>, 'label'>[] = [
   { key: 'read', Icon: CheckCheck },
   { key: 'account', Icon: UserRound },
   { key: 'security', Icon: ShieldCheck },
+  { key: 'calendar', Icon: CalendarDays },
   { key: 'advanced', Icon: SlidersHorizontal },
 ];
 
@@ -107,6 +108,7 @@ export function PreferencesModal({ initial = 'notifications', onClose }: Props) 
           <PasskeysPanel />
         </>
       )}
+      {active === 'calendar' && <CalendarPanel />}
       {active === 'advanced' && <AdvancedPanel />}
     </SectionedModal>
   );

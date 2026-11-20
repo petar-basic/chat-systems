@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE calendar_syncs\n                SET sync_token = $4, window_end = $5, last_synced_at = $6, last_error = NULL,\n                    next_sync_at = $6::timestamptz + make_interval(secs => $7), leased_until = NULL\n              WHERE workspace_id = $1 AND user_id = $2 AND provider = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Timestamptz",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "48f6f8cf03cf5b880a5f35434fe458e745f8962b4f66c1e027c7a643204463df"
+}

@@ -32,6 +32,7 @@ mod avatar;
 mod blocks;
 mod bots;
 mod broadcast_mentions;
+mod calendars;
 mod channel_context;
 mod channel_edits;
 mod channel_integrations;

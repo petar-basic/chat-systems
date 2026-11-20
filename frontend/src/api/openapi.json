@@ -8284,6 +8284,86 @@
         }
       }
     },
+    "/workspaces/{ws_id}/calendars": {
+      "get": {
+        "tags": [
+          "apps"
+        ],
+        "summary": "The person's Google and Outlook calendars in this workspace: whether an admin set each up,\nthe account they connected and what it does for them.",
+        "operationId": "list_calendars",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarList"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{ws_id}/calendars/{provider}": {
+      "patch": {
+        "tags": [
+          "apps"
+        ],
+        "summary": "Turns the status, the reminders or the agenda of a connected calendar on or off, or moves\nthe agenda to another time of day. Turning the status off clears one the calendar set.",
+        "operationId": "update_calendar",
+        "parameters": [
+          {
+            "name": "ws_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCalendarSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarState"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workspaces/{ws_id}/channels": {
       "get": {
         "tags": [
@@ -12322,10 +12402,16 @@
           "profile_fields",
           "drafts",
           "searches",
+          "calendar_events",
           "photos"
         ],
         "properties": {
           "authenticators": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "calendar_events": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
@@ -14140,6 +14226,92 @@
           "primary",
           "danger"
         ]
+      },
+      "CalendarList": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarState"
+            }
+          }
+        }
+      },
+      "CalendarSettings": {
+        "type": "object",
+        "required": [
+          "status",
+          "reminders",
+          "agenda",
+          "agenda_at"
+        ],
+        "properties": {
+          "agenda": {
+            "type": "boolean"
+          },
+          "agenda_at": {
+            "type": "string",
+            "example": "09:00"
+          },
+          "last_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_synced_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "reminders": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CalendarState": {
+        "type": "object",
+        "required": [
+          "provider",
+          "name",
+          "set_up"
+        ],
+        "properties": {
+          "connected_account": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/Provider"
+          },
+          "set_up": {
+            "type": "boolean"
+          },
+          "settings": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CalendarSettings"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
       },
       "CellValue": {
         "type": "object",
@@ -23392,7 +23564,9 @@
           "github",
           "google_drive",
           "figma",
-          "confluence"
+          "confluence",
+          "google_calendar",
+          "outlook_calendar"
         ]
       },
       "PublishHomeRequest": {
@@ -26250,6 +26424,37 @@
             ]
           }
         }
+      },
+      "UpdateCalendarSettings": {
+        "type": "object",
+        "properties": {
+          "agenda": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "agenda_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "08:30"
+          },
+          "reminders": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
       },
       "UpdateChannelMemberRoleRequest": {
         "type": "object",

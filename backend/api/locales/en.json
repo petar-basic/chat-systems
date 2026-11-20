@@ -102,5 +102,20 @@
       "open": "Open {{workspace}}",
       "invalid": "This link doesn't work any more. You can change your emails in Preferences → Notifications."
     }
+  },
+  "calendar": {
+    "inMeeting": "In a meeting",
+    "busy": "Busy",
+    "outOfOffice": "Out of office",
+    "untitled": "(No title)",
+    "join": "Join",
+    "allDay": "All day",
+    "startsSoon": "{{time}} · Starts in 1 minute",
+    "reminder": "{{title}} starts in 1 minute",
+    "agendaTitle": "Your schedule for today",
+    "agenda_one": "You have 1 event today",
+    "agenda_other": "You have {{count}} events today",
+    "more_one": "And 1 more",
+    "more_other": "And {{count}} more"
   }
 }

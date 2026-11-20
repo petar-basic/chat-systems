@@ -649,7 +649,7 @@ impl ConnectionManager {
             return Vec::new();
         }
         let away_on_purpose: HashSet<Uuid> = match sqlx::query_scalar!(
-            "SELECT id FROM users WHERE id = ANY($1) AND manual_away",
+            "SELECT id FROM users WHERE id = ANY($1) AND (manual_away OR calendar_away_until > NOW())",
             user_ids
         )
         .fetch_all(&self.db)

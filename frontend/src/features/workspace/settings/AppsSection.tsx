@@ -25,6 +25,11 @@ interface Props {
   initialApp?: AppRef | null;
 }
 
+const REUSES: Partial<Record<AppStatus['provider'], AppStatus['provider']>> = {
+  confluence: 'jira',
+  google_calendar: 'google_drive',
+};
+
 export function AppsSection({ workspaceId, initialApp = null }: Props) {
   const { t } = useTranslation('workspace');
   const directory = useAppDirectory(workspaceId);
@@ -119,11 +124,9 @@ function Directory({
             app={status}
             isAdmin={isAdmin}
             permissions={directory.available.find((a) => a.provider === status.provider)?.permissions ?? []}
-            reusable={
-              status.provider === 'confluence'
-                ? statuses.find((other) => other.provider === 'jira' && other.configured)
-                : undefined
-            }
+            reusable={statuses.find(
+              (other) => other.provider === REUSES[status.provider] && other.configured,
+            )}
           />
         ))}
         <section className="rounded-lg border border-line/60 p-3" data-qa="app-directory-build">

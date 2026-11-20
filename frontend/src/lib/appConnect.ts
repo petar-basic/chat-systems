@@ -11,6 +11,8 @@ export const APP_NAMES: Record<string, string> = {
   github: 'GitHub',
   google_drive: 'Google Drive',
   figma: 'Figma',
+  google_calendar: 'Google Calendar',
+  outlook_calendar: 'Outlook Calendar',
 };
 
 export function appName(provider: string): string {

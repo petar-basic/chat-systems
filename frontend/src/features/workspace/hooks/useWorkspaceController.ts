@@ -18,6 +18,7 @@ import { placeIn } from '../lastPlace';
 import { useComposer } from './useComposer';
 import { useWorkspaceShortcuts } from './useWorkspaceShortcuts';
 import { useMarkWorkspaceRead } from '@/features/unreads';
+import { preferencesSectionOf } from '@/features/profile';
 import { useMessageActions } from './useMessageActions';
 import { releaseUnread } from '@/stores/keptUnread';
 
@@ -57,6 +58,13 @@ export function useWorkspaceController() {
   const [accountDialog, setAccountDialog] = useState<'profile' | 'preferences' | null>(() =>
     searchParams.has('preferences') ? 'preferences' : null,
   );
+  const [preferencesAt, setPreferencesAt] = useState(() =>
+    preferencesSectionOf(searchParams.get('preferences')),
+  );
+  const closeAccountDialog = useCallback(() => {
+    setAccountDialog(null);
+    setPreferencesAt(undefined);
+  }, []);
   useEffect(() => {
     if (!searchParams.has('preferences')) return;
     const next = new URLSearchParams(searchParams);
@@ -255,6 +263,8 @@ export function useWorkspaceController() {
     restoreWorkspace: data.restoreWorkspace,
     accountDialog,
     setAccountDialog,
+    preferencesAt,
+    closeAccountDialog,
     showAddInstance,
     setShowAddInstance,
     quickSwitcherOpen,
