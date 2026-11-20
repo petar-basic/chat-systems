@@ -7,7 +7,6 @@ export type StepKey = 'invite' | 'channel' | 'icon' | 'sso';
 
 export interface Step {
   key: StepKey;
-  label: string;
   done: boolean;
 }
 
@@ -31,14 +30,10 @@ export function isGettingStarted(memberCount: number, channels: Channel[]) {
 
 export function checklistSteps(progress: WorkspaceProgress): Step[] {
   return [
-    {
-      key: 'invite',
-      label: 'Invite your team',
-      done: progress.memberCount > 1 || progress.inviteCount > 0,
-    },
-    { key: 'channel', label: 'Create a channel', done: hasOwnChannel(progress.channels) },
-    { key: 'icon', label: 'Set an icon', done: !!progress.iconUrl },
-    { key: 'sso', label: 'Connect SSO', done: progress.ssoEnabled },
+    { key: 'invite', done: progress.memberCount > 1 || progress.inviteCount > 0 },
+    { key: 'channel', done: hasOwnChannel(progress.channels) },
+    { key: 'icon', done: !!progress.iconUrl },
+    { key: 'sso', done: progress.ssoEnabled },
   ];
 }
 

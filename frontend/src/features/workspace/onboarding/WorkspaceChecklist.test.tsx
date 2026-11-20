@@ -1,7 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import i18n from '@/lib/i18n';
 import { WorkspaceChecklist } from './WorkspaceChecklist';
 import type { Channel, Workspace, WorkspaceMember } from '@/stores/workspace';
+
+const hostile = '<img src=x onerror="alert(1)"> {{name}}';
 
 let invites: unknown[] = [];
 let ssoEnabled = false;
@@ -39,6 +42,10 @@ function renderChecklist(props: {
     />,
   );
   return { ...view, handlers };
+}
+
+function stepTexts() {
+  return screen.getAllByTestId('checklist-step').map((li) => li.textContent);
 }
 
 function doneSteps() {
@@ -148,5 +155,85 @@ describe('WorkspaceChecklist', () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+
+  it('names the workspace and each step, and marks the ones done', () => {
+    invites = [{ id: 'inv-1' }];
+    renderChecklist({});
+    expect(screen.getByRole('heading', { name: 'Get Acme going' })).toBeInTheDocument();
+    expect(screen.getByTestId('checklist-progress')).toHaveTextContent('1 of 4 done');
+    expect(screen.getByTestId('checklist-toggle')).toHaveTextContent('Hide steps');
+    expect(screen.getByRole('button', { name: 'Dismiss the checklist' })).toBeInTheDocument();
+    expect(stepTexts()).toEqual([
+      'Invite your team (done)',
+      'Create a channelCreate',
+      'Set an iconChoose',
+      'Connect SSOHow to ',
+    ]);
+  });
+
+  it('shows the workspace name as text', () => {
+    renderChecklist({ workspace: workspace({ name: hostile }) });
+    expect(screen.getByRole('heading').textContent).toBe(`Get ${hostile} going`);
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
+
+  describe('in Japanese', () => {
+    beforeEach(async () => {
+      await i18n.changeLanguage('ja');
+    });
+
+    afterEach(async () => {
+      await i18n.changeLanguage('en');
+    });
+
+    it('names the workspace and each step, and marks the ones done', () => {
+      invites = [{ id: 'inv-1' }];
+      renderChecklist({});
+      expect(screen.getByRole('heading', { name: 'Acme の準備を進めましょう' })).toBeInTheDocument();
+      expect(screen.getByTestId('checklist-progress')).toHaveTextContent('4 件中 1 件完了');
+      expect(screen.getByRole('button', { name: 'チェックリストを閉じる' })).toBeInTheDocument();
+      expect(stepTexts()).toEqual([
+        'チームのメンバーを招待する（完了）',
+        'チャンネルを作成する作成',
+        'アイコンを設定する選択',
+        'SSO（シングルサインオン）を設定する手順 ',
+      ]);
+
+      const toggle = screen.getByTestId('checklist-toggle');
+      expect(toggle).toHaveTextContent('手順を隠す');
+      fireEvent.click(toggle);
+      expect(toggle).toHaveTextContent('手順を表示');
+    });
+
+    it('offers each step', () => {
+      renderChecklist({});
+      expect(screen.getByRole('button', { name: 'メンバーを招待' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '作成' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '選択' })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: '手順' })).toHaveAttribute(
+        'href',
+        expect.stringContaining('RUNBOOK.md'),
+      );
+    });
+
+    it('shows the workspace name as text', () => {
+      renderChecklist({ workspace: workspace({ name: hostile }) });
+      expect(screen.getByRole('heading').textContent).toBe(`${hostile} の準備を進めましょう`);
+      expect(document.querySelector('[onerror]')).toBeNull();
+    });
+
+    it('has Japanese for every one', () => {
+      function leaves(value: unknown, prefix = ''): string[] {
+        if (typeof value !== 'object' || value === null) return [prefix];
+        return Object.entries(value).flatMap(([key, child]) =>
+          leaves(child, prefix ? `${prefix}.${key}` : key),
+        );
+      }
+      const english = leaves(i18n.getResource('en', 'workspace', 'checklist'));
+      const japanese = leaves(i18n.getResource('ja', 'workspace', 'checklist'));
+      expect(english.length).toBeGreaterThan(0);
+      expect(japanese).toEqual(english);
+    });
   });
 });
