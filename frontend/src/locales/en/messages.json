@@ -203,6 +203,15 @@
     "none": "Nothing matches that.",
     "failed": "Failed to forward that message"
   },
+  "quickSwitcher": {
+    "title": "Quick switcher",
+    "search": "Search channels and people",
+    "placeholder": "Jump to a channel or person…",
+    "none": "No matches",
+    "channel": "Channel",
+    "directMessage": "Direct message",
+    "unnamed": "channel"
+  },
   "scheduled": {
     "title": "Scheduled",
     "empty": "Nothing is waiting to be sent. Write a message, then pick the clock next to Send.",
