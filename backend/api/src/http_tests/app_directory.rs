@@ -245,7 +245,7 @@ async fn the_directory_lists_every_kind_with_its_owner_and_health(pool: PgPool) 
     assert_eq!(channel_names(flow), ["deploys"]);
 
     let available = body["available"].as_array().expect("available");
-    assert_eq!(available.len(), 5);
+    assert_eq!(available.len(), 7);
     let jira_card = available
         .iter()
         .find(|a| a["provider"] == "jira")

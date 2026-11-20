@@ -5,7 +5,7 @@ use axum::extract::{Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use chrono::{DateTime, Duration, NaiveTime, SecondsFormat, Utc};
+use chrono::{DateTime, Duration, NaiveTime, SecondsFormat, SubsecRound, Utc};
 use serde_json::{json, Value};
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -390,6 +390,7 @@ async fn google_calendar_reuses_drive_and_disconnecting_forgets_everything(pool:
     assert_eq!(listed[0]["settings"]["agenda_at"], json!("09:00"));
     assert_eq!(listed[1]["settings"], Value::Null);
 
+    due_now(&s).await;
     let ticked = tick(&s, now).await;
     assert_eq!(ticked.synced, 1);
     assert_eq!(ticked.statuses, 1);
@@ -433,6 +434,7 @@ async fn a_changed_and_a_deleted_event_sync_incrementally_and_a_lost_token_resyn
     let a = meeting("a", "Planning", now + Duration::hours(2), 30);
     let b = meeting("b", "Retro", now + Duration::hours(3), 30);
     lock(&s.fake).full = vec![a.clone(), b];
+    due_now(&s).await;
     tick(&s, now).await;
     assert_eq!(
         events(&s, s.owner).await,
@@ -486,8 +488,8 @@ async fn the_status_is_never_written_over_the_persons_own_or_after_they_clear_it
     set_up(&s, "google_calendar").await;
     connect(&s, &s.owner_token, "google_calendar").await;
     let now = Utc::now();
-    let first = now + Duration::minutes(10);
-    let second = now + Duration::minutes(60);
+    let first = (now + Duration::minutes(10)).trunc_subsecs(0);
+    let second = (now + Duration::minutes(60)).trunc_subsecs(0);
     lock(&s.fake).full = vec![
         json!({
             "id": "solo", "summary": "Focus",
@@ -497,6 +499,7 @@ async fn the_status_is_never_written_over_the_persons_own_or_after_they_clear_it
         meeting("one", "Standup", first, 30),
         meeting("two", "Design review", second, 30),
     ];
+    due_now(&s).await;
     tick(&s, now).await;
     tick(&s, now + Duration::minutes(3)).await;
     assert_eq!(
@@ -577,6 +580,7 @@ async fn a_reminder_comes_a_minute_before_with_join_and_a_private_one_says_busy(
         private,
         tentative,
     ];
+    due_now(&s).await;
     tick(&s, now).await;
     assert_eq!(
         events(&s, s.owner).await[0],
@@ -721,8 +725,8 @@ async fn an_outlook_out_of_office_day_shows_the_person_away_until_it_is_removed(
         json!({
             "id": "AAMk-standup",
             "subject": "Standup",
-            "start": { "dateTime": (now + Duration::hours(3)).format("%Y-%m-%dT%H:%M:%S%.7f").to_string(), "timeZone": "UTC" },
-            "end": { "dateTime": (now + Duration::hours(4)).format("%Y-%m-%dT%H:%M:%S%.7f").to_string(), "timeZone": "UTC" },
+            "start": { "dateTime": (now + Duration::hours(3)).format("%Y-%m-%dT%H:%M:%S%.f").to_string(), "timeZone": "UTC" },
+            "end": { "dateTime": (now + Duration::hours(4)).format("%Y-%m-%dT%H:%M:%S%.f").to_string(), "timeZone": "UTC" },
             "responseStatus": { "response": "accepted" },
             "attendees": [{ "emailAddress": { "address": "ana@acme.test" } }],
             "onlineMeeting": { "joinUrl": "https://teams.microsoft.com/l/meetup-join/1" }
@@ -737,6 +741,7 @@ async fn an_outlook_out_of_office_day_shows_the_person_away_until_it_is_removed(
             "end": { "dateTime": midnight(next), "timeZone": "UTC" }
         }),
     ];
+    due_now(&s).await;
     tick(&s, now).await;
     assert_eq!(
         events(&s, s.owner).await.len(),
@@ -818,6 +823,7 @@ async fn erasing_a_person_removes_their_calendar(pool: PgPool) {
         meeting("a", "Planning", now + Duration::hours(2), 30),
         meeting("b", "Retro", now + Duration::hours(3), 30),
     ];
+    due_now(&s).await;
     tick(&s, now).await;
     assert_eq!(events(&s, member).await.len(), 2);
 
