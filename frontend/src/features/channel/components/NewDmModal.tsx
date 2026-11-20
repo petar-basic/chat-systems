@@ -36,7 +36,11 @@ export function NewDmModal({ members, currentUserId, adding = [], onStart, onClo
     );
 
   const candidates = members.filter(
-    (m) => m.user_id !== currentUserId && !adding.includes(m.user_id) && matchesPerson(m, search),
+    (m) =>
+      m.user_id !== currentUserId &&
+      !m.deactivated &&
+      !adding.includes(m.user_id) &&
+      matchesPerson(m, search),
   );
 
   return (

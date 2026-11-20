@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT wm.workspace_id, wm.user_id, wm.role AS \"role: WorkspaceRole\", wm.joined_at,\n                   CASE WHEN u.is_bot THEN '' ELSE u.email END AS \"email!\",\n                   COALESCE(wm.display_name, u.display_name) AS display_name,\n                   COALESCE(wm.avatar_url, u.avatar_url) AS avatar_url,\n                   COALESCE(wm.bio, u.bio) AS bio,\n                   COALESCE(wm.title, u.title) AS title,\n                   COALESCE(wm.pronouns, u.pronouns) AS pronouns,\n                   CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()\n                        THEN wm.status_emoji END AS \"status_emoji?\",\n                   CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()\n                        THEN wm.status_text END AS \"status_text?\",\n                   public.notifications_paused_until(wm.workspace_id, u.id, NOW()) AS notifications_paused_until,\n                   u.timezone,\n                   u.is_bot,\n                   wm.guest_kind AS \"guest_kind: GuestKind\",\n                   wm.guest_until,\n                   COALESCE((SELECT jsonb_object_agg(v.field_id, v.value)\n                               FROM profile_field_values v\n                              WHERE v.workspace_id = wm.workspace_id AND v.user_id = wm.user_id),\n                            '{}'::jsonb) AS \"profile_fields!: FieldValues\"\n            FROM workspace_members wm\n            JOIN users u ON u.id = wm.user_id\n            WHERE wm.workspace_id = $1\n            ORDER BY wm.joined_at\n            ",
+  "query": "\n            SELECT wm.workspace_id, wm.user_id, wm.role AS \"role: WorkspaceRole\", wm.joined_at,\n                   CASE WHEN u.is_bot THEN '' ELSE u.email END AS \"email!\",\n                   COALESCE(wm.display_name, u.display_name) AS display_name,\n                   COALESCE(wm.avatar_url, u.avatar_url) AS avatar_url,\n                   COALESCE(wm.bio, u.bio) AS bio,\n                   COALESCE(wm.title, u.title) AS title,\n                   COALESCE(wm.pronouns, u.pronouns) AS pronouns,\n                   CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()\n                        THEN wm.status_emoji END AS \"status_emoji?\",\n                   CASE WHEN wm.status_expires_at IS NULL OR wm.status_expires_at > NOW()\n                        THEN wm.status_text END AS \"status_text?\",\n                   public.notifications_paused_until(wm.workspace_id, u.id, NOW()) AS notifications_paused_until,\n                   u.timezone,\n                   u.is_bot,\n                   u.status = 'suspended' AS \"deactivated!\",\n                   wm.guest_kind AS \"guest_kind: GuestKind\",\n                   wm.guest_until,\n                   COALESCE((SELECT jsonb_object_agg(v.field_id, v.value)\n                               FROM profile_field_values v\n                              WHERE v.workspace_id = wm.workspace_id AND v.user_id = wm.user_id),\n                            '{}'::jsonb) AS \"profile_fields!: FieldValues\"\n            FROM workspace_members wm\n            JOIN users u ON u.id = wm.user_id\n            WHERE wm.workspace_id = $1\n              AND ($2 OR u.status <> 'suspended')\n            ORDER BY wm.joined_at\n            ",
   "describe": {
     "columns": [
       {
@@ -137,6 +137,12 @@
       },
       {
         "ordinal": 15,
+        "name": "deactivated!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 16,
         "name": "guest_kind: GuestKind",
         "type_info": {
           "Custom": {
@@ -157,7 +163,7 @@
         }
       },
       {
-        "ordinal": 16,
+        "ordinal": 17,
         "name": "guest_until",
         "type_info": "Timestamptz",
         "origin": {
@@ -168,7 +174,7 @@
         }
       },
       {
-        "ordinal": 17,
+        "ordinal": 18,
         "name": "profile_fields!: FieldValues",
         "type_info": "Jsonb",
         "origin": "Expression"
@@ -176,7 +182,8 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Uuid",
+        "Bool"
       ]
     },
     "nullable": [
@@ -195,10 +202,11 @@
       null,
       true,
       false,
+      null,
       true,
       true,
       null
     ]
   },
-  "hash": "52d07f95d6736d1c0a7a5031d032de3d19a08b8a9c3b911883fd9bfb600813f1"
+  "hash": "bf8441f57e7d34ead8e5aeae716a71d4a9e09dbdf2e6c6a22c64d94c482de424"
 }

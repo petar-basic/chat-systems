@@ -114,7 +114,7 @@ export default function ChannelSidebar({
   const currentInstance = instances.find((i) => i.url === activeInstanceUrl);
   const isInstanceAdmin = currentInstance?.user.instance_role === 'admin';
   const canInvite = !!currentUserRole && currentUserRole !== 'guest';
-  const otherMembers = workspaceMembers.filter((m) => m.user_id !== currentUserId);
+  const otherMembers = workspaceMembers.filter((m) => m.user_id !== currentUserId && !m.deactivated);
   const creatableKinds = creatableChannelKinds(currentUserRole, currentWorkspace?.settings);
 
   const { data: layout } = useSidebarLayout(currentWorkspace?.id);

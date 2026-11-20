@@ -68,7 +68,9 @@ export const workspaceMembersQuery = (workspaceId: string, instanceUrl?: string)
     queryKey: QUERY_KEYS.workspaceMembers(workspaceId),
     queryFn: async () => {
       const response = await getApiForInstance(instanceUrl).typed((c) =>
-        c.GET('/workspaces/{ws_id}/members', { params: { path: { ws_id: workspaceId } } }),
+        c.GET('/workspaces/{ws_id}/members', {
+          params: { path: { ws_id: workspaceId }, query: { include_deactivated: true } },
+        }),
       );
       return response.data;
     },

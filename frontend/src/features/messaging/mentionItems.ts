@@ -35,12 +35,14 @@ export function buildMentionItems(
           type: 'group' as const,
           hint: t('mentions.groupSize', { count: g.member_count }),
         }))),
-    ...members.map((m) => ({
-      id: m.user_id,
-      label: m.display_name || m.email,
-      type: 'user' as const,
-      ...(m.title ? { title: m.title } : {}),
-    })),
+    ...members
+      .filter((m) => !m.deactivated)
+      .map((m) => ({
+        id: m.user_id,
+        label: m.display_name || m.email,
+        type: 'user' as const,
+        ...(m.title ? { title: m.title } : {}),
+      })),
     ...channels.flatMap((c) => (c.name ? [{ id: c.id, label: c.name, type: 'channel' as const }] : [])),
   ];
 }

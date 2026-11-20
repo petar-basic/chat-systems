@@ -58,6 +58,20 @@ describe('buildMentionItems', () => {
     expect(items.map((i) => i.label)).toEqual(['Alice Johnson', 'bob@dev.local', 'general']);
   });
 
+  it('leaves out a deactivated account, which nobody can reach', () => {
+    const items = buildMentionItems(
+      [
+        ...members,
+        { user_id: 'u-9', display_name: 'Deleted user', email: '', deactivated: true },
+      ] as WorkspaceMember[],
+      channels,
+      true,
+      en,
+    );
+
+    expect(items.map((i) => i.label)).toEqual(['Alice Johnson', 'bob@dev.local', 'general']);
+  });
+
   it('keeps the ids the backend expands on', () => {
     const broadcasts = buildMentionItems([], [], false, en);
 

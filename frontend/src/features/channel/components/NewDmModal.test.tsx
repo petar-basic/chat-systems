@@ -65,4 +65,14 @@ describe('NewDmModal', () => {
 
     expect(onStart).toHaveBeenCalledWith(['u-3', 'u-2']);
   });
+
+  it('offers nobody whose account is deactivated', () => {
+    const erased = { ...member('u-4', 'Deleted user'), deactivated: true } as WorkspaceMember;
+    render(
+      <NewDmModal members={[...members, erased]} currentUserId="u-1" onStart={vi.fn()} onClose={vi.fn()} />,
+    );
+
+    const candidates = screen.getAllByTestId('new-dm-candidate');
+    expect(candidates.map((c) => c.dataset.userId)).toEqual(['u-2', 'u-3']);
+  });
 });

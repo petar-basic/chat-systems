@@ -108,4 +108,6 @@ pub struct ProfileValues {
 pub struct MembersQuery {
     pub q: Option<String>,
     pub filter: Option<String>,
+    #[serde(default)]
+    pub include_deactivated: bool,
 }

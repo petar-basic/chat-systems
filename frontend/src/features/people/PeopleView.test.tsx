@@ -48,6 +48,7 @@ const member = (
   email: `${user_id}@example.com`,
   display_name,
   is_bot: false,
+  deactivated: false,
   profile_fields,
 });
 
