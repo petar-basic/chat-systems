@@ -10197,6 +10197,7 @@
           "workspaces",
           "bot"
         ],
+        "summary": "The workspace's members. A deactivated account, suspended or erased, is\nleft out unless `include_deactivated` is set, and then comes back with\n`deactivated` true, so its old messages still have a name.",
         "operationId": "workspace_list_members",
         "parameters": [
           {
@@ -10219,6 +10220,14 @@
                 "string",
                 "null"
               ]
+            }
+          },
+          {
+            "name": "include_deactivated",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
             }
           },
           {
@@ -18183,6 +18192,7 @@
                 "joined_at",
                 "email",
                 "is_bot",
+                "deactivated",
                 "profile_fields"
               ],
               "properties": {
@@ -18197,6 +18207,9 @@
                     "string",
                     "null"
                   ]
+                },
+                "deactivated": {
+                  "type": "boolean"
                 },
                 "display_name": {
                   "type": [
@@ -22110,6 +22123,7 @@
           "joined_at",
           "email",
           "is_bot",
+          "deactivated",
           "profile_fields"
         ],
         "properties": {
@@ -22124,6 +22138,9 @@
               "string",
               "null"
             ]
+          },
+          "deactivated": {
+            "type": "boolean"
           },
           "display_name": {
             "type": [

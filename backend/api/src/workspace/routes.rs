@@ -302,6 +302,9 @@ async fn list_deleted_workspaces(
     Ok(Json(workspaces.into()))
 }
 
+/// The workspace's members. A deactivated account, suspended or erased, is
+/// left out unless `include_deactivated` is set, and then comes back with
+/// `deactivated` true, so its old messages still have a name.
 #[utoipa::path(
     operation_id = "workspace_list_members",
     get, path = "/workspaces/{ws_id}/members", tags = ["workspaces", "bot"],
@@ -324,13 +327,13 @@ async fn list_members(
         state
             .workspace_service
             .repo
-            .list_members_visible_to_guest(ws_id, auth.user_id)
+            .list_members_visible_to_guest(ws_id, auth.user_id, query.include_deactivated)
             .await?
     } else {
         state
             .workspace_service
             .repo
-            .list_members_with_users(ws_id)
+            .list_members_with_users(ws_id, query.include_deactivated)
             .await?
     };
     if query.q.is_none() && query.filter.is_none() {

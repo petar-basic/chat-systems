@@ -428,6 +428,7 @@ impl WorkspaceRepo {
         &self,
         workspace_id: Uuid,
         guest_id: Uuid,
+        include_deactivated: bool,
     ) -> sqlx::Result<Vec<MemberWithUser>> {
         sqlx::query_as!(
             MemberWithUser,
@@ -446,6 +447,7 @@ impl WorkspaceRepo {
                    public.notifications_paused_until(wm.workspace_id, u.id, NOW()) AS notifications_paused_until,
                    u.timezone,
                    u.is_bot,
+                   u.status = 'suspended' AS "deactivated!",
                    NULL::guest_kind AS "guest_kind?: GuestKind",
                    NULL::timestamptz AS "guest_until?",
                    COALESCE((SELECT jsonb_object_agg(v.field_id, v.value)
@@ -455,6 +457,7 @@ impl WorkspaceRepo {
             FROM workspace_members wm
             JOIN users u ON u.id = wm.user_id
             WHERE wm.workspace_id = $1
+              AND ($3 OR u.status <> 'suspended')
               AND (
                 wm.user_id = $2
                 OR EXISTS (
@@ -468,7 +471,8 @@ impl WorkspaceRepo {
             ORDER BY wm.joined_at
             "#,
             workspace_id,
-            guest_id
+            guest_id,
+            include_deactivated
         )
         .fetch_all(&self.pool)
         .await
@@ -477,6 +481,7 @@ impl WorkspaceRepo {
     pub async fn list_members_with_users(
         &self,
         workspace_id: Uuid,
+        include_deactivated: bool,
     ) -> sqlx::Result<Vec<MemberWithUser>> {
         sqlx::query_as!(
             MemberWithUser,
@@ -495,6 +500,7 @@ impl WorkspaceRepo {
                    public.notifications_paused_until(wm.workspace_id, u.id, NOW()) AS notifications_paused_until,
                    u.timezone,
                    u.is_bot,
+                   u.status = 'suspended' AS "deactivated!",
                    wm.guest_kind AS "guest_kind: GuestKind",
                    wm.guest_until,
                    COALESCE((SELECT jsonb_object_agg(v.field_id, v.value)
@@ -504,9 +510,11 @@ impl WorkspaceRepo {
             FROM workspace_members wm
             JOIN users u ON u.id = wm.user_id
             WHERE wm.workspace_id = $1
+              AND ($2 OR u.status <> 'suspended')
             ORDER BY wm.joined_at
             "#,
-            workspace_id
+            workspace_id,
+            include_deactivated
         )
         .fetch_all(&self.pool)
         .await

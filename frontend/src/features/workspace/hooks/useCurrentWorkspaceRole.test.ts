@@ -12,6 +12,7 @@ const member = (user_id: string, role: WorkspaceRole, workspace_id = 'ws1'): Wor
   avatar_url: null,
   profile_fields: {},
   is_bot: false,
+  deactivated: false,
 });
 
 describe('resolveCurrentWorkspaceRole', () => {

@@ -97,6 +97,7 @@ pub struct MemberWithUser {
     pub notifications_paused_until: Option<DateTime<Utc>>,
     pub timezone: Option<String>,
     pub is_bot: bool,
+    pub deactivated: bool,
     pub guest_kind: Option<GuestKind>,
     pub guest_until: Option<DateTime<Utc>>,
     #[schema(value_type = std::collections::HashMap<String, String>)]

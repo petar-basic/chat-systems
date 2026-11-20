@@ -287,6 +287,111 @@ async fn list_members_member_ok_nonmember_forbidden(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
+async fn listed(
+    app: &axum::Router,
+    token: &str,
+    ws_id: uuid::Uuid,
+    query: &str,
+) -> Vec<(String, bool)> {
+    let (status, body) = send(
+        app,
+        "GET",
+        &format!("/api/workspaces/{ws_id}/members{query}"),
+        Some(token),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    body["data"]
+        .as_array()
+        .expect("array")
+        .iter()
+        .map(|m| {
+            (
+                m["user_id"].as_str().expect("user id").to_string(),
+                m["deactivated"].as_bool().expect("deactivated"),
+            )
+        })
+        .collect()
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn erased_and_suspended_accounts_stay_out_of_the_member_list_unless_asked_for(pool: PgPool) {
+    let (app, state) = app_and_state(pool).await;
+    let (owner_id, _, owner) = seed_and_login(&app, &state, "deact-owner", false).await;
+    let ws_id = seed_workspace(&state, owner_id, "Deactivated WS").await;
+    let ch = seed_channel(&state, ws_id, owner_id, "shared", false).await;
+    let (erased_id, _) = seed(&state, "deact-erased", false).await;
+    let (suspended_id, _) = seed(&state, "deact-suspended", false).await;
+    let (active_id, _) = seed(&state, "deact-active", false).await;
+    let (guest_id, _, guest) = seed_and_login(&app, &state, "deact-guest", false).await;
+    for (user, role) in [
+        (erased_id, "member"),
+        (suspended_id, "member"),
+        (active_id, "member"),
+        (guest_id, "guest"),
+    ] {
+        add_ws_member(&state, ws_id, user, role).await;
+        state
+            .workspace_service
+            .repo
+            .add_channel_member(ch, user, &crate::workspace::models::ChannelRole::Member)
+            .await
+            .expect("join");
+    }
+
+    let (_, _, instance_admin) = seed_and_login(&app, &state, "deact-admin", true).await;
+    let (status, body) = send(
+        &app,
+        "DELETE",
+        &format!("/api/admin/users/{erased_id}/data"),
+        Some(&instance_admin),
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+    let (status, body) = send(
+        &app,
+        "POST",
+        &format!("/api/admin/users/{suspended_id}/suspend"),
+        Some(&instance_admin),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body:?}");
+
+    let erased = (erased_id.to_string(), true);
+    let suspended = (suspended_id.to_string(), true);
+    let active = (active_id.to_string(), false);
+
+    for token in [&owner, &guest] {
+        let members = listed(&app, token, ws_id, "").await;
+        assert!(members.contains(&active), "{members:?}");
+        assert!(
+            members.iter().all(|(_, deactivated)| !deactivated),
+            "nobody who can no longer sign in is listed: {members:?}"
+        );
+
+        let found = listed(&app, token, ws_id, "?q=deleted").await;
+        assert!(found.is_empty(), "the directory search: {found:?}");
+
+        let everyone = listed(&app, token, ws_id, "?include_deactivated=true").await;
+        for person in [&erased, &suspended, &active] {
+            assert!(
+                everyone.contains(person),
+                "{person:?} is named for their old messages: {everyone:?}"
+            );
+        }
+    }
+
+    let found = listed(&app, &owner, ws_id, "?q=deleted&include_deactivated=true").await;
+    assert_eq!(
+        found,
+        vec![erased],
+        "asked for, the erased account is found"
+    );
+}
+
 #[test_macros::db_test(migrations = "../migrations")]
 async fn update_member_role_admin_only(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;

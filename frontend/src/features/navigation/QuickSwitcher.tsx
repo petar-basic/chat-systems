@@ -64,7 +64,7 @@ export function QuickSwitcher({
         run: () => onSelectChannel(c),
       }));
     const peopleItems: Item[] = members
-      .filter((m) => m.user_id !== currentUserId)
+      .filter((m) => m.user_id !== currentUserId && !m.deactivated)
       .filter((m) => matchesPerson(m, q))
       .map((m) => ({
         key: `dm-${m.user_id}`,

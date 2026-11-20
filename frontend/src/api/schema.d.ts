@@ -3674,6 +3674,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /**
+         * The workspace's members. A deactivated account, suspended or erased, is
+         *     left out unless `include_deactivated` is set, and then comes back with
+         *     `deactivated` true, so its old messages still have a name.
+         */
         get: operations["workspace_list_members"];
         put?: never;
         post?: never;
@@ -5852,6 +5857,7 @@ export interface components {
             data: {
                 avatar_url?: string | null;
                 bio?: string | null;
+                deactivated: boolean;
                 display_name?: string | null;
                 email: string;
                 guest_kind?: components["schemas"]["GuestKind"] | null;
@@ -6936,6 +6942,7 @@ export interface components {
         MemberWithUser: {
             avatar_url?: string | null;
             bio?: string | null;
+            deactivated: boolean;
             display_name?: string | null;
             email: string;
             guest_kind?: components["schemas"]["GuestKind"] | null;
@@ -14948,6 +14955,7 @@ export interface operations {
             query?: {
                 q?: string | null;
                 filter?: string | null;
+                include_deactivated?: boolean;
             };
             header?: never;
             path: {
