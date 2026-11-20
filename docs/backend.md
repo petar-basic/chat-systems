@@ -930,8 +930,9 @@ Muted and `nothing` mean no reason at all. DND — `notifications_paused_until(w
 SQL, the one definition of "paused" — keeps the Activity row and drops the rest; a
 frame goes to every session and push to every device unless a session is *active* (below).
 A mention or DM with email on is queued in `pending_mention_emails`, once per person and
-message; five minutes later the digest sweep drops what has been read since, and emails one
-digest per person and workspace for what is still unread, linking to the message when there
+message, except a calendar reminder (see *calendars*); five minutes later the digest sweep
+drops what has been read since, and emails one digest per person and workspace for what is
+still unread, linking to the message when there
 is one (`/app/{ws}/{channel}/{message}`) and to the workspace otherwise. The rows are claimed
 and the email queued in one transaction, so two workers cannot send it twice. Its subject
 names the workspace, and it says who and where, never what was said. It carries
@@ -1540,6 +1541,9 @@ ticks every 15 seconds (`calendars::service::tick`):
 - **Reminders.** A minute before each event the person attends, the provider's workspace bot
   (`workspace_bots` kind `google_calendar` / `outlook_calendar`) sends a DM with the time in
   their clock format and a **Join** link button. `reminded_at` makes it once per start time.
+  The message carries `metadata.calendar = "reminder"` (the agenda's says `"agenda"`), and a
+  reminder is pushed and lands in Activity like any DM but never queues an email: the
+  meeting has begun by the time the digest would arrive.
 - **Agenda.** At `agenda_at` in the person's time zone (within two hours of it, once a day via
   `agenda_sent_on`), the day's events in one message, up to 20, on days that have any.
 

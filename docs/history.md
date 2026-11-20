@@ -4257,18 +4257,27 @@ the connection to the pool, and until it does the run's row stays locked. A run 
 meanwhile was skipped by the runner's `FOR UPDATE SKIP LOCKED` claim. `settle_app_step` now
 rolls back before it answers, as `submit_form` does.
 
+The 4.8.0 release check found that a calendar reminder came back five minutes later as a
+"You have a direct message" email, for a meeting that had already started. The bot's DM went
+through the same notice as any DM, email included. Calendar messages now say what they
+are in `metadata.calendar` (`reminder` or `agenda`), and `notify_message` takes the email off
+a reminder's notice, leaving its push and Activity item; the morning agenda still emails.
+Checked with the branch's worker run on the host against the Docker stack: a meeting set
+100 seconds ahead brought Alice the agenda DM at once, queued for email, and the reminder a
+minute before it, in Activity with no `pending_mention_emails` row.
+
 The 4.8.0 release check also found two *Deleted user* cards in Dev Team's *People* directory,
-and the same two people in the sidebar's *People* list. Both were accounts an admin had
-erased. An erase keeps the `workspace_members` row so that old messages keep an author, and
+and the same two people in the sidebar's *People* list. Both were accounts an admin had erased.
+An erase keeps the `workspace_members` row so that old messages keep an author, and
 `GET /workspaces/:id/members` listed every row. Slack leaves a deactivated account out of its
 directory and its people pickers, so this does the same. `users.status = 'suspended'` is the
-one marker. It covers an erase, an admin's or SCIM's suspension, and a removed app's bot. Each member row now says `deactivated`, and the list
-leaves those rows out unless `include_deactivated=true` asks for them. The web client asks for
-them in the roster that names people in messages, workflows and *Settings → Members*. It
-skips them in the sidebar's *People*, the DM picker, the quick switcher and @-mention
-suggestions. The directory never asks for them, so its search and filters cannot turn them
-up. Checked with the branch's API and Vite on the host against the Docker stack, signed in as
-Bob in Dev Team. The member list went from 26 to 24, and to 18 for Diana, a guest. The
-directory, a search for *deleted*, the DM picker and `@Dele` showed neither account, while
-their two messages in #general still read *Deleted user* and *Settings → Members* still
-counted 26.
+one marker. It covers an erase, an admin's or SCIM's suspension, and a removed app's bot. Each
+member row now says `deactivated`, and the list leaves those rows out unless
+`include_deactivated=true` asks for them. The web client asks for them in the roster that names
+people in messages, workflows and *Settings → Members*. It skips them in the sidebar's
+*People*, the DM picker, the quick switcher and @-mention suggestions. The directory never asks
+for them, so its search and filters cannot turn them up. Checked with the branch's API and Vite
+on the host against the Docker stack, signed in as Bob in Dev Team. The member list went from
+26 to 24, and to 18 for Diana, a guest. The directory, a search for *deleted*, the DM picker
+and `@Dele` showed neither account, while their two messages in #general still read
+*Deleted user* and *Settings → Members* still counted 26.

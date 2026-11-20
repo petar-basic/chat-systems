@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { RefreshCw } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
 import { runningBuild, watchForNewBuild } from '@/lib/appVersion';
 
 export default function NewVersionBanner() {
+  const { t } = useTranslation('common');
   const [available, setAvailable] = useState(false);
 
   useEffect(() => watchForNewBuild(runningBuild, () => setAvailable(true)), []);
@@ -18,8 +20,8 @@ export default function NewVersionBanner() {
     >
       <RefreshCw className="w-4 h-4 text-accent shrink-0" />
       <div className="flex-1 min-w-0 text-sm">
-        <span className="font-medium text-fg">A new version is available</span>
-        <span className="text-muted"> — reload to pick it up.</span>
+        <span className="font-medium text-fg">{t('newVersion.title')}</span>
+        <span className="text-muted">{t('newVersion.hint')}</span>
       </div>
       <Button
         variant="primary"
@@ -27,7 +29,7 @@ export default function NewVersionBanner() {
         onClick={() => window.location.reload()}
         data-qa="new-version-reload"
       >
-        Reload
+        {t('newVersion.reload')}
       </Button>
     </div>
   );

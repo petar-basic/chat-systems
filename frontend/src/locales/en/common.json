@@ -25,6 +25,11 @@
     "connecting": "Connecting…",
     "offline": "You're offline — reconnecting…"
   },
+  "newVersion": {
+    "title": "A new version is available",
+    "hint": " — reload to pick it up.",
+    "reload": "Reload"
+  },
   "retry": "Retry",
   "topBar": {
     "back": "Back",
