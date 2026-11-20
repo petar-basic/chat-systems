@@ -51,6 +51,7 @@ async fn send(
     workspace_id: Uuid,
     user_id: Uuid,
     provider: Provider,
+    purpose: &str,
     text: &str,
     layout: &Value,
 ) -> AppResult<Uuid> {
@@ -67,7 +68,7 @@ async fn send(
         },
     )
     .await?;
-    let metadata = composed.merged_into(json!({}));
+    let metadata = composed.merged_into(json!({ "calendar": purpose }));
     let mut tx = state.pool.begin().await?;
     let message = state
         .message_repo
@@ -193,6 +194,7 @@ pub async fn remind(state: &AppState, reminder: &DueReminder) -> AppResult<Uuid>
         reminder.workspace_id,
         reminder.user_id,
         provider,
+        "reminder",
         &text,
         &layout,
     )
@@ -211,6 +213,7 @@ pub async fn send_agenda(
         agenda.workspace_id,
         agenda.user_id,
         provider,
+        "agenda",
         &text,
         &layout,
     )

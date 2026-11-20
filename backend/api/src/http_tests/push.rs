@@ -925,6 +925,51 @@ impl Scene {
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
+async fn a_calendar_reminder_is_pushed_but_never_emailed(pool: PgPool) {
+    let s = scene(pool).await;
+    let dm = s.direct_conversation().await;
+    let mut conn = s.state.redis.clone();
+    let mut sent = Vec::new();
+    for (content, purpose) in [
+        ("Standup starts in 1 minute", "reminder"),
+        ("You have 3 events today", "agenda"),
+    ] {
+        let id = Uuid::new_v4();
+        sent.push(id);
+        notify_message(
+            &s.state,
+            &s.state.notification_repo,
+            &sender_for(&s.state),
+            &mut conn,
+            &json!({
+                "user_id": s.author.to_string(),
+                "workspace_id": s.ws_id.to_string(),
+                "channel_id": dm.to_string(),
+                "id": id.to_string(),
+                "content": content,
+                "metadata": { "calendar": purpose },
+                "mentioned_user_ids": [],
+            }),
+        )
+        .await;
+    }
+
+    assert_eq!(s.service.hits.load(Ordering::SeqCst), 2, "both are pushed");
+    assert_eq!(s.activity().await, vec!["dm".to_string(), "dm".to_string()]);
+    let emailed: Vec<Uuid> =
+        sqlx::query_scalar("SELECT message_id FROM pending_mention_emails WHERE user_id = $1")
+            .bind(s.target)
+            .fetch_all(&s.state.pool)
+            .await
+            .expect("queued");
+    assert_eq!(
+        emailed,
+        vec![sent[1]],
+        "a reminder is over by the time an email would arrive; the agenda is not"
+    );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
 async fn each_level_decides_what_reaches_the_phone(pool: PgPool) {
     let s = scene(pool).await;
     let cases = [

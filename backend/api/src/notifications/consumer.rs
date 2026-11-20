@@ -256,6 +256,10 @@ pub async fn notify_message(
     };
 
     let bot = event_payload.pointer("/metadata/bot");
+    let reminder = event_payload
+        .pointer("/metadata/calendar")
+        .and_then(|v| v.as_str())
+        == Some("reminder");
     let author = match bot.and_then(|b| b.get("hook_id")) {
         Some(_) => None,
         None => Some(sender),
@@ -334,7 +338,9 @@ pub async fn notify_message(
                 .cloned(),
             ..at.data(&names)
         };
-        deliver(&via, pub_conn, uid, at, &notice(reason), &data).await;
+        let mut said = notice(reason);
+        said.email &= !reminder;
+        deliver(&via, pub_conn, uid, at, &said, &data).await;
     }
 }
 
