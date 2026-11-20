@@ -1180,9 +1180,28 @@ pub async fn settle_app_step(
     outcome: Result<&HashMap<String, serde_json::Value>, &str>,
 ) -> AppResult<()> {
     let mut tx = state.pool.begin().await?;
+    match settle_app_step_in(state, &mut tx, app_id, execution_id, outcome).await {
+        Ok(()) => {
+            tx.commit().await?;
+            Ok(())
+        }
+        Err(e) => {
+            tx.rollback().await?;
+            Err(e)
+        }
+    }
+}
+
+async fn settle_app_step_in(
+    state: &AppState,
+    tx: &mut sqlx::PgConnection,
+    app_id: Uuid,
+    execution_id: Uuid,
+    outcome: Result<&HashMap<String, serde_json::Value>, &str>,
+) -> AppResult<()> {
     let call = state
         .workflow_repo
-        .call_for_update_in(&mut tx, execution_id)
+        .call_for_update_in(&mut *tx, execution_id)
         .await?
         .filter(|call| call.app_id == app_id)
         .ok_or_else(|| AppError::NotFound("Step execution not found".into()))?;
@@ -1211,17 +1230,16 @@ pub async fn settle_app_step(
             .await?;
             state
                 .workflow_repo
-                .settle_call_in(&mut tx, &call, Ok(&outputs))
+                .settle_call_in(tx, &call, Ok(&outputs))
                 .await?;
         }
         Err(error) => {
             state
                 .workflow_repo
-                .settle_call_in(&mut tx, &call, Err(error))
+                .settle_call_in(tx, &call, Err(error))
                 .await?;
         }
     }
-    tx.commit().await?;
     Ok(())
 }
 

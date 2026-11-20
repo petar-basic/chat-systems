@@ -4250,3 +4250,9 @@ The QA found one bug. When Bob turned the calendar's status off and on again, â›
 office* did not come back. Clearing its own status left the calendar's record of that event,
 which reads as the person having cleared it. The calendar now forgets the event whenever it
 clears its own status.
+
+CI on the branch turned up a flaky CS-139 test. An app's refused answer to a step returned
+before its transaction ended. sqlx then sends the rollback later, from the task that returns
+the connection to the pool, and until it does the run's row stays locked. A run made ready
+meanwhile was skipped by the runner's `FOR UPDATE SKIP LOCKED` claim. `settle_app_step` now
+rolls back before it answers, as `submit_form` does.
