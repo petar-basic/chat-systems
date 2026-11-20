@@ -1,6 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+import i18n from '@/lib/i18n';
 import { ClipPlayer } from './ClipPlayer';
+
+const hostile = '<img src=x onerror="alert(1)"> {{name}}';
 
 const peaks = Array.from({ length: 100 }, (_, i) => i);
 
@@ -53,5 +56,36 @@ describe('ClipPlayer', () => {
     expect(video?.style.aspectRatio).toBe('1280 / 800');
     expect(screen.getByTestId('clip-duration')).toHaveTextContent('0:20');
     expect(screen.queryByTestId('clip-expand')).not.toBeInTheDocument();
+  });
+});
+
+describe('ClipPlayer in Japanese', () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('ja');
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('names its controls, and a clip by its file name as text', () => {
+    render(
+      <ClipPlayer
+        url="https://chat.test/api/files/download/ws/1/clip.m4a"
+        clip={{ kind: 'audio', duration_ms: 12_000, waveform: peaks }}
+        filename={hostile}
+        onExpand={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('button', { name: '再生' })).toBeInTheDocument();
+    fireEvent.play(document.querySelector('audio') as HTMLAudioElement);
+    expect(screen.getByRole('button', { name: '一時停止' })).toBeInTheDocument();
+    expect(screen.getByTestId('clip-waveform')).toHaveAttribute('aria-label', '再生位置');
+    expect(screen.getByTestId('clip-speed')).toHaveAttribute('aria-label', '再生速度 1×');
+    fireEvent.click(screen.getByTestId('clip-speed'));
+    expect(screen.getByTestId('clip-speed')).toHaveAttribute('aria-label', '再生速度 1.5×');
+    expect(screen.getByTestId('clip-expand')).toHaveAttribute('aria-label', `${hostile} をギャラリーで開く`);
+    expect(screen.getByText(hostile)).toBeInTheDocument();
+    expect(document.querySelector('[onerror]')).toBeNull();
   });
 });
