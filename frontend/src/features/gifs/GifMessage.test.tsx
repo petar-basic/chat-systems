@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import i18n from '@/lib/i18n';
 import { GifMessage } from './GifMessage';
+
+const hostile = '<img src=x onerror="alert(1)"> {{name}}';
 import type { Gif } from './types';
 
 const GIF: Gif = {
@@ -107,5 +110,27 @@ describe('GifMessage', () => {
     act(() => seen?.([{ isIntersecting: false }]));
     expect(video).toHaveAttribute('data-playing', 'false');
     expect(pause).toHaveBeenCalled();
+  });
+});
+
+describe('GifMessage in Japanese', () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('ja');
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('names a GIF by its title as text, and credits GIPHY', () => {
+    render(<GifMessage gif={{ ...GIF, title: hostile }} />);
+    expect(screen.getByLabelText(hostile)).toBeInTheDocument();
+    expect(screen.getByText('via GIPHY')).toBeInTheDocument();
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
+
+  it('calls an untitled GIF a GIF', () => {
+    render(<GifMessage gif={{ ...GIF, title: '' }} />);
+    expect(screen.getByLabelText('GIF')).toBeInTheDocument();
   });
 });

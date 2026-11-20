@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { Editor } from '@tiptap/core';
 import { SETTINGS, answer, giphyPage } from '@/test/giphy';
+import i18n from '@/lib/i18n';
 import MessageInput from './MessageInput';
 
 let gifSettings: typeof SETTINGS | null = SETTINGS;
@@ -105,5 +106,18 @@ describe('GIFs in the message box', () => {
     type('/giphy cat');
     pressEnter();
     await waitFor(() => expect(onSend).toHaveBeenCalledExactlyOnceWith('/giphy cat'));
+  });
+});
+
+describe('GIFs in the message box in Japanese', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('names the GIF button', async () => {
+    await i18n.changeLanguage('ja');
+    composer();
+    expect(screen.getByTestId('composer-gif')).toHaveAttribute('aria-label', 'GIF を送信');
+    expect(screen.getByTestId('composer-gif')).toHaveAttribute('data-tooltip', 'GIF を送信');
   });
 });
