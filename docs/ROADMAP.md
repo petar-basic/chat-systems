@@ -37,7 +37,7 @@ pg_bigm.
 they are from, a digest with one-click unsubscribe, the headers spam filters look for, and
 every email in the reader's language.
 
-**Waves 33–36 — what Slack has**, next, as 4.8.0 (CS-122 – CS-140). On 2026-11-13 the app was
+**Waves 33–36 — what Slack has** shipped in 4.8.0 (CS-122 – CS-140). On 2026-11-13 the app was
 read against Slack, leaving out the phone apps and signing the desktop app, and seventeen of
 the thirty-one gaps found were chosen:
 - **Wave 33, channels and the people in them:**
@@ -74,7 +74,7 @@ recording, scale by headcount, OCR, and SCIM `/Groups`.
 
 Planned after them on 2026-11-04:
 
-- **Wave 37 — mobile apps**, 5.0.0 (CS-141 – CS-145): every route under `/api/v1`, a spike
+- **Wave 37 — mobile apps**, next, as 5.0.0 (CS-141 – CS-145): every route under `/api/v1`, a spike
   for Tauri 2 on iOS and Android, signing in from a bundled client, the apps, and a push
   relay. The major version is for `/api/v1`, which changes every pasted webhook URL. It was
   Wave 33 until 2026-11-13.
