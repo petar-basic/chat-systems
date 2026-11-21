@@ -169,7 +169,12 @@
     "saveFailed": "The time zone could not be saved. Try again.",
     "clock": "Clock",
     "h24": "24-hour",
-    "h12": "12-hour"
+    "h12": "12-hour",
+    "prompt": {
+      "title": "Update your time zone?",
+      "body": "This device is set to {{device}}, but your profile says {{profile}}. The local time people see on your profile and your notification schedule follow your profile.",
+      "use": "Use {{device}}"
+    }
   },
   "account": {
     "intro": "Your name, title, pronouns, photo and bio in every workspace where you have not set your own.",
