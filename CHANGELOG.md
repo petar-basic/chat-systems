@@ -17,6 +17,13 @@ instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ## [Unreleased]
 
+### Fixed
+
+- No email went out, the *Send a test email* button included, while `SMTP_FROM_NAME` held a
+  `(`, a `,` or a `:`, as in `Chat Systems (Test)`. Any name works now. An `SMTP_FROM_ADDRESS`
+  that is not an email address stops the `api` and the `worker` at start, instead of every
+  email failing later (#444).
+
 ## [4.8.0] — 2026-11-20
 
 ### Upgrading from 4.7.2
