@@ -26,7 +26,7 @@ pub struct AppConfig {
     pub smtp_port: u16,
     pub smtp_user: String,
     pub smtp_password: String,
-    pub smtp_from_address: String,
+    pub smtp_from_address: lettre::Address,
     pub smtp_from_name: String,
     pub smtp_use_tls: bool,
     pub smtp_tls_mode: SmtpTlsMode,
@@ -153,7 +153,7 @@ impl AppConfig {
             smtp_port: parse_env("SMTP_PORT", 1025),
             smtp_user: env_or("SMTP_USER", ""),
             smtp_password: env_or("SMTP_PASSWORD", ""),
-            smtp_from_address: env_or("SMTP_FROM_ADDRESS", "noreply@chatsystems.local"),
+            smtp_from_address: smtp_from_address_from_env(),
             smtp_from_name: env_or("SMTP_FROM_NAME", "Chat Systems"),
             smtp_use_tls: parse_env("SMTP_USE_TLS", false),
             smtp_tls_mode: SmtpTlsMode::None,
@@ -305,6 +305,13 @@ fn secrets_keys_from_env() -> Keyring {
     })
 }
 
+fn smtp_from_address_from_env() -> lettre::Address {
+    let raw = env_or("SMTP_FROM_ADDRESS", "noreply@chatsystems.local");
+    raw.trim().parse().unwrap_or_else(|e| {
+        panic!("SMTP_FROM_ADDRESS must be an email address such as noreply@example.com, not {raw:?} ({e})")
+    })
+}
+
 fn env_or(key: &str, default: &str) -> String {
     std::env::var(key).unwrap_or_else(|_| default.to_string())
 }
@@ -344,7 +351,7 @@ impl AppConfig {
             smtp_port: 1025,
             smtp_user: String::new(),
             smtp_password: String::new(),
-            smtp_from_address: "noreply@test.local".to_string(),
+            smtp_from_address: "noreply@test.local".parse().expect("test from address"),
             smtp_from_name: "Test".to_string(),
             smtp_use_tls: false,
             smtp_tls_mode: SmtpTlsMode::None,

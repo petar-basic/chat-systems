@@ -3,7 +3,7 @@ use std::io::ErrorKind;
 use std::time::Duration;
 
 use lettre::message::header::{ContentType, HeaderName, HeaderValue};
-use lettre::message::MultiPart;
+use lettre::message::{Mailbox, MultiPart};
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::transport::smtp::Error as SmtpError;
 use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
@@ -341,21 +341,15 @@ impl AuthService {
     }
 
     pub(super) fn message(&self, envelope: &Envelope<'_>) -> AppResult<Message> {
-        let from = format!(
-            "{} <{}>",
-            self.config.smtp_from_name, self.config.smtp_from_address
+        let name = self.config.smtp_from_name.trim();
+        let from = Mailbox::new(
+            (!name.is_empty()).then(|| name.to_string()),
+            self.config.smtp_from_address.clone(),
         );
-        let domain = self
-            .config
-            .smtp_from_address
-            .rsplit_once('@')
-            .map_or("localhost", |(_, domain)| domain);
+        let domain = self.config.smtp_from_address.domain();
 
         let mut builder = Message::builder()
-            .from(
-                from.parse()
-                    .map_err(|e| AppError::Internal(format!("Invalid from address: {e}")))?,
-            )
+            .from(from)
             .to(envelope
                 .to
                 .parse()
