@@ -734,7 +734,7 @@ async fn generate_tokens_persists_findable_refresh_token(pool: PgPool) {
 #[test_macros::db_test(migrations = "../migrations")]
 async fn an_email_names_its_sender_domain_and_says_it_is_automatic(pool: PgPool) {
     let mut config = test_config();
-    config.smtp_from_address = "noreply@chat.example".into();
+    config.smtp_from_address = "noreply@chat.example".parse().expect("address");
     let service = AuthService::new(UserRepo::new(pool), config);
     let id = Uuid::new_v4();
     let message = service
@@ -761,4 +761,41 @@ async fn an_email_names_its_sender_domain_and_says_it_is_automatic(pool: PgPool)
         raw.contains("List-Unsubscribe-Post: List-Unsubscribe=One-Click"),
         "{raw}"
     );
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn any_sender_name_makes_a_from_header(pool: PgPool) {
+    use lettre::message::{header, Mailboxes};
+
+    for (name, shown) in [
+        ("Chat-systems(評価用)", Some("Chat-systems(評価用)")),
+        ("Chat Systems (Test)", Some("Chat Systems (Test)")),
+        ("Acme, Inc.", Some("Acme, Inc.")),
+        ("Chat: Test", Some("Chat: Test")),
+        ("Say \"hi\"", Some("Say \"hi\"")),
+        ("  Chat Systems  ", Some("Chat Systems")),
+        ("", None),
+    ] {
+        let mut config = test_config();
+        config.smtp_from_name = name.into();
+        let service = AuthService::new(UserRepo::new(pool.clone()), config);
+        let message = service
+            .message(&crate::email::outbox::Envelope {
+                id: Uuid::new_v4(),
+                to: "ana@test.local",
+                subject: "Hello",
+                text: "Hello",
+                html: None,
+                list_unsubscribe: None,
+            })
+            .unwrap_or_else(|e| panic!("{name:?}: {e}"));
+        let from: Mailboxes = message
+            .headers()
+            .get::<header::From>()
+            .unwrap_or_else(|| panic!("{name:?}: no From header"))
+            .into();
+        let sender = from.into_single().expect("one sender");
+        assert_eq!(sender.name.as_deref(), shown, "{name:?}");
+        assert_eq!(sender.email.to_string(), "noreply@test.local", "{name:?}");
+    }
 }

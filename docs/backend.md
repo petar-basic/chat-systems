@@ -136,9 +136,11 @@ in `main.rs`.
   (`INSTANCE_ICON_URL` over HTTPS, else the app's own when `PUBLIC_URL` is HTTPS) and name,
   the button with its link written out under it, and *This email was sent to … by …*.
   Emails are queued in `outbound_emails` inside the request and delivered by the worker with
-  retries and backoff. Each one carries `Auto-Submitted: auto-generated` and a `Message-ID`
-  made of its outbox row's id and the domain of `SMTP_FROM_ADDRESS`, the same on every
-  retry. An email is in the reader's language (`text::reader_language`): their
+  retries and backoff. Its `From` is a `lettre` mailbox built from `SMTP_FROM_NAME` and
+  `SMTP_FROM_ADDRESS`, never a string parsed back, so any name works and is quoted or
+  encoded as it needs; an address that is not one stops `chat-api` and `chat-worker` at
+  start. Each one carries `Auto-Submitted: auto-generated` and a `Message-ID` made of its
+  outbox row's id and the domain of `SMTP_FROM_ADDRESS`, the same on every retry. An email is in the reader's language (`text::reader_language`): their
   `preferences.language`, else, while that is `browser`, the first language the app has in
   the `Accept-Language` of the request that caused it (*Forgot password*, *Email me a code*),
   else English; the layout's `<html lang>` says which. An invite is in the language of the

@@ -1114,6 +1114,11 @@ no credentials still starts, with a warning.
 *Instance admin → Email → Send a test email* sends one to your own address straight away,
 not through the outbox, and says what went wrong if it did not go.
 
+Every email comes from `SMTP_FROM_NAME <SMTP_FROM_ADDRESS>`. The name can be any text,
+parentheses, commas, colons and Japanese included. The address must be a bare one such as
+`noreply@example.com`: with anything else the `api` and the `worker` **refuse to start**
+and name the value.
+
 ## Rate limits and upload size
 
 Writes are limited per user, per class of action: messages 120/min, reactions 240/min,
