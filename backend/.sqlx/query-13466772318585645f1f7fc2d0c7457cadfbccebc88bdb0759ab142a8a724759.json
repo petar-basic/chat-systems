@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT other_servers_allowed FROM instance_settings",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "other_servers_allowed",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "instance_settings",
+            "name": "other_servers_allowed"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "13466772318585645f1f7fc2d0c7457cadfbccebc88bdb0759ab142a8a724759"
+}

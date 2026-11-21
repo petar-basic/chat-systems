@@ -62,6 +62,22 @@ does not offer them *Create workspace*. For an instance where anyone who signs i
 workspace, *Instance admin → Users → Who can create workspaces* switches to *Everyone*. The
 switch is live and audited; it needs no restart.
 
+### Other servers
+
+The web app can hold other Chat Systems servers next to this one, each signed in on its own,
+and the desktop app can hold several. A company that wants its people on its own server only
+turns off *Instance admin → Users → Let people connect to other servers*. In the browser the
+sign-in page then asks for no server URL, the rail offers no *Add instance*, a sign-in to
+another server is refused, and a server added before is dropped, with its session, the next
+time the app loads. In the desktop app *Add Server…* is gone from the menu and the rail while
+this server is in it. Servers already in the desktop app stay: any server could turn the switch
+off, and one should not be able to throw out another. The switch is live and audited; it needs
+no restart.
+
+The switch is the app's, not the network's. Someone who opens another server's address in a
+browser tab still reaches it. To stop that, block the other servers at your proxy or firewall,
+or hand out a managed browser and desktop app.
+
 ## Single sign-on
 
 SSO is off until `OIDC_ISSUER` is set. Register `<PUBLIC_URL>/api/auth/oidc/callback` as the

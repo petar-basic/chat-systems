@@ -16,6 +16,7 @@ import { useDesktopRail } from './hooks/useDesktopRail';
 import { desktopShell } from '@/lib/desktopShell';
 import { toUserMessage } from '@/lib/errors';
 import { useWorkspaceCreation } from './hooks/useWorkspaceCreation';
+import { useOtherServersAllowed } from '@/features/instance';
 
 interface Props {
   workspaces: Workspace[];
@@ -48,6 +49,7 @@ export default function WorkspaceSidebar({
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const creation = useWorkspaceCreation();
+  const othersAllowed = useOtherServersAllowed();
 
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
@@ -242,17 +244,21 @@ export default function WorkspaceSidebar({
             </div>
           ))}
 
-          {groups.length > 0 && <div className="w-8 h-px bg-raised my-1" />}
+          {othersAllowed && (
+            <>
+              {groups.length > 0 && <div className="w-8 h-px bg-raised my-1" />}
 
-          <button
-            onClick={onAddInstance}
-            className="w-10 h-10 rounded-xl flex items-center justify-center bg-surface text-muted hover:bg-raised hover:text-fg transition cursor-pointer"
-            data-tooltip={t('rail.addInstance')}
-            data-tooltip-side="right"
-            aria-label={t('rail.addInstance')}
-          >
-            <ServerCrash className="w-4 h-4" />
-          </button>
+              <button
+                onClick={onAddInstance}
+                className="w-10 h-10 rounded-xl flex items-center justify-center bg-surface text-muted hover:bg-raised hover:text-fg transition cursor-pointer"
+                data-tooltip={t('rail.addInstance')}
+                data-tooltip-side="right"
+                aria-label={t('rail.addInstance')}
+              >
+                <ServerCrash className="w-4 h-4" />
+              </button>
+            </>
+          )}
         </div>
       )}
 

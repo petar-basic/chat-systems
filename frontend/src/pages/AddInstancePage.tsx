@@ -31,6 +31,7 @@ export default function AddInstancePage() {
 
   const { data: instance } = useInstanceInfo(window.location.origin);
   const inDesktop = desktopShell() !== null;
+  const othersAllowed = instance?.other_servers_allowed === true;
 
   const sameOrigin = url.trim().replace(/\/$/, '') === window.location.origin;
   const offerPasskeys = sameOrigin && !inDesktop && passkeysSupported();
@@ -78,17 +79,17 @@ export default function AddInstancePage() {
     }
   };
 
-  const isFirstInstance = instances.length === 0;
+  const addingAnother = instances.length > 0 && othersAllowed;
   const title = inDesktop
     ? t('signIn.desktopTitle', { name: instance?.name ?? 'Chat Systems' })
-    : isFirstInstance
-      ? t('signIn.welcome')
-      : t('signIn.addInstance');
+    : addingAnother
+      ? t('signIn.addInstance')
+      : t('signIn.welcome');
   const subtitle = inDesktop
     ? window.location.host
-    : isFirstInstance
-      ? t('signIn.connectFirst')
-      : t('signIn.connectAnother');
+    : addingAnother
+      ? t('signIn.connectAnother')
+      : t('signIn.connectFirst');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-app via-accent-deep to-app flex items-center justify-center p-4">
@@ -124,7 +125,7 @@ export default function AddInstancePage() {
           )}
 
           <div className="space-y-5 mb-6">
-            {!inDesktop && (
+            {!inDesktop && othersAllowed && (
               <>
                 <TextInput
                   label={t('signIn.serverUrl')}
@@ -283,7 +284,7 @@ export default function AddInstancePage() {
           )}
         </form>
 
-        {!isFirstInstance && !inDesktop && (
+        {addingAnother && !inDesktop && (
           <button
             onClick={() => navigate(-1)}
             className="mt-4 w-full text-center text-muted text-sm hover:text-fg-dim transition"

@@ -17,6 +17,20 @@ instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ## [Unreleased]
 
+### Upgrading from 4.8.0
+
+- The `api` runs migration 127 on start. It adds one instance setting, on by default, so
+  nothing changes until an admin turns it off.
+
+### Added
+
+- An instance admin can keep everyone to this server, in *Instance admin → Users → Let people
+  connect to other servers*. Turned off, the sign-in page asks for no server URL, the rail
+  offers no *Add instance*, a sign-in to another server is refused, and servers added before
+  are dropped, with their sessions, the next time the app loads. The desktop app hides *Add
+  Server…* while this server is in it. The switch is live and audited as
+  `instance.settings_changed` (#445).
+
 ## [4.8.0] — 2026-11-20
 
 ### Upgrading from 4.7.2

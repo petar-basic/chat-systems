@@ -66,6 +66,7 @@ pub struct InstanceSettings {
     pub email_configured: bool,
     pub workspace_creation_restricted: bool,
     pub giphy_api_key: Option<String>,
+    pub other_servers_allowed: bool,
 }
 
 #[derive(Debug, serde::Deserialize, ToSchema)]
@@ -73,6 +74,7 @@ pub struct UpdateInstanceSettings {
     pub email_code_sign_in: Option<bool>,
     pub workspace_creation_restricted: Option<bool>,
     pub giphy_api_key: Option<String>,
+    pub other_servers_allowed: Option<bool>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -132,6 +134,7 @@ async fn update_instance_settings(
     if body.email_code_sign_in.is_none()
         && body.workspace_creation_restricted.is_none()
         && body.giphy_api_key.is_none()
+        && body.other_servers_allowed.is_none()
     {
         return Err(AppError::Validation("Name a setting to change".into()));
     }
@@ -146,6 +149,7 @@ async fn update_instance_settings(
             email_code_sign_in: body.email_code_sign_in,
             workspace_creation_restricted: body.workspace_creation_restricted,
             giphy_api_key,
+            other_servers_allowed: body.other_servers_allowed,
         })
         .await?;
     let mut details = serde_json::Map::new();
@@ -158,6 +162,9 @@ async fn update_instance_settings(
     if let Some(key) = giphy_api_key {
         let change = if key.is_some() { "set" } else { "cleared" };
         details.insert("giphy_api_key".into(), change.into());
+    }
+    if let Some(on) = body.other_servers_allowed {
+        details.insert("other_servers_allowed".into(), on.into());
     }
     audit::record(
         &state,
@@ -178,6 +185,7 @@ async fn instance_settings(state: &AppState) -> AppResult<InstanceSettings> {
             .workspace_creation_restricted()
             .await?,
         giphy_api_key: state.instance_settings_repo.giphy_api_key().await?,
+        other_servers_allowed: state.instance_settings_repo.other_servers_allowed().await?,
     })
 }
 

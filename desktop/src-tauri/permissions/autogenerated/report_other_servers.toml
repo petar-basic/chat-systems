@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-report-other-servers"
+description = "Enables the report_other_servers command without any pre-configured scope."
+commands.allow = ["report_other_servers"]
+
+[[permission]]
+identifier = "deny-report-other-servers"
+description = "Denies the report_other_servers command without any pre-configured scope."
+commands.deny = ["report_other_servers"]

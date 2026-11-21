@@ -152,7 +152,8 @@ function paint(colours) {
   }
 }
 
-function render({ servers, active, theme, colours }) {
+function render({ servers, active, theme, colours, can_add }) {
+  add.hidden = !can_add;
   if (theme) document.documentElement.dataset.theme = theme;
   else delete document.documentElement.dataset.theme;
   paint(colours);
