@@ -148,5 +148,19 @@
     "inviteRequestFor": "対象: {{emails}}",
     "inviteRequestForWithNote": "対象: {{emails}}。管理者からのメモ: {{note}}",
     "inviteRequestExpiredBody": "30日以内に管理者が対応しませんでした。対象: {{emails}}"
+  },
+  "panel": {
+    "title": "通知",
+    "markAllRead": "すべて既読にする",
+    "filters": {
+      "all": "すべて",
+      "unread": "未読",
+      "mention": "メンション"
+    },
+    "empty": "通知はありません",
+    "emptyHint": "すべて確認済みです",
+    "pause": "通知を一時停止",
+    "mute": "通知音をミュート",
+    "unmute": "通知音のミュートを解除"
   }
 }

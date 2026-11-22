@@ -35,7 +35,7 @@ import { PauseMenuItems } from '@/features/notifications';
 import { useNotificationPrefs } from '@/stores/notificationPrefs';
 import { useOnClickOutside } from '@/shared/hooks/useOnClickOutside';
 import { QueryState } from '@/shared/components/QueryState/QueryState';
-import { ActionLabels, EmptyLabels, RELATIVE_TIME_TICK_MS, ROUTES } from '@/shared/constants';
+import { RELATIVE_TIME_TICK_MS, ROUTES } from '@/shared/constants';
 
 interface Props {
   workspaceId: string;
@@ -45,11 +45,7 @@ interface Props {
 
 type Filter = 'all' | 'unread' | 'mention';
 
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'unread', label: 'Unread' },
-  { key: 'mention', label: 'Mentions' },
-];
+const FILTERS: Filter[] = ['all', 'unread', 'mention'];
 
 function notificationIcon(type: NotificationKind) {
   switch (type) {
@@ -137,6 +133,7 @@ function NotificationRow({
 
 export default function NotificationsPanel({ workspaceId, onClose, onOpenMessage }: Props) {
   const navigate = useNavigate();
+  const { t } = useTranslation('notifications');
   const pauseLabel = usePauseLabel();
   const { data: notifications = [], isLoading, isError, refetch } = useNotifications(workspaceId);
   const { data: unreadCount = 0 } = useUnreadNotificationCount(workspaceId);
@@ -169,7 +166,7 @@ export default function NotificationsPanel({ workspaceId, onClose, onOpenMessage
       data-qa="notifications-panel"
     >
       <PanelHeader
-        title="Notifications"
+        title={t('panel.title')}
         icon={<Bell className="h-4 w-4 text-muted" />}
         badge={
           unreadCount > 0 && (
@@ -189,12 +186,12 @@ export default function NotificationsPanel({ workspaceId, onClose, onOpenMessage
                 disabled={markAllRead.isPending}
                 className="text-accent"
               >
-                {ActionLabels.MarkAllRead}
+                {t('panel.markAllRead')}
               </Button>
             )}
             <div className="relative" ref={dndRef}>
               <IconButton
-                label={pause ? pauseLabel(pause) : 'Pause notifications'}
+                label={pause ? pauseLabel(pause) : t('panel.pause')}
                 icon={<Moon className="h-4 w-4" />}
                 pressed={!!pause}
                 onClick={() => setDndMenuOpen((v) => !v)}
@@ -207,7 +204,7 @@ export default function NotificationsPanel({ workspaceId, onClose, onOpenMessage
               )}
             </div>
             <IconButton
-              label={soundEnabled ? 'Mute notification sound' : 'Unmute notification sound'}
+              label={soundEnabled ? t('panel.mute') : t('panel.unmute')}
               icon={
                 soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4 text-danger" />
               }
@@ -219,13 +216,13 @@ export default function NotificationsPanel({ workspaceId, onClose, onOpenMessage
       <div className="flex items-center gap-1 px-3 py-2 border-b border-line/40 shrink-0">
         {FILTERS.map((f) => (
           <button
-            key={f.key}
-            onClick={() => setFilter(f.key)}
+            key={f}
+            onClick={() => setFilter(f)}
             className={`px-2.5 py-1 text-xs rounded-md transition ${
-              filter === f.key ? 'bg-raised text-fg' : 'text-muted hover:text-fg-soft'
+              filter === f ? 'bg-raised text-fg' : 'text-muted hover:text-fg-soft'
             }`}
           >
-            {f.label}
+            {t(`panel.filters.${f}`)}
           </button>
         ))}
       </div>
@@ -238,8 +235,8 @@ export default function NotificationsPanel({ workspaceId, onClose, onOpenMessage
           empty={
             <>
               <Bell className="w-10 h-10 mb-3 text-faint" />
-              <p className="text-sm font-medium">{EmptyLabels.NoNotifications}</p>
-              <p className="text-xs mt-1">{EmptyLabels.NoNotificationsHint}</p>
+              <p className="text-sm font-medium">{t('panel.empty')}</p>
+              <p className="text-xs mt-1">{t('panel.emptyHint')}</p>
             </>
           }
         >
