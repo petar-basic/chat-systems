@@ -110,6 +110,19 @@
     "note": "Note to {{name}}",
     "declined": "Request declined"
   },
+  "page": {
+    "conversation": "Conversation",
+    "deleted": {
+      "notice": "This workspace has been soft-deleted and is not visible to regular members.",
+      "restore": "Restore workspace",
+      "restoring": "Restoring…"
+    },
+    "readOnly": "Only admins can post in this channel.",
+    "noChannels": {
+      "title": "No channels yet",
+      "hint": "Create one to start the conversation."
+    }
+  },
   "profileFields": {
     "explain": "Fields every profile in this workspace has, such as a department, a manager or an office. Each person fills in their own; admins fill in the ones marked admins only.",
     "add": "Add field",
