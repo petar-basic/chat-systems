@@ -55,6 +55,7 @@ export interface DesktopShell {
   reportTheme?: (theme: 'light' | 'dark') => void;
   reportColours?: (colours: DesktopColours | null) => void;
   reportCreation?: (allowed: boolean) => void;
+  reportOtherServers?: (allowed: boolean) => void;
   openDrawOverlay?: (width: number, height: number) => void;
   drawOnOverlay?: (stroke: DesktopOverlayStroke) => void;
   closeDrawOverlay?: () => void;

@@ -50,6 +50,7 @@ vi.mock('@/features/setup/EmailCodeSetting', () => ({ EmailCodeSetting: () => nu
 vi.mock('@/features/setup/WorkspaceCreationSetting', () => ({
   WorkspaceCreationSetting: () => <p>who can create workspaces</p>,
 }));
+vi.mock('@/features/setup/OtherServersSetting', () => ({ OtherServersSetting: () => null }));
 vi.mock('@/features/gifs/GiphyKeySetting', () => ({ GiphyKeySetting: () => null }));
 
 describe('InstanceAdminPage', () => {

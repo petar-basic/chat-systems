@@ -84,7 +84,9 @@ renders lives in `features/messaging`, even when it is small and general-looking
   instance*. A page with no session for its server, signed out or not restored after a
   reload, reports no workspaces (`useEmptyRailWhenSignedOut`, in `App`), so the app drops
   them from the rail, the menu and the badge. The sign-in page signs in to the server the
-  window shows, with no *Server URL* field. `showNotification` hands the notification to the
+  window shows, with no *Server URL* field. `useReportOtherServers` (in `App`) tells the app
+  whether this server lets people add others (`reportOtherServers`), and the app hides *Add
+  Server…* while any server it holds says no. `showNotification` hands the notification to the
   app, which raises a native one and, on a click, shows this server and runs the click
   handler. Its key starts with an id chosen once per page load, so a click on a banner from
   before a reload finds no handler and only shows the server; the Dock badge is the sum of
@@ -195,6 +197,11 @@ and description. On *Home* the message list, typing indicator and composer are n
 
 ### `AddInstancePage`
 Login page for connecting a new instance (optional separate WS URL field for split deployments).
+When this origin's `/instance/info` says `other_servers_allowed: false`, it shows no *Server URL*
+and no *Advanced options* and signs in to this origin only. `useInstanceStore` holds to the same
+rule on its own (`lib/instanceInfo.otherServersAllowed`): a sign-in to another origin is refused
+with `auth:signIn.otherServersOff`, and `restoreInstances` drops every other saved server and its
+tokens before it reconnects any. If `/instance/info` cannot be read, both go on as before.
 
 **Reads:** form input (instance URL, email, password, optional WS URL)
 **Writes:** `useInstanceStore.addInstance()` → POST `/auth/login` → stores `{ url, wsUrl?, user }` in `chat_instances`; access token kept in memory, refresh token persisted per the table above
@@ -215,6 +222,7 @@ gated; redirects non-admins to `/app`.
 - POST `/admin/workspaces/{id}/owners` `{ user_id }` — the *Workspaces* tab (`features/instance/AdminWorkspaces`): each workspace with its owners, a suspended one marked and "No owner can sign in" when none is active; *Make an owner* picks from its active members who aren't owners
 - PATCH `/admin/users/{id}/instance-role` `{ is_instance_admin }` — grant/revoke instance admin
 - PATCH `/admin/settings` `{ email_code_sign_in }` — the *Email* tab's `EmailCodeSetting`, disabled while the instance has no SMTP
+- PATCH `/admin/settings` `{ other_servers_allowed }` — `features/setup/OtherServersSetting`, under who may create workspaces: a checkbox whose hint says what goes away while it is off
 - PATCH `/admin/settings` `{ giphy_api_key }` — `features/gifs/GiphyKeySetting`, under who may create workspaces: saves the key, *Remove* sends `""`, and either refetches every workspace's GIF settings and command list; its hint says that members are given the key and that browsers reach GIPHY directly
 
 (Workspace deletion lives in *Workspace settings → General*, not here.)

@@ -359,3 +359,69 @@ async fn a_demoted_instance_admin_is_refused_at_once_with_the_token_they_hold(po
         "the role is read from the account, not from the token"
     );
 }
+
+async fn allow_other_servers(
+    app: &axum::Router,
+    token: &str,
+    on: bool,
+) -> (StatusCode, serde_json::Value) {
+    send(
+        app,
+        "PATCH",
+        "/api/admin/settings",
+        Some(token),
+        Some(json!({ "other_servers_allowed": on })),
+    )
+    .await
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn an_instance_admin_keeps_everyone_to_this_server_and_the_sign_in_page_hears_it(
+    pool: PgPool,
+) {
+    let (app, state) = app_and_state(pool).await;
+    let (_, _, admin) = seed_and_login(&app, &state, "servers-admin", true).await;
+    let (_, _, member) = seed_and_login(&app, &state, "servers-member", false).await;
+
+    let (_, info) = send(&app, "GET", "/api/instance/info", None, None).await;
+    assert_eq!(
+        info["other_servers_allowed"], true,
+        "an instance starts as it was"
+    );
+
+    let (status, _) = allow_other_servers(&app, &member, false).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+
+    let (status, settings) = allow_other_servers(&app, &admin, false).await;
+    assert_eq!(status, StatusCode::OK, "{settings:?}");
+    assert_eq!(settings["other_servers_allowed"], false);
+    assert_eq!(settings["email_code_sign_in"], true);
+    let (_, info) = send(&app, "GET", "/api/instance/info", None, None).await;
+    assert_eq!(info["other_servers_allowed"], false);
+
+    let details: serde_json::Value = sqlx::query_scalar(
+        "SELECT details FROM audit_log WHERE action = 'instance.settings_changed'",
+    )
+    .fetch_one(&state.pool)
+    .await
+    .expect("audited");
+    assert_eq!(details, json!({ "other_servers_allowed": false }));
+
+    let (status, settings) = send(
+        &app,
+        "PATCH",
+        "/api/admin/settings",
+        Some(&admin),
+        Some(json!({ "email_code_sign_in": false })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        settings["other_servers_allowed"], false,
+        "another setting leaves it alone"
+    );
+
+    let (status, settings) = allow_other_servers(&app, &admin, true).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(settings["other_servers_allowed"], true);
+}

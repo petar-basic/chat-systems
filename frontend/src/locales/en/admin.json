@@ -30,6 +30,11 @@
     "on": "The sign-in page offers to email a six-digit code, so nobody needs a password to get in.",
     "off": "Needs SMTP. Until this instance can send email, the sign-in page does not offer it."
   },
+  "otherServers": {
+    "label": "Let people connect to other servers",
+    "on": "The sign-in page asks for a server URL and the rail offers Add instance, so anyone can use another Chat Systems server in the same window.",
+    "off": "Only this server. The sign-in page and the rail offer no other server, servers added before are dropped the next time the app loads, and the desktop app hides Add Server… while this server is in it."
+  },
   "creation": {
     "label": "Who can create workspaces",
     "creators": "Workspace creators and admins",

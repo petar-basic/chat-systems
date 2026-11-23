@@ -81,6 +81,17 @@ fn creates_workspaces<R: Runtime>(app: &AppHandle<R>, url: &str) -> bool {
         .unwrap_or(true)
 }
 
+#[derive(Default)]
+struct OtherServers(Mutex<HashMap<String, bool>>);
+
+fn adds_servers<R: Runtime>(app: &AppHandle<R>) -> bool {
+    app.state::<OtherServers>()
+        .0
+        .lock()
+        .map(|reports| reports.values().all(|allowed| *allowed))
+        .unwrap_or(true)
+}
+
 #[derive(Clone, Serialize)]
 struct ServerView {
     #[serde(flatten)]
@@ -95,6 +106,7 @@ struct Overview {
     active: Option<String>,
     theme: Option<Theme>,
     colours: Option<Colours>,
+    can_add: bool,
 }
 
 fn webview_label(url: &str) -> String {
@@ -127,7 +139,7 @@ fn overview<R: Runtime>(app: &AppHandle<R>) -> Overview {
         .lock()
         .map(|r| r.clone())
         .unwrap_or_default();
-    let servers = servers
+    let servers: Vec<ServerView> = servers
         .into_iter()
         .map(|server| {
             let report = reports.get(&server.url).cloned().unwrap_or_default();
@@ -159,11 +171,16 @@ fn overview<R: Runtime>(app: &AppHandle<R>) -> Overview {
                 .and_then(|themes| themes.get(url).copied())
         })
     });
+    let can_add = adds_servers(app)
+        || servers
+            .iter()
+            .any(|view| creates_workspaces(app, &view.server.url));
     Overview {
         servers,
         active,
         theme,
         colours,
+        can_add,
     }
 }
 
@@ -370,6 +387,7 @@ fn load_server<R: Runtime>(
                 .permission("allow-report-theme")
                 .permission("allow-report-colours")
                 .permission("allow-report-creation")
+                .permission("allow-report-other-servers")
                 .permission("allow-open-link")
                 .permission("allow-press-menu-keys")
                 .permission("allow-open-draw-overlay")
@@ -500,16 +518,18 @@ fn build_menu<R: Runtime>(app: &AppHandle<R>, servers: &[ServerView]) -> tauri::
             accelerator.as_deref(),
         )?)?;
     }
-    if !entries.is_empty() {
-        submenu.append(&PredefinedMenuItem::separator(app)?)?;
+    if adds_servers(app) {
+        if !entries.is_empty() {
+            submenu.append(&PredefinedMenuItem::separator(app)?)?;
+        }
+        submenu.append(&MenuItem::with_id(
+            app,
+            "add-server",
+            "Add Server…",
+            true,
+            Some("CmdOrCtrl+Shift+N"),
+        )?)?;
     }
-    submenu.append(&MenuItem::with_id(
-        app,
-        "add-server",
-        "Add Server…",
-        true,
-        Some("CmdOrCtrl+Shift+N"),
-    )?)?;
     menu.insert(&submenu, 2)?;
     Ok(menu)
 }
@@ -534,6 +554,9 @@ async fn add_server(
     servers: State<'_, Servers>,
     address: String,
 ) -> Result<Server, String> {
+    if !adds_servers(&app) {
+        return Err("A server in this app does not let you connect to other servers.".to_owned());
+    }
     let origin = servers::normalize(&address)?;
     let server = servers::probe(&origin).await?;
     servers
@@ -570,6 +593,9 @@ fn forget_server<R: Runtime>(app: &AppHandle<R>, url: &str) -> Result<(), String
     }
     if let Ok(mut creation) = app.state::<Creation>().0.lock() {
         creation.remove(url);
+    }
+    if let Ok(mut others) = app.state::<OtherServers>().0.lock() {
+        others.remove(url);
     }
     if was_showing {
         return open_last(app);
@@ -680,16 +706,18 @@ fn build_add_menu<R: Runtime>(app: &AppHandle<R>, servers: &[Server]) -> tauri::
             menu.append(&create_item(app, server)?)?;
         }
     }
-    if !menu.items()?.is_empty() {
-        menu.append(&PredefinedMenuItem::separator(app)?)?;
+    if adds_servers(app) {
+        if !menu.items()?.is_empty() {
+            menu.append(&PredefinedMenuItem::separator(app)?)?;
+        }
+        menu.append(&MenuItem::with_id(
+            app,
+            "add-server",
+            "Add Server…",
+            true,
+            None::<&str>,
+        )?)?;
     }
-    menu.append(&MenuItem::with_id(
-        app,
-        "add-server",
-        "Add Server…",
-        true,
-        None::<&str>,
-    )?)?;
     Ok(menu)
 }
 
@@ -705,6 +733,9 @@ fn add_menu(app: AppHandle, window: Window) -> Result<(), String> {
         return open_picker(&app);
     }
     let menu = build_add_menu(&app, &servers).map_err(|e| e.to_string())?;
+    if menu.items().map_err(|e| e.to_string())?.is_empty() {
+        return Ok(());
+    }
     window.popup_menu(&menu).map_err(|e| e.to_string())
 }
 
@@ -821,11 +852,30 @@ fn close_draw_overlay(app: AppHandle, webview: Webview) {
 #[tauri::command]
 fn report_creation(app: AppHandle, webview: Webview, allowed: bool) -> Result<(), String> {
     let server = server_of(&app, &webview)?;
-    app.state::<Creation>()
+    let before = app
+        .state::<Creation>()
         .0
         .lock()
         .map_err(|e| e.to_string())?
         .insert(server.url, allowed);
+    if before != Some(allowed) {
+        announce(&app);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn report_other_servers(app: AppHandle, webview: Webview, allowed: bool) -> Result<(), String> {
+    let server = server_of(&app, &webview)?;
+    let before = app
+        .state::<OtherServers>()
+        .0
+        .lock()
+        .map_err(|e| e.to_string())?
+        .insert(server.url, allowed);
+    if before != Some(allowed) {
+        announce(&app);
+    }
     Ok(())
 }
 
@@ -1085,7 +1135,7 @@ fn on_menu<R: Runtime>(app: &AppHandle<R>, id: &str) {
 
 fn menu_action<R: Runtime>(app: &AppHandle<R>, id: &str) -> Result<(), String> {
     match id.split_once(':') {
-        None if id == "add-server" => open_picker(app),
+        None if id == "add-server" && adds_servers(app) => open_picker(app),
         None if id == "show" => bring_back(app),
         None if id == "open-at-login" => toggle_open_at_login(app),
         None if id == "quit" => {
@@ -1137,6 +1187,7 @@ pub fn run() {
             report_theme,
             report_colours,
             report_creation,
+            report_other_servers,
             open_link,
             notify,
             rail_menu,
@@ -1158,6 +1209,7 @@ pub fn run() {
             app.manage(Themes::default());
             app.manage(Palettes::default());
             app.manage(Creation::default());
+            app.manage(OtherServers::default());
             app.manage(PendingSso::default());
             app.manage(overlay::Owner::default());
             let links = app.handle().clone();

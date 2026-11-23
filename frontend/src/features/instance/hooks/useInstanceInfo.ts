@@ -1,14 +1,13 @@
-import { queryOptions, useQuery } from '@tanstack/react-query';
-import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
-import { QUERY_KEYS } from '@/shared/constants';
+import { useQuery } from '@tanstack/react-query';
+import { instanceInfoQuery } from '@/lib/instanceInfo';
 
-export const instanceInfoQuery = (instanceUrl: string | undefined) =>
-  queryOptions({
-    queryKey: QUERY_KEYS.instanceInfo(instanceUrl ?? ''),
-    queryFn: () => getApiForInstance(instanceUrl).typed((c) => c.GET('/instance/info')),
-    staleTime: 60 * 60 * 1000,
-  });
+export { instanceInfoQuery };
 
 export function useInstanceInfo(instanceUrl: string | undefined) {
   return useQuery(instanceInfoQuery(instanceUrl));
+}
+
+export function useOtherServersAllowed() {
+  const { data } = useInstanceInfo(window.location.origin);
+  return data?.other_servers_allowed === true;
 }
