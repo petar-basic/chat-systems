@@ -19,7 +19,10 @@ browser allows it, and on iOS a home-screen app that Safari decides how long to 
 - Deep links (`chat-systems://`) open a server, a channel or a message, and finish sign-in
   (CS-143).
 - Notifications come through CS-145 once it ships; until then the app notifies while it is
-  open, as the PWA does.
+  open. The webviews have no `Notification`, so it goes through the app's plugin, as on
+  desktop (CS-108).
+- What CS-142 found the app must handle: the Android WebView cannot share the screen, and
+  Android 16 draws under the status bar unless the app passes the insets in.
 - The release workflow builds an `.ipa` for TestFlight and an `.aab` for Play's internal
   track, signed with the project's accounts. Store listing is a separate step the
   maintainer takes.
@@ -28,6 +31,9 @@ browser allows it, and on iOS a home-screen app that Safari decides how long to 
 
 - [ ] On an iPhone and an Android phone the app adds a server, signs in, reads and sends
   messages, uploads a photo and joins a huddle.
+- [ ] On both phones a huddle is held for ten minutes with the screen locked, both ways.
+  CS-142 left this open: the iOS simulator cut the microphone at the lock and the iPhone
+  did not in its first minute. Whatever fails is written down as a known limitation.
 - [ ] A link to a message opens it in the app.
 - [ ] A tagged release produces both builds.
 

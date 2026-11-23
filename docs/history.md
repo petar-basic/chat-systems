@@ -4356,3 +4356,22 @@ script against nginx on port 8080 and checked the database:
   `#general`; the same token under `/api/hooks/incoming/` did not.
 - The socket upgraded at `/ws/v1` and not at `/ws`. The sign-in page loaded its instance info
   from `/api/v1`.
+
+### [CS-142] Does a Tauri phone app hold a huddle and receive a push? ✅ shipped
+The phone apps were to be iOS and Android targets of the desktop Tauri project, if a huddle
+held in the phone's webview and a Tauri plugin could take a push. A throwaway app with a
+small Kotlin and Swift plugin ran on an Android 16 emulator, an iOS 27.2 simulator and an
+iPhone 13 Pro signed with a free Apple ID; there was no Android phone and no paid Apple
+account. The plugin asked for permissions, registered for push and rang a huddle through
+ConnectionService and CallKit, so the bridge to native code does what the apps need. The
+webviews lack `Notification` and `PushManager`, and Android's lacks `getDisplayMedia`.
+On Android the microphone and timers kept going with the screen off. On iOS the simulator
+ended the microphone at the lock and suspended the page, while the iPhone was still sending
+microphone packets a minute after locking. Capacitor wraps the same two webviews, so none
+of this argues for it, and Tauri stays.
+
+What a free account and no Android phone could not show was decided rather than chased: a
+ten-minute locked huddle on both phones is checked in the app itself (CS-144), and whatever
+fails there becomes a written limitation. Push end to end waits for CS-145 and its accounts,
+which also carry the ring, since iOS freezes a locked app in about 30 s and a ring has to
+arrive as a VoIP push. The findings are in `docs/native-apps-plan.md`.

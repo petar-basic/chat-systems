@@ -522,13 +522,13 @@ first: CS-135 – CS-137 and the calendars' messages are written on them.
 
 Planned on 2026-11-04, to go out as 5.0.0, the major version because CS-141 moves every
 route under `/api/v1`. It was Wave 33 with CS-122 – CS-126 until 2026-11-13, when the Slack
-gaps were put ahead of it and it was renumbered. Phone apps on Tauri 2, like the desktop app, if the spike (CS-142)
-says a huddle and a push work there; the push relay waits on who runs it.
+gaps were put ahead of it and it was renumbered. Phone apps on Tauri 2, like the desktop app, as the spike (CS-142)
+confirmed; the push relay waits on who runs it.
 
 | # | Ticket | Area |
 |---|---|---|
 | CS-141 ✅ | `/api/v1`, and a client and a server that know each other's version | backend · frontend · ops · docs |
-| CS-142 | Does a Tauri phone app hold a huddle and receive a push? | mobile |
+| CS-142 ✅ | Does a Tauri phone app hold a huddle and receive a push? | mobile |
 | CS-143 | Signing in from a client the server does not serve | backend · frontend · mobile |
 | CS-144 | Phone apps for iOS and Android | mobile · frontend · ops |
 | CS-145 | A push relay for phones | backend · mobile · ops |
@@ -584,7 +584,7 @@ Tickets that touch the same files, and the order that avoids rework:
 | worker rollups and *Workspace settings → Analytics* | CS-120 → CS-121 |
 | route prefixes, nginx, Caddy and the E2E helpers | CS-141 ✅ |
 | `/auth/oidc/exchange` and the deep link | CS-109 ✅ → CS-118 → CS-143 → CS-144 |
-| the Tauri project's mobile targets | CS-142 → CS-144 → CS-145 |
+| the Tauri project's mobile targets | CS-142 ✅ → CS-144 → CS-145 |
 | `MessageInput.tsx` key handling | CS-114 |
 | `membership::detach`, `remove_member_in` and the conversation list | CS-117a ✅ → CS-121c |
 | `membership::add_to_channel` and the channel member routes in `workspace/routes.rs` | CS-121a |
