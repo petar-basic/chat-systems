@@ -297,7 +297,7 @@ async fn a_branch_reads_the_trigger_users_profile_and_a_list_column(pool: PgPool
     let (status, office) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/profile-fields"),
+        &format!("/api/v1/workspaces/{ws}/profile-fields"),
         Some(&owner),
         Some(json!({ "label": "Office", "kind": "options", "options": [{ "label": "Berlin" }, { "label": "Belgrade" }] })),
     )
@@ -313,7 +313,7 @@ async fn a_branch_reads_the_trigger_users_profile_and_a_list_column(pool: PgPool
     let (status, body) = send(
         &app,
         "PUT",
-        &format!("/api/workspaces/{ws}/members/{bob_id}/profile-fields"),
+        &format!("/api/v1/workspaces/{ws}/members/{bob_id}/profile-fields"),
         Some(&bob),
         Some(json!({ "values": { office["id"].as_str().unwrap(): belgrade } })),
     )
@@ -418,7 +418,7 @@ async fn a_newcomer_gets_the_checklist_a_day_later_and_only_once(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{lobby}/join"),
+        &format!("/api/v1/channels/{lobby}/join"),
         Some(&carol),
         None,
     )
@@ -674,7 +674,7 @@ async fn a_reaction_gets_a_reaction_and_a_thread_reply_from_the_owner(pool: PgPo
     let (status, message) = send(
         &app,
         "POST",
-        &format!("/api/channels/{help}/messages"),
+        &format!("/api/v1/channels/{help}/messages"),
         Some(&bob),
         Some(json!({ "content": "the printer is on fire" })),
     )
@@ -684,7 +684,7 @@ async fn a_reaction_gets_a_reaction_and_a_thread_reply_from_the_owner(pool: PgPo
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/messages/{message_id}/reactions"),
+        &format!("/api/v1/messages/{message_id}/reactions"),
         Some(&bob),
         Some(json!({ "emoji": "\u{1F6A8}" })),
     )
@@ -871,7 +871,7 @@ async fn a_waiting_run_finishes_on_the_version_it_started_on(pool: PgPool) {
     let (status, body) = send(
         &app,
         "PUT",
-        &format!("/api/workflows/{}", workflow["id"].as_str().unwrap()),
+        &format!("/api/v1/workflows/{}", workflow["id"].as_str().unwrap()),
         Some(&member),
         Some(edited),
     )

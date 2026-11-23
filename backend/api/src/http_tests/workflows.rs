@@ -103,7 +103,7 @@ pub(super) async fn create(
     send(
         app,
         "POST",
-        &format!("/api/workspaces/{ws}/workflows"),
+        &format!("/api/v1/workspaces/{ws}/workflows"),
         Some(token),
         Some(body),
     )
@@ -126,7 +126,7 @@ async fn act(
         app,
         "POST",
         &format!(
-            "/api/workflows/{}/{action}",
+            "/api/v1/workflows/{}/{action}",
             workflow["id"].as_str().unwrap()
         ),
         Some(token),
@@ -139,7 +139,7 @@ async fn list(app: &axum::Router, token: &str, ws: Uuid) -> Vec<String> {
     let (status, body) = send(
         app,
         "GET",
-        &format!("/api/workspaces/{ws}/workflows"),
+        &format!("/api/v1/workspaces/{ws}/workflows"),
         Some(token),
         None,
     )
@@ -155,7 +155,7 @@ async fn list(app: &axum::Router, token: &str, ws: Uuid) -> Vec<String> {
 
 pub(super) fn hook_path(workflow: &Value) -> String {
     let url = workflow["webhook_url"].as_str().expect("a webhook url");
-    url[url.find("/api/").unwrap()..].to_string()
+    url[url.find("/api/v1/").unwrap()..].to_string()
 }
 
 pub(super) async fn call(
@@ -189,7 +189,10 @@ pub(super) async fn runs(app: &axum::Router, token: &str, workflow: &Value) -> V
     let (status, body) = send(
         app,
         "GET",
-        &format!("/api/workflows/{}/runs", workflow["id"].as_str().unwrap()),
+        &format!(
+            "/api/v1/workflows/{}/runs",
+            workflow["id"].as_str().unwrap()
+        ),
         Some(token),
         None,
     )
@@ -253,7 +256,7 @@ async fn a_member_builds_edits_disables_and_deletes_a_workflow(pool: PgPool) {
     let (status, edited) = send(
         &app,
         "PUT",
-        &format!("/api/workflows/{}", workflow["id"].as_str().unwrap()),
+        &format!("/api/v1/workflows/{}", workflow["id"].as_str().unwrap()),
         Some(&member),
         Some(scheduled(
             " Standup reminder ",
@@ -282,7 +285,7 @@ async fn a_member_builds_edits_disables_and_deletes_a_workflow(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workflows/{}", workflow["id"].as_str().unwrap()),
+        &format!("/api/v1/workflows/{}", workflow["id"].as_str().unwrap()),
         Some(&third),
         None,
     )
@@ -304,7 +307,7 @@ async fn a_member_builds_edits_disables_and_deletes_a_workflow(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/workflows/{}", workflow["id"].as_str().unwrap()),
+        &format!("/api/v1/workflows/{}", workflow["id"].as_str().unwrap()),
         Some(&member),
         None,
     )
@@ -411,7 +414,7 @@ async fn admins_can_keep_building_to_themselves(pool: PgPool) {
     let (status, settings) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{ws}"),
+        &format!("/api/v1/workspaces/{ws}"),
         Some(&owner),
         Some(json!({ "workflow_builders": "admins" })),
     )
@@ -448,7 +451,7 @@ async fn admins_can_keep_building_to_themselves(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PUT",
-        &format!("/api/workflows/{}", mine["id"].as_str().unwrap()),
+        &format!("/api/v1/workflows/{}", mine["id"].as_str().unwrap()),
         Some(&owner),
         Some(scheduled("Taken over", vec![post_to(open, "hi")])),
     )
@@ -463,7 +466,7 @@ async fn admins_can_keep_building_to_themselves(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/workflows/{}", mine["id"].as_str().unwrap()),
+        &format!("/api/v1/workflows/{}", mine["id"].as_str().unwrap()),
         Some(&owner),
         None,
     )
@@ -511,7 +514,13 @@ async fn a_webhook_call_runs_once_per_request_and_posts_as_the_workflow(pool: Pg
     .await;
     let path = hook_path(&workflow);
 
-    let (status, _) = call(&app, "/api/workflows/webhook/not-a-token", None, json!({})).await;
+    let (status, _) = call(
+        &app,
+        "/api/v1/workflows/webhook/not-a-token",
+        None,
+        json!({}),
+    )
+    .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
     act(&app, &member, &workflow, "disable").await;
     let (status, _) = call(&app, &path, None, json!({})).await;
@@ -778,7 +787,7 @@ async fn a_creator_leaving_turns_their_workflows_off_and_tells_the_admins(pool: 
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{ws}/members/{member_id}"),
+        &format!("/api/v1/workspaces/{ws}/members/{member_id}"),
         Some(&owner),
         None,
     )
@@ -826,7 +835,7 @@ async fn a_creator_leaving_turns_their_workflows_off_and_tells_the_admins(pool: 
     let (status, history) = send(
         &app,
         "GET",
-        &format!("/api/workflows/{id}/runs"),
+        &format!("/api/v1/workflows/{id}/runs"),
         Some(&owner),
         None,
     )
@@ -899,7 +908,7 @@ async fn a_suspended_creators_workflow_stops_and_an_admin_can_take_it_over(pool:
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/admin/users/{member_id}/suspend"),
+        &format!("/api/v1/admin/users/{member_id}/suspend"),
         Some(&instance_admin),
         None,
     )
@@ -1021,7 +1030,7 @@ async fn a_reaction_in_its_channel_starts_one_run_even_when_delivered_twice(pool
         let (status, message) = send(
             &app,
             "POST",
-            &format!("/api/channels/{channel}/messages"),
+            &format!("/api/v1/channels/{channel}/messages"),
             Some(&owner),
             Some(json!({ "content": format!("db is slow, @[Test User]({member_id})") })),
         )
@@ -1037,7 +1046,7 @@ async fn a_reaction_in_its_channel_starts_one_run_even_when_delivered_twice(pool
         let (status, body) = send(
             &app,
             "POST",
-            &format!("/api/messages/{message}/reactions"),
+            &format!("/api/v1/messages/{message}/reactions"),
             Some(&bob),
             Some(json!({ "emoji": emoji })),
         )
@@ -1125,7 +1134,7 @@ async fn joining_a_channel_starts_its_member_joined_workflows_whichever_way_it_h
         let (status, _) = send(
             &app,
             "POST",
-            &format!("/api/channels/{lobby}/join"),
+            &format!("/api/v1/channels/{lobby}/join"),
             Some(&carol),
             None,
         )
@@ -1135,7 +1144,7 @@ async fn joining_a_channel_starts_its_member_joined_workflows_whichever_way_it_h
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{lobby}/members"),
+        &format!("/api/v1/channels/{lobby}/members"),
         Some(&owner),
         Some(json!({ "user_id": dave_id })),
     )
@@ -1144,7 +1153,7 @@ async fn joining_a_channel_starts_its_member_joined_workflows_whichever_way_it_h
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{lobby}/commands"),
+        &format!("/api/v1/channels/{lobby}/commands"),
         Some(&owner),
         Some(json!({ "command": "invite", "text": format!("@[Erin]({erin_id})") })),
     )
@@ -1153,7 +1162,7 @@ async fn joining_a_channel_starts_its_member_joined_workflows_whichever_way_it_h
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{lobby}/join"),
+        &format!("/api/v1/channels/{lobby}/join"),
         Some(&member),
         None,
     )
@@ -1163,7 +1172,7 @@ async fn joining_a_channel_starts_its_member_joined_workflows_whichever_way_it_h
     let (status, invite) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/invites"),
+        &format!("/api/v1/workspaces/{ws}/invites"),
         Some(&owner),
         Some(json!({ "max_uses": 1 })),
     )
@@ -1172,7 +1181,10 @@ async fn joining_a_channel_starts_its_member_joined_workflows_whichever_way_it_h
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/invites/{}/accept", invite["token"].as_str().unwrap()),
+        &format!(
+            "/api/v1/invites/{}/accept",
+            invite["token"].as_str().unwrap()
+        ),
         Some(&frank),
         None,
     )
@@ -1240,7 +1252,7 @@ async fn a_private_channel_trigger_needs_its_creator_in_the_channel(pool: PgPool
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{secret}/members"),
+        &format!("/api/v1/channels/{secret}/members"),
         Some(&owner),
         Some(json!({ "user_id": eve_id })),
     )
@@ -1330,7 +1342,7 @@ pub(super) async fn start(
     let mut builder = Request::builder()
         .method("POST")
         .uri(format!(
-            "/api/workflows/{}/start",
+            "/api/v1/workflows/{}/start",
             workflow["id"].as_str().unwrap()
         ))
         .header(header::AUTHORIZATION, format!("Bearer {token}"));
@@ -1360,7 +1372,7 @@ async fn shortcut_names(
     let (status, body) = send(
         app,
         "GET",
-        &format!("/api/channels/{channel}/workflow-shortcuts"),
+        &format!("/api/v1/channels/{channel}/workflow-shortcuts"),
         Some(token),
         None,
     )
@@ -1402,7 +1414,7 @@ pub(super) async fn fill(
         app,
         "POST",
         &format!(
-            "/api/workflow-runs/{}/forms/{}",
+            "/api/v1/workflow-runs/{}/forms/{}",
             form["run_id"].as_str().unwrap(),
             form["position"]
         ),
@@ -1416,7 +1428,7 @@ async fn command(app: &axum::Router, token: &str, channel: Uuid, text: &str) -> 
     let (status, body) = send(
         app,
         "POST",
-        &format!("/api/channels/{channel}/commands"),
+        &format!("/api/v1/channels/{channel}/commands"),
         Some(token),
         Some(json!({ "command": "workflow", "text": text })),
     )
@@ -1709,7 +1721,7 @@ pub(super) async fn requests_list(
     let (status, list) = send(
         app,
         "POST",
-        &format!("/api/workspaces/{ws}/lists"),
+        &format!("/api/v1/workspaces/{ws}/lists"),
         Some(token),
         Some(json!({
             "title": "Time off",
@@ -1768,7 +1780,10 @@ async fn items_of(app: &axum::Router, token: &str, list: &Value) -> Vec<Value> {
     let (status, body) = send(
         app,
         "GET",
-        &format!("/api/lists/{}/items", list["list"]["id"].as_str().unwrap()),
+        &format!(
+            "/api/v1/lists/{}/items",
+            list["list"]["id"].as_str().unwrap()
+        ),
         Some(token),
         None,
     )

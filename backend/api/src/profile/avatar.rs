@@ -9,7 +9,7 @@ use crate::state::AppState;
 
 pub const MAX_AVATAR_BYTES: usize = 10 * 1024 * 1024;
 const PREFIX: &str = "avatars/";
-const DOWNLOAD_PATH: &str = "/api/files/download/";
+const DOWNLOAD_PATH: &str = "/api/v1/files/download/";
 
 pub fn key(user_id: Uuid, workspace_id: Option<Uuid>, extension: &str) -> String {
     let name = Uuid::new_v4();

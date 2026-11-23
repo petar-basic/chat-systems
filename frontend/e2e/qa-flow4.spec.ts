@@ -8,7 +8,7 @@ test('J. hostile payloads are rendered inert', async ({ page, request }) => {
   const ws = await devWorkspace(request, 'admin@dev.local');
   const chans = (
     await (
-      await request.get(`http://localhost:3000/api/workspaces/${ws.id}/channels`, { headers: auth })
+      await request.get(`http://localhost:3000/api/v1/workspaces/${ws.id}/channels`, { headers: auth })
     ).json()
   ).data;
   const general = chans.find((c: { name: string }) => c.name === 'general').id;
@@ -20,7 +20,7 @@ test('J. hostile payloads are rendered inert', async ({ page, request }) => {
     `**bold** _italic_ \`code\` ${stamp}`,
   ];
   for (const p of payloads) {
-    const r = await request.post(`http://localhost:3000/api/channels/${general}/messages`, {
+    const r = await request.post(`http://localhost:3000/api/v1/channels/${general}/messages`, {
       headers: auth,
       data: { content: p },
     });

@@ -50,7 +50,7 @@ describe('ExportsSection', () => {
   it('lists past exports with their status and a download for the requester', () => {
     rows = [
       row({ id: 'exp-2', status: 'running', created_at: '2026-10-26T11:00:00Z' }),
-      row({}, 'http://localhost:3000/api/exports/download/tok'),
+      row({}, 'http://localhost:3000/api/v1/exports/download/tok'),
       row({ id: 'exp-3', scope: 'user', workspace_id: null, subject_user_id: 'bob-1' }),
     ];
     render(<ExportsSection workspaceId="ws-1" isOwner />);
@@ -60,7 +60,7 @@ describe('ExportsSection', () => {
     expect(within(running).queryByTestId('export-download')).not.toBeInTheDocument();
 
     const link = within(ready).getByTestId('export-download');
-    expect(link).toHaveAttribute('href', 'http://localhost:3000/api/exports/download/tok');
+    expect(link).toHaveAttribute('href', 'http://localhost:3000/api/v1/exports/download/tok');
     fireEvent.click(link);
     expect(within(ready).queryByTestId('export-download')).not.toBeInTheDocument();
     expect(within(ready).getByTestId('export-link-gone')).toHaveTextContent('Downloaded');
@@ -104,7 +104,7 @@ describe('ExportsSection in Japanese', () => {
   it('lists the exports, and names a person as text', () => {
     rows = [
       row({ id: 'exp-2', status: 'running', include_dms: true }),
-      row({}, 'http://localhost:3000/api/exports/download/tok'),
+      row({}, 'http://localhost:3000/api/v1/exports/download/tok'),
       row({ id: 'exp-3', scope: 'user', workspace_id: null, subject_user_id: 'bob-1', status: 'failed' }),
     ];
     render(<ExportsSection workspaceId="ws-1" isOwner />);

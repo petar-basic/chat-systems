@@ -45,7 +45,7 @@ async fn upload(
 ) -> (StatusCode, serde_json::Value) {
     let request = Request::builder()
         .method("POST")
-        .uri(format!("/api/workspaces/{ws_id}/emojis"))
+        .uri(format!("/api/v1/workspaces/{ws_id}/emojis"))
         .header(header::AUTHORIZATION, format!("Bearer {token}"))
         .header(
             header::CONTENT_TYPE,
@@ -86,7 +86,7 @@ async fn an_emoji_uploads_once_and_lists_with_a_url(pool: PgPool) {
     let (status, listed) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/emojis"),
+        &format!("/api/v1/workspaces/{ws_id}/emojis"),
         Some(&token),
         None,
     )
@@ -161,7 +161,7 @@ async fn removing_one_is_the_uploader_or_an_admin(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{ws_id}/emojis/{emoji_id}"),
+        &format!("/api/v1/workspaces/{ws_id}/emojis/{emoji_id}"),
         Some(&other_token),
         None,
     )
@@ -175,7 +175,7 @@ async fn removing_one_is_the_uploader_or_an_admin(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{ws_id}/emojis/{emoji_id}"),
+        &format!("/api/v1/workspaces/{ws_id}/emojis/{emoji_id}"),
         Some(&owner_token),
         None,
     )
@@ -201,7 +201,7 @@ async fn emojis_belong_to_the_workspace_that_owns_them(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/emojis"),
+        &format!("/api/v1/workspaces/{ws_id}/emojis"),
         Some(&outsider_token),
         None,
     )
@@ -211,7 +211,7 @@ async fn emojis_belong_to_the_workspace_that_owns_them(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/emojis"),
+        &format!("/api/v1/workspaces/{ws_id}/emojis"),
         None,
         None,
     )
@@ -231,7 +231,7 @@ async fn the_image_is_served_to_the_workspace_and_nobody_else(pool: PgPool) {
     let (status, created) = upload(&app, &owner_token, ws_id, "shipit", "image/png", PNG).await;
     assert_eq!(status, StatusCode::OK, "{created:?}");
     let url = created["url"].as_str().expect("url");
-    let path = &url[url.find("/api/").expect("api path")..];
+    let path = &url[url.find("/api/v1/").expect("api path")..];
 
     let image = |token: String| {
         let request = Request::builder()
@@ -266,14 +266,14 @@ async fn a_reaction_can_be_a_custom_emoji_the_workspace_has(pool: PgPool) {
     let (status, message) = send(
         &app,
         "POST",
-        &format!("/api/channels/{channel}/messages"),
+        &format!("/api/v1/channels/{channel}/messages"),
         Some(&token),
         Some(serde_json::json!({ "content": "ship it" })),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{message:?}");
     let reactions = format!(
-        "/api/messages/{}/reactions",
+        "/api/v1/messages/{}/reactions",
         message["id"].as_str().expect("id")
     );
 

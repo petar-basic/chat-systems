@@ -41,7 +41,7 @@ const hit = (id: string, filename: string, mime_type: string, kind: string) => (
   mime_type,
   kind,
   size_bytes: 2048,
-  url: `https://chat.test/api/files/download/ws/${id}/${filename}`,
+  url: `https://chat.test/api/v1/files/download/ws/${id}/${filename}`,
   message_id: `m-${id}`,
   channel_id: 'c-1',
   channel_name: 'finance',

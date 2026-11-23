@@ -11,7 +11,7 @@
   },
   "servers": [
     {
-      "url": "/api"
+      "url": "/api/v1"
     }
   ],
   "paths": {
@@ -21144,9 +21144,16 @@
           "max_upload_bytes",
           "setup_required",
           "workspace_creation_restricted",
-          "other_servers_allowed"
+          "other_servers_allowed",
+          "api_version",
+          "min_client_version"
         ],
         "properties": {
+          "api_version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
           "email_code_sign_in": {
             "type": "boolean"
           },
@@ -21160,6 +21167,9 @@
             "type": "integer",
             "format": "int64",
             "minimum": 0
+          },
+          "min_client_version": {
+            "type": "string"
           },
           "name": {
             "type": "string"

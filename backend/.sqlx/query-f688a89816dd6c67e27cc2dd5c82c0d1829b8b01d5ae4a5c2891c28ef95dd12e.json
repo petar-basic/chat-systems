@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT workspace_id, user_id, avatar_url AS \"avatar_url!\" FROM workspace_members\n             WHERE avatar_url LIKE '%/api/files/download/%'\n               AND avatar_url NOT LIKE '%/api/files/download/avatars/%'\n            ",
+  "query": "\n            SELECT workspace_id, user_id, avatar_url AS \"avatar_url!\" FROM workspace_members\n             WHERE avatar_url LIKE '%/api/v1/files/download/%'\n               AND avatar_url NOT LIKE '%/api/v1/files/download/avatars/%'\n            ",
   "describe": {
     "columns": [
       {
@@ -46,5 +46,5 @@
       true
     ]
   },
-  "hash": "942b27c1669e0c44b9c1fe66f30d9e60ac7e02a8fa578384be0fe0068386c0b1"
+  "hash": "f688a89816dd6c67e27cc2dd5c82c0d1829b8b01d5ae4a5c2891c28ef95dd12e"
 }

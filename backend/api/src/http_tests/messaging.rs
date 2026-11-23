@@ -38,7 +38,7 @@ async fn create_message(
     let (status, body) = send(
         app,
         "POST",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(token),
         Some(json!({ "content": content })),
     )
@@ -57,7 +57,7 @@ async fn send_message_member_succeeds(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(&token),
         Some(json!({ "content": "hello world" })),
     )
@@ -77,7 +77,7 @@ async fn send_message_non_member_forbidden(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(&outsider_token),
         Some(json!({ "content": "let me in" })),
     )
@@ -91,7 +91,7 @@ async fn send_message_no_token_unauthorized(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         None,
         Some(json!({ "content": "anon" })),
     )
@@ -105,7 +105,7 @@ async fn send_message_empty_content_unprocessable(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(&token),
         Some(json!({ "content": "   " })),
     )
@@ -120,7 +120,7 @@ async fn send_message_unknown_channel_not_found(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ghost}/messages"),
+        &format!("/api/v1/channels/{ghost}/messages"),
         Some(&token),
         Some(json!({ "content": "into the void" })),
     )
@@ -136,7 +136,7 @@ async fn list_messages_member_succeeds(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(&token),
         None,
     )
@@ -152,7 +152,7 @@ async fn list_messages_non_member_forbidden(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "GET",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(&outsider_token),
         None,
     )
@@ -166,7 +166,7 @@ async fn list_messages_no_token_unauthorized(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "GET",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         None,
         None,
     )
@@ -181,7 +181,7 @@ async fn update_message_author_succeeds(pool: PgPool) {
     let (status, body) = send(
         &app,
         "PATCH",
-        &format!("/api/messages/{msg_id}"),
+        &format!("/api/v1/messages/{msg_id}"),
         Some(&token),
         Some(json!({ "content": "edited" })),
     )
@@ -198,7 +198,7 @@ async fn update_message_non_author_forbidden(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "PATCH",
-        &format!("/api/messages/{msg_id}"),
+        &format!("/api/v1/messages/{msg_id}"),
         Some(&other_token),
         Some(json!({ "content": "hijack" })),
     )
@@ -213,7 +213,7 @@ async fn update_message_no_token_unauthorized(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "PATCH",
-        &format!("/api/messages/{msg_id}"),
+        &format!("/api/v1/messages/{msg_id}"),
         None,
         Some(json!({ "content": "edited" })),
     )
@@ -228,7 +228,7 @@ async fn update_message_unknown_not_found(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "PATCH",
-        &format!("/api/messages/{ghost}"),
+        &format!("/api/v1/messages/{ghost}"),
         Some(&token),
         Some(json!({ "content": "edited" })),
     )
@@ -290,7 +290,7 @@ async fn hide_unfurls_author_succeeds_and_sticks(pool: PgPool) {
     let (status, body) = send(
         &app,
         "DELETE",
-        &format!("/api/messages/{msg_id}/unfurls"),
+        &format!("/api/v1/messages/{msg_id}/unfurls"),
         Some(&token),
         None,
     )
@@ -313,7 +313,7 @@ async fn hide_unfurls_non_author_forbidden(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "DELETE",
-        &format!("/api/messages/{msg_id}/unfurls"),
+        &format!("/api/v1/messages/{msg_id}/unfurls"),
         Some(&other_token),
         None,
     )
@@ -328,7 +328,7 @@ async fn hide_unfurls_no_token_unauthorized(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "DELETE",
-        &format!("/api/messages/{msg_id}/unfurls"),
+        &format!("/api/v1/messages/{msg_id}/unfurls"),
         None,
         None,
     )
@@ -343,7 +343,7 @@ async fn hide_unfurls_unknown_not_found(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "DELETE",
-        &format!("/api/messages/{ghost}/unfurls"),
+        &format!("/api/v1/messages/{ghost}/unfurls"),
         Some(&token),
         None,
     )
@@ -366,7 +366,7 @@ async fn a_workspace_can_turn_previews_off(pool: PgPool) {
     let (status, body) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{ws_id}"),
+        &format!("/api/v1/workspaces/{ws_id}"),
         Some(&token),
         Some(json!({ "link_previews": false })),
     )
@@ -390,7 +390,7 @@ async fn delete_message_author_succeeds(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "DELETE",
-        &format!("/api/messages/{msg_id}"),
+        &format!("/api/v1/messages/{msg_id}"),
         Some(&token),
         None,
     )
@@ -407,7 +407,7 @@ async fn delete_message_admin_succeeds(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "DELETE",
-        &format!("/api/messages/{msg_id}"),
+        &format!("/api/v1/messages/{msg_id}"),
         Some(&admin_token),
         None,
     )
@@ -424,7 +424,7 @@ async fn delete_message_non_author_member_forbidden(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "DELETE",
-        &format!("/api/messages/{msg_id}"),
+        &format!("/api/v1/messages/{msg_id}"),
         Some(&member_token),
         None,
     )
@@ -439,7 +439,7 @@ async fn delete_message_no_token_unauthorized(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "DELETE",
-        &format!("/api/messages/{msg_id}"),
+        &format!("/api/v1/messages/{msg_id}"),
         None,
         None,
     )
@@ -455,7 +455,7 @@ async fn thread_reply_and_list_succeeds(pool: PgPool) {
     let (reply_status, reply_body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(&token),
         Some(json!({ "content": "a reply", "thread_parent_id": parent })),
     )
@@ -466,7 +466,7 @@ async fn thread_reply_and_list_succeeds(pool: PgPool) {
     let (list_status, list_body) = send(
         &app,
         "GET",
-        &format!("/api/messages/{parent}/thread"),
+        &format!("/api/v1/messages/{parent}/thread"),
         Some(&token),
         None,
     )
@@ -483,7 +483,7 @@ async fn thread_reply_non_member_forbidden(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(&outsider_token),
         Some(json!({ "content": "intruder reply", "thread_parent_id": parent })),
     )
@@ -498,7 +498,7 @@ async fn thread_reply_no_token_unauthorized(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         None,
         Some(json!({ "content": "anon reply", "thread_parent_id": parent })),
     )
@@ -513,7 +513,7 @@ async fn thread_list_unknown_parent_not_found(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "GET",
-        &format!("/api/messages/{ghost}/thread"),
+        &format!("/api/v1/messages/{ghost}/thread"),
         Some(&token),
         None,
     )
@@ -529,7 +529,7 @@ async fn reaction_add_list_remove_succeeds(pool: PgPool) {
     let (add_status, add_body) = send(
         &app,
         "POST",
-        &format!("/api/messages/{msg_id}/reactions"),
+        &format!("/api/v1/messages/{msg_id}/reactions"),
         Some(&token),
         Some(json!({ "emoji": "👍" })),
     )
@@ -540,7 +540,7 @@ async fn reaction_add_list_remove_succeeds(pool: PgPool) {
     let (list_status, list_body) = send(
         &app,
         "GET",
-        &format!("/api/messages/{msg_id}/reactions"),
+        &format!("/api/v1/messages/{msg_id}/reactions"),
         Some(&token),
         None,
     )
@@ -552,7 +552,7 @@ async fn reaction_add_list_remove_succeeds(pool: PgPool) {
     let (rm_status, _rm_body) = send(
         &app,
         "DELETE",
-        &format!("/api/messages/{msg_id}/reactions/{encoded}"),
+        &format!("/api/v1/messages/{msg_id}/reactions/{encoded}"),
         Some(&token),
         None,
     )
@@ -568,7 +568,7 @@ async fn reaction_add_non_member_forbidden(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "POST",
-        &format!("/api/messages/{msg_id}/reactions"),
+        &format!("/api/v1/messages/{msg_id}/reactions"),
         Some(&outsider_token),
         Some(json!({ "emoji": "👍" })),
     )
@@ -583,7 +583,7 @@ async fn reaction_list_no_token_unauthorized(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "GET",
-        &format!("/api/messages/{msg_id}/reactions"),
+        &format!("/api/v1/messages/{msg_id}/reactions"),
         None,
         None,
     )
@@ -598,7 +598,7 @@ async fn reaction_add_unknown_message_not_found(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "POST",
-        &format!("/api/messages/{ghost}/reactions"),
+        &format!("/api/v1/messages/{ghost}/reactions"),
         Some(&token),
         Some(json!({ "emoji": "👍" })),
     )
@@ -614,7 +614,7 @@ async fn pin_unpin_and_list_succeeds(pool: PgPool) {
     let (pin_status, _pin_body) = send(
         &app,
         "POST",
-        &format!("/api/messages/{msg_id}/pin"),
+        &format!("/api/v1/messages/{msg_id}/pin"),
         Some(&token),
         None,
     )
@@ -624,7 +624,7 @@ async fn pin_unpin_and_list_succeeds(pool: PgPool) {
     let (list_status, list_body) = send(
         &app,
         "GET",
-        &format!("/api/channels/{ch_id}/pins"),
+        &format!("/api/v1/channels/{ch_id}/pins"),
         Some(&token),
         None,
     )
@@ -635,7 +635,7 @@ async fn pin_unpin_and_list_succeeds(pool: PgPool) {
     let (unpin_status, _unpin_body) = send(
         &app,
         "DELETE",
-        &format!("/api/messages/{msg_id}/pin"),
+        &format!("/api/v1/messages/{msg_id}/pin"),
         Some(&token),
         None,
     )
@@ -652,7 +652,7 @@ async fn pin_message_non_moderator_forbidden(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "POST",
-        &format!("/api/messages/{msg_id}/pin"),
+        &format!("/api/v1/messages/{msg_id}/pin"),
         Some(&member_token),
         None,
     )
@@ -667,7 +667,7 @@ async fn pin_message_no_token_unauthorized(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "POST",
-        &format!("/api/messages/{msg_id}/pin"),
+        &format!("/api/v1/messages/{msg_id}/pin"),
         None,
         None,
     )
@@ -682,7 +682,7 @@ async fn list_pins_non_member_forbidden(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "GET",
-        &format!("/api/channels/{ch_id}/pins"),
+        &format!("/api/v1/channels/{ch_id}/pins"),
         Some(&outsider_token),
         None,
     )
@@ -697,7 +697,7 @@ async fn search_member_succeeds(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/search?q=needle&workspace_id={ws_id}"),
+        &format!("/api/v1/search?q=needle&workspace_id={ws_id}"),
         Some(&token),
         None,
     )
@@ -710,7 +710,7 @@ async fn search_member_succeeds(pool: PgPool) {
 async fn a_deleted_thread_with_no_replies_left_takes_none(pool: PgPool) {
     let (app, _state, _owner, token, _ws, ch_id) = setup_channel(pool).await;
     let root = create_message(&app, &token, ch_id, "root").await;
-    let path = format!("/api/channels/{ch_id}/messages");
+    let path = format!("/api/v1/channels/{ch_id}/messages");
     let reply = |content: &'static str| {
         send(
             &app,
@@ -726,7 +726,7 @@ async fn a_deleted_thread_with_no_replies_left_takes_none(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/messages/{root}"),
+        &format!("/api/v1/messages/{root}"),
         Some(&token),
         None,
     )
@@ -742,7 +742,7 @@ async fn a_deleted_thread_with_no_replies_left_takes_none(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/messages/{root}/thread"),
+        &format!("/api/v1/messages/{root}/thread"),
         Some(&token),
         None,
     )
@@ -753,7 +753,7 @@ async fn a_deleted_thread_with_no_replies_left_takes_none(pool: PgPool) {
         let (status, _) = send(
             &app,
             "DELETE",
-            &format!("/api/messages/{id}"),
+            &format!("/api/v1/messages/{id}"),
             Some(&token),
             None,
         )
@@ -784,7 +784,7 @@ async fn a_hit_from_a_channel_you_are_not_in_says_where_it_is(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/search?q=needle&workspace_id={ws_id}"),
+        &format!("/api/v1/search?q=needle&workspace_id={ws_id}"),
         Some(&member_token),
         None,
     )
@@ -813,7 +813,7 @@ async fn search_excludes_private_channels_for_non_channel_member(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/search?q=needle&workspace_id={ws_id}"),
+        &format!("/api/v1/search?q=needle&workspace_id={ws_id}"),
         Some(&member_token),
         None,
     )
@@ -828,7 +828,7 @@ async fn search_excludes_private_channels_for_non_channel_member(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/search?q=needle&workspace_id={ws_id}"),
+        &format!("/api/v1/search?q=needle&workspace_id={ws_id}"),
         Some(&owner_token),
         None,
     )
@@ -848,7 +848,7 @@ async fn search_non_member_forbidden(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "GET",
-        &format!("/api/search?q=needle&workspace_id={ws_id}"),
+        &format!("/api/v1/search?q=needle&workspace_id={ws_id}"),
         Some(&outsider_token),
         None,
     )
@@ -862,7 +862,7 @@ async fn search_no_token_unauthorized(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "GET",
-        &format!("/api/search?q=needle&workspace_id={ws_id}"),
+        &format!("/api/v1/search?q=needle&workspace_id={ws_id}"),
         None,
         None,
     )
@@ -876,7 +876,7 @@ async fn search_empty_query_unprocessable(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "GET",
-        &format!("/api/search?q=&workspace_id={ws_id}"),
+        &format!("/api/v1/search?q=&workspace_id={ws_id}"),
         Some(&token),
         None,
     )
@@ -891,7 +891,7 @@ async fn mark_read_member_succeeds(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/read"),
+        &format!("/api/v1/channels/{ch_id}/read"),
         Some(&token),
         Some(json!({ "message_id": msg_id })),
     )
@@ -907,7 +907,7 @@ async fn mark_read_non_member_forbidden(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/read"),
+        &format!("/api/v1/channels/{ch_id}/read"),
         Some(&outsider_token),
         Some(json!({ "message_id": msg_id })),
     )
@@ -922,7 +922,7 @@ async fn mark_read_no_token_unauthorized(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/read"),
+        &format!("/api/v1/channels/{ch_id}/read"),
         None,
         Some(json!({ "message_id": msg_id })),
     )
@@ -947,7 +947,7 @@ async fn mark_workspace_read_clears_every_channel(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/read"),
+        &format!("/api/v1/workspaces/{ws_id}/read"),
         Some(&token),
         None,
     )
@@ -957,7 +957,7 @@ async fn mark_workspace_read_clears_every_channel(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/channels/unread"),
+        &format!("/api/v1/workspaces/{ws_id}/channels/unread"),
         Some(&token),
         None,
     )
@@ -974,7 +974,7 @@ async fn mark_workspace_read_leaves_the_line_after_the_newest_channel_message(po
     let (status, reply) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(&colleague_token),
         Some(json!({ "content": "only in the thread", "thread_parent_id": root })),
     )
@@ -984,7 +984,7 @@ async fn mark_workspace_read_leaves_the_line_after_the_newest_channel_message(po
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/read"),
+        &format!("/api/v1/workspaces/{ws_id}/read"),
         Some(&token),
         None,
     )
@@ -995,7 +995,7 @@ async fn mark_workspace_read_leaves_the_line_after_the_newest_channel_message(po
     let (_, body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/channels/unread"),
+        &format!("/api/v1/workspaces/{ws_id}/channels/unread"),
         Some(&token),
         None,
     )
@@ -1024,7 +1024,7 @@ async fn reading_up_to_a_thread_only_reply_stops_at_the_channel_message_before_i
     let (_, reply) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(&colleague_token),
         Some(json!({ "content": "only in the thread", "thread_parent_id": root })),
     )
@@ -1032,7 +1032,7 @@ async fn reading_up_to_a_thread_only_reply_stops_at_the_channel_message_before_i
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/read"),
+        &format!("/api/v1/channels/{ch_id}/read"),
         Some(&token),
         Some(json!({ "message_id": reply["id"] })),
     )
@@ -1054,7 +1054,7 @@ async fn reading_up_to_a_thread_only_reply_stops_at_the_channel_message_before_i
 async fn mark_workspace_read_access(pool: PgPool) {
     let (app, state, _owner, _token, ws_id, _ch_id) = setup_channel(pool).await;
     let (_outsider, _email, outsider_token) = seed_and_login(&app, &state, "outsider", false).await;
-    let path = format!("/api/workspaces/{ws_id}/read");
+    let path = format!("/api/v1/workspaces/{ws_id}/read");
     let (status, _) = send(&app, "POST", &path, Some(&outsider_token), None).await;
     assert_eq!(status, StatusCode::FORBIDDEN);
     let (status, _) = send(&app, "POST", &path, None, None).await;
@@ -1088,7 +1088,7 @@ async fn mark_unread_as(
     send(
         app,
         "POST",
-        &format!("/api/channels/{ch_id}/unread"),
+        &format!("/api/v1/channels/{ch_id}/unread"),
         Some(token),
         Some(json!({ "message_id": msg_id })),
     )
@@ -1105,7 +1105,7 @@ async fn mark_unread_counts_from_the_marked_message(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/read"),
+        &format!("/api/v1/channels/{ch_id}/read"),
         Some(&token),
         Some(json!({ "message_id": third })),
     )
@@ -1128,7 +1128,7 @@ async fn mark_unread_counts_from_the_marked_message(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/channels/unread"),
+        &format!("/api/v1/workspaces/{ws_id}/channels/unread"),
         Some(&token),
         None,
     )
@@ -1201,7 +1201,7 @@ async fn mark_unread_no_token_unauthorized(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/unread"),
+        &format!("/api/v1/channels/{ch_id}/unread"),
         None,
         Some(json!({ "message_id": msg_id })),
     )
@@ -1227,7 +1227,7 @@ async fn unreads(
     let (status, body) = send(
         app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/unreads{query}"),
+        &format!("/api/v1/workspaces/{ws_id}/unreads{query}"),
         Some(token),
         None,
     )
@@ -1268,7 +1268,7 @@ async fn unreads_group_by_channel_newest_first_and_muted_last(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{delta}/read"),
+        &format!("/api/v1/channels/{delta}/read"),
         Some(&token),
         Some(json!({ "message_id": read })),
     )
@@ -1346,7 +1346,7 @@ async fn unreads_outsider_forbidden(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/unreads"),
+        &format!("/api/v1/workspaces/{ws_id}/unreads"),
         Some(&outsider_token),
         None,
     )
@@ -1497,14 +1497,14 @@ async fn search_holds_guests_to_the_channels_they_belong_to(pool: PgPool) {
     let (status, msg) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(&owner_token),
         Some(json!({ "content": needle.clone() })),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "seed message: {msg:?}");
 
-    let uri = format!("/api/search?workspace_id={ws_id}&q={needle}");
+    let uri = format!("/api/v1/search?workspace_id={ws_id}&q={needle}");
 
     let (status, body) = send(&app, "GET", &uri, Some(&member_token), None).await;
     assert_eq!(status, StatusCode::OK);
@@ -1525,7 +1525,7 @@ async fn search_holds_guests_to_the_channels_they_belong_to(pool: PgPool) {
     let (status, _b) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/members"),
+        &format!("/api/v1/channels/{ch_id}/members"),
         Some(&owner_token),
         Some(json!({ "user_id": guest_id })),
     )
@@ -1558,7 +1558,7 @@ async fn diacritics_match_in_both_directions(pool: PgPool) {
         let (status, body) = send(
             &app,
             "GET",
-            &format!("/api/search?q={}&workspace_id={ws_id}", urlencode(query)),
+            &format!("/api/v1/search?q={}&workspace_id={ws_id}", urlencode(query)),
             Some(&token),
             None,
         )
@@ -1580,7 +1580,7 @@ async fn a_substring_and_a_near_miss_still_find_the_message(pool: PgPool) {
         let (status, body) = send(
             &app,
             "GET",
-            &format!("/api/search?q={query}&workspace_id={ws_id}"),
+            &format!("/api/v1/search?q={query}&workspace_id={ws_id}"),
             Some(&token),
             None,
         )
@@ -1605,7 +1605,7 @@ async fn an_exact_match_outranks_a_fuzzy_one(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/search?q=deployment&workspace_id={ws_id}"),
+        &format!("/api/v1/search?q=deployment&workspace_id={ws_id}"),
         Some(&token),
         None,
     )
@@ -1630,7 +1630,7 @@ async fn exact_matches_that_fill_the_page_leave_no_room_for_fuzzy_ones(pool: PgP
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/search?q=deployment&workspace_id={ws_id}&limit=2"),
+        &format!("/api/v1/search?q=deployment&workspace_id={ws_id}&limit=2"),
         Some(&token),
         None,
     )
@@ -1656,7 +1656,7 @@ async fn a_term_with_no_exact_match_still_finds_its_fuzzy_one(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/search?q=deploymen&workspace_id={ws_id}"),
+        &format!("/api/v1/search?q=deploymen&workspace_id={ws_id}"),
         Some(&token),
         None,
     )
@@ -1765,7 +1765,7 @@ async fn a_dm_is_searchable_by_its_participants_and_nobody_else(pool: PgPool) {
     let (status, conversation) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&owner_token),
         Some(json!({ "participant_ids": [partner_id] })),
     )
@@ -1776,7 +1776,7 @@ async fn a_dm_is_searchable_by_its_participants_and_nobody_else(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{conversation_id}/messages"),
+        &format!("/api/v1/channels/{conversation_id}/messages"),
         Some(&owner_token),
         Some(json!({ "content": "the séance is at six" })),
     )
@@ -1787,7 +1787,7 @@ async fn a_dm_is_searchable_by_its_participants_and_nobody_else(pool: PgPool) {
         let (status, body) = send(
             &app,
             "GET",
-            &format!("/api/search?q=seance&workspace_id={ws_id}"),
+            &format!("/api/v1/search?q=seance&workspace_id={ws_id}"),
             Some(token),
             None,
         )
@@ -1804,7 +1804,7 @@ async fn a_dm_is_searchable_by_its_participants_and_nobody_else(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/search?q=seance&workspace_id={ws_id}"),
+        &format!("/api/v1/search?q=seance&workspace_id={ws_id}"),
         Some(&outsider_token),
         None,
     )
@@ -1829,7 +1829,7 @@ async fn scope_decides_which_half_of_the_search_runs(pool: PgPool) {
     let (_, conversation) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&owner_token),
         Some(json!({ "participant_ids": [partner_id] })),
     )
@@ -1838,7 +1838,7 @@ async fn scope_decides_which_half_of_the_search_runs(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{conversation_id}/messages"),
+        &format!("/api/v1/channels/{conversation_id}/messages"),
         Some(&owner_token),
         Some(json!({ "content": "shared word there" })),
     )
@@ -1855,7 +1855,7 @@ async fn scope_decides_which_half_of_the_search_runs(pool: PgPool) {
         let (status, body) = send(
             &app,
             "GET",
-            &format!("/api/search?q=shared&workspace_id={ws_id}{suffix}"),
+            &format!("/api/v1/search?q=shared&workspace_id={ws_id}{suffix}"),
             Some(&owner_token),
             None,
         )
@@ -1887,7 +1887,7 @@ async fn search_contents(
     let (status, body) = send(
         app,
         "GET",
-        &format!("/api/search?workspace_id={ws_id}{query}"),
+        &format!("/api/v1/search?workspace_id={ws_id}{query}"),
         Some(token),
         None,
     )
@@ -2000,7 +2000,7 @@ async fn search_in_one_conversation(pool: PgPool) {
     let (_, conversation) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&token),
         Some(json!({ "participant_ids": [partner] })),
     )
@@ -2028,7 +2028,7 @@ async fn search_in_one_conversation(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/search?workspace_id={ws_id}&q=lunch&channel_id={conversation_id}"),
+        &format!("/api/v1/search?workspace_id={ws_id}&q=lunch&channel_id={conversation_id}"),
         Some(&outsider_token),
         None,
     )
@@ -2040,7 +2040,7 @@ async fn search_in_one_conversation(pool: PgPool) {
 async fn opening_a_channel_says_where_the_reader_stopped(pool: PgPool) {
     let (app, state, _owner_id, token, ws_id, ch_id) = setup_channel(pool).await;
     let (_colleague_id, colleague_token) = colleague_in_channel(&app, &state, ws_id, ch_id).await;
-    let open = format!("/api/channels/{ch_id}/messages?mark_read=true");
+    let open = format!("/api/v1/channels/{ch_id}/messages?mark_read=true");
 
     let first = create_message(&app, &token, ch_id, "first").await;
     let (status, page) = send(&app, "GET", &open, Some(&colleague_token), None).await;
@@ -2074,7 +2074,7 @@ async fn a_thread_reply_counts_in_the_channel_only_when_it_is_shown_there(pool: 
     send(
         &app,
         "GET",
-        &format!("/api/channels/{ch_id}/messages?mark_read=true"),
+        &format!("/api/v1/channels/{ch_id}/messages?mark_read=true"),
         Some(&colleague_token),
         None,
     )
@@ -2100,7 +2100,7 @@ async fn a_thread_reply_counts_in_the_channel_only_when_it_is_shown_there(pool: 
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(&token),
         Some(reply(false)),
     )
@@ -2115,7 +2115,7 @@ async fn a_thread_reply_counts_in_the_channel_only_when_it_is_shown_there(pool: 
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(&token),
         Some(reply(true)),
     )

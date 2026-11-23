@@ -59,7 +59,7 @@ async fn record(app: &Router, token: &str, ws: Uuid, body: Value) -> (StatusCode
     send(
         app,
         "POST",
-        &format!("/api/workspaces/{ws}/searches/recent"),
+        &format!("/api/v1/workspaces/{ws}/searches/recent"),
         Some(token),
         Some(body),
     )
@@ -76,7 +76,7 @@ async fn recent(app: &Router, token: &str, ws: Uuid) -> Vec<Value> {
     let (status, body) = send(
         app,
         "GET",
-        &format!("/api/workspaces/{ws}/searches/recent"),
+        &format!("/api/v1/workspaces/{ws}/searches/recent"),
         Some(token),
         None,
     )
@@ -246,7 +246,7 @@ async fn recent_searches_answer_for_their_owner_only(pool: PgPool) {
     );
 
     let ana_one = format!(
-        "/api/workspaces/{}/searches/recent/{}",
+        "/api/v1/workspaces/{}/searches/recent/{}",
         t.ws,
         kept["id"].as_str().expect("id")
     );
@@ -255,7 +255,7 @@ async fn recent_searches_answer_for_their_owner_only(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{}/searches/recent", t.ws),
+        &format!("/api/v1/workspaces/{}/searches/recent", t.ws),
         Some(&t.ben),
         None,
     )
@@ -275,7 +275,7 @@ async fn recent_searches_answer_for_their_owner_only(pool: PgPool) {
         let (status, _) = send(
             &app,
             method,
-            &format!("/api/workspaces/{}/searches/recent", t.ws),
+            &format!("/api/v1/workspaces/{}/searches/recent", t.ws),
             Some(&outsider),
             body,
         )
@@ -310,7 +310,7 @@ async fn recent_searches_answer_for_their_owner_only(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{}/searches/recent", t.ws),
+        &format!("/api/v1/workspaces/{}/searches/recent", t.ws),
         Some(&t.ana),
         None,
     )
@@ -381,7 +381,7 @@ async fn a_channel_lost_after_a_search_drops_out_of_it(pool: PgPool) {
         &app,
         "DELETE",
         &format!(
-            "/api/workspaces/{}/searches/recent/{}",
+            "/api/v1/workspaces/{}/searches/recent/{}",
             t.ws,
             again["id"].as_str().expect("id")
         ),
@@ -420,7 +420,7 @@ async fn a_person_export_carries_recent_searches_and_erasing_or_leaving_removes_
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/users/{}/exports", t.ana_id),
+        &format!("/api/v1/users/{}/exports", t.ana_id),
         Some(&t.ana),
         Some(json!({})),
     )
@@ -454,7 +454,7 @@ async fn a_person_export_carries_recent_searches_and_erasing_or_leaving_removes_
     let (status, body) = send(
         &app,
         "DELETE",
-        &format!("/api/admin/users/{}/data", t.ana_id),
+        &format!("/api/v1/admin/users/{}/data", t.ana_id),
         Some(&instance_admin),
         Some(json!({})),
     )
@@ -466,7 +466,7 @@ async fn a_person_export_carries_recent_searches_and_erasing_or_leaving_removes_
     let (status, body) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{}/members/{}", t.ws, t.ben_id),
+        &format!("/api/v1/workspaces/{}/members/{}", t.ws, t.ben_id),
         Some(&t.owner),
         None,
     )

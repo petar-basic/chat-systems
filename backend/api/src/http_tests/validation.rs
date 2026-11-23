@@ -14,7 +14,7 @@ async fn an_over_long_channel_reaction_is_a_400_not_a_500(pool: PgPool) {
     let (_, msg) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&token),
         Some(json!({ "content": "react to me" })),
     )
@@ -24,7 +24,7 @@ async fn an_over_long_channel_reaction_is_a_400_not_a_500(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/messages/{msg_id}/reactions"),
+        &format!("/api/v1/messages/{msg_id}/reactions"),
         Some(&token),
         Some(json!({ "emoji": "x".repeat(60) })),
     )
@@ -46,7 +46,7 @@ async fn a_reaction_the_websocket_would_accept_is_accepted_here_too(pool: PgPool
     let (_, msg) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&token),
         Some(json!({ "content": "react to me" })),
     )
@@ -56,7 +56,7 @@ async fn a_reaction_the_websocket_would_accept_is_accepted_here_too(pool: PgPool
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/messages/{msg_id}/reactions"),
+        &format!("/api/v1/messages/{msg_id}/reactions"),
         Some(&token),
         Some(json!({ "emoji": "🚀" })),
     )
@@ -74,7 +74,7 @@ async fn a_duplicate_reaction_is_a_conflict_not_a_database_error(pool: PgPool) {
     let (_, msg) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&token),
         Some(json!({ "content": "react to me" })),
     )
@@ -85,7 +85,7 @@ async fn a_duplicate_reaction_is_a_conflict_not_a_database_error(pool: PgPool) {
     let (first, _) = send(
         &app,
         "POST",
-        &format!("/api/messages/{msg_id}/reactions"),
+        &format!("/api/v1/messages/{msg_id}/reactions"),
         Some(&token),
         Some(body.clone()),
     )
@@ -95,7 +95,7 @@ async fn a_duplicate_reaction_is_a_conflict_not_a_database_error(pool: PgPool) {
     let (second, response) = send(
         &app,
         "POST",
-        &format!("/api/messages/{msg_id}/reactions"),
+        &format!("/api/v1/messages/{msg_id}/reactions"),
         Some(&token),
         Some(body),
     )
@@ -116,7 +116,7 @@ async fn over_long_reminder_content_is_refused(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/later"),
+        &format!("/api/v1/workspaces/{ws}/later"),
         Some(&token),
         Some(json!({
             "text": "x".repeat(4001),
@@ -137,7 +137,7 @@ async fn over_long_channel_topic_and_description_are_refused(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/channels/{ch}"),
+        &format!("/api/v1/channels/{ch}"),
         Some(&token),
         Some(json!({ "topic": "x".repeat(501) })),
     )
@@ -147,7 +147,7 @@ async fn over_long_channel_topic_and_description_are_refused(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/channels/{ch}"),
+        &format!("/api/v1/channels/{ch}"),
         Some(&token),
         Some(json!({ "description": "x".repeat(4001) })),
     )
@@ -163,7 +163,7 @@ async fn a_profile_bio_and_timezone_are_bounded(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        "/api/users/me",
+        "/api/v1/users/me",
         Some(&token),
         Some(json!({ "bio": "x".repeat(501) })),
     )
@@ -173,7 +173,7 @@ async fn a_profile_bio_and_timezone_are_bounded(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        "/api/users/me",
+        "/api/v1/users/me",
         Some(&token),
         Some(json!({ "timezone": "Europe/Belgrade'; DROP TABLE users" })),
     )
@@ -183,7 +183,7 @@ async fn a_profile_bio_and_timezone_are_bounded(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        "/api/users/me",
+        "/api/v1/users/me",
         Some(&token),
         Some(json!({ "timezone": "Europe/Belgrade" })),
     )
@@ -200,7 +200,7 @@ async fn workspace_and_hook_free_text_is_bounded(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{ws}"),
+        &format!("/api/v1/workspaces/{ws}"),
         Some(&token),
         Some(json!({ "description": "x".repeat(4001) })),
     )
@@ -210,7 +210,7 @@ async fn workspace_and_hook_free_text_is_bounded(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{ws}"),
+        &format!("/api/v1/workspaces/{ws}"),
         Some(&token),
         Some(json!({ "icon_url": "javascript:alert(1)" })),
     )
@@ -220,7 +220,7 @@ async fn workspace_and_hook_free_text_is_bounded(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&token),
         Some(json!({ "hook_type": "bot", "name": "   " })),
     )
@@ -230,7 +230,7 @@ async fn workspace_and_hook_free_text_is_bounded(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/invites"),
+        &format!("/api/v1/workspaces/{ws}/invites"),
         Some(&token),
         Some(json!({ "email": "not-an-address", "role": "member", "max_uses": 1 })),
     )
@@ -250,7 +250,7 @@ async fn a_channel_client_id_never_reaches_into_another_channel(pool: PgPool) {
     let (status, hidden) = send(
         &app,
         "POST",
-        &format!("/api/channels/{secret}/messages"),
+        &format!("/api/v1/channels/{secret}/messages"),
         Some(&owner),
         Some(json!({ "content": "the private plan", "client_message_id": shared_id })),
     )
@@ -269,7 +269,7 @@ async fn a_channel_client_id_never_reaches_into_another_channel(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{open}/messages"),
+        &format!("/api/v1/channels/{open}/messages"),
         Some(&member),
         Some(json!({ "content": "unrelated", "client_message_id": shared_id })),
     )
@@ -297,7 +297,7 @@ async fn resending_a_channel_message_with_the_same_client_id_is_idempotent(pool:
     let (_, first) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&owner),
         Some(body.clone()),
     )
@@ -305,7 +305,7 @@ async fn resending_a_channel_message_with_the_same_client_id_is_idempotent(pool:
     let (status, retry) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&owner),
         Some(body),
     )

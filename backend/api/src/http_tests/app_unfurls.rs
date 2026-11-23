@@ -37,7 +37,7 @@ impl Setup {
         send(
             &self.app,
             "PUT",
-            &format!("/api/bot-apps/{app_id}/unfurl-domains"),
+            &format!("/api/v1/bot-apps/{app_id}/unfurl-domains"),
             Some(&self.owner_token),
             Some(json!({ "domains": domains })),
         )
@@ -59,7 +59,7 @@ impl Setup {
         let (status, body) = send(
             &self.app,
             "POST",
-            &format!("/api/channels/{ch_id}/messages"),
+            &format!("/api/v1/channels/{ch_id}/messages"),
             Some(&self.member_token),
             Some(json!({ "content": content })),
         )
@@ -74,7 +74,7 @@ impl Setup {
         let (status, body) = send(
             &self.app,
             "PATCH",
-            &format!("/api/messages/{msg_id}"),
+            &format!("/api/v1/messages/{msg_id}"),
             Some(&self.member_token),
             Some(json!({ "content": content })),
         )
@@ -96,7 +96,7 @@ impl Setup {
 
     async fn answer(&self, msg_id: Uuid, url: &str, blocks: Value) -> (StatusCode, Value) {
         self.as_bot(
-            &format!("/api/messages/{msg_id}/unfurls"),
+            &format!("/api/v1/messages/{msg_id}/unfurls"),
             json!({ "unfurls": { url: { "blocks": blocks } } }),
         )
         .await
@@ -155,7 +155,7 @@ async fn admins_claim_up_to_five_domains_nobody_else_holds(pool: PgPool) {
     let (status, other) = send(
         &s.app,
         "POST",
-        &format!("/api/workspaces/{}/bot-apps", s.ws_id),
+        &format!("/api/v1/workspaces/{}/bot-apps", s.ws_id),
         Some(&s.owner_token),
         Some(json!({ "name": "Other", "scopes": ["links:read", "links:write"] })),
     )
@@ -172,7 +172,7 @@ async fn admins_claim_up_to_five_domains_nobody_else_holds(pool: PgPool) {
     let (status, body) = send(
         &s.app,
         "PUT",
-        &format!("/api/workspaces/{}/apps/github", s.ws_id),
+        &format!("/api/v1/workspaces/{}/apps/github", s.ws_id),
         Some(&s.owner_token),
         Some(json!({ "client_id": "gh-client", "client_secret": "shh", "enabled": true })),
     )
@@ -190,7 +190,7 @@ async fn admins_claim_up_to_five_domains_nobody_else_holds(pool: PgPool) {
     let (status, body) = send(
         &s.app,
         "GET",
-        &format!("/api/bot-apps/{}/unfurl-domains", s.app_id),
+        &format!("/api/v1/bot-apps/{}/unfurl-domains", s.app_id),
         Some(&s.member_token),
         None,
     )
@@ -241,7 +241,7 @@ async fn the_app_answers_with_blocks_for_that_message_within_30_minutes(pool: Pg
 
     let (status, body) = s
         .as_member(
-            &format!("/api/messages/{msg_id}/unfurls"),
+            &format!("/api/v1/messages/{msg_id}/unfurls"),
             json!({ "unfurls": { ISSUE: { "blocks": issue_blocks("TRK-7") } } }),
         )
         .await;
@@ -363,7 +363,7 @@ async fn an_edit_keeps_the_preview_and_asks_only_about_new_links(pool: PgPool) {
     let (status, body) = send(
         &s.app,
         "PATCH",
-        &format!("/api/messages/{both}"),
+        &format!("/api/v1/messages/{both}"),
         Some(&s.member_token),
         Some(json!({ "content": format!("one {OTHER_ISSUE}") })),
     )
@@ -388,7 +388,7 @@ async fn a_removed_preview_stays_removed_and_the_app_is_not_asked_again(pool: Pg
     let (status, body) = send(
         &s.app,
         "DELETE",
-        &format!("/api/messages/{msg_id}/unfurls"),
+        &format!("/api/v1/messages/{msg_id}/unfurls"),
         Some(&s.member_token),
         None,
     )
@@ -411,7 +411,7 @@ async fn workspace_link_previews_off_turns_app_previews_off(pool: PgPool) {
     let (status, body) = send(
         &s.app,
         "PATCH",
-        &format!("/api/workspaces/{}", s.ws_id),
+        &format!("/api/v1/workspaces/{}", s.ws_id),
         Some(&s.owner_token),
         Some(json!({ "link_previews": false })),
     )

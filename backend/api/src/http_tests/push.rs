@@ -148,7 +148,7 @@ async fn a_browser_registers_once_however_often_it_re_subscribes(pool: PgPool) {
     let (status, first) = send(
         &app,
         "POST",
-        "/api/push/subscriptions",
+        "/api/v1/push/subscriptions",
         Some(&token),
         Some(body.clone()),
     )
@@ -158,7 +158,7 @@ async fn a_browser_registers_once_however_often_it_re_subscribes(pool: PgPool) {
     let (status, again) = send(
         &app,
         "POST",
-        "/api/push/subscriptions",
+        "/api/v1/push/subscriptions",
         Some(&token),
         Some(body),
     )
@@ -172,7 +172,7 @@ async fn a_browser_registers_once_however_often_it_re_subscribes(pool: PgPool) {
     let (status, listed) = send(
         &app,
         "GET",
-        "/api/push/subscriptions/list",
+        "/api/v1/push/subscriptions/list",
         Some(&token),
         None,
     )
@@ -189,7 +189,7 @@ async fn a_subscription_needs_a_real_endpoint_and_a_session(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        "/api/push/subscriptions",
+        "/api/v1/push/subscriptions",
         Some(&token),
         Some(json!({ "endpoint": "http://push.example.test/abc", "keys": { "p256dh": UA_PUBLIC, "auth": UA_AUTH } })),
     )
@@ -203,7 +203,7 @@ async fn a_subscription_needs_a_real_endpoint_and_a_session(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        "/api/push/subscriptions",
+        "/api/v1/push/subscriptions",
         Some(&token),
         Some(json!({ "endpoint": "https://push.example.test/abc", "keys": { "p256dh": "", "auth": "" } })),
     )
@@ -213,7 +213,7 @@ async fn a_subscription_needs_a_real_endpoint_and_a_session(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        "/api/push/subscriptions",
+        "/api/v1/push/subscriptions",
         None,
         Some(json!({ "endpoint": "https://push.example.test/abc", "keys": { "p256dh": UA_PUBLIC, "auth": UA_AUTH } })),
     )
@@ -233,7 +233,7 @@ async fn unsubscribing_only_removes_your_own_device(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        "/api/push/subscriptions",
+        "/api/v1/push/subscriptions",
         Some(&my_token),
         Some(json!({ "endpoint": "https://push.example.test/theirs" })),
     )
@@ -257,7 +257,7 @@ async fn unsubscribing_only_removes_your_own_device(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        "/api/push/subscriptions",
+        "/api/v1/push/subscriptions",
         Some(&my_token),
         Some(json!({ "endpoint": "https://push.example.test/mine" })),
     )
@@ -471,7 +471,7 @@ async fn after_leaving_a_workspace_the_push_badge_agrees_with_the_app(pool: PgPo
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{left}/members/{target}"),
+        &format!("/api/v1/workspaces/{left}/members/{target}"),
         Some(&target_token),
         None,
     )
@@ -481,7 +481,7 @@ async fn after_leaving_a_workspace_the_push_badge_agrees_with_the_app(pool: PgPo
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{kept}/notifications/unread-count"),
+        &format!("/api/v1/workspaces/{kept}/notifications/unread-count"),
         Some(&target_token),
         None,
     )
@@ -662,7 +662,7 @@ async fn mention_emails_are_off_until_somebody_turns_them_on(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/notifications/email"),
+        &format!("/api/v1/workspaces/{ws_id}/notifications/email"),
         Some(&target_token),
         None,
     )
@@ -914,7 +914,7 @@ impl Scene {
         let (status, body) = send(
             &self.app,
             "POST",
-            &format!("/api/workspaces/{}/conversations", self.ws_id),
+            &format!("/api/v1/workspaces/{}/conversations", self.ws_id),
             Some(&self.author_token),
             Some(json!({ "participant_ids": [self.target] })),
         )
@@ -1205,7 +1205,7 @@ async fn a_digest_unsubscribes_in_one_click_and_a_visit_alone_changes_nothing(po
     let (status, _) = send(
         &s.app,
         "POST",
-        "/api/email/unsubscribe/not-a-token",
+        "/api/v1/email/unsubscribe/not-a-token",
         None,
         None,
     )
@@ -1597,7 +1597,7 @@ async fn a_mention_in_a_reply_sent_to_the_channel_is_read_with_the_channel(pool:
     let (_, root) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(&author_token),
         Some(json!({ "content": "root" })),
     )
@@ -1605,7 +1605,7 @@ async fn a_mention_in_a_reply_sent_to_the_channel_is_read_with_the_channel(pool:
     let (status, reply) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(&author_token),
         Some(json!({ "content": "look @target", "thread_parent_id": root["id"], "also_to_channel": true })),
     )
@@ -1635,7 +1635,7 @@ async fn a_mention_in_a_reply_sent_to_the_channel_is_read_with_the_channel(pool:
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/read"),
+        &format!("/api/v1/channels/{ch_id}/read"),
         Some(&target_token),
         Some(json!({ "message_id": reply["id"] })),
     )
@@ -1669,7 +1669,7 @@ async fn a_keyword_inside_a_forwarded_quote_alerts_nobody(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PUT",
-        &format!("/api/workspaces/{ws_id}/notification-keywords"),
+        &format!("/api/v1/workspaces/{ws_id}/notification-keywords"),
         Some(&target_token),
         Some(json!({ "keywords": ["deploy"] })),
     )

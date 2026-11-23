@@ -16,7 +16,7 @@ async fn directory(app: &axum::Router, token: &str, ws: Uuid) -> Value {
     let (status, body) = send(
         app,
         "GET",
-        &format!("/api/workspaces/{ws}/app-directory"),
+        &format!("/api/v1/workspaces/{ws}/app-directory"),
         Some(token),
         None,
     )
@@ -55,7 +55,7 @@ async fn notifications(app: &axum::Router, token: &str, ws: Uuid) -> Vec<Value> 
     let (status, body) = send(
         app,
         "GET",
-        &format!("/api/workspaces/{ws}/notifications"),
+        &format!("/api/v1/workspaces/{ws}/notifications"),
         Some(token),
         None,
     )
@@ -81,7 +81,7 @@ async fn workflow(
     let body = created(
         app,
         token,
-        &format!("/api/workspaces/{ws}/workflows"),
+        &format!("/api/v1/workspaces/{ws}/workflows"),
         json!({
             "name": name,
             "definition": {
@@ -108,12 +108,12 @@ async fn the_directory_lists_every_kind_with_its_owner_and_health(pool: PgPool) 
     let (owner_id, _, owner) = seed_and_login(&app, &state, "dir-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Directory WS").await;
     let deploys = seed_channel(&state, ws, owner_id, "deploys", false).await;
-    let hooks = format!("/api/workspaces/{ws}/hooks");
+    let hooks = format!("/api/v1/workspaces/{ws}/hooks");
 
     let (status, body) = send(
         &app,
         "PUT",
-        &format!("/api/workspaces/{ws}/apps/jira"),
+        &format!("/api/v1/workspaces/{ws}/apps/jira"),
         Some(&owner),
         Some(json!({ "client_id": "client-1", "client_secret": "jira-secret", "enabled": true })),
     )
@@ -123,7 +123,7 @@ async fn the_directory_lists_every_kind_with_its_owner_and_health(pool: PgPool) 
     let bot = created(
         &app,
         &owner,
-        &format!("/api/workspaces/{ws}/bot-apps"),
+        &format!("/api/v1/workspaces/{ws}/bot-apps"),
         json!({ "name": "Deploy bot", "scopes": ["chat:write", "channels:history"] }),
     )
     .await;
@@ -136,7 +136,7 @@ async fn the_directory_lists_every_kind_with_its_owner_and_health(pool: PgPool) 
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{deploys}/members"),
+        &format!("/api/v1/channels/{deploys}/members"),
         Some(&owner),
         Some(json!({ "user_id": bot_user })),
     )
@@ -271,7 +271,7 @@ async fn a_member_sees_what_touches_the_channels_they_can_see(pool: PgPool) {
     add_ws_member(&state, ws, member_id, "member").await;
     let general = seed_channel(&state, ws, owner_id, "general-dir", false).await;
     let secret = seed_channel(&state, ws, owner_id, "secret-dir", true).await;
-    let hooks = format!("/api/workspaces/{ws}/hooks");
+    let hooks = format!("/api/v1/workspaces/{ws}/hooks");
 
     for (name, channel) in [("Public CI", general), ("Secret CI", secret)] {
         created(
@@ -317,7 +317,7 @@ async fn a_member_sees_what_touches_the_channels_they_can_see(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/app-directory"),
+        &format!("/api/v1/workspaces/{ws}/app-directory"),
         Some(&outsider),
         None,
     )
@@ -336,7 +336,7 @@ async fn a_request_lands_with_every_admin(pool: PgPool) {
     add_ws_member(&state, ws, member_id, "member").await;
     let (guest_id, _, guest) = seed_and_login(&app, &state, "dir-req-guest", false).await;
     add_ws_member(&state, ws, guest_id, "guest").await;
-    let requests = format!("/api/workspaces/{ws}/app-requests");
+    let requests = format!("/api/v1/workspaces/{ws}/app-requests");
 
     let (status, body) = send(
         &app,

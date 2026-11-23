@@ -47,14 +47,14 @@ pub(super) async fn enrol(
     token: &str,
     email: &str,
 ) -> Vec<String> {
-    let (status, body) = send(app, "POST", "/api/auth/totp/enrol", Some(token), None).await;
+    let (status, body) = send(app, "POST", "/api/v1/auth/totp/enrol", Some(token), None).await;
     assert_eq!(status, StatusCode::OK, "{body:?}");
     let secret = body["secret"].as_str().expect("secret").to_string();
 
     let (status, confirmed) = send(
         app,
         "POST",
-        "/api/auth/totp/confirm",
+        "/api/v1/auth/totp/confirm",
         Some(token),
         Some(json!({ "code": code_for(state, &secret, email) })),
     )
@@ -77,14 +77,14 @@ async fn enrol_keeping_secret(
     token: &str,
     email: &str,
 ) -> String {
-    let (status, body) = send(app, "POST", "/api/auth/totp/enrol", Some(token), None).await;
+    let (status, body) = send(app, "POST", "/api/v1/auth/totp/enrol", Some(token), None).await;
     assert_eq!(status, StatusCode::OK, "{body:?}");
     let secret = body["secret"].as_str().expect("secret").to_string();
 
     let (status, confirmed) = send(
         app,
         "POST",
-        "/api/auth/totp/confirm",
+        "/api/v1/auth/totp/confirm",
         Some(token),
         Some(json!({ "code": code_for(state, &secret, email) })),
     )
@@ -98,7 +98,7 @@ async fn enrolment_needs_a_working_code_before_it_counts(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, email, token) = seed_and_login(&app, &state, "totp-user", false).await;
 
-    let (status, body) = send(&app, "POST", "/api/auth/totp/enrol", Some(&token), None).await;
+    let (status, body) = send(&app, "POST", "/api/v1/auth/totp/enrol", Some(&token), None).await;
     assert_eq!(status, StatusCode::OK, "{body:?}");
     assert!(body["provisioning_uri"]
         .as_str()
@@ -108,7 +108,7 @@ async fn enrolment_needs_a_working_code_before_it_counts(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        "/api/auth/totp/confirm",
+        "/api/v1/auth/totp/confirm",
         Some(&token),
         Some(json!({ "code": "000000" })),
     )
@@ -123,7 +123,7 @@ async fn enrolment_needs_a_working_code_before_it_counts(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        "/api/auth/login",
+        "/api/v1/auth/login",
         None,
         Some(json!({ "email": email, "password": PASSWORD })),
     )
@@ -144,7 +144,7 @@ async fn once_enrolled_the_password_alone_is_not_enough(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        "/api/auth/login",
+        "/api/v1/auth/login",
         None,
         Some(json!({ "email": email, "password": PASSWORD })),
     )
@@ -158,7 +158,7 @@ async fn once_enrolled_the_password_alone_is_not_enough(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        "/api/auth/login",
+        "/api/v1/auth/login",
         None,
         Some(json!({ "email": email, "password": PASSWORD, "totp_code": "000000" })),
     )
@@ -175,13 +175,13 @@ async fn a_code_works_once_and_not_twice(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, email, token) = seed_and_login(&app, &state, "totp-user", false).await;
 
-    let (_, body) = send(&app, "POST", "/api/auth/totp/enrol", Some(&token), None).await;
+    let (_, body) = send(&app, "POST", "/api/v1/auth/totp/enrol", Some(&token), None).await;
     let secret = body["secret"].as_str().expect("secret").to_string();
     let code = code_for(&state, &secret, &email);
     let (status, _) = send(
         &app,
         "POST",
-        "/api/auth/totp/confirm",
+        "/api/v1/auth/totp/confirm",
         Some(&token),
         Some(json!({ "code": code.clone() })),
     )
@@ -194,7 +194,7 @@ async fn a_code_works_once_and_not_twice(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        "/api/auth/login",
+        "/api/v1/auth/login",
         None,
         Some(json!({ "email": email, "password": PASSWORD, "totp_code": code })),
     )
@@ -211,7 +211,7 @@ async fn a_code_stays_spent_after_the_clock_ticks_over(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, email, token) = seed_and_login(&app, &state, "totp-user", false).await;
 
-    let (_, body) = send(&app, "POST", "/api/auth/totp/enrol", Some(&token), None).await;
+    let (_, body) = send(&app, "POST", "/api/v1/auth/totp/enrol", Some(&token), None).await;
     let secret = body["secret"].as_str().expect("secret").to_string();
 
     // Enrolling with a code the clock has already ticked past puts the replay
@@ -221,7 +221,7 @@ async fn a_code_stays_spent_after_the_clock_ticks_over(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        "/api/auth/totp/confirm",
+        "/api/v1/auth/totp/confirm",
         Some(&token),
         Some(json!({ "code": code.clone() })),
     )
@@ -231,7 +231,7 @@ async fn a_code_stays_spent_after_the_clock_ticks_over(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        "/api/auth/login",
+        "/api/v1/auth/login",
         None,
         Some(json!({ "email": email, "password": PASSWORD, "totp_code": code })),
     )
@@ -253,7 +253,7 @@ async fn a_recovery_code_works_once(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        "/api/auth/login",
+        "/api/v1/auth/login",
         None,
         Some(json!({ "email": email, "password": PASSWORD, "totp_code": codes[0] })),
     )
@@ -263,7 +263,7 @@ async fn a_recovery_code_works_once(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        "/api/auth/login",
+        "/api/v1/auth/login",
         None,
         Some(json!({ "email": email, "password": PASSWORD, "totp_code": codes[0] })),
     )
@@ -287,12 +287,12 @@ async fn removing_the_factor_needs_a_current_code(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, email, token) = seed_and_login(&app, &state, "totp-user", false).await;
 
-    let (_, body) = send(&app, "POST", "/api/auth/totp/enrol", Some(&token), None).await;
+    let (_, body) = send(&app, "POST", "/api/v1/auth/totp/enrol", Some(&token), None).await;
     let secret = body["secret"].as_str().expect("secret").to_string();
     send(
         &app,
         "POST",
-        "/api/auth/totp/confirm",
+        "/api/v1/auth/totp/confirm",
         Some(&token),
         Some(json!({ "code": code_for(&state, &secret, &email) })),
     )
@@ -301,7 +301,7 @@ async fn removing_the_factor_needs_a_current_code(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        "/api/auth/totp/disable",
+        "/api/v1/auth/totp/disable",
         Some(&token),
         Some(json!({ "code": "000000" })),
     )
@@ -325,7 +325,7 @@ async fn an_instance_that_requires_it_refuses_an_admin_without_one(pool: PgPool)
     let (status, _) = send(
         &app,
         "POST",
-        "/api/auth/login",
+        "/api/v1/auth/login",
         None,
         Some(json!({ "email": admin_email, "password": PASSWORD })),
     )
@@ -340,7 +340,7 @@ async fn an_instance_that_requires_it_refuses_an_admin_without_one(pool: PgPool)
     let (status, _) = send(
         &app,
         "POST",
-        "/api/auth/login",
+        "/api/v1/auth/login",
         None,
         Some(json!({ "email": user_email, "password": PASSWORD })),
     )
@@ -358,7 +358,7 @@ async fn the_admin_requirement_leaves_members_free_to_turn_the_factor_off(pool: 
     let (_id, email, token) = seed_and_login(&app, &state, "totp-member", false).await;
     let secret = enrol_keeping_secret(&app, &state, &token, &email).await;
 
-    let (_, totp_status) = send(&app, "GET", "/api/auth/totp", Some(&token), None).await;
+    let (_, totp_status) = send(&app, "GET", "/api/v1/auth/totp", Some(&token), None).await;
     assert_eq!(
         totp_status["required"], false,
         "the requirement is for admins: {totp_status:?}"
@@ -367,7 +367,7 @@ async fn the_admin_requirement_leaves_members_free_to_turn_the_factor_off(pool: 
     let (status, body) = send(
         &app,
         "POST",
-        "/api/auth/totp/disable",
+        "/api/v1/auth/totp/disable",
         Some(&token),
         Some(json!({ "code": code_for(&state, &secret, &email) })),
     )
@@ -387,12 +387,12 @@ async fn an_admin_keeps_totp_until_a_passkey_can_take_its_place(pool: PgPool) {
     };
     let (app, state) = app_and_state_with(pool, config).await;
 
-    let (_, totp_status) = send(&app, "GET", "/api/auth/totp", Some(&token), None).await;
+    let (_, totp_status) = send(&app, "GET", "/api/v1/auth/totp", Some(&token), None).await;
     assert_eq!(totp_status["required"], true, "{totp_status:?}");
     let (status, _) = send(
         &app,
         "POST",
-        "/api/auth/totp/disable",
+        "/api/v1/auth/totp/disable",
         Some(&token),
         Some(json!({ "code": code_for(&state, &secret, &email) })),
     )
@@ -405,12 +405,12 @@ async fn an_admin_keeps_totp_until_a_passkey_can_take_its_place(pool: PgPool) {
 
     add_passkey(&app, &token, &mut device()).await;
 
-    let (_, totp_status) = send(&app, "GET", "/api/auth/totp", Some(&token), None).await;
+    let (_, totp_status) = send(&app, "GET", "/api/v1/auth/totp", Some(&token), None).await;
     assert_eq!(totp_status["required"], false, "{totp_status:?}");
     let (status, body) = send(
         &app,
         "POST",
-        "/api/auth/totp/disable",
+        "/api/v1/auth/totp/disable",
         Some(&token),
         Some(json!({ "code": code_for(&state, &secret, &email) })),
     )
@@ -431,7 +431,7 @@ async fn every_second_factor_event_is_audited(pool: PgPool) {
     send(
         &app,
         "POST",
-        "/api/auth/login",
+        "/api/v1/auth/login",
         None,
         Some(json!({ "email": email, "password": PASSWORD, "totp_code": "000000" })),
     )
@@ -451,13 +451,13 @@ async fn every_second_factor_event_is_audited(pool: PgPool) {
 async fn the_second_factor_survives_a_key_rotation(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (id, email, token) = seed_and_login(&app, &state, "totp-rotate", false).await;
-    let (status, body) = send(&app, "POST", "/api/auth/totp/enrol", Some(&token), None).await;
+    let (status, body) = send(&app, "POST", "/api/v1/auth/totp/enrol", Some(&token), None).await;
     assert_eq!(status, StatusCode::OK, "{body:?}");
     let secret = body["secret"].as_str().expect("secret").to_string();
     let (status, _) = send(
         &app,
         "POST",
-        "/api/auth/totp/confirm",
+        "/api/v1/auth/totp/confirm",
         Some(&token),
         Some(json!({ "code": code_for(&state, &secret, &email) })),
     )

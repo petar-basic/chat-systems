@@ -55,7 +55,7 @@ export function UserGroupsSection({ workspaceId, instanceUrl, members, isAdmin }
     if (groupMembers[groupId]) return;
     try {
       const res = await fetch(
-        `${instanceUrl ?? window.location.origin}/api/workspaces/${workspaceId}/groups/${groupId}/members`,
+        `${instanceUrl ?? window.location.origin}/api/v1/workspaces/${workspaceId}/groups/${groupId}/members`,
         { credentials: 'include' },
       );
       const body = await res.json();

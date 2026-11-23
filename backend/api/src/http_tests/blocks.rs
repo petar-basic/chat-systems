@@ -22,7 +22,7 @@ async fn hooked(pool: PgPool) -> Hooked {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&token),
         Some(json!({
             "hook_type": "incoming_webhook",
@@ -46,7 +46,7 @@ async fn post_hook(h: &Hooked, payload: Value) -> (StatusCode, Value) {
     send(
         &h.app,
         "POST",
-        &format!("/api/hooks/incoming/{}", h.hook_token),
+        &format!("/api/v1/hooks/incoming/{}", h.hook_token),
         None,
         Some(payload),
     )
@@ -57,7 +57,7 @@ async fn latest(h: &Hooked) -> Value {
     let (status, body) = send(
         &h.app,
         "GET",
-        &format!("/api/channels/{}/messages", h.ch),
+        &format!("/api/v1/channels/{}/messages", h.ch),
         Some(&h.token),
         None,
     )
@@ -236,7 +236,7 @@ async fn search_finds_a_word_that_is_only_in_a_block(pool: PgPool) {
     let (status, body) = send(
         &h.app,
         "GET",
-        &format!("/api/search?q=quokkagateway&workspace_id={}", h.ws),
+        &format!("/api/v1/search?q=quokkagateway&workspace_id={}", h.ws),
         Some(&h.token),
         None,
     )
@@ -253,7 +253,7 @@ async fn people_send_markdown_not_blocks(pool: PgPool) {
     let (status, body) = send(
         &h.app,
         "POST",
-        &format!("/api/channels/{}/messages", h.ch),
+        &format!("/api/v1/channels/{}/messages", h.ch),
         Some(&h.token),
         Some(json!({
             "content": "hello",

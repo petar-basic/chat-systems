@@ -30,6 +30,14 @@
     "hint": " — reload to pick it up.",
     "reload": "Reload"
   },
+  "serverSupport": {
+    "needsNewerApp": "{{server}} needs a newer app",
+    "needsNewerAppHint": " — it serves Chat Systems {{version}} or later. Reload to get it, or update the app.",
+    "serverTooOld": "{{server}} runs an older Chat Systems",
+    "serverTooOldHint": " — this app needs 5.0 or later there. Ask its admin to update it.",
+    "needsNewerAppError": "This server needs a newer app: Chat Systems {{version}} or later.",
+    "serverTooOldError": "This server runs an older Chat Systems. This app needs 5.0 or later there."
+  },
   "retry": "Retry",
   "topBar": {
     "back": "Back",

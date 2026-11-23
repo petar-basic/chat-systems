@@ -17,7 +17,7 @@ async fn a_write_budget_is_spent_per_user_and_per_class(pool: PgPool) {
         let (status, body) = send(
             &app,
             "POST",
-            "/api/workspaces",
+            "/api/v1/workspaces",
             Some(&token),
             Some(json!({ "name": format!("Budget {i}") })),
         )
@@ -32,7 +32,7 @@ async fn a_write_budget_is_spent_per_user_and_per_class(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        "/api/workspaces",
+        "/api/v1/workspaces",
         Some(&token),
         Some(json!({ "name": "One too many" })),
     )
@@ -48,7 +48,7 @@ async fn a_write_budget_is_spent_per_user_and_per_class(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(&token),
         Some(json!({ "content": "posting is a different budget" })),
     )
@@ -63,7 +63,7 @@ async fn a_write_budget_is_spent_per_user_and_per_class(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        "/api/workspaces",
+        "/api/v1/workspaces",
         Some(&other_token),
         Some(json!({ "name": "Somebody else" })),
     )

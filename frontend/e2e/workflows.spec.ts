@@ -36,7 +36,7 @@ test('a member builds a webhook workflow and a call to it posts in the channel',
     await editor.getByTestId('workflow-save').click();
     await expect(editor.getByTestId('workflow-disable')).toBeVisible();
     const url = await editor.getByTestId('workflow-webhook-url').innerText();
-    expect(url).toContain('/api/workflows/webhook/');
+    expect(url).toContain('/api/v1/workflows/webhook/');
 
     const called = await caller.post(url, { data: { service: 'billing' } });
     expect(called.status(), 'the workflow accepts the call').toBe(202);

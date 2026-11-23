@@ -47,7 +47,7 @@ async fn set_key(app: &Router, admin: &str, key: &str) -> Value {
     let (status, settings) = send(
         app,
         "PATCH",
-        "/api/admin/settings",
+        "/api/v1/admin/settings",
         Some(admin),
         Some(json!({ "giphy_api_key": key })),
     )
@@ -60,7 +60,7 @@ async fn gif_settings(app: &Router, token: &str, ws: Uuid) -> (StatusCode, Value
     send(
         app,
         "GET",
-        &format!("/api/workspaces/{ws}/gifs"),
+        &format!("/api/v1/workspaces/{ws}/gifs"),
         Some(token),
         None,
     )
@@ -71,7 +71,7 @@ async fn set_workspace(app: &Router, token: &str, ws: Uuid, body: Value) -> Stat
     let (status, _) = send(
         app,
         "PATCH",
-        &format!("/api/workspaces/{ws}"),
+        &format!("/api/v1/workspaces/{ws}"),
         Some(token),
         Some(body),
     )
@@ -83,7 +83,7 @@ async fn listed_commands(app: &Router, token: &str, ws: Uuid) -> Vec<String> {
     let (status, body) = send(
         app,
         "GET",
-        &format!("/api/workspaces/{ws}/commands"),
+        &format!("/api/v1/workspaces/{ws}/commands"),
         Some(token),
         None,
     )
@@ -101,7 +101,7 @@ async fn giphy(app: &Router, token: &str, channel: Uuid) -> Value {
     let (status, body) = send(
         app,
         "POST",
-        &format!("/api/channels/{channel}/commands"),
+        &format!("/api/v1/channels/{channel}/commands"),
         Some(token),
         Some(json!({ "command": "giphy", "text": "cats" })),
     )
@@ -129,7 +129,7 @@ async fn post(app: &Router, token: &str, channel: Uuid, body: Value) -> (StatusC
     send(
         app,
         "POST",
-        &format!("/api/channels/{channel}/messages"),
+        &format!("/api/v1/channels/{channel}/messages"),
         Some(token),
         Some(body),
     )
@@ -231,7 +231,7 @@ async fn gifs_need_an_instance_key_and_a_workspace_that_wants_them(pool: PgPool)
     let (status, _) = send(
         &app,
         "PATCH",
-        "/api/admin/settings",
+        "/api/v1/admin/settings",
         Some(&t.admin),
         Some(json!({ "giphy_api_key": "not a key" })),
     )
@@ -240,7 +240,7 @@ async fn gifs_need_an_instance_key_and_a_workspace_that_wants_them(pool: PgPool)
     let (status, _) = send(
         &app,
         "PATCH",
-        "/api/admin/settings",
+        "/api/v1/admin/settings",
         Some(&t.owner),
         Some(json!({ "giphy_api_key": KEY })),
     )
@@ -293,7 +293,7 @@ async fn a_gif_from_giphy_is_sent_with_its_message(pool: PgPool) {
     let (status, edited) = send(
         &app,
         "PATCH",
-        &format!("/api/messages/{}", sent["id"].as_str().expect("id")),
+        &format!("/api/v1/messages/{}", sent["id"].as_str().expect("id")),
         Some(&t.ana),
         Some(json!({ "content": "" })),
     )
@@ -304,7 +304,7 @@ async fn a_gif_from_giphy_is_sent_with_its_message(pool: PgPool) {
     let (status, listed) = send(
         &app,
         "GET",
-        &format!("/api/channels/{}/messages", t.general),
+        &format!("/api/v1/channels/{}/messages", t.general),
         Some(&t.owner),
         None,
     )

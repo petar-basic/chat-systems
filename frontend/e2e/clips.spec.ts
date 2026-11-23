@@ -52,7 +52,7 @@ test('a clip recorded from the camera goes out with text and plays, by range, fo
     const ranged: string[] = [];
     bobPage.on('request', (request) => {
       const range = request.headers().range;
-      if (request.url().includes('/api/files/download/') && range) ranged.push(range);
+      if (request.url().includes('/api/v1/files/download/') && range) ranged.push(range);
     });
     await login(bobPage, 'bob@dev.local');
     await bobPage.goto(`/app/${workspace.id}/${channel.id}`);

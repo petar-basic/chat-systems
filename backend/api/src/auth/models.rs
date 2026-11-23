@@ -203,6 +203,8 @@ pub struct InstanceInfo {
     pub setup_required: bool,
     pub workspace_creation_restricted: bool,
     pub other_servers_allowed: bool,
+    pub api_version: u32,
+    pub min_client_version: String,
 }
 
 pub struct RegistrationInvite {

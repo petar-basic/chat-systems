@@ -55,7 +55,7 @@ impl Pending {
 }
 
 pub fn start_url(server: &Url, nonce: &str, invite: Option<&str>) -> Option<Url> {
-    let mut url = server.join("/api/auth/oidc/start").ok()?;
+    let mut url = server.join("/api/v1/auth/oidc/start").ok()?;
     {
         let mut query = url.query_pairs_mut();
         query
@@ -153,7 +153,7 @@ mod tests {
         let start = start_url(&server, "n0nce", Some("in vite&x=1")).unwrap();
         assert_eq!(
             start.as_str(),
-            "https://chat.example.com/api/auth/oidc/start?client=desktop&nonce=n0nce&invite=in+vite%26x%3D1"
+            "https://chat.example.com/api/v1/auth/oidc/start?client=desktop&nonce=n0nce&invite=in+vite%26x%3D1"
         );
         assert_eq!(
             passkey_url(&server, "n0nce").unwrap().as_str(),

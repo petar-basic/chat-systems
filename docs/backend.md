@@ -9,7 +9,7 @@ the crates under `shared/`:
 | **`chat-worker`** | 3005 | Background consumers: outgoing webhooks, reminders, notifications, huddle history, call ringing, analytics rollup, scheduled messages, email delivery, event outbox relay, text extraction from files, custom responses. Serves only `/livez`, `/readyz`, `/metrics`. | scale freely |
 | **`chat-realtime`** | 3004 | WebSocket gateway. | scale freely |
 
-`chat-api` serves an OpenAPI document at `/api/openapi.json`, generated from the handlers
+`chat-api` serves an OpenAPI document at `/api/v1/openapi.json`, generated from the handlers
 themselves, and the frontend's `src/api/schema.d.ts` is generated from that. Every feature
 is on it except the SCIM provisioning API (its own standard, its own error format) and the
 OIDC redirects; the SCIM *token* routes an instance admin uses are on it. The
@@ -124,7 +124,7 @@ in `main.rs`.
 - **Error handling.** `AppError` (`shared/common`) maps to status codes; 500-class errors
   log detail but return an opaque body so internals/SQL never leak (with tests proving it).
 - **Files.** `FileStorage` wraps an `object_store` backend (local disk or any S3-compatible store; the compose stack runs RustFS) and
-  streams multipart uploads; downloads go through the authenticated `/api/files/download`
+  streams multipart uploads; downloads go through the authenticated `/api/v1/files/download`
   route, so the object store stays private and access is gated by channel membership —
   which covers direct messages, since a DM is a channel.
 - **Validation.** Request DTOs derive `garde::Validate` with the rule declared on the
@@ -147,7 +147,7 @@ in `main.rs`.
   admin who sent it by the same rule, and sent again from the sign-in page it follows that
   request. The unsubscribe page follows the person the link names.
 - **The API contract is generated.** Handlers carry `#[utoipa::path]`, the document is
-  served at `/api/openapi.json`, and the frontend's types and WebSocket frame union are
+  served at `/api/v1/openapi.json`, and the frontend's types and WebSocket frame union are
   generated from the backend; CI fails when either is stale.
 - **Webhooks.** Outbound delivery is SSRF-hardened (scheme allow-list, DNS resolution with
   private/loopback/link-local/metadata-IP blocking, redirects disabled) and HMAC-signed.
@@ -173,9 +173,21 @@ than an hour.
 
 ## chat-api (REST API)
 
-All routes below are nested under the **`/api`** prefix (e.g. `POST /api/auth/login`);
+All routes below are nested under the **`/api/v1`** prefix (e.g. `POST /api/v1/auth/login`);
 the tables omit it for brevity. Only the health probes (`/livez`, `/readyz`) and
-`/metrics` live at the root, outside `/api`.
+`/metrics` live at the root, outside `/api/v1`. The realtime socket is `/ws/v1`, and an
+app's socket `/ws/v1/apps`. Nothing answers at the paths before 5.0.0 (`/api`, `/ws`).
+
+**Versions.** Within `v1`, fields and routes are added, never removed or changed in
+meaning. A change that would break a client is `v2`, served beside `v1` for at least one
+major release. `GET /instance/info` reports `api_version` (1) and `min_client_version`, the
+oldest client the server still serves (`MIN_CLIENT_VERSION` in `client_version.rs`, 5.0.0).
+A client sends its own version in `X-Client-Version`; one older than `min_client_version`
+gets `426` with `{ error, min_client_version }` on every route, and says *This server needs
+a newer app*. A request without the header, or with one that is not a version, is served,
+so bots, scripts and development builds are never refused. The web client sends its
+release version and nothing in development; a client that finds no `/api/v1` but an
+answer at the old `/api/instance/info` says the server is too old for it.
 
 On success, login / complete-registration / refresh all return the same `AuthSession`
 shape: `{ user: UserPublic, expires_in, access_token, refresh_token }`. They also set
@@ -846,7 +858,7 @@ the thread it was typed in or null, as Slack's `thread_ts`, and the header `X-Ch
 there and then (blocks that break the rules are a 400 naming the path); an empty 2xx body acknowledges, and the caller sees */deploy is working on it…*
 until the app answers through `response_url`. That URL takes up to five answers within 30
 minutes (`command_invocations.uses_left`, `expires_at`); after that, or with a forged token, it
-is a 404. It is `{PUBLIC_URL}/api/commands/responses/{id}.{mac}`, the mac an HMAC of the
+is a 404. It is `{PUBLIC_URL}/api/v1/commands/responses/{id}.{mac}`, the mac an HMAC of the
 invocation id under the `command-responses` key of `SECRETS_KEYS`, so the token itself is never
 stored. `in_channel` posts a bot message as the caller, if they may post there, as a reply when
 the command came from a thread (`command_invocations.thread_parent_id`), and
@@ -939,7 +951,7 @@ is one (`/app/{ws}/{channel}/{message}`) and to the workspace otherwise. The row
 and the email queued in one transaction, so two workers cannot send it twice. Its subject
 names the workspace, and it says who and where, never what was said. It carries
 `List-Unsubscribe` and `List-Unsubscribe-Post: List-Unsubscribe=One-Click` (RFC 8058),
-pointing at `/api/email/unsubscribe/{token}`, which its footer links to as well. The token
+pointing at `/api/v1/email/unsubscribe/{token}`, which its footer links to as well. The token
 is the person's and the workspace's ids with an HMAC from `SECRETS_KEYS`. A `POST` there
 turns off that person's mention emails in that workspace without signing in; a `GET`
 shows a page whose button does it, so a link scanner opening the URL changes nothing. The
@@ -1582,7 +1594,7 @@ writes one is [bot-api.md](./bot-api.md).
 | GET | `/bot-apps/:app_id/workflow-steps` | — | `{ steps: AppWorkflowStep[] }` — admin |
 | PUT | `/bot-apps/:app_id/workflow-steps` | `{ steps: [{ callback_id, title, description?, inputs, outputs }] }` | `{ steps }` — admin; the whole list, at most 20, `callback_id` unique in the app, up to 10 inputs and 10 outputs `{ name, title, kind, required }`; a step keeps its id while its `callback_id` stays; audited as `bot_app.updated` |
 | PUT | `/bot-apps/me/workflow-steps` | bot token, `workflow.steps:execute`; as above | `{ steps }` — the app defines its own steps |
-| POST | `/apps/connections.open` | `capp-` app-level token | `{ url }` — a `ws(s)://…/ws/apps?ticket=` good once, for 30 seconds; 403 while socket mode is off |
+| POST | `/apps/connections.open` | `capp-` app-level token | `{ url }` — a `ws(s)://…/ws/v1/apps?ticket=` good once, for 30 seconds; 403 while socket mode is off |
 
 Creating an app inserts a `users` row with `is_bot = true`, an address under `bots.invalid`,
 no password and status `active`, makes it a `member` of the workspace, and stores the app in
@@ -1637,7 +1649,7 @@ second attempt, `X-Chat-Retry-Num`, and on anything but a 2xx sets `next_attempt
 `last_failure`, and purges settled rows after a day; a delivery clears the failing state.
 
 Socket mode lives in `chat-realtime` (`app_socket.rs`). `connections.open` stores the SHA-256 of
-a ticket in `app_sockets`; `GET /ws/apps?ticket=` consumes it (30 seconds, once, socket mode on,
+a ticket in `app_sockets`; `GET /ws/v1/apps?ticket=` consumes it (30 seconds, once, socket mode on,
 an app-level token present) and marks the row connected. Each gateway node claims the head rows
 of the apps with a socket on it (lease 3 s, the ack window) every 250 ms or as soon as an ack
 arrives, sends each to one of the app's sockets in turn, and settles a row on
@@ -1899,9 +1911,9 @@ Live voice/video rooms (Slack-style huddles) over mesh WebRTC. Live membership a
 
 Single WebSocket endpoint. Validates the JWT on the upgrade handshake against `JWT_PUBLIC_KEYS`, so it holds nothing that can sign one, re-checks channel/workspace membership against the DB on every subscribe/join, then relays events from Redis to connected clients: the live pub/sub channels for latency, and the per-workspace stream for replay after a reconnect. Every frame it sends is a `ServerFrame` variant (`shared/events`), and the frontend's frame union is generated from that enum. The socket is also closed when the access token's `exp` passes, so a long-lived connection can't outlive its token.
 
-The upgrade additionally checks the `Origin` against the configured CORS origins and rejects a token covered by a revocation record. A revocation stores the moment it happened rather than a boolean, so it invalidates every token issued up to that point while leaving a later sign-in working, and it can spare one named session (`except_jti`) — which is what lets "log out my other devices" keep the device you are typing on. `session.revoked` closes the matching live sockets with close code `4001` and a reason; suspending a user closes all of theirs. Alongside `/ws`, the gateway serves `/livez`, `/readyz` (DB + Redis + event-consumer liveness — it reports unhealthy if the consumer has stalled), and `/metrics` (Prometheus: connection count, consumer heartbeat age, events, backpressure drops). Presence is workspace-scoped: a client only sees the online roster and status changes for workspaces it shares. See [RUNBOOK.md](RUNBOOK.md) for ops.
+The upgrade additionally checks the `Origin` against the configured CORS origins and rejects a token covered by a revocation record. A revocation stores the moment it happened rather than a boolean, so it invalidates every token issued up to that point while leaving a later sign-in working, and it can spare one named session (`except_jti`) — which is what lets "log out my other devices" keep the device you are typing on. `session.revoked` closes the matching live sockets with close code `4001` and a reason; suspending a user closes all of theirs. Alongside `/ws/v1`, the gateway serves `/livez`, `/readyz` (DB + Redis + event-consumer liveness — it reports unhealthy if the consumer has stalled), and `/metrics` (Prometheus: connection count, consumer heartbeat age, events, backpressure drops). Presence is workspace-scoped: a client only sees the online roster and status changes for workspaces it shares. See [RUNBOOK.md](RUNBOOK.md) for ops.
 
-**Connection:** `wss://<host>/ws` — the browser sends the `access_token` `HttpOnly` cookie on the upgrade automatically (no token in the URL).
+**Connection:** `wss://<host>/ws/v1` — the browser sends the `access_token` `HttpOnly` cookie on the upgrade automatically (no token in the URL).
 
 **Incoming client messages (subscribe / join / typing):**
 

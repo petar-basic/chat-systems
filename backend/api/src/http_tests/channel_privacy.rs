@@ -17,7 +17,7 @@ async fn set_privacy(
     send(
         app,
         "PUT",
-        &format!("/api/channels/{ch}/privacy"),
+        &format!("/api/v1/channels/{ch}/privacy"),
         Some(token),
         Some(json!({ "private": private })),
     )
@@ -28,7 +28,7 @@ async fn preview(app: &axum::Router, token: Option<&str>, ch: Uuid) -> (StatusCo
     send(
         app,
         "GET",
-        &format!("/api/channels/{ch}/privacy"),
+        &format!("/api/v1/channels/{ch}/privacy"),
         token,
         None,
     )
@@ -39,7 +39,7 @@ async fn say(app: &axum::Router, token: &str, ch: Uuid, body: Value) -> Uuid {
     let (status, message) = send(
         app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(token),
         Some(body),
     )
@@ -61,7 +61,7 @@ async fn conversation(app: &axum::Router, token: &str, ws: Uuid, with: &[Uuid]) 
     let (status, body) = send(
         app,
         "POST",
-        &format!("/api/workspaces/{ws}/conversations"),
+        &format!("/api/v1/workspaces/{ws}/conversations"),
         Some(token),
         Some(json!({ "participant_ids": with })),
     )
@@ -101,12 +101,12 @@ async fn audited(state: &AppState, ch: Uuid) -> Vec<(Uuid, Value)> {
 async fn reads(app: &axum::Router, token: &str, ch: Uuid, root: Uuid, file: &str) -> Vec<u16> {
     let mut statuses = Vec::new();
     for path in [
-        format!("/api/channels/{ch}/messages"),
-        format!("/api/messages/{root}/thread"),
-        format!("/api/channels/{ch}/pins"),
-        format!("/api/channels/{ch}/files"),
-        format!("/api/files/{file}"),
-        format!("/api/messages/{root}/location"),
+        format!("/api/v1/channels/{ch}/messages"),
+        format!("/api/v1/messages/{root}/thread"),
+        format!("/api/v1/channels/{ch}/pins"),
+        format!("/api/v1/channels/{ch}/files"),
+        format!("/api/v1/files/{file}"),
+        format!("/api/v1/messages/{root}/location"),
     ] {
         let (status, _) = send(app, "GET", &path, Some(token), None).await;
         statuses.push(status.as_u16());
@@ -118,7 +118,7 @@ async fn message_hits(app: &axum::Router, token: &str, ws: Uuid) -> Vec<String> 
     let (status, body) = send(
         app,
         "GET",
-        &format!("/api/search?q=shortlist&workspace_id={ws}"),
+        &format!("/api/v1/search?q=shortlist&workspace_id={ws}"),
         Some(token),
         None,
     )
@@ -155,7 +155,7 @@ async fn a_channel_made_private_closes_every_read_path_to_whoever_is_not_in_it(p
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/messages/{root}/pin"),
+        &format!("/api/v1/messages/{root}/pin"),
         Some(&owner),
         None,
     )
@@ -365,7 +365,7 @@ async fn a_channel_made_public_opens_its_history_to_members_and_not_to_guests(po
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/messages/{gone}"),
+        &format!("/api/v1/messages/{gone}"),
         Some(&owner),
         None,
     )
@@ -391,7 +391,7 @@ async fn a_channel_made_public_opens_its_history_to_members_and_not_to_guests(po
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&cleo),
         None,
     )
@@ -405,7 +405,7 @@ async fn a_channel_made_public_opens_its_history_to_members_and_not_to_guests(po
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&cleo),
         None,
     )
@@ -415,7 +415,7 @@ async fn a_channel_made_public_opens_its_history_to_members_and_not_to_guests(po
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/channels/browse"),
+        &format!("/api/v1/workspaces/{ws}/channels/browse"),
         Some(&cleo),
         None,
     )
@@ -430,7 +430,7 @@ async fn a_channel_made_public_opens_its_history_to_members_and_not_to_guests(po
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&gus),
         None,
     )
@@ -482,7 +482,7 @@ async fn a_bot_and_a_hook_outside_a_channel_stop_posting_when_it_goes_private(po
     let (status, bot) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/bot-apps"),
+        &format!("/api/v1/workspaces/{ws}/bot-apps"),
         Some(&owner),
         Some(json!({
             "name": "Shipper",
@@ -497,7 +497,7 @@ async fn a_bot_and_a_hook_outside_a_channel_stop_posting_when_it_goes_private(po
     let (status, hook) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&ada),
         Some(json!({
             "hook_type": "incoming_webhook",
@@ -509,8 +509,8 @@ async fn a_bot_and_a_hook_outside_a_channel_stop_posting_when_it_goes_private(po
     assert_eq!(status, StatusCode::OK, "{hook:?}");
     let hook_token = hook["config"]["token"].as_str().expect("token").to_string();
 
-    let bot_uri = format!("/api/channels/{ch}/messages");
-    let hook_uri = format!("/api/hooks/incoming/{hook_token}");
+    let bot_uri = format!("/api/v1/channels/{ch}/messages");
+    let hook_uri = format!("/api/v1/hooks/incoming/{hook_token}");
     let bot_post = || {
         send(
             &app,

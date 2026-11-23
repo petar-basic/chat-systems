@@ -39,7 +39,7 @@ describe('GeneralSection', () => {
     patch.mockReset();
     patch.mockResolvedValue({ data: {} });
     upload.mockReset();
-    upload.mockResolvedValue({ ...workspace, icon_url: '/api/files/download/icons/ws-1/logo.png' });
+    upload.mockResolvedValue({ ...workspace, icon_url: '/api/v1/files/download/icons/ws-1/logo.png' });
   });
 
   it('uploads an icon to the workspace, not as a file of it', async () => {

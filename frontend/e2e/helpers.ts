@@ -1,6 +1,6 @@
 import { expect, request as playwrightRequest, type APIRequestContext, type Page } from '@playwright/test';
 
-export const API = process.env.E2E_API_URL || 'http://localhost:3000/api';
+export const API = process.env.E2E_API_URL || 'http://localhost:3000/api/v1';
 export const PASSWORD = process.env.E2E_PASSWORD || 'admin123456';
 export const SHOTS = process.env.E2E_SHOTS || '/tmp/shots';
 export const MAILHOG = process.env.E2E_MAILHOG_URL || 'http://localhost:8025';
@@ -82,7 +82,7 @@ export async function login(page: Page, email: string) {
   // timeout on every test in the run; this turns a broken environment into one
   // failure that says what happened.
   const response = page.waitForResponse(
-    (r) => r.url().includes('/api/auth/login') && r.request().method() === 'POST',
+    (r) => r.url().includes('/api/v1/auth/login') && r.request().method() === 'POST',
     { timeout: 20_000 },
   );
   await page.locator('[data-qa="login-submit"]').click();

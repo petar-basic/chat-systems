@@ -16,7 +16,7 @@ use crate::state::AppState;
         title = "Chat Systems API",
         description = "Every error response carries `{\"error\": \"<message>\"}` with the HTTP status saying what kind of error it is."
     ),
-    servers((url = "/api")),
+    servers((url = "/api/v1")),
     components(schemas(crate::messaging::models::SearchScope)),
     security(("bearer" = [])),
     modifiers(&BearerAuth),
@@ -192,7 +192,7 @@ static SPEC_JSON: LazyLock<String> =
     LazyLock::new(|| serde_json::to_string(&spec()).expect("the OpenAPI document serialises"));
 
 pub fn router() -> Router {
-    Router::new().route("/api/openapi.json", get(serve))
+    Router::new().route("/api/v1/openapi.json", get(serve))
 }
 
 async fn serve() -> impl IntoResponse {
@@ -209,7 +209,7 @@ mod tests {
         assert!(paths["/channels/{ch_id}/messages"]["post"].is_object());
         assert!(paths["/messages/{msg_id}/reactions/{emoji}"]["delete"].is_object());
         assert!(paths["/search"]["get"].is_object());
-        assert_eq!(json["servers"][0]["url"], "/api");
+        assert_eq!(json["servers"][0]["url"], "/api/v1");
         assert!(json["components"]["securitySchemes"]["bearer"].is_object());
 
         let schemas = json["components"]["schemas"].as_object().unwrap();

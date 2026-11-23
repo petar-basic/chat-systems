@@ -38,7 +38,7 @@ test('a code from the email signs in with no password', async ({ page, request }
   await page.getByTestId('email-code-input').fill(code);
 
   const verified = page.waitForResponse(
-    (r) => r.url().endsWith('/api/auth/email-code/verify') && r.request().method() === 'POST',
+    (r) => r.url().endsWith('/api/v1/auth/email-code/verify') && r.request().method() === 'POST',
   );
   await page.getByTestId('email-code-submit').click();
   expect((await verified).status()).toBe(200);

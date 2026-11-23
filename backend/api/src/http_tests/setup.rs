@@ -27,7 +27,7 @@ fn request(token: &str, email: &str) -> Value {
 }
 
 async fn setup_required(app: &axum::Router) -> bool {
-    let (status, body) = send(app, "GET", "/api/instance/info", None, None).await;
+    let (status, body) = send(app, "GET", "/api/v1/instance/info", None, None).await;
     assert_eq!(status, StatusCode::OK);
     body["setup_required"].as_bool().expect("setup_required")
 }
@@ -42,7 +42,7 @@ async fn setup_is_refused_without_the_token(pool: PgPool) {
         let (status, _) = send(
             &app,
             "POST",
-            "/api/setup",
+            "/api/v1/setup",
             None,
             Some(request(wrong, &unique_email("first"))),
         )
@@ -62,7 +62,7 @@ async fn setup_is_refused_once_an_instance_admin_exists(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        "/api/setup",
+        "/api/v1/setup",
         None,
         Some(request(&token, &unique_email("late"))),
     )
@@ -89,13 +89,13 @@ async fn the_setup_token_works_once(pool: PgPool) {
     let email = unique_email("first");
     let mut weak = request(&token, &email);
     weak["password"] = json!("short");
-    let (status, _) = send(&app, "POST", "/api/setup", None, Some(weak)).await;
+    let (status, _) = send(&app, "POST", "/api/v1/setup", None, Some(weak)).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
 
     let (status, body) = send(
         &app,
         "POST",
-        "/api/setup",
+        "/api/v1/setup",
         None,
         Some(request(&token, &email)),
     )
@@ -114,7 +114,7 @@ async fn the_setup_token_works_once(pool: PgPool) {
     let (status, channels) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{workspace_id}/channels"),
+        &format!("/api/v1/workspaces/{workspace_id}/channels"),
         Some(access),
         None,
     )
@@ -131,7 +131,7 @@ async fn the_setup_token_works_once(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        "/api/setup",
+        "/api/v1/setup",
         None,
         Some(request(&token, &unique_email("second"))),
     )
@@ -145,7 +145,7 @@ async fn the_setup_token_works_once(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        "/api/setup",
+        "/api/v1/setup",
         None,
         Some(request(&token, &unique_email("third"))),
     )
@@ -174,10 +174,17 @@ async fn the_test_email_reports_a_refused_connection(pool: PgPool) {
     let (_, admin_email, admin) = seed_and_login(&app, &state, "admin", true).await;
     let (_, _, member) = seed_and_login(&app, &state, "member", false).await;
 
-    let (status, _) = send(&app, "POST", "/api/admin/email/test", Some(&member), None).await;
+    let (status, _) = send(
+        &app,
+        "POST",
+        "/api/v1/admin/email/test",
+        Some(&member),
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::FORBIDDEN);
 
-    let (status, body) = send(&app, "POST", "/api/admin/email/test", Some(&admin), None).await;
+    let (status, body) = send(&app, "POST", "/api/v1/admin/email/test", Some(&admin), None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["sent_to"], json!(admin_email));
     let error = body["error"].as_str().expect("the failure is reported");

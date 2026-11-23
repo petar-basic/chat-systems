@@ -662,7 +662,7 @@ async fn a_second_run_keeps_the_type_an_admin_chose_here(pool: PgPool) {
     let (status, body) = send(
         &app,
         "PUT",
-        &format!("/api/channels/{general}/privacy"),
+        &format!("/api/v1/channels/{general}/privacy"),
         Some(&owner),
         Some(json!({ "private": true })),
     )
@@ -759,7 +759,7 @@ async fn an_imported_attachment_is_as_private_as_a_native_one(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/files/download/{key}"),
+        &format!("/api/v1/files/download/{key}"),
         Some(&owner_token),
         None,
     )
@@ -773,7 +773,7 @@ async fn an_imported_attachment_is_as_private_as_a_native_one(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/files/download/{key}"),
+        &format!("/api/v1/files/download/{key}"),
         Some(&outsider_token),
         None,
     )
@@ -962,7 +962,7 @@ async fn an_admin_uploads_an_export_and_the_worker_runs_it(pool: PgPool) {
 
     let (status, queued) = send_multipart(
         &app,
-        &format!("/api/workspaces/{ws}/slack-imports"),
+        &format!("/api/v1/workspaces/{ws}/slack-imports"),
         &owner_token,
         &bytes,
         false,
@@ -995,7 +995,7 @@ async fn an_admin_uploads_an_export_and_the_worker_runs_it(pool: PgPool) {
     let (status, finished) = send(
         &app,
         "GET",
-        &format!("/api/slack-imports/{run_id}"),
+        &format!("/api/v1/slack-imports/{run_id}"),
         Some(&owner_token),
         None,
     )
@@ -1027,7 +1027,7 @@ async fn an_export_can_make_the_workspace_it_lands_in(pool: PgPool) {
 
     let (status, queued) = send_multipart_named(
         &app,
-        "/api/slack-imports",
+        "/api/v1/slack-imports",
         &token,
         &bytes,
         false,
@@ -1084,7 +1084,7 @@ async fn a_member_imports_into_their_own_workspace_but_not_into_a_new_one(pool: 
 
     let (status, body) = send_multipart_named(
         &app,
-        "/api/slack-imports",
+        "/api/v1/slack-imports",
         &token,
         &bytes,
         false,
@@ -1101,7 +1101,7 @@ async fn a_member_imports_into_their_own_workspace_but_not_into_a_new_one(pool: 
 
     let (status, body) = send_multipart_named(
         &app,
-        &format!("/api/workspaces/{ws}/slack-imports"),
+        &format!("/api/v1/workspaces/{ws}/slack-imports"),
         &token,
         &bytes,
         false,
@@ -1126,7 +1126,7 @@ async fn an_import_into_a_new_workspace_needs_a_name(pool: PgPool) {
     let _ = std::fs::remove_file(&archive);
 
     let (status, _) =
-        send_multipart_named(&app, "/api/slack-imports", &token, &bytes, false, None).await;
+        send_multipart_named(&app, "/api/v1/slack-imports", &token, &bytes, false, None).await;
     assert_eq!(
         status,
         StatusCode::UNPROCESSABLE_ENTITY,
@@ -1146,7 +1146,7 @@ async fn only_a_workspace_admin_can_start_one(pool: PgPool) {
 
     let (status, _) = send_multipart(
         &app,
-        &format!("/api/workspaces/{ws}/slack-imports"),
+        &format!("/api/v1/workspaces/{ws}/slack-imports"),
         &member_token,
         b"PK\x03\x04nonsense",
         false,
@@ -1161,7 +1161,7 @@ async fn only_a_workspace_admin_can_start_one(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/slack-imports"),
+        &format!("/api/v1/workspaces/{ws}/slack-imports"),
         Some(&member_token),
         None,
     )
@@ -1177,7 +1177,7 @@ async fn something_that_is_not_a_zip_is_refused_before_it_becomes_a_job(pool: Pg
 
     let (status, _) = send_multipart(
         &app,
-        &format!("/api/workspaces/{ws}/slack-imports"),
+        &format!("/api/v1/workspaces/{ws}/slack-imports"),
         &owner_token,
         b"this is a text file",
         false,
@@ -1230,7 +1230,7 @@ async fn a_job_whose_archive_is_gone_fails_with_a_reason(pool: PgPool) {
     let (_, shown) = send(
         &app,
         "GET",
-        &format!("/api/slack-imports/{}", run.id),
+        &format!("/api/v1/slack-imports/{}", run.id),
         Some(&owner_token),
         None,
     )
@@ -1606,7 +1606,7 @@ async fn a_run_the_worker_lost_fails_and_can_be_started_again(pool: PgPool) {
     let (_, shown) = send(
         &app,
         "GET",
-        &format!("/api/slack-imports/{}", alive.id),
+        &format!("/api/v1/slack-imports/{}", alive.id),
         Some(&owner_token),
         None,
     )
@@ -1616,7 +1616,7 @@ async fn a_run_the_worker_lost_fails_and_can_be_started_again(pool: PgPool) {
     let (_, shown) = send(
         &app,
         "GET",
-        &format!("/api/slack-imports/{}", lost.id),
+        &format!("/api/v1/slack-imports/{}", lost.id),
         Some(&owner_token),
         None,
     )
@@ -1624,7 +1624,7 @@ async fn a_run_the_worker_lost_fails_and_can_be_started_again(pool: PgPool) {
     assert_eq!(shown["data"]["status"], "failed");
     assert_eq!(shown["data"]["retryable"], true);
 
-    let retry = format!("/api/workspaces/{ws}/slack-imports/{}/retry", lost.id);
+    let retry = format!("/api/v1/workspaces/{ws}/slack-imports/{}/retry", lost.id);
     let (status, _) = send(&app, "POST", &retry, Some(&member_token), None).await;
     assert_eq!(status, StatusCode::FORBIDDEN);
     let (status, again) = send(&app, "POST", &retry, Some(&owner_token), None).await;
@@ -1651,7 +1651,7 @@ async fn a_run_the_worker_lost_fails_and_can_be_started_again(pool: PgPool) {
     let (_, finished) = send(
         &app,
         "GET",
-        &format!("/api/slack-imports/{}", lost.id),
+        &format!("/api/v1/slack-imports/{}", lost.id),
         Some(&owner_token),
         None,
     )
@@ -2002,7 +2002,7 @@ async fn a_failed_runs_export_is_deleted_after_the_limit_or_when_discarded(pool:
             send(
                 &app,
                 "GET",
-                &format!("/api/slack-imports/{id}"),
+                &format!("/api/v1/slack-imports/{id}"),
                 Some(&token),
                 None,
             )
@@ -2017,7 +2017,7 @@ async fn a_failed_runs_export_is_deleted_after_the_limit_or_when_discarded(pool:
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/slack-imports/{old}/retry"),
+        &format!("/api/v1/workspaces/{ws}/slack-imports/{old}/retry"),
         Some(&owner_token),
         None,
     )
@@ -2035,7 +2035,7 @@ async fn a_failed_runs_export_is_deleted_after_the_limit_or_when_discarded(pool:
     );
     assert!(state.file_storage.download(&recent_key).await.is_ok());
 
-    let discard = format!("/api/workspaces/{ws}/slack-imports/{recent}/archive");
+    let discard = format!("/api/v1/workspaces/{ws}/slack-imports/{recent}/archive");
     let (status, _) = send(&app, "DELETE", &discard, Some(&member_token), None).await;
     assert_eq!(status, StatusCode::FORBIDDEN);
     let (status, discarded) = send(&app, "DELETE", &discard, Some(&owner_token), None).await;
@@ -2069,7 +2069,7 @@ async fn a_retry_does_not_write_back_what_an_erased_account_wrote(pool: PgPool) 
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/admin/users/{ivan}/data"),
+        &format!("/api/v1/admin/users/{ivan}/data"),
         Some(&instance_admin),
         Some(json!({ "hard_delete": true })),
     )

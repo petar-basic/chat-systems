@@ -44,7 +44,7 @@ test('an admin creates an incoming webhook and a post through it lands in the ch
     await expect(row.locator('[data-qa="hook-target"]')).toHaveText(`#hooks-${stamp}`);
 
     const url = await row.locator('[data-qa="hook-secret-value"]').first().innerText();
-    expect(url, 'the freshly minted URL is shown once created').toContain('/api/hooks/incoming/');
+    expect(url, 'the freshly minted URL is shown once created').toContain('/api/v1/hooks/incoming/');
 
     const text = `posted-by-webhook-${stamp}`;
     const posted = await admin.post(url, { data: { text } });

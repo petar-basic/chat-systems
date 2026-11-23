@@ -198,7 +198,12 @@ fn detail(state: &AppState, auth: &AuthUser, job: ExportJob) -> ExportDetail {
             job.token_expires_at
                 .is_some_and(|at| at > chrono::Utc::now())
         })
-        .map(|token| format!("{}/api/exports/download/{}", state.config.public_url, token));
+        .map(|token| {
+            format!(
+                "{}/api/v1/exports/download/{}",
+                state.config.public_url, token
+            )
+        });
     ExportDetail {
         export: job,
         download_url,

@@ -55,7 +55,7 @@ async fn start(app: &axum::Router, token: &str, ws: Uuid, body: Value) -> (Uuid,
     let (status, started) = send(
         app,
         "POST",
-        &format!("/api/workspaces/{ws}/huddles"),
+        &format!("/api/v1/workspaces/{ws}/huddles"),
         Some(token),
         Some(body),
     )
@@ -95,7 +95,7 @@ async fn post(
     send(
         app,
         "POST",
-        &format!("/api/channels/{channel}/messages"),
+        &format!("/api/v1/channels/{channel}/messages"),
         Some(token),
         Some(json!({ "content": content, "thread_parent_id": thread })),
     )
@@ -132,8 +132,8 @@ async fn someone_invited_from_outside_has_the_thread_only_while_in_the_huddle(po
         .expect("invite");
     joins(&state, huddle, r.owner_id).await;
 
-    let thread = format!("/api/messages/{root}/thread");
-    let huddle_thread = format!("/api/huddles/{huddle}/thread");
+    let thread = format!("/api/v1/messages/{root}/thread");
+    let huddle_thread = format!("/api/v1/huddles/{huddle}/thread");
     assert_eq!(get(&app, &r.olu, &thread).await, StatusCode::FORBIDDEN);
     assert_eq!(
         post(&app, &r.olu, r.channel, Some(root), "hi").await.0,
@@ -162,7 +162,7 @@ async fn someone_invited_from_outside_has_the_thread_only_while_in_the_huddle(po
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/messages/{reply}/reactions"),
+        &format!("/api/v1/messages/{reply}/reactions"),
         Some(&r.olu),
         Some(json!({ "emoji": "👍" })),
     )
@@ -172,7 +172,7 @@ async fn someone_invited_from_outside_has_the_thread_only_while_in_the_huddle(po
         send(
             &app,
             "POST",
-            &format!("/api/threads/{root}/read"),
+            &format!("/api/v1/threads/{root}/read"),
             Some(&r.olu),
             None
         )
@@ -201,20 +201,20 @@ async fn someone_invited_from_outside_has_the_thread_only_while_in_the_huddle(po
         get(
             &app,
             &r.olu,
-            &format!("/api/channels/{}/messages", r.channel)
+            &format!("/api/v1/channels/{}/messages", r.channel)
         )
         .await,
         StatusCode::FORBIDDEN
     );
     assert_eq!(
-        get(&app, &r.olu, &format!("/api/messages/{other}/thread")).await,
+        get(&app, &r.olu, &format!("/api/v1/messages/{other}/thread")).await,
         StatusCode::FORBIDDEN
     );
     assert_eq!(
         send(
             &app,
             "POST",
-            &format!("/api/messages/{other}/reactions"),
+            &format!("/api/v1/messages/{other}/reactions"),
             Some(&r.olu),
             Some(json!({ "emoji": "👍" })),
         )
@@ -226,7 +226,7 @@ async fn someone_invited_from_outside_has_the_thread_only_while_in_the_huddle(po
     let (status, channel) = send(
         &app,
         "GET",
-        &format!("/api/channels/{}/messages", r.channel),
+        &format!("/api/v1/channels/{}/messages", r.channel),
         Some(&r.mia),
         None,
     )
@@ -256,7 +256,7 @@ async fn someone_invited_from_outside_has_the_thread_only_while_in_the_huddle(po
         send(
             &app,
             "DELETE",
-            &format!("/api/messages/{reply}/reactions/%F0%9F%91%8D"),
+            &format!("/api/v1/messages/{reply}/reactions/%F0%9F%91%8D"),
             Some(&r.olu),
             None
         )
@@ -356,7 +356,7 @@ async fn a_direct_huddle_starts_its_thread_in_the_conversation(pool: PgPool) {
     let (status, page) = send(
         &app,
         "GET",
-        &format!("/api/channels/{channel}/messages"),
+        &format!("/api/v1/channels/{channel}/messages"),
         Some(&r.mia),
         None,
     )

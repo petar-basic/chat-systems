@@ -9,6 +9,6 @@ export function startSsoInDesktop(event: MouseEvent, invite?: string | null) {
 }
 
 export function ssoStartUrl(invite?: string | null) {
-  const start = `${window.location.origin}/api/auth/oidc/start`;
+  const start = `${window.location.origin}/api/v1/auth/oidc/start`;
   return invite ? `${start}?invite=${encodeURIComponent(invite)}` : start;
 }

@@ -60,7 +60,7 @@ async fn post_body(app: &Router, token: &str, channel: Uuid, body: Value) -> Uui
     let (status, body) = send(
         app,
         "POST",
-        &format!("/api/channels/{channel}/messages"),
+        &format!("/api/v1/channels/{channel}/messages"),
         Some(token),
         Some(body),
     )
@@ -89,7 +89,7 @@ async fn save(app: &Router, token: &str, ws: Uuid, body: Value) -> (StatusCode, 
     send(
         app,
         "PUT",
-        &format!("/api/workspaces/{ws}/drafts"),
+        &format!("/api/v1/workspaces/{ws}/drafts"),
         Some(token),
         Some(body),
     )
@@ -106,7 +106,7 @@ async fn drafts(app: &Router, token: &str, ws: Uuid) -> Vec<String> {
     let (status, body) = send(
         app,
         "GET",
-        &format!("/api/workspaces/{ws}/drafts"),
+        &format!("/api/v1/workspaces/{ws}/drafts"),
         Some(token),
         None,
     )
@@ -124,7 +124,7 @@ async fn sent(app: &Router, token: &str, ws: Uuid, query: &str) -> Vec<Value> {
     let (status, body) = send(
         app,
         "GET",
-        &format!("/api/workspaces/{ws}/sent-messages{query}"),
+        &format!("/api/v1/workspaces/{ws}/sent-messages{query}"),
         Some(token),
         None,
     )
@@ -347,7 +347,7 @@ async fn a_place_you_cannot_reach_answers_not_found(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{}/drafts", t.ws),
+        &format!("/api/v1/workspaces/{}/drafts", t.ws),
         Some(&stranger),
         None,
     )
@@ -398,7 +398,7 @@ async fn sent_lists_your_messages_newest_first_a_page_at_a_time(pool: PgPool) {
     let (status, dm) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{}/conversations", t.ws),
+        &format!("/api/v1/workspaces/{}/conversations", t.ws),
         Some(&t.ana),
         Some(json!({ "participant_ids": [t.owner_id] })),
     )
@@ -411,7 +411,7 @@ async fn sent_lists_your_messages_newest_first_a_page_at_a_time(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/messages/{deleted}"),
+        &format!("/api/v1/messages/{deleted}"),
         Some(&t.ana),
         None,
     )
@@ -479,7 +479,7 @@ async fn a_person_export_carries_drafts_and_erasing_or_leaving_removes_them(pool
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/users/{}/exports", t.ana_id),
+        &format!("/api/v1/users/{}/exports", t.ana_id),
         Some(&t.ana),
         Some(json!({})),
     )
@@ -511,7 +511,7 @@ async fn a_person_export_carries_drafts_and_erasing_or_leaving_removes_them(pool
     let (status, body) = send(
         &app,
         "DELETE",
-        &format!("/api/admin/users/{}/data", t.ana_id),
+        &format!("/api/v1/admin/users/{}/data", t.ana_id),
         Some(&instance_admin),
         Some(json!({})),
     )
@@ -534,7 +534,7 @@ async fn a_person_export_carries_drafts_and_erasing_or_leaving_removes_them(pool
     let (status, body) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{}/members/{ben_id}", t.ws),
+        &format!("/api/v1/workspaces/{}/members/{ben_id}", t.ws),
         Some(&t.owner),
         None,
     )

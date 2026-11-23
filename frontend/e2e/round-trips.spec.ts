@@ -29,8 +29,8 @@ test('switching to a channel not opened before is two requests: its context and 
     await expect(page.getByTestId('channel-intro')).toBeVisible();
 
     const seen = recordApi(page);
-    const messages = page.waitForResponse((r) => r.url().includes(`/api/channels/${to.id}/messages`));
-    const context = page.waitForResponse((r) => r.url().includes(`/api/channels/${to.id}/context`));
+    const messages = page.waitForResponse((r) => r.url().includes(`/api/v1/channels/${to.id}/messages`));
+    const context = page.waitForResponse((r) => r.url().includes(`/api/v1/channels/${to.id}/context`));
     await page
       .getByTestId('sidebar-channel-row')
       .filter({ hasText: to.name })
@@ -44,8 +44,8 @@ test('switching to a channel not opened before is two requests: its context and 
 
     const touching = seen.filter((r) => r.includes(to.id) || PER_CHANNEL_ROUTE.test(r));
     expect(touching.sort()).toEqual([
-      `GET /api/channels/${to.id}/context`,
-      `GET /api/channels/${to.id}/messages?limit=50&mark_read=true`,
+      `GET /api/v1/channels/${to.id}/context`,
+      `GET /api/v1/channels/${to.id}/messages?limit=50&mark_read=true`,
     ]);
   } finally {
     await admin.delete(`${API}/channels/${from.id}`);

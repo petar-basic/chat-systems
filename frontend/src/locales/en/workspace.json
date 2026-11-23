@@ -481,7 +481,7 @@
       }
     },
     "scim": {
-      "intro": "An identity provider such as Okta or Entra ID creates, renames and deactivates accounts on this instance through <code>/api/scim/v2</code> with one of these tokens.",
+      "intro": "An identity provider such as Okta or Entra ID creates, renames and deactivates accounts on this instance through <code>/api/v1/scim/v2</code> with one of these tokens.",
       "tokenName": "Token name",
       "create": "Create token",
       "copyNow": "Copy this now. It is not shown again, and nobody can read it back later.",

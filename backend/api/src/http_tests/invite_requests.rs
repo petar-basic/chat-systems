@@ -47,7 +47,7 @@ async fn ask(app: &axum::Router, token: &str, ws: Uuid, body: Value) -> (StatusC
     send(
         app,
         "POST",
-        &format!("/api/workspaces/{ws}/invite-requests"),
+        &format!("/api/v1/workspaces/{ws}/invite-requests"),
         Some(token),
         Some(body),
     )
@@ -58,7 +58,7 @@ async fn waiting(app: &axum::Router, token: &str, ws: Uuid) -> (StatusCode, Valu
     send(
         app,
         "GET",
-        &format!("/api/workspaces/{ws}/invite-requests"),
+        &format!("/api/v1/workspaces/{ws}/invite-requests"),
         Some(token),
         None,
     )
@@ -77,7 +77,7 @@ async fn answer(
         app,
         "POST",
         &format!(
-            "/api/workspaces/{ws}/invite-requests/{}/{verb}",
+            "/api/v1/workspaces/{ws}/invite-requests/{}/{verb}",
             request["id"].as_str().expect("request id")
         ),
         Some(token),
@@ -90,7 +90,7 @@ async fn invite(app: &axum::Router, token: &str, ws: Uuid, body: Value) -> Statu
     send(
         app,
         "POST",
-        &format!("/api/workspaces/{ws}/invites"),
+        &format!("/api/v1/workspaces/{ws}/invites"),
         Some(token),
         Some(body),
     )
@@ -102,7 +102,7 @@ async fn set_inviters(app: &axum::Router, token: &str, ws: Uuid, who: &str) {
     let (status, body) = send(
         app,
         "PATCH",
-        &format!("/api/workspaces/{ws}"),
+        &format!("/api/v1/workspaces/{ws}"),
         Some(token),
         Some(json!({ "inviters": who })),
     )

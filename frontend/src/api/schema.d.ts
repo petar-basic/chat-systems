@@ -6660,10 +6660,13 @@ export interface components {
         /** @enum {string} */
         InstalledKind: "connected_app" | "bot_app" | "incoming_webhook" | "outgoing_webhook" | "slash_command" | "workflow";
         InstanceInfo: {
+            /** Format: int32 */
+            api_version: number;
             email_code_sign_in: boolean;
             icon_url?: string | null;
             /** Format: int64 */
             max_upload_bytes: number;
+            min_client_version: string;
             name: string;
             other_servers_allowed: boolean;
             setup_required: boolean;

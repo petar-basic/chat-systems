@@ -45,7 +45,7 @@ pub fn token_for(keyring: &Keyring, user_id: Uuid, workspace_id: Uuid) -> String
 
 pub fn url_for(public_url: &str, keyring: &Keyring, user_id: Uuid, workspace_id: Uuid) -> String {
     format!(
-        "{}/api/email/unsubscribe/{}",
+        "{}/api/v1/email/unsubscribe/{}",
         public_url.trim_end_matches('/'),
         token_for(keyring, user_id, workspace_id)
     )

@@ -18,7 +18,7 @@ const PNG: &[u8] = &[
 ];
 
 async fn upload_photo(app: &axum::Router, token: &str, bytes: &[u8]) -> (StatusCode, Value) {
-    upload_photo_to(app, token, "/api/users/me/avatar", bytes).await
+    upload_photo_to(app, token, "/api/v1/users/me/avatar", bytes).await
 }
 
 async fn upload_photo_to(
@@ -55,7 +55,7 @@ async fn upload_photo_to(
 }
 
 fn download_path(url: &str) -> String {
-    url[url.find("/api/files/download/").expect("download url")..].to_string()
+    url[url.find("/api/v1/files/download/").expect("download url")..].to_string()
 }
 
 async fn fetch(app: &axum::Router, path: &str, token: &str) -> StatusCode {
@@ -72,7 +72,7 @@ async fn an_account_photo_gets_its_own_place_and_replacing_it_removes_the_old_on
     assert_eq!(status, StatusCode::OK, "{me:?}");
     let first = me["avatar_url"].as_str().expect("avatar url").to_string();
     assert!(
-        first.contains(&format!("/api/files/download/avatars/{alice_id}/")),
+        first.contains(&format!("/api/v1/files/download/avatars/{alice_id}/")),
         "{first}"
     );
     assert_eq!(
@@ -100,7 +100,7 @@ async fn an_account_photo_gets_its_own_place_and_replacing_it_removes_the_old_on
     let (status, _) = send(
         &app,
         "PATCH",
-        "/api/users/me",
+        "/api/v1/users/me",
         Some(&alice),
         Some(json!({ "avatar_url": "" })),
     )
@@ -146,7 +146,7 @@ async fn a_photo_shows_in_every_shared_workspace_and_to_nobody_else(pool: PgPool
         let (status, body) = send(
             &app,
             "GET",
-            &format!("/api/workspaces/{second}/members"),
+            &format!("/api/v1/workspaces/{second}/members"),
             Some(&bob),
             None,
         )
@@ -228,7 +228,7 @@ async fn the_migration_moves_a_photo_out_of_its_workspace_once(pool: PgPool) {
         .upload(&old_key, PNG.to_vec(), "image/png")
         .await
         .expect("store old photo");
-    let old_url = format!("/api/files/download/{old_key}");
+    let old_url = format!("/api/v1/files/download/{old_key}");
     sqlx::query("UPDATE users SET avatar_url = $2 WHERE id = $1")
         .bind(alice_id)
         .bind(&old_url)
@@ -245,7 +245,7 @@ async fn the_migration_moves_a_photo_out_of_its_workspace_once(pool: PgPool) {
         .await
         .expect("avatar url");
     assert!(
-        moved.contains(&format!("/api/files/download/avatars/{alice_id}/")),
+        moved.contains(&format!("/api/v1/files/download/avatars/{alice_id}/")),
         "{moved}"
     );
     assert!(moved.ends_with(".png"), "{moved}");
@@ -290,7 +290,7 @@ async fn a_workspace_photo_outlives_retention_and_shows_to_that_workspace_only(p
         .await
         .expect("set policy");
 
-    let route = format!("/api/workspaces/{ws_id}/profile/avatar");
+    let route = format!("/api/v1/workspaces/{ws_id}/profile/avatar");
     let (status, profile) = upload_photo_to(&app, &alice, &route, PNG).await;
     assert_eq!(status, StatusCode::OK, "{profile:?}");
     let first = profile["avatar_url"]
@@ -298,7 +298,9 @@ async fn a_workspace_photo_outlives_retention_and_shows_to_that_workspace_only(p
         .expect("avatar url")
         .to_string();
     assert!(
-        first.contains(&format!("/api/files/download/avatars/{alice_id}/{ws_id}/")),
+        first.contains(&format!(
+            "/api/v1/files/download/avatars/{alice_id}/{ws_id}/"
+        )),
         "{first}"
     );
     let path = download_path(&first);
@@ -344,7 +346,7 @@ async fn a_workspace_photo_outlives_retention_and_shows_to_that_workspace_only(p
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{ws_id}/profile"),
+        &format!("/api/v1/workspaces/{ws_id}/profile"),
         Some(&alice),
         Some(json!({ "avatar_url": "" })),
     )
@@ -378,7 +380,7 @@ async fn the_migration_moves_a_workspace_photo_once(pool: PgPool) {
         .upload(&old_key, PNG.to_vec(), "image/png")
         .await
         .expect("store old photo");
-    let old_url = format!("/api/files/download/{old_key}");
+    let old_url = format!("/api/v1/files/download/{old_key}");
     sqlx::query(
         "UPDATE workspace_members SET avatar_url = $3 WHERE workspace_id = $1 AND user_id = $2",
     )
@@ -403,7 +405,9 @@ async fn the_migration_moves_a_workspace_photo_once(pool: PgPool) {
     };
     let moved = photo().await;
     assert!(
-        moved.contains(&format!("/api/files/download/avatars/{alice_id}/{ws_id}/")),
+        moved.contains(&format!(
+            "/api/v1/files/download/avatars/{alice_id}/{ws_id}/"
+        )),
         "{moved}"
     );
     assert!(moved.ends_with(".png"), "{moved}");
@@ -441,7 +445,7 @@ async fn a_workspace_icon_shows_to_its_members_outlives_retention_and_goes_when_
         )
         .await
         .expect("set policy");
-    let icon_route = format!("/api/workspaces/{ws_id}/icon");
+    let icon_route = format!("/api/v1/workspaces/{ws_id}/icon");
 
     let (status, _) = upload_photo_to(&app, &member, &icon_route, PNG).await;
     assert_eq!(status, StatusCode::FORBIDDEN, "only an admin sets the icon");
@@ -453,7 +457,7 @@ async fn a_workspace_icon_shows_to_its_members_outlives_retention_and_goes_when_
         .expect("icon url")
         .to_string();
     assert!(
-        first.contains(&format!("/api/files/download/icons/{ws_id}/")),
+        first.contains(&format!("/api/v1/files/download/icons/{ws_id}/")),
         "{first}"
     );
     let path = download_path(&first);
@@ -499,7 +503,7 @@ async fn a_workspace_icon_shows_to_its_members_outlives_retention_and_goes_when_
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{ws_id}"),
+        &format!("/api/v1/workspaces/{ws_id}"),
         Some(&owner),
         Some(json!({ "icon_url": "" })),
     )
@@ -526,7 +530,7 @@ async fn the_migration_moves_a_workspace_icon_once(pool: PgPool) {
         .upload(&old_key, PNG.to_vec(), "image/png")
         .await
         .expect("store old icon");
-    let old_url = format!("/api/files/download/{old_key}");
+    let old_url = format!("/api/v1/files/download/{old_key}");
     sqlx::query("UPDATE workspaces SET icon_url = $2 WHERE id = $1")
         .bind(ws_id)
         .bind(&old_url)
@@ -542,7 +546,7 @@ async fn the_migration_moves_a_workspace_icon_once(pool: PgPool) {
         .await
         .expect("icon url");
     assert!(
-        moved.contains(&format!("/api/files/download/icons/{ws_id}/")),
+        moved.contains(&format!("/api/v1/files/download/icons/{ws_id}/")),
         "{moved}"
     );
     assert!(moved.ends_with(".png"), "{moved}");
@@ -571,7 +575,7 @@ async fn an_erase_removes_the_photo_of_a_workspace_they_had_already_left(pool: P
 
     let (status, account) = upload_photo(&app, &alice, PNG).await;
     assert_eq!(status, StatusCode::OK, "{account:?}");
-    let route = format!("/api/workspaces/{ws_id}/profile/avatar");
+    let route = format!("/api/v1/workspaces/{ws_id}/profile/avatar");
     let (status, workspace) = upload_photo_to(&app, &alice, &route, PNG).await;
     assert_eq!(status, StatusCode::OK, "{workspace:?}");
     let keys: Vec<String> = [&account, &workspace]
@@ -587,7 +591,7 @@ async fn an_erase_removes_the_photo_of_a_workspace_they_had_already_left(pool: P
     let (status, body) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{ws_id}/members/{alice_id}"),
+        &format!("/api/v1/workspaces/{ws_id}/members/{alice_id}"),
         Some(&alice),
         None,
     )
@@ -602,7 +606,7 @@ async fn an_erase_removes_the_photo_of_a_workspace_they_had_already_left(pool: P
     let (status, erased) = send(
         &app,
         "DELETE",
-        &format!("/api/admin/users/{alice_id}/data"),
+        &format!("/api/v1/admin/users/{alice_id}/data"),
         Some(&instance_admin),
         Some(json!({})),
     )
@@ -634,7 +638,7 @@ async fn the_photo_of_someone_who_left_still_shows_where_they_were(pool: PgPool)
     let (status, body) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{ws_id}/members/{alice_id}"),
+        &format!("/api/v1/workspaces/{ws_id}/members/{alice_id}"),
         Some(&alice),
         None,
     )

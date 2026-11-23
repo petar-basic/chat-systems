@@ -16,7 +16,7 @@ async fn create_public_channel_succeeds_for_workspace_member(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/channels"),
+        &format!("/api/v1/workspaces/{ws_id}/channels"),
         Some(&token),
         Some(json!({ "name": "general-public", "channel_type": "public" })),
     )
@@ -38,7 +38,7 @@ async fn create_private_channel_succeeds_for_workspace_member(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/channels"),
+        &format!("/api/v1/workspaces/{ws_id}/channels"),
         Some(&token),
         Some(json!({ "name": "secret-room", "channel_type": "private" })),
     )
@@ -60,7 +60,7 @@ async fn create_channel_defaults_to_public_when_type_omitted(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/channels"),
+        &format!("/api/v1/workspaces/{ws_id}/channels"),
         Some(&token),
         Some(json!({ "name": "no-type-specified" })),
     )
@@ -82,7 +82,7 @@ async fn create_channel_with_empty_name_is_rejected(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/channels"),
+        &format!("/api/v1/workspaces/{ws_id}/channels"),
         Some(&token),
         Some(json!({ "name": "   " })),
     )
@@ -100,7 +100,7 @@ async fn create_channel_requires_authentication(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/channels"),
+        &format!("/api/v1/workspaces/{ws_id}/channels"),
         None,
         Some(json!({ "name": "should-fail" })),
     )
@@ -119,7 +119,7 @@ async fn create_channel_forbidden_for_non_workspace_member(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/channels"),
+        &format!("/api/v1/workspaces/{ws_id}/channels"),
         Some(&outsider_token),
         Some(json!({ "name": "intruder-channel" })),
     )
@@ -139,7 +139,7 @@ async fn list_channels_succeeds_for_workspace_member(pool: PgPool) {
     let (add_status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/members"),
+        &format!("/api/v1/channels/{ch_id}/members"),
         Some(&owner_token),
         Some(json!({ "user_id": member_id })),
     )
@@ -149,7 +149,7 @@ async fn list_channels_succeeds_for_workspace_member(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/channels"),
+        &format!("/api/v1/workspaces/{ws_id}/channels"),
         Some(&member_token),
         None,
     )
@@ -171,7 +171,7 @@ async fn list_channels_requires_authentication(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/channels"),
+        &format!("/api/v1/workspaces/{ws_id}/channels"),
         None,
         None,
     )
@@ -190,7 +190,7 @@ async fn list_channels_forbidden_for_non_workspace_member(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/channels"),
+        &format!("/api/v1/workspaces/{ws_id}/channels"),
         Some(&outsider_token),
         None,
     )
@@ -209,7 +209,7 @@ async fn get_channel_succeeds_for_workspace_member(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/channels/{ch_id}"),
+        &format!("/api/v1/channels/{ch_id}"),
         Some(&token),
         None,
     )
@@ -226,7 +226,14 @@ async fn get_channel_requires_authentication(pool: PgPool) {
     let ws_id = seed_workspace(&state, owner_id, "Get No Auth WS").await;
     let ch_id = seed_channel(&state, ws_id, owner_id, "get-no-auth", false).await;
 
-    let (status, _) = send(&app, "GET", &format!("/api/channels/{ch_id}"), None, None).await;
+    let (status, _) = send(
+        &app,
+        "GET",
+        &format!("/api/v1/channels/{ch_id}"),
+        None,
+        None,
+    )
+    .await;
 
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
@@ -240,7 +247,7 @@ async fn get_unknown_channel_returns_not_found(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/channels/{missing}"),
+        &format!("/api/v1/channels/{missing}"),
         Some(&token),
         None,
     )
@@ -260,7 +267,7 @@ async fn get_private_channel_forbidden_for_non_workspace_member(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/channels/{ch_id}"),
+        &format!("/api/v1/channels/{ch_id}"),
         Some(&outsider_token),
         None,
     )
@@ -279,7 +286,7 @@ async fn update_channel_succeeds_for_workspace_admin(pool: PgPool) {
     let (status, body) = send(
         &app,
         "PATCH",
-        &format!("/api/channels/{ch_id}"),
+        &format!("/api/v1/channels/{ch_id}"),
         Some(&token),
         Some(json!({ "name": "renamed", "topic": "new topic", "description": "desc" })),
     )
@@ -298,7 +305,7 @@ async fn update_channel_with_empty_name_is_rejected(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/channels/{ch_id}"),
+        &format!("/api/v1/channels/{ch_id}"),
         Some(&token),
         Some(json!({ "name": "  " })),
     )
@@ -317,7 +324,7 @@ async fn update_channel_requires_authentication(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/channels/{ch_id}"),
+        &format!("/api/v1/channels/{ch_id}"),
         None,
         Some(json!({ "name": "nope" })),
     )
@@ -338,7 +345,7 @@ async fn update_channel_forbidden_for_plain_member(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/channels/{ch_id}"),
+        &format!("/api/v1/channels/{ch_id}"),
         Some(&member_token),
         Some(json!({ "name": "hacked" })),
     )
@@ -357,7 +364,7 @@ async fn archive_channel_succeeds_for_workspace_admin(pool: PgPool) {
     let (status, body) = send(
         &app,
         "DELETE",
-        &format!("/api/channels/{ch_id}"),
+        &format!("/api/v1/channels/{ch_id}"),
         Some(&token),
         None,
     )
@@ -376,7 +383,7 @@ async fn archive_channel_requires_authentication(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/channels/{ch_id}"),
+        &format!("/api/v1/channels/{ch_id}"),
         None,
         None,
     )
@@ -397,7 +404,7 @@ async fn archive_channel_forbidden_for_plain_member(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/channels/{ch_id}"),
+        &format!("/api/v1/channels/{ch_id}"),
         Some(&member_token),
         None,
     )
@@ -416,7 +423,7 @@ async fn list_channel_members_succeeds_for_workspace_member(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/channels/{ch_id}/members"),
+        &format!("/api/v1/channels/{ch_id}/members"),
         Some(&token),
         None,
     )
@@ -439,7 +446,7 @@ async fn list_channel_members_requires_authentication(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/channels/{ch_id}/members"),
+        &format!("/api/v1/channels/{ch_id}/members"),
         None,
         None,
     )
@@ -459,7 +466,7 @@ async fn list_channel_members_forbidden_for_non_workspace_member(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/channels/{ch_id}/members"),
+        &format!("/api/v1/channels/{ch_id}/members"),
         Some(&outsider_token),
         None,
     )
@@ -476,7 +483,7 @@ async fn a_private_channels_members_are_hidden_from_the_rest_of_the_workspace(po
     let ch_id = seed_channel(&state, ws_id, owner_id, "members-secret", true).await;
     let (member_id, _, member_token) = seed_and_login(&app, &state, "ch-member", false).await;
     add_ws_member(&state, ws_id, member_id, "member").await;
-    let path = format!("/api/channels/{ch_id}/members");
+    let path = format!("/api/v1/channels/{ch_id}/members");
 
     let (status, _) = send(&app, "GET", &path, Some(&member_token), None).await;
     assert_eq!(
@@ -501,7 +508,7 @@ async fn add_channel_member_succeeds_for_workspace_admin(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/members"),
+        &format!("/api/v1/channels/{ch_id}/members"),
         Some(&token),
         Some(json!({ "user_id": new_member_id })),
     )
@@ -521,7 +528,7 @@ async fn add_channel_member_requires_authentication(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/members"),
+        &format!("/api/v1/channels/{ch_id}/members"),
         None,
         Some(json!({ "user_id": target_id })),
     )
@@ -543,7 +550,7 @@ async fn add_channel_member_forbidden_for_non_workspace_member(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/members"),
+        &format!("/api/v1/channels/{ch_id}/members"),
         Some(&outsider_token),
         Some(json!({ "user_id": target_id })),
     )
@@ -563,7 +570,7 @@ async fn remove_channel_member_succeeds_for_workspace_admin(pool: PgPool) {
     let (add_status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/members"),
+        &format!("/api/v1/channels/{ch_id}/members"),
         Some(&token),
         Some(json!({ "user_id": member_id })),
     )
@@ -573,7 +580,7 @@ async fn remove_channel_member_succeeds_for_workspace_admin(pool: PgPool) {
     let (status, body) = send(
         &app,
         "DELETE",
-        &format!("/api/channels/{ch_id}/members/{member_id}"),
+        &format!("/api/v1/channels/{ch_id}/members/{member_id}"),
         Some(&token),
         None,
     )
@@ -593,7 +600,7 @@ async fn remove_self_from_channel_succeeds(pool: PgPool) {
     let (add_status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/members"),
+        &format!("/api/v1/channels/{ch_id}/members"),
         Some(&owner_token),
         Some(json!({ "user_id": member_id })),
     )
@@ -603,7 +610,7 @@ async fn remove_self_from_channel_succeeds(pool: PgPool) {
     let (status, body) = send(
         &app,
         "DELETE",
-        &format!("/api/channels/{ch_id}/members/{member_id}"),
+        &format!("/api/v1/channels/{ch_id}/members/{member_id}"),
         Some(&member_token),
         None,
     )
@@ -623,7 +630,7 @@ async fn remove_channel_member_requires_authentication(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/channels/{ch_id}/members/{member_id}"),
+        &format!("/api/v1/channels/{ch_id}/members/{member_id}"),
         None,
         None,
     )
@@ -646,7 +653,7 @@ async fn remove_other_member_forbidden_for_plain_member(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/channels/{ch_id}/members/{victim_id}"),
+        &format!("/api/v1/channels/{ch_id}/members/{victim_id}"),
         Some(&actor_token),
         None,
     )
@@ -676,7 +683,7 @@ async fn browse_lists_public_channels_with_membership_and_counts(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/channels/browse"),
+        &format!("/api/v1/workspaces/{ws_id}/channels/browse"),
         Some(&browser_token),
         None,
     )
@@ -719,7 +726,7 @@ async fn browse_is_forbidden_for_non_members_and_guests(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/channels/browse"),
+        &format!("/api/v1/workspaces/{ws_id}/channels/browse"),
         Some(&outsider_token),
         None,
     )
@@ -731,7 +738,7 @@ async fn browse_is_forbidden_for_non_members_and_guests(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/channels/browse"),
+        &format!("/api/v1/workspaces/{ws_id}/channels/browse"),
         Some(&guest_token),
         None,
     )
@@ -751,7 +758,7 @@ async fn member_can_join_a_public_channel_and_repeat_joins_are_idempotent(pool: 
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/join"),
+        &format!("/api/v1/channels/{ch_id}/join"),
         Some(&joiner_token),
         None,
     )
@@ -763,7 +770,7 @@ async fn member_can_join_a_public_channel_and_repeat_joins_are_idempotent(pool: 
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/join"),
+        &format!("/api/v1/channels/{ch_id}/join"),
         Some(&joiner_token),
         None,
     )
@@ -773,7 +780,7 @@ async fn member_can_join_a_public_channel_and_repeat_joins_are_idempotent(pool: 
     let (status, listing) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/channels"),
+        &format!("/api/v1/workspaces/{ws_id}/channels"),
         Some(&joiner_token),
         None,
     )
@@ -804,7 +811,7 @@ async fn join_rejects_private_channels_guests_and_outsiders(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{private}/join"),
+        &format!("/api/v1/channels/{private}/join"),
         Some(&member_token),
         None,
     )
@@ -820,7 +827,7 @@ async fn join_rejects_private_channels_guests_and_outsiders(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{public}/join"),
+        &format!("/api/v1/channels/{public}/join"),
         Some(&guest_token),
         None,
     )
@@ -831,7 +838,7 @@ async fn join_rejects_private_channels_guests_and_outsiders(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{public}/join"),
+        &format!("/api/v1/channels/{public}/join"),
         Some(&outsider_token),
         None,
     )
@@ -841,7 +848,7 @@ async fn join_rejects_private_channels_guests_and_outsiders(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{public}/join"),
+        &format!("/api/v1/channels/{public}/join"),
         None,
         None,
     )
@@ -868,7 +875,7 @@ async fn join_rejects_archived_channels(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/join"),
+        &format!("/api/v1/channels/{ch_id}/join"),
         Some(&joiner_token),
         None,
     )
@@ -895,7 +902,7 @@ async fn channel_admin_can_rename_and_archive_their_own_channel(pool: PgPool) {
     let (status, body) = send(
         &app,
         "PATCH",
-        &format!("/api/channels/{ch_id}"),
+        &format!("/api/v1/channels/{ch_id}"),
         Some(&manager_token),
         Some(json!({ "name": "product-renamed", "topic": "roadmap talk" })),
     )
@@ -907,7 +914,7 @@ async fn channel_admin_can_rename_and_archive_their_own_channel(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/channels/{ch_id}"),
+        &format!("/api/v1/channels/{ch_id}"),
         Some(&manager_token),
         None,
     )
@@ -938,7 +945,7 @@ async fn plain_member_still_cannot_rename_or_archive_a_channel(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/channels/{ch_id}"),
+        &format!("/api/v1/channels/{ch_id}"),
         Some(&member_token),
         Some(json!({ "name": "hijacked" })),
     )
@@ -952,7 +959,7 @@ async fn plain_member_still_cannot_rename_or_archive_a_channel(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/channels/{ch_id}"),
+        &format!("/api/v1/channels/{ch_id}"),
         Some(&member_token),
         None,
     )
@@ -983,7 +990,7 @@ async fn channel_admin_can_promote_and_demote_channel_members(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/channels/{ch_id}/members/{owner_id}/role"),
+        &format!("/api/v1/channels/{ch_id}/members/{owner_id}/role"),
         Some(&member_token),
         Some(json!({ "role": "admin" })),
     )
@@ -997,7 +1004,7 @@ async fn channel_admin_can_promote_and_demote_channel_members(pool: PgPool) {
     let (status, body) = send(
         &app,
         "PATCH",
-        &format!("/api/channels/{ch_id}/members/{member_id}/role"),
+        &format!("/api/v1/channels/{ch_id}/members/{member_id}/role"),
         Some(&owner_token),
         Some(json!({ "role": "admin" })),
     )
@@ -1008,7 +1015,7 @@ async fn channel_admin_can_promote_and_demote_channel_members(pool: PgPool) {
     let (status, body) = send(
         &app,
         "PATCH",
-        &format!("/api/channels/{ch_id}/members/{owner_id}/role"),
+        &format!("/api/v1/channels/{ch_id}/members/{owner_id}/role"),
         Some(&member_token),
         Some(json!({ "role": "member" })),
     )
@@ -1033,7 +1040,7 @@ async fn changing_the_role_of_a_non_member_is_not_found(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/channels/{ch_id}/members/{outsider_id}/role"),
+        &format!("/api/v1/channels/{ch_id}/members/{outsider_id}/role"),
         Some(&owner_token),
         Some(json!({ "role": "admin" })),
     )
@@ -1056,7 +1063,7 @@ async fn any_workspace_member_can_add_people_to_a_public_channel(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/members"),
+        &format!("/api/v1/channels/{ch_id}/members"),
         Some(&actor_token),
         Some(json!({ "user_id": invitee_id })),
     )
@@ -1084,7 +1091,7 @@ async fn adding_to_a_private_channel_requires_belonging_to_it(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/members"),
+        &format!("/api/v1/channels/{ch_id}/members"),
         Some(&outsider_token),
         Some(json!({ "user_id": invitee_id })),
     )
@@ -1105,7 +1112,7 @@ async fn adding_to_a_private_channel_requires_belonging_to_it(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/members"),
+        &format!("/api/v1/channels/{ch_id}/members"),
         Some(&outsider_token),
         Some(json!({ "user_id": invitee_id })),
     )
@@ -1138,7 +1145,7 @@ async fn guests_cannot_add_channel_members_and_outsiders_cannot_be_added(pool: P
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/members"),
+        &format!("/api/v1/channels/{ch_id}/members"),
         Some(&guest_token),
         Some(json!({ "user_id": invitee_id })),
     )
@@ -1149,7 +1156,7 @@ async fn guests_cannot_add_channel_members_and_outsiders_cannot_be_added(pool: P
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/members"),
+        &format!("/api/v1/channels/{ch_id}/members"),
         Some(&owner_token),
         Some(json!({ "user_id": stranger_id })),
     )
@@ -1188,7 +1195,7 @@ async fn channel_admin_can_remove_another_member(pool: PgPool) {
     let (status, body) = send(
         &app,
         "DELETE",
-        &format!("/api/channels/{ch_id}/members/{victim_id}"),
+        &format!("/api/v1/channels/{ch_id}/members/{victim_id}"),
         Some(&manager_token),
         None,
     )
@@ -1219,7 +1226,7 @@ async fn a_guest_channel_admin_still_cannot_moderate(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/channels/{ch_id}"),
+        &format!("/api/v1/channels/{ch_id}"),
         Some(&guest_token),
         Some(json!({ "name": "guest-renamed" })),
     )
@@ -1229,7 +1236,7 @@ async fn a_guest_channel_admin_still_cannot_moderate(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/channels/{ch_id}/members/{owner_id}/role"),
+        &format!("/api/v1/channels/{ch_id}/members/{owner_id}/role"),
         Some(&guest_token),
         Some(json!({ "role": "member" })),
     )
@@ -1295,7 +1302,7 @@ async fn sending_counts_for_everyone_but_the_author(pool: PgPool) {
         let (status, _) = send(
             &app,
             "POST",
-            &format!("/api/channels/{ch}/messages"),
+            &format!("/api/v1/channels/{ch}/messages"),
             Some(&author),
             Some(json!({ "content": format!("message {i}") })),
         )
@@ -1336,7 +1343,7 @@ async fn a_mention_counts_separately_from_the_unread_total(pool: PgPool) {
         send(
             &app,
             "POST",
-            &format!("/api/channels/{ch}/messages"),
+            &format!("/api/v1/channels/{ch}/messages"),
             Some(&author),
             Some(json!({ "content": content })),
         )
@@ -1345,7 +1352,7 @@ async fn a_mention_counts_separately_from_the_unread_total(pool: PgPool) {
     send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&author),
         Some(json!({ "content": format!("hey @[Reader]({reader_id})") })),
     )
@@ -1376,7 +1383,7 @@ async fn marking_read_clears_both_counters(pool: PgPool) {
     let (_, msg) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&author),
         Some(json!({ "content": format!("hey @[Reader]({reader_id})") })),
     )
@@ -1386,7 +1393,7 @@ async fn marking_read_clears_both_counters(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/read"),
+        &format!("/api/v1/channels/{ch}/read"),
         Some(&reader),
         Some(json!({ "message_id": msg_id })),
     )
@@ -1414,7 +1421,7 @@ async fn deleting_an_unread_message_takes_it_off_the_count(pool: PgPool) {
     let (_, msg) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&author),
         Some(json!({ "content": "regrettable" })),
     )
@@ -1425,7 +1432,7 @@ async fn deleting_an_unread_message_takes_it_off_the_count(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/messages/{msg_id}"),
+        &format!("/api/v1/messages/{msg_id}"),
         Some(&author),
         None,
     )
@@ -1460,7 +1467,7 @@ async fn muting_a_channel_does_not_change_its_unread_count(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/channels/{ch}/notifications"),
+        &format!("/api/v1/channels/{ch}/notifications"),
         Some(&reader),
         Some(json!({ "muted": true })),
     )
@@ -1470,7 +1477,7 @@ async fn muting_a_channel_does_not_change_its_unread_count(pool: PgPool) {
     send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&author),
         Some(json!({ "content": "still unread" })),
     )
@@ -1502,7 +1509,7 @@ async fn the_reconciler_corrects_a_drifted_counter(pool: PgPool) {
     send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&author),
         Some(json!({ "content": "one" })),
     )
@@ -1549,7 +1556,7 @@ async fn the_unread_endpoint_reports_counts(pool: PgPool) {
     send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&author),
         Some(json!({ "content": format!("hi @[Reader]({reader_id})") })),
     )
@@ -1558,7 +1565,7 @@ async fn the_unread_endpoint_reports_counts(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/channels/unread"),
+        &format!("/api/v1/workspaces/{ws}/channels/unread"),
         Some(&reader),
         None,
     )
@@ -1587,7 +1594,7 @@ async fn a_moderator_puts_a_bookmark_on_the_channel(pool: PgPool) {
     let (status, created) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/bookmarks"),
+        &format!("/api/v1/channels/{ch_id}/bookmarks"),
         Some(&owner_token),
         Some(json!({ "label": "Runbook", "url": "https://example.test/runbook", "emoji": "📕" })),
     )
@@ -1598,7 +1605,7 @@ async fn a_moderator_puts_a_bookmark_on_the_channel(pool: PgPool) {
     let (status, listing) = send(
         &app,
         "GET",
-        &format!("/api/channels/{ch_id}/bookmarks"),
+        &format!("/api/v1/channels/{ch_id}/bookmarks"),
         Some(&member_token),
         None,
     )
@@ -1609,7 +1616,7 @@ async fn a_moderator_puts_a_bookmark_on_the_channel(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/bookmarks"),
+        &format!("/api/v1/channels/{ch_id}/bookmarks"),
         Some(&member_token),
         Some(json!({ "label": "Mine", "url": "https://example.test/mine" })),
     )
@@ -1623,7 +1630,7 @@ async fn a_moderator_puts_a_bookmark_on_the_channel(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/channels/{ch_id}/bookmarks/{bookmark_id}"),
+        &format!("/api/v1/channels/{ch_id}/bookmarks/{bookmark_id}"),
         Some(&member_token),
         None,
     )
@@ -1633,7 +1640,7 @@ async fn a_moderator_puts_a_bookmark_on_the_channel(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/channels/{ch_id}/bookmarks/{bookmark_id}"),
+        &format!("/api/v1/channels/{ch_id}/bookmarks/{bookmark_id}"),
         Some(&owner_token),
         None,
     )
@@ -1643,7 +1650,7 @@ async fn a_moderator_puts_a_bookmark_on_the_channel(pool: PgPool) {
     let (_, listing) = send(
         &app,
         "GET",
-        &format!("/api/channels/{ch_id}/bookmarks"),
+        &format!("/api/v1/channels/{ch_id}/bookmarks"),
         Some(&owner_token),
         None,
     )
@@ -1666,7 +1673,7 @@ async fn a_bookmark_has_to_be_a_link_somebody_can_safely_click(pool: PgPool) {
         let (status, _) = send(
             &app,
             "POST",
-            &format!("/api/channels/{ch_id}/bookmarks"),
+            &format!("/api/v1/channels/{ch_id}/bookmarks"),
             Some(&owner_token),
             Some(json!({ "label": "Nope", "url": url })),
         )
@@ -1681,7 +1688,7 @@ async fn a_bookmark_has_to_be_a_link_somebody_can_safely_click(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/bookmarks"),
+        &format!("/api/v1/channels/{ch_id}/bookmarks"),
         Some(&owner_token),
         Some(json!({ "label": "   ", "url": "https://example.test" })),
     )
@@ -1704,7 +1711,7 @@ async fn bookmarks_stay_inside_the_channel_that_owns_them(pool: PgPool) {
     let (_, created) = send(
         &app,
         "POST",
-        &format!("/api/channels/{first}/bookmarks"),
+        &format!("/api/v1/channels/{first}/bookmarks"),
         Some(&owner_token),
         Some(json!({ "label": "Runbook", "url": "https://example.test/runbook" })),
     )
@@ -1714,7 +1721,7 @@ async fn bookmarks_stay_inside_the_channel_that_owns_them(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/channels/{second}/bookmarks/{bookmark_id}"),
+        &format!("/api/v1/channels/{second}/bookmarks/{bookmark_id}"),
         Some(&owner_token),
         None,
     )
@@ -1726,7 +1733,7 @@ async fn set_post_policy(app: &axum::Router, token: &str, ch_id: Uuid, policy: &
     let (status, _) = send(
         app,
         "PATCH",
-        &format!("/api/channels/{ch_id}"),
+        &format!("/api/v1/channels/{ch_id}"),
         Some(token),
         Some(json!({ "post_policy": policy })),
     )
@@ -1756,7 +1763,7 @@ async fn an_announcement_channel_refuses_every_way_a_member_could_post(pool: PgP
     let (status, parent) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(&member_token),
         Some(json!({ "content": "before the lock" })),
     )
@@ -1772,7 +1779,7 @@ async fn an_announcement_channel_refuses_every_way_a_member_could_post(pool: PgP
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(&member_token),
         Some(json!({ "content": "after the lock" })),
     )
@@ -1782,7 +1789,7 @@ async fn an_announcement_channel_refuses_every_way_a_member_could_post(pool: PgP
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(&member_token),
         Some(json!({ "content": "a reply is a post too", "thread_parent_id": parent_id })),
     )
@@ -1792,7 +1799,7 @@ async fn an_announcement_channel_refuses_every_way_a_member_could_post(pool: PgP
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/scheduled-messages"),
+        &format!("/api/v1/workspaces/{ws_id}/scheduled-messages"),
         Some(&member_token),
         Some(json!({
             "channel_id": ch_id,
@@ -1806,7 +1813,7 @@ async fn an_announcement_channel_refuses_every_way_a_member_could_post(pool: PgP
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/commands"),
+        &format!("/api/v1/channels/{ch_id}/commands"),
         Some(&member_token),
         Some(json!({ "command": "shrug", "text": "hello" })),
     )
@@ -1843,7 +1850,7 @@ async fn reading_and_reacting_are_untouched_by_the_policy(pool: PgPool) {
     let (_, posted) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(&owner_token),
         Some(json!({ "content": "release 2.0 is out" })),
     )
@@ -1857,7 +1864,7 @@ async fn reading_and_reacting_are_untouched_by_the_policy(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(&member_token),
         None,
     )
@@ -1867,7 +1874,7 @@ async fn reading_and_reacting_are_untouched_by_the_policy(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/messages/{msg_id}/reactions"),
+        &format!("/api/v1/messages/{msg_id}/reactions"),
         Some(&member_token),
         Some(json!({ "emoji": "🎉" })),
     )
@@ -1908,7 +1915,7 @@ async fn moderators_post_and_only_moderators_change_the_policy(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(&owner_token),
         Some(json!({ "content": "still allowed" })),
     )
@@ -1931,7 +1938,7 @@ async fn moderators_post_and_only_moderators_change_the_policy(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(&member_token),
         Some(json!({ "content": "unlocked again" })),
     )
@@ -1943,7 +1950,7 @@ async fn archive(app: &axum::Router, token: &str, ch_id: Uuid) -> StatusCode {
     send(
         app,
         "DELETE",
-        &format!("/api/channels/{ch_id}"),
+        &format!("/api/v1/channels/{ch_id}"),
         Some(token),
         None,
     )
@@ -1955,7 +1962,7 @@ async fn unarchive(app: &axum::Router, token: &str, ch_id: Uuid) -> StatusCode {
     send(
         app,
         "POST",
-        &format!("/api/channels/{ch_id}/unarchive"),
+        &format!("/api/v1/channels/{ch_id}/unarchive"),
         Some(token),
         None,
     )
@@ -1973,7 +1980,7 @@ async fn an_archived_channel_takes_no_writes_from_any_path(pool: PgPool) {
     let (_, root) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(&token),
         Some(json!({ "content": "before" })),
     )
@@ -1982,7 +1989,7 @@ async fn an_archived_channel_takes_no_writes_from_any_path(pool: PgPool) {
     let (_, hook) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/hooks"),
+        &format!("/api/v1/workspaces/{ws_id}/hooks"),
         Some(&token),
         Some(json!({
             "hook_type": "incoming_webhook",
@@ -1998,22 +2005,22 @@ async fn an_archived_channel_takes_no_writes_from_any_path(pool: PgPool) {
     let attempts = [
         (
             "POST",
-            format!("/api/channels/{ch_id}/messages"),
+            format!("/api/v1/channels/{ch_id}/messages"),
             Some(json!({ "content": "after" })),
         ),
         (
             "POST",
-            format!("/api/channels/{ch_id}/messages"),
+            format!("/api/v1/channels/{ch_id}/messages"),
             Some(json!({ "content": "a reply", "thread_parent_id": root_id })),
         ),
         (
             "POST",
-            format!("/api/messages/{root_id}/reactions"),
+            format!("/api/v1/messages/{root_id}/reactions"),
             Some(json!({ "emoji": "👍" })),
         ),
         (
             "POST",
-            format!("/api/workspaces/{ws_id}/scheduled-messages"),
+            format!("/api/v1/workspaces/{ws_id}/scheduled-messages"),
             Some(json!({
                 "channel_id": ch_id,
                 "content": "later",
@@ -2029,7 +2036,7 @@ async fn an_archived_channel_takes_no_writes_from_any_path(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/hooks/incoming/{hook_token}"),
+        &format!("/api/v1/hooks/incoming/{hook_token}"),
         None,
         Some(json!({ "text": "build passed" })),
     )
@@ -2057,7 +2064,7 @@ async fn nothing_in_an_archived_channel_changes_until_it_is_unarchived(pool: PgP
     let (_, msg) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(&token),
         Some(json!({ "content": "before" })),
     )
@@ -2066,7 +2073,7 @@ async fn nothing_in_an_archived_channel_changes_until_it_is_unarchived(pool: PgP
     let (_, poll) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/polls"),
+        &format!("/api/v1/channels/{ch_id}/polls"),
         Some(&token),
         Some(json!({ "question": "Lunch?", "options": ["Thursday", "Friday"] })),
     )
@@ -2082,7 +2089,7 @@ async fn nothing_in_an_archived_channel_changes_until_it_is_unarchived(pool: PgP
     let (_, bookmark) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/bookmarks"),
+        &format!("/api/v1/channels/{ch_id}/bookmarks"),
         Some(&token),
         Some(json!({ "label": "Docs", "url": "https://example.com/docs" })),
     )
@@ -2094,59 +2101,59 @@ async fn nothing_in_an_archived_channel_changes_until_it_is_unarchived(pool: PgP
     let attempts = [
         (
             "PATCH",
-            format!("/api/messages/{msg_id}"),
+            format!("/api/v1/messages/{msg_id}"),
             Some(json!({ "content": "rewritten" })),
         ),
-        ("POST", format!("/api/messages/{msg_id}/pin"), None),
-        ("DELETE", format!("/api/messages/{msg_id}/pin"), None),
+        ("POST", format!("/api/v1/messages/{msg_id}/pin"), None),
+        ("DELETE", format!("/api/v1/messages/{msg_id}/pin"), None),
         (
             "POST",
-            format!("/api/messages/{msg_id}/unfurls/refresh"),
+            format!("/api/v1/messages/{msg_id}/unfurls/refresh"),
             None,
         ),
-        ("DELETE", format!("/api/messages/{msg_id}/unfurls"), None),
+        ("DELETE", format!("/api/v1/messages/{msg_id}/unfurls"), None),
         (
             "PUT",
-            format!("/api/polls/{poll_id}/vote"),
+            format!("/api/v1/polls/{poll_id}/vote"),
             Some(json!({ "option_ids": [option_id] })),
         ),
-        ("POST", format!("/api/polls/{poll_id}/close"), None),
+        ("POST", format!("/api/v1/polls/{poll_id}/close"), None),
         (
             "PATCH",
-            format!("/api/channels/{ch_id}"),
+            format!("/api/v1/channels/{ch_id}"),
             Some(json!({ "topic": "new topic" })),
         ),
         (
             "POST",
-            format!("/api/channels/{ch_id}/members"),
+            format!("/api/v1/channels/{ch_id}/members"),
             Some(json!({ "user_id": outsider_id })),
         ),
         (
             "PATCH",
-            format!("/api/channels/{ch_id}/members/{other_id}/role"),
+            format!("/api/v1/channels/{ch_id}/members/{other_id}/role"),
             Some(json!({ "role": "admin" })),
         ),
         (
             "DELETE",
-            format!("/api/channels/{ch_id}/members/{other_id}"),
+            format!("/api/v1/channels/{ch_id}/members/{other_id}"),
             None,
         ),
         (
             "POST",
-            format!("/api/channels/{ch_id}/bookmarks"),
+            format!("/api/v1/channels/{ch_id}/bookmarks"),
             Some(json!({ "label": "More", "url": "https://example.com/more" })),
         ),
         (
             "DELETE",
-            format!("/api/channels/{ch_id}/bookmarks/{bookmark_id}"),
+            format!("/api/v1/channels/{ch_id}/bookmarks/{bookmark_id}"),
             None,
         ),
         (
             "POST",
-            format!("/api/workspaces/{ws_id}/huddles"),
+            format!("/api/v1/workspaces/{ws_id}/huddles"),
             Some(json!({ "channel_id": ch_id })),
         ),
-        ("DELETE", format!("/api/messages/{msg_id}"), None),
+        ("DELETE", format!("/api/v1/messages/{msg_id}"), None),
     ];
     for (method, path, body) in attempts {
         let (status, body) = send(&app, method, &path, Some(&token), body).await;
@@ -2173,7 +2180,7 @@ async fn nothing_in_an_archived_channel_changes_until_it_is_unarchived(pool: PgP
     let (status, body) = send(
         &app,
         "PATCH",
-        &format!("/api/messages/{msg_id}"),
+        &format!("/api/v1/messages/{msg_id}"),
         Some(&token),
         Some(json!({ "content": "rewritten" })),
     )
@@ -2213,7 +2220,7 @@ async fn browse_ids(app: &axum::Router, token: &str, ws_id: Uuid) -> Vec<String>
     let (status, body) = send(
         app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/channels/browse"),
+        &format!("/api/v1/workspaces/{ws_id}/channels/browse"),
         Some(token),
         None,
     )
@@ -2261,7 +2268,7 @@ async fn channel_and_workspace_admins_unarchive_and_a_member_cannot(pool: PgPool
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(&member_token),
         Some(json!({ "content": "back to work" })),
     )

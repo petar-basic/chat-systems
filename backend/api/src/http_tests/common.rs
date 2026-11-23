@@ -212,7 +212,7 @@ pub async fn login(app: &Router, email: &str, password: &str) -> String {
     let (status, body) = send(
         app,
         "POST",
-        "/api/auth/login",
+        "/api/v1/auth/login",
         None,
         Some(json!({ "email": email, "password": password })),
     )

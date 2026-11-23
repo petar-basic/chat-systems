@@ -20,7 +20,7 @@ async fn a_member_schedules_into_a_channel_they_can_post_to(pool: PgPool) {
     let (status, created) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/scheduled-messages"),
+        &format!("/api/v1/workspaces/{ws_id}/scheduled-messages"),
         Some(&owner_token),
         Some(json!({ "channel_id": ch_id, "content": "morning, all", "send_at": in_an_hour() })),
     )
@@ -31,7 +31,7 @@ async fn a_member_schedules_into_a_channel_they_can_post_to(pool: PgPool) {
     let (status, listing) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/scheduled-messages"),
+        &format!("/api/v1/workspaces/{ws_id}/scheduled-messages"),
         Some(&owner_token),
         None,
     )
@@ -42,7 +42,7 @@ async fn a_member_schedules_into_a_channel_they_can_post_to(pool: PgPool) {
     let (_, messages) = send(
         &app,
         "GET",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(&owner_token),
         None,
     )
@@ -67,7 +67,7 @@ async fn scheduling_needs_access_to_the_target(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/scheduled-messages"),
+        &format!("/api/v1/workspaces/{ws_id}/scheduled-messages"),
         Some(&outsider_token),
         Some(
             json!({ "channel_id": private_id, "content": "sneaking in", "send_at": in_an_hour() }),
@@ -83,7 +83,7 @@ async fn scheduling_needs_access_to_the_target(pool: PgPool) {
     let (_, conv) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&owner_token),
         Some(json!({ "participant_ids": [outsider_id] })),
     )
@@ -96,7 +96,7 @@ async fn scheduling_needs_access_to_the_target(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/scheduled-messages"),
+        &format!("/api/v1/workspaces/{ws_id}/scheduled-messages"),
         Some(&stranger_token),
         Some(json!({ "channel_id": conv_id, "content": "not my thread", "send_at": in_an_hour() })),
     )
@@ -106,7 +106,7 @@ async fn scheduling_needs_access_to_the_target(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/scheduled-messages"),
+        &format!("/api/v1/workspaces/{ws_id}/scheduled-messages"),
         Some(&owner_token),
         Some(json!({ "content": "no target", "send_at": in_an_hour() })),
     )
@@ -128,7 +128,7 @@ async fn the_scheduled_time_has_to_be_ahead_and_within_reach(pool: PgPool) {
         let (status, _) = send(
             &app,
             "POST",
-            &format!("/api/workspaces/{ws_id}/scheduled-messages"),
+            &format!("/api/v1/workspaces/{ws_id}/scheduled-messages"),
             Some(&owner_token),
             Some(json!({ "channel_id": ch_id, "content": "when?", "send_at": send_at })),
         )
@@ -139,7 +139,7 @@ async fn the_scheduled_time_has_to_be_ahead_and_within_reach(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/scheduled-messages"),
+        &format!("/api/v1/workspaces/{ws_id}/scheduled-messages"),
         Some(&owner_token),
         Some(json!({ "channel_id": ch_id, "content": "   ", "send_at": in_an_hour() })),
     )
@@ -159,7 +159,7 @@ async fn only_the_author_reschedules_or_cancels(pool: PgPool) {
     let (_, created) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/scheduled-messages"),
+        &format!("/api/v1/workspaces/{ws_id}/scheduled-messages"),
         Some(&owner_token),
         Some(json!({ "channel_id": ch_id, "content": "later", "send_at": in_an_hour() })),
     )
@@ -169,7 +169,7 @@ async fn only_the_author_reschedules_or_cancels(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/scheduled-messages/{id}"),
+        &format!("/api/v1/scheduled-messages/{id}"),
         Some(&other_token),
         Some(json!({ "send_at": in_an_hour() })),
     )
@@ -180,7 +180,7 @@ async fn only_the_author_reschedules_or_cancels(pool: PgPool) {
     let (status, moved) = send(
         &app,
         "PATCH",
-        &format!("/api/scheduled-messages/{id}"),
+        &format!("/api/v1/scheduled-messages/{id}"),
         Some(&owner_token),
         Some(json!({ "send_at": later })),
     )
@@ -190,7 +190,7 @@ async fn only_the_author_reschedules_or_cancels(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/scheduled-messages/{id}"),
+        &format!("/api/v1/scheduled-messages/{id}"),
         Some(&other_token),
         None,
     )
@@ -200,7 +200,7 @@ async fn only_the_author_reschedules_or_cancels(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/scheduled-messages/{id}"),
+        &format!("/api/v1/scheduled-messages/{id}"),
         Some(&owner_token),
         None,
     )
@@ -210,7 +210,7 @@ async fn only_the_author_reschedules_or_cancels(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/scheduled-messages/{id}"),
+        &format!("/api/v1/scheduled-messages/{id}"),
         Some(&owner_token),
         None,
     )
@@ -224,7 +224,7 @@ async fn only_the_author_reschedules_or_cancels(pool: PgPool) {
     let (_, listing) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/scheduled-messages"),
+        &format!("/api/v1/workspaces/{ws_id}/scheduled-messages"),
         Some(&owner_token),
         None,
     )
@@ -238,7 +238,7 @@ async fn only_the_author_reschedules_or_cancels(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/scheduled-messages/{unknown}"),
+        &format!("/api/v1/scheduled-messages/{unknown}"),
         Some(&owner_token),
         None,
     )
@@ -258,7 +258,7 @@ async fn the_dispatcher_delivers_due_messages_exactly_once(pool: PgPool) {
     let (_, conv) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&owner_token),
         Some(json!({ "participant_ids": [partner_id] })),
     )
@@ -299,7 +299,7 @@ async fn the_dispatcher_delivers_due_messages_exactly_once(pool: PgPool) {
     let (_, channel_messages) = send(
         &app,
         "GET",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(&owner_token),
         None,
     )
@@ -312,7 +312,7 @@ async fn the_dispatcher_delivers_due_messages_exactly_once(pool: PgPool) {
     let (_, conversation_messages) = send(
         &app,
         "GET",
-        &format!("/api/channels/{conv_id}/messages"),
+        &format!("/api/v1/channels/{conv_id}/messages"),
         Some(&partner_token),
         None,
     )
@@ -531,7 +531,7 @@ async fn a_dm_from_a_removed_participant_is_not_delivered(pool: PgPool) {
     let (_, conv) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&owner_token),
         Some(json!({ "participant_ids": [partner_id] })),
     )
@@ -572,7 +572,7 @@ async fn a_dm_to_someone_who_left_the_workspace_says_who_is_missing(pool: PgPool
     let (_, conv) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&owner_token),
         Some(json!({ "participant_ids": [partner_id] })),
     )
@@ -583,7 +583,7 @@ async fn a_dm_to_someone_who_left_the_workspace_says_who_is_missing(pool: PgPool
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{ws_id}/members/{partner_id}"),
+        &format!("/api/v1/workspaces/{ws_id}/members/{partner_id}"),
         Some(&owner_token),
         None,
     )
@@ -656,7 +656,7 @@ async fn a_failed_message_stays_visible_to_its_author(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/scheduled-messages"),
+        &format!("/api/v1/workspaces/{ws_id}/scheduled-messages"),
         Some(&token),
         None,
     )
@@ -703,7 +703,7 @@ async fn a_failed_message_can_be_sent_again_or_removed(pool: PgPool) {
             send(
                 &app,
                 "POST",
-                &format!("/api/scheduled-messages/{id}/send"),
+                &format!("/api/v1/scheduled-messages/{id}/send"),
                 Some(&token),
                 None,
             )
@@ -731,7 +731,7 @@ async fn a_failed_message_can_be_sent_again_or_removed(pool: PgPool) {
     let (status, body) = send(
         &app,
         "DELETE",
-        &format!("/api/scheduled-messages/{}", removed.id),
+        &format!("/api/v1/scheduled-messages/{}", removed.id),
         Some(&token),
         None,
     )
@@ -741,7 +741,7 @@ async fn a_failed_message_can_be_sent_again_or_removed(pool: PgPool) {
     let (_, listed) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/scheduled-messages"),
+        &format!("/api/v1/workspaces/{ws_id}/scheduled-messages"),
         Some(&token),
         None,
     )
@@ -778,7 +778,7 @@ async fn removal_cancels_pending_messages_for_that_scope(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/channels/{ch_id}/members/{author_id}"),
+        &format!("/api/v1/channels/{ch_id}/members/{author_id}"),
         Some(&owner_token),
         None,
     )
@@ -807,7 +807,7 @@ async fn removal_cancels_pending_messages_for_that_scope(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{ws_id}/members/{author_id}"),
+        &format!("/api/v1/workspaces/{ws_id}/members/{author_id}"),
         Some(&owner_token),
         None,
     )

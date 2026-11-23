@@ -345,7 +345,12 @@ fn secrets_response(state: &AppState, hook: &Hook) -> HookSecrets {
         .config
         .get("token")
         .and_then(|v| v.as_str())
-        .map(|token| format!("{}/api/hooks/incoming/{}", state.config.public_url, token));
+        .map(|token| {
+            format!(
+                "{}/api/v1/hooks/incoming/{}",
+                state.config.public_url, token
+            )
+        });
     HookSecrets {
         hook_id: hook.id,
         hook_type: hook.hook_type.clone(),

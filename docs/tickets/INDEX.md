@@ -527,7 +527,7 @@ says a huddle and a push work there; the push relay waits on who runs it.
 
 | # | Ticket | Area |
 |---|---|---|
-| CS-141 | `/api/v1`, and a client and a server that know each other's version | backend · frontend · ops · docs |
+| CS-141 ✅ | `/api/v1`, and a client and a server that know each other's version | backend · frontend · ops · docs |
 | CS-142 | Does a Tauri phone app hold a huddle and receive a push? | mobile |
 | CS-143 | Signing in from a client the server does not serve | backend · frontend · mobile |
 | CS-144 | Phone apps for iOS and Android | mobile · frontend · ops |
@@ -582,7 +582,7 @@ Tickets that touch the same files, and the order that avoids rework:
 | sign-in page, `auth/routes.rs` login and the second step | CS-118 → CS-119 → CS-143 |
 | *Preferences → Security* | CS-118 |
 | worker rollups and *Workspace settings → Analytics* | CS-120 → CS-121 |
-| route prefixes, nginx, Caddy and the E2E helpers | CS-141 |
+| route prefixes, nginx, Caddy and the E2E helpers | CS-141 ✅ |
 | `/auth/oidc/exchange` and the deep link | CS-109 ✅ → CS-118 → CS-143 → CS-144 |
 | the Tauri project's mobile targets | CS-142 → CS-144 → CS-145 |
 | `MessageInput.tsx` key handling | CS-114 |

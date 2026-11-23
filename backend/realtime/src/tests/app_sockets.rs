@@ -128,7 +128,7 @@ async fn a_ticket_opens_one_socket_while_it_is_fresh(pool: PgPool) {
 
     let app = app(manager(pool.clone()).await);
     assert_eq!(
-        get_status(&app, "/ws/apps?ticket=not-a-ticket").await,
+        get_status(&app, "/ws/v1/apps?ticket=not-a-ticket").await,
         StatusCode::UNAUTHORIZED
     );
 }

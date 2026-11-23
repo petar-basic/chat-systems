@@ -55,7 +55,7 @@ async fn upload(
 ) -> (StatusCode, Value) {
     let request = Request::builder()
         .method("POST")
-        .uri(format!("/api/files/clip/{ws_id}?draft=true"))
+        .uri(format!("/api/v1/files/clip/{ws_id}?draft=true"))
         .header(header::AUTHORIZATION, format!("Bearer {token}"))
         .header(
             header::CONTENT_TYPE,
@@ -132,7 +132,7 @@ async fn a_screen_clip_keeps_its_poster_and_length_into_the_message(pool: PgPool
     let (status, message) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&owner),
         Some(json!({ "content": "the bug", "attachment_ids": [clip["id"]] })),
     )
@@ -143,7 +143,7 @@ async fn a_screen_clip_keeps_its_poster_and_length_into_the_message(pool: PgPool
     assert_eq!(attachment["thumbnail_url"], poster_url);
 
     let media = clip["url"].as_str().expect("url");
-    let path = &media[media.find("/api/").expect("api path")..];
+    let path = &media[media.find("/api/v1/").expect("api path")..];
     let request = Request::builder()
         .uri(path)
         .header(header::AUTHORIZATION, format!("Bearer {owner}"))
@@ -394,7 +394,7 @@ async fn erasing_the_person_removes_their_clips_and_posters(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&subject),
         Some(json!({ "content": "a clip", "attachment_ids": [clip["id"]] })),
     )
@@ -412,7 +412,7 @@ async fn erasing_the_person_removes_their_clips_and_posters(pool: PgPool) {
     let (status, erased) = send(
         &app,
         "DELETE",
-        &format!("/api/admin/users/{subject_id}/data"),
+        &format!("/api/v1/admin/users/{subject_id}/data"),
         Some(&instance_admin),
         Some(json!({ "hard_delete": true })),
     )

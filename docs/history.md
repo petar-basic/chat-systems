@@ -4302,3 +4302,51 @@ others: every server can set the flag, so a server that could empty the app woul
 server throw out the company's. A locked device, read from a managed configuration file as
 Mattermost does, is left for when someone needs it.
 
+
+## Wave 37 — Mobile apps
+
+### [CS-141] `/api/v1`, and a client and a server that know each other's version ✅ shipped
+The server always served its own web client, so the two were the same version and nothing
+needed to say which version either was. A phone app carries its own client and will meet
+servers older and newer than itself. The path was left unversioned in 2026-09 until a
+breaking change came; this is it, and it is why the release is 5.0.0.
+
+**The paths.** `chat-api` nests every route under `/api/v1`, OpenAPI included, and
+`chat-realtime` serves `/ws/v1` and `/ws/v1/apps`. The old `/api` and `/ws` answer 404 and
+nothing redirects: a redirect would keep the old paths as an API that has to keep working.
+Every URL the server builds moves with them: incoming and workflow webhooks, command and
+interaction `response_url`s, SCIM locations, the SSO redirect URI, export and unsubscribe
+links, file downloads, and the socket address `apps.connections.open` hands an app. The
+refresh cookie's path is now `/api/v1/auth`, so everyone signs in once more after the
+upgrade. The shipped nginx, Caddy and Vite configurations route by prefix and did not change.
+
+**Stored links.** Avatars, workspace icons and message attachments keep a full download URL
+in the database. Migration 128 moves them to `/api/v1/files/download/`, along with the
+unsubscribe and export links in emails still waiting in the outbox. The audit log's record of
+the routes a bot called keeps the old paths, as history.
+
+**Versions.** `GET /api/v1/instance/info` reports `api_version` (1) and `min_client_version`,
+the oldest client the server still serves: 5.0.0, a constant in `client_version.rs`. A client
+sends its version in `X-Client-Version`, which CORS now lets through. An older one gets 426 with
+the version it needs. A request with no header, or one that is not a version, is served, so
+bots, curl and development builds are never refused. The web client sends its release version,
+which the build already had as `VITE_BUILD_ID`, and nothing in development. It reports a 426 to
+a banner that names the server and the version. A server that has no `/api/v1` answers an
+empty 404, or for another origin fails the preflight because it does not allow the header. The
+client then asks the old `/api/instance/info` once, and if that answers it says the server is
+too old for this app. The rule for what may change within `v1` is in `docs/backend.md`.
+
+**QA** on the Docker stack, built from the branch and started on the 4.8.1 database, ran a
+script against nginx on port 8080 and checked the database:
+- Migration 128 ran. No avatar, member avatar, workspace icon or message attachment kept an
+  old download link, and a moved avatar and a moved attachment both downloaded.
+- `/api/v1/instance/info` reported version 1 and 5.0.0; `/api/instance/info` was a 404, and the
+  OpenAPI document said `/api/v1`.
+- `X-Client-Version: 4.8.1` got 426 with `min_client_version` 5.0.0; `5.0.0` was served. A
+  preflight from the CORS origin allowed the header.
+- The admin signed in at `/api/v1/auth/login`; the refresh cookie came with
+  `Path=/api/v1/auth` and refreshed the session.
+- A new incoming webhook showed a URL under `/api/v1/hooks/incoming/`. A post to it reached
+  `#general`; the same token under `/api/hooks/incoming/` did not.
+- The socket upgraded at `/ws/v1` and not at `/ws`. The sign-in page loaded its instance info
+  from `/api/v1`.

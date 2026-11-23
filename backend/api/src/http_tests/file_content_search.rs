@@ -46,7 +46,7 @@ async fn hits(app: &axum::Router, token: &str, ws_id: Uuid, term: &str) -> Vec<V
     let (status, body) = send(
         app,
         "GET",
-        &format!("/api/search/files?workspace_id={ws_id}&{}", q(term)),
+        &format!("/api/v1/search/files?workspace_id={ws_id}&{}", q(term)),
         Some(token),
         None,
     )
@@ -344,7 +344,7 @@ async fn unreadable_files_are_recorded_once_and_deleting_a_file_drops_its_text(p
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/files/{file_id}"),
+        &format!("/api/v1/files/{file_id}"),
         Some(&owner),
         None,
     )

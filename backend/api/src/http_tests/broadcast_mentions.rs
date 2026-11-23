@@ -62,7 +62,7 @@ async fn set_rules(t: &Team, rules: Value) {
     let (status, body) = send(
         &t.app,
         "PATCH",
-        &format!("/api/workspaces/{}", t.ws),
+        &format!("/api/v1/workspaces/{}", t.ws),
         Some(&t.owner),
         Some(rules),
     )
@@ -74,7 +74,7 @@ async fn say(t: &Team, token: &str, content: &str) -> (StatusCode, Value) {
     send(
         &t.app,
         "POST",
-        &format!("/api/channels/{}/messages", t.channel),
+        &format!("/api/v1/channels/{}/messages", t.channel),
         Some(token),
         Some(json!({ "content": content })),
     )
@@ -105,7 +105,7 @@ async fn the_rules_round_trip_and_only_an_admin_sets_them(pool: PgPool) {
     let (_, workspace) = send(
         &t.app,
         "GET",
-        &format!("/api/workspaces/{}", t.ws),
+        &format!("/api/v1/workspaces/{}", t.ws),
         Some(&t.member),
         None,
     )
@@ -117,7 +117,7 @@ async fn the_rules_round_trip_and_only_an_admin_sets_them(pool: PgPool) {
     let (status, _) = send(
         &t.app,
         "PATCH",
-        &format!("/api/workspaces/{}", t.ws),
+        &format!("/api/v1/workspaces/{}", t.ws),
         Some(&t.member),
         Some(json!({ "broadcast_mentions": "members" })),
     )
@@ -157,7 +157,7 @@ async fn an_admins_only_rule_refuses_a_members_broadcast_and_says_why(pool: PgPo
     let (status, body) = send(
         &t.app,
         "POST",
-        &format!("/api/channels/{}/polls", t.channel),
+        &format!("/api/v1/channels/{}/polls", t.channel),
         Some(&t.member),
         Some(json!({ "question": "@channel pizza?", "options": ["yes", "no"] })),
     )
@@ -167,7 +167,7 @@ async fn an_admins_only_rule_refuses_a_members_broadcast_and_says_why(pool: PgPo
     let (status, body) = send(
         &t.app,
         "POST",
-        &format!("/api/workspaces/{}/scheduled-messages", t.ws),
+        &format!("/api/v1/workspaces/{}/scheduled-messages", t.ws),
         Some(&t.member),
         Some(json!({
             "channel_id": t.channel,
@@ -192,7 +192,7 @@ async fn an_admins_only_rule_refuses_a_members_broadcast_and_says_why(pool: PgPo
 #[test_macros::db_test(migrations = "../migrations")]
 async fn a_channel_can_turn_broadcasts_off_for_everyone_in_it(pool: PgPool) {
     let t = team(pool).await;
-    let path = format!("/api/channels/{}", t.channel);
+    let path = format!("/api/v1/channels/{}", t.channel);
 
     let (status, _) = send(
         &t.app,
@@ -305,7 +305,7 @@ async fn a_workflow_that_would_broadcast_without_the_right_is_refused_at_save(po
     let (status, body) = send(
         &t.app,
         "POST",
-        &format!("/api/workspaces/{}/workflows", t.ws),
+        &format!("/api/v1/workspaces/{}/workflows", t.ws),
         Some(&t.member),
         Some(json!({
             "name": "Standup",
@@ -330,7 +330,7 @@ async fn creating_a_channel_follows_the_rule_for_its_type(pool: PgPool) {
     add_ws_member(&t.state, t.ws, guest_id, "guest").await;
     let create = |token: String, name: &'static str, channel_type: &'static str| {
         let app = t.app.clone();
-        let path = format!("/api/workspaces/{}/channels", t.ws);
+        let path = format!("/api/v1/workspaces/{}/channels", t.ws);
         async move {
             send(
                 &app,
@@ -387,7 +387,7 @@ async fn a_forward_notifies_only_the_people_its_own_words_name(pool: PgPool) {
     let (status, body) = send(
         &t.app,
         "POST",
-        &format!("/api/channels/{}/messages", t.channel),
+        &format!("/api/v1/channels/{}/messages", t.channel),
         Some(&t.member),
         Some(json!({ "content": content, "forwarded_from": original["id"] })),
     )

@@ -20,7 +20,10 @@ use crate::state::AppState;
 use crate::workspace::models::{Channel, ChannelType, WhoMay, WorkspaceMember, WorkspaceRole};
 
 pub fn webhook_url(state: &AppState, token: &str) -> String {
-    format!("{}/api/workflows/webhook/{token}", state.config.public_url)
+    format!(
+        "{}/api/v1/workflows/webhook/{token}",
+        state.config.public_url
+    )
 }
 
 fn generate_token() -> String {

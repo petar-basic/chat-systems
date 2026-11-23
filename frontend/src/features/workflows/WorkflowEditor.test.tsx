@@ -561,13 +561,13 @@ describe('WorkflowEditor', () => {
     const hook = { type: 'webhook' as const, variables: [] };
     rotate.mockResolvedValue(
       saved({
-        webhook_url: 'https://chat.test/api/workflows/webhook/new',
+        webhook_url: 'https://chat.test/api/v1/workflows/webhook/new',
         definition: { trigger: hook, steps: [] },
       }),
     );
     renderEditor(
       saved({
-        webhook_url: 'https://chat.test/api/workflows/webhook/old',
+        webhook_url: 'https://chat.test/api/v1/workflows/webhook/old',
         definition: { trigger: hook, steps: [] },
       }),
     );

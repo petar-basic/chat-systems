@@ -4,9 +4,9 @@ import { Avatar } from './Avatar';
 
 describe('Avatar', () => {
   it('renders the uploaded image when an avatar url is set', () => {
-    render(<Avatar userId="user-1" name="Alice" avatarUrl="/api/files/download/ws/alice.png" />);
+    render(<Avatar userId="user-1" name="Alice" avatarUrl="/api/v1/files/download/ws/alice.png" />);
     const img = screen.getByRole('img', { name: 'Alice' });
-    expect(img).toHaveAttribute('src', '/api/files/download/ws/alice.png');
+    expect(img).toHaveAttribute('src', '/api/v1/files/download/ws/alice.png');
   });
 
   it('renders initials when no avatar url is set', () => {
@@ -16,7 +16,7 @@ describe('Avatar', () => {
   });
 
   it('falls back to initials when the image fails to load', () => {
-    render(<Avatar userId="user-1" name="Alice" avatarUrl="/api/files/download/ws/gone.png" />);
+    render(<Avatar userId="user-1" name="Alice" avatarUrl="/api/v1/files/download/ws/gone.png" />);
     fireEvent.error(screen.getByRole('img', { name: 'Alice' }));
     expect(screen.getByText('A')).toBeInTheDocument();
     expect(document.querySelector('img')).toBeNull();

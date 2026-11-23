@@ -1,6 +1,9 @@
 import createClient, { type Client } from 'openapi-fetch';
 import type { components, paths } from '@/api/schema';
+import { useServerSupportStore } from '@/stores/serverSupport';
+import { clientVersion } from './appVersion';
 import { ApiError, retryAfterSeconds } from './errors';
+import i18n from './i18n';
 
 export interface TypedResult<D> {
   data?: D;
@@ -38,9 +41,18 @@ function isTokenExpiring(token: string): boolean {
   }
 }
 
+const VERSION_HEADER: Record<string, string> = clientVersion ? { 'X-Client-Version': clientVersion } : {};
+
+function minClientVersion(error: unknown): string {
+  const body = error as { min_client_version?: unknown } | null;
+  return typeof body?.min_client_version === 'string' ? body.min_client_version : '';
+}
+
 export class ApiClient {
   private baseUrl: string;
   private isCrossOrigin: boolean;
+  private instanceUrl: string;
+  private ageCheck: Promise<boolean> | null = null;
 
   private memoryToken: string | null = null;
   private refreshToken: string | null = null;
@@ -53,12 +65,49 @@ export class ApiClient {
 
   constructor(instanceUrl?: string) {
     if (!instanceUrl || instanceUrl === window.location.origin) {
-      this.baseUrl = '/api';
+      this.baseUrl = '/api/v1';
       this.isCrossOrigin = false;
+      this.instanceUrl = window.location.origin;
     } else {
-      this.baseUrl = `${instanceUrl}/api`;
+      this.baseUrl = `${instanceUrl}/api/v1`;
       this.isCrossOrigin = true;
+      this.instanceUrl = instanceUrl;
     }
+  }
+
+  private refused(error: unknown): ApiError {
+    const minVersion = minClientVersion(error);
+    useServerSupportStore.getState().report(this.instanceUrl, { kind: 'needsNewerApp', minVersion });
+    return new ApiError(426, i18n.t('common:serverSupport.needsNewerAppError', { version: minVersion }));
+  }
+
+  private serverIsTooOld(): Promise<boolean> {
+    this.ageCheck ??= fetch(`${this.instanceUrl}/api/instance/info`)
+      .then((res) => {
+        if (res.ok) useServerSupportStore.getState().report(this.instanceUrl, { kind: 'serverTooOld' });
+        else this.ageCheck = null;
+        return res.ok;
+      })
+      .catch(() => {
+        this.ageCheck = null;
+        return false;
+      });
+    return this.ageCheck;
+  }
+
+  private async unreachable(cause: unknown): Promise<unknown> {
+    if (this.isCrossOrigin && (await this.serverIsTooOld())) {
+      return new ApiError(0, i18n.t('common:serverSupport.serverTooOldError'));
+    }
+    return cause;
+  }
+
+  private async failure(status: number, error: unknown, response: Response): Promise<ApiError> {
+    if (status === 426) return this.refused(error);
+    if (status === 404 && !error && (await this.serverIsTooOld())) {
+      return new ApiError(404, i18n.t('common:serverSupport.serverTooOldError'));
+    }
+    return new ApiError(status, errorMessage(error, response), retryAfterSeconds(response));
   }
 
   setTokens(access: string | null, refresh: string | null) {
@@ -87,7 +136,7 @@ export class ApiClient {
       const client = createClient<paths>({ baseUrl: this.baseUrl, credentials: 'include' });
       client.use({
         onRequest: ({ request }) => {
-          for (const [name, value] of Object.entries(this.getAuthHeaders())) {
+          for (const [name, value] of Object.entries(this.headers())) {
             request.headers.set(name, value);
           }
           return request;
@@ -109,7 +158,9 @@ export class ApiClient {
     op: (client: Client<paths>) => Promise<TypedResult<D>>,
     mayRefresh: boolean,
   ): Promise<D> {
-    const { data, error, response } = await op(this.client);
+    const { data, error, response } = await op(this.client).catch(async (cause: unknown) => {
+      throw await this.unreachable(cause);
+    });
 
     if (response.status === 401 && mayRefresh) {
       const refreshed = await this.refresh();
@@ -121,10 +172,14 @@ export class ApiClient {
     }
 
     if (!response.ok) {
-      throw new ApiError(response.status, errorMessage(error, response), retryAfterSeconds(response));
+      throw await this.failure(response.status, error, response);
     }
 
     return data as D;
+  }
+
+  private headers(): Record<string, string> {
+    return { ...VERSION_HEADER, ...this.getAuthHeaders() };
   }
 
   private getAuthHeaders(): Record<string, string> {
@@ -150,9 +205,14 @@ export class ApiClient {
       const res = await fetch(`${this.baseUrl}/auth/refresh`, {
         method: 'POST',
         credentials: 'include',
-        headers:
-          this.isCrossOrigin && this.refreshToken ? { Authorization: `Bearer ${this.refreshToken}` } : {},
+        headers: {
+          ...VERSION_HEADER,
+          ...(this.isCrossOrigin && this.refreshToken
+            ? { Authorization: `Bearer ${this.refreshToken}` }
+            : {}),
+        },
       });
+      if (res.status === 426) this.refused(await res.json().catch(() => null));
       if (!res.ok) return null;
 
       const data = (await res.json().catch(() => null)) as RefreshData | null;
@@ -171,9 +231,11 @@ export class ApiClient {
   async upload<T>(path: string, formData: FormData, isRetry = false): Promise<T> {
     const res = await fetch(`${this.baseUrl}${path}`, {
       method: 'POST',
-      headers: { ...this.getAuthHeaders() },
+      headers: this.headers(),
       credentials: 'include',
       body: formData,
+    }).catch(async (cause: unknown) => {
+      throw await this.unreachable(cause);
     });
 
     if (res.status === 401 && !isRetry) {
@@ -183,8 +245,8 @@ export class ApiClient {
       throw new ApiError(401, 'Session expired. Please log in again.');
     }
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
-      throw new ApiError(res.status, err.error || err.message || res.statusText, retryAfterSeconds(res));
+      const err = await res.json().catch(() => null);
+      throw await this.failure(res.status, err, res);
     }
     if (res.status === 204) return undefined as T;
     return res.json() as Promise<T>;
@@ -202,7 +264,7 @@ export class ApiClient {
       xhr.open('POST', `${this.baseUrl}${path}`);
       xhr.withCredentials = true;
       xhr.responseType = 'json';
-      for (const [name, value] of Object.entries(this.getAuthHeaders())) xhr.setRequestHeader(name, value);
+      for (const [name, value] of Object.entries(this.headers())) xhr.setRequestHeader(name, value);
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) onProgress(event.loaded / event.total);
       };
@@ -219,6 +281,7 @@ export class ApiClient {
       this.onSessionExpired?.();
       throw new ApiError(401, 'Session expired. Please log in again.');
     }
+    if (status === 426) throw this.refused(body);
     if (status < 200 || status >= 300) {
       const err = body as { error?: string; message?: string } | null;
       throw new ApiError(

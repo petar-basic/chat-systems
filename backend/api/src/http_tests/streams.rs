@@ -24,7 +24,7 @@ async fn a_durable_event_lands_in_its_workspace_log(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&token),
         Some(serde_json::json!({ "content": "durable" })),
     )
@@ -76,7 +76,7 @@ async fn two_worker_replicas_each_see_an_event_once(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&token),
         Some(serde_json::json!({ "content": "warm up" })),
     )
@@ -101,7 +101,7 @@ async fn two_worker_replicas_each_see_an_event_once(pool: PgPool) {
         let (status, _) = send(
             &app,
             "POST",
-            &format!("/api/channels/{ch}/messages"),
+            &format!("/api/v1/channels/{ch}/messages"),
             Some(&token),
             Some(serde_json::json!({ "content": format!("work {i}") })),
         )
@@ -213,7 +213,7 @@ async fn an_event_held_by_a_dead_replica_is_claimed_by_a_live_one(pool: PgPool) 
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&token),
         Some(serde_json::json!({ "content": "warm up" })),
     )
@@ -228,7 +228,7 @@ async fn an_event_held_by_a_dead_replica_is_claimed_by_a_live_one(pool: PgPool) 
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&token),
         Some(serde_json::json!({ "content": "work" })),
     )
@@ -282,7 +282,7 @@ async fn an_event_that_keeps_killing_its_consumer_is_dropped(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&token),
         Some(serde_json::json!({ "content": "work" })),
     )

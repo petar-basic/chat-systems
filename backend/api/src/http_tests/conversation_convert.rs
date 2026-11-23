@@ -11,7 +11,7 @@ async fn open(app: &axum::Router, token: &str, ws: Uuid, with: &[Uuid]) -> Uuid 
     let (status, body) = send(
         app,
         "POST",
-        &format!("/api/workspaces/{ws}/conversations"),
+        &format!("/api/v1/workspaces/{ws}/conversations"),
         Some(token),
         Some(json!({ "participant_ids": with })),
     )
@@ -24,7 +24,7 @@ async fn convert(app: &axum::Router, token: &str, id: Uuid, name: &str) -> (Stat
     send(
         app,
         "POST",
-        &format!("/api/conversations/{id}/convert"),
+        &format!("/api/v1/conversations/{id}/convert"),
         Some(token),
         Some(json!({ "name": name })),
     )
@@ -35,7 +35,7 @@ async fn say(app: &axum::Router, token: &str, ch: Uuid, body: Value) -> Value {
     let (status, message) = send(
         app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(token),
         Some(body),
     )
@@ -51,13 +51,18 @@ async fn get(app: &axum::Router, token: &str, path: &str) -> Value {
 }
 
 async fn listed(app: &axum::Router, token: &str, ws: Uuid, id: Uuid) -> (bool, Option<Value>) {
-    let conversations = get(app, token, &format!("/api/workspaces/{ws}/conversations")).await;
+    let conversations = get(
+        app,
+        token,
+        &format!("/api/v1/workspaces/{ws}/conversations"),
+    )
+    .await;
     let in_conversations = conversations["data"]
         .as_array()
         .expect("conversations")
         .iter()
         .any(|c| c["id"] == json!(id));
-    let channels = get(app, token, &format!("/api/workspaces/{ws}/channels")).await;
+    let channels = get(app, token, &format!("/api/v1/workspaces/{ws}/channels")).await;
     let channel = channels["data"]
         .as_array()
         .expect("channels")
@@ -68,7 +73,12 @@ async fn listed(app: &axum::Router, token: &str, ws: Uuid, id: Uuid) -> (bool, O
 }
 
 async fn read_state(app: &axum::Router, token: &str, ws: Uuid, id: Uuid) -> (Value, Value) {
-    let unread = get(app, token, &format!("/api/workspaces/{ws}/channels/unread")).await;
+    let unread = get(
+        app,
+        token,
+        &format!("/api/v1/workspaces/{ws}/channels/unread"),
+    )
+    .await;
     let row = unread["counts"]
         .as_array()
         .expect("counts")
@@ -121,7 +131,7 @@ async fn a_group_dm_becomes_a_private_channel_that_keeps_its_history_and_people(
     let (status, _) = send(
         &app,
         "PUT",
-        &format!("/api/channels/{group}/notify-level"),
+        &format!("/api/v1/channels/{group}/notify-level"),
         Some(&cy),
         Some(json!({ "level": "mentions" })),
     )
@@ -130,7 +140,7 @@ async fn a_group_dm_becomes_a_private_channel_that_keeps_its_history_and_people(
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{group}/read"),
+        &format!("/api/v1/channels/{group}/read"),
         Some(&cy),
         Some(json!({ "message_id": kickoff["id"] })),
     )
@@ -168,14 +178,14 @@ async fn a_group_dm_becomes_a_private_channel_that_keeps_its_history_and_people(
     .expect("roles");
     assert_eq!(roles, vec![(ana_id, "admin".into())]);
 
-    let history = get(&app, &owner, &format!("/api/channels/{group}/messages")).await;
+    let history = get(&app, &owner, &format!("/api/v1/channels/{group}/messages")).await;
     let said = history["data"].to_string();
     assert!(said.contains("kickoff") && said.contains("dates"), "{said}");
     let thread = get(
         &app,
         &cy,
         &format!(
-            "/api/messages/{}/thread",
+            "/api/v1/messages/{}/thread",
             kickoff["id"].as_str().expect("id")
         ),
     )
@@ -215,7 +225,7 @@ async fn a_group_dm_becomes_a_private_channel_that_keeps_its_history_and_people(
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/channels/{group}/messages"),
+        &format!("/api/v1/channels/{group}/messages"),
         Some(&dee),
         None,
     )
@@ -224,7 +234,7 @@ async fn a_group_dm_becomes_a_private_channel_that_keeps_its_history_and_people(
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{group}/members"),
+        &format!("/api/v1/channels/{group}/members"),
         Some(&ana),
         Some(json!({ "user_id": dee_id })),
     )
@@ -234,7 +244,7 @@ async fn a_group_dm_becomes_a_private_channel_that_keeps_its_history_and_people(
         StatusCode::OK,
         "a channel takes new people: {body:?}"
     );
-    let history = get(&app, &dee, &format!("/api/channels/{group}/messages")).await;
+    let history = get(&app, &dee, &format!("/api/v1/channels/{group}/messages")).await;
     assert!(
         history["data"].to_string().contains("kickoff"),
         "and they read what was said before"
@@ -261,7 +271,7 @@ async fn only_someone_in_a_group_of_three_who_may_make_private_channels_converts
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/conversations/{group}/convert"),
+        &format!("/api/v1/conversations/{group}/convert"),
         None,
         Some(json!({ "name": "plans" })),
     )
@@ -316,7 +326,7 @@ async fn only_someone_in_a_group_of_three_who_may_make_private_channels_converts
     let (status, body) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{ws}"),
+        &format!("/api/v1/workspaces/{ws}"),
         Some(&owner),
         Some(json!({ "private_channel_creators": "admins" })),
     )
@@ -348,7 +358,7 @@ async fn somebody_who_had_left_the_group_does_not_come_back_into_the_channel(poo
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{ws}/members/{dee_id}"),
+        &format!("/api/v1/workspaces/{ws}/members/{dee_id}"),
         Some(&dee),
         None,
     )
@@ -376,7 +386,7 @@ async fn somebody_who_had_left_the_group_does_not_come_back_into_the_channel(poo
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/channels/{group}/messages"),
+        &format!("/api/v1/channels/{group}/messages"),
         Some(&dee),
         None,
     )

@@ -240,7 +240,7 @@ pub async fn ws_upgrade_status_with_origin(
 ) -> StatusCode {
     let mut builder = Request::builder()
         .method("GET")
-        .uri("/ws")
+        .uri("/ws/v1")
         .header(header::CONNECTION, "upgrade")
         .header(header::UPGRADE, "websocket")
         .header("sec-websocket-version", "13")

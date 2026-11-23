@@ -140,8 +140,8 @@ describe('EditProfileModal', () => {
   });
 
   it("goes back to the account's photo", async () => {
-    account = { ...account, avatar_url: '/api/files/account.png' };
-    profile = { ...profile, display_name: 'Ali', avatar_url: '/api/files/work.png' };
+    account = { ...account, avatar_url: '/api/v1/files/account.png' };
+    profile = { ...profile, display_name: 'Ali', avatar_url: '/api/v1/files/work.png' };
     const onClose = renderModal();
 
     fireEvent.click(screen.getByRole('button', { name: 'Use account photo' }));
@@ -279,11 +279,11 @@ describe('EditProfileModal', () => {
         title: hostile,
         pronouns: hostile,
         bio: hostile,
-        avatar_url: '/api/files/a.png',
+        avatar_url: '/api/v1/files/a.png',
       };
       profile = {
         ...profile,
-        avatar_url: '/api/files/w.png',
+        avatar_url: '/api/v1/files/w.png',
         status_emoji: hostile,
         status_text: hostile,
         status_expires_at: '2026-10-23T13:00:00Z',
@@ -312,7 +312,7 @@ describe('EditProfileModal', () => {
 
     it('labels an empty profile and sets a status from a preset', async () => {
       account = { display_name: 'Alice', title: null, pronouns: null, bio: null, avatar_url: null };
-      profile = { ...profile, avatar_url: '/api/files/w.png' };
+      profile = { ...profile, avatar_url: '/api/v1/files/w.png' };
       const onClose = renderModal();
 
       expect(screen.getByRole('textbox', { name: /^肩書き/ })).toHaveAttribute(

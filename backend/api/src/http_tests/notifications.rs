@@ -39,7 +39,7 @@ async fn list_notifications_returns_seeded_rows(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/notifications"),
+        &format!("/api/v1/workspaces/{ws}/notifications"),
         Some(&token),
         None,
     )
@@ -66,7 +66,7 @@ async fn list_notifications_without_token_is_401(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/notifications"),
+        &format!("/api/v1/workspaces/{ws}/notifications"),
         None,
         None,
     )
@@ -87,7 +87,7 @@ async fn list_notifications_non_member_forbidden(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/notifications"),
+        &format!("/api/v1/workspaces/{ws}/notifications"),
         Some(&other_token),
         None,
     )
@@ -112,7 +112,7 @@ async fn unread_count_reflects_seeded_unread(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/notifications/unread-count"),
+        &format!("/api/v1/workspaces/{ws}/notifications/unread-count"),
         Some(&token),
         None,
     )
@@ -139,7 +139,7 @@ async fn unread_count_without_token_is_401(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/notifications/unread-count"),
+        &format!("/api/v1/workspaces/{ws}/notifications/unread-count"),
         None,
         None,
     )
@@ -159,7 +159,7 @@ async fn mark_read_clears_specified_notifications(pool: PgPool) {
     let (_s, before) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/notifications/unread-count"),
+        &format!("/api/v1/workspaces/{ws}/notifications/unread-count"),
         Some(&token),
         None,
     )
@@ -169,7 +169,7 @@ async fn mark_read_clears_specified_notifications(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        "/api/notifications/read",
+        "/api/v1/notifications/read",
         Some(&token),
         Some(json!({ "notification_ids": [n1.to_string()] })),
     )
@@ -179,7 +179,7 @@ async fn mark_read_clears_specified_notifications(pool: PgPool) {
     let (_s, after) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/notifications/unread-count"),
+        &format!("/api/v1/workspaces/{ws}/notifications/unread-count"),
         Some(&token),
         None,
     )
@@ -201,7 +201,7 @@ async fn mark_read_with_empty_ids_is_ok(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        "/api/notifications/read",
+        "/api/v1/notifications/read",
         Some(&token),
         Some(json!({ "notification_ids": [] })),
     )
@@ -215,7 +215,7 @@ async fn mark_read_with_empty_ids_is_ok(pool: PgPool) {
     let (_s, after) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/notifications/unread-count"),
+        &format!("/api/v1/workspaces/{ws}/notifications/unread-count"),
         Some(&token),
         None,
     )
@@ -233,7 +233,7 @@ async fn mark_read_without_token_is_401(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "POST",
-        "/api/notifications/read",
+        "/api/v1/notifications/read",
         None,
         Some(json!({ "notification_ids": [] })),
     )
@@ -249,7 +249,7 @@ async fn mark_read_missing_field_is_422(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "POST",
-        "/api/notifications/read",
+        "/api/v1/notifications/read",
         Some(&token),
         Some(json!({})),
     )
@@ -274,7 +274,7 @@ async fn mark_read_cannot_affect_other_users_notification(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "POST",
-        "/api/notifications/read",
+        "/api/v1/notifications/read",
         Some(&attacker_token),
         Some(json!({ "notification_ids": [owners_notif.to_string()] })),
     )
@@ -288,7 +288,7 @@ async fn mark_read_cannot_affect_other_users_notification(pool: PgPool) {
     let (_s, after) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/notifications/unread-count"),
+        &format!("/api/v1/workspaces/{ws}/notifications/unread-count"),
         Some(&owner_token),
         None,
     )
@@ -311,7 +311,7 @@ async fn mark_all_read_clears_unread_count(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/notifications/read-all"),
+        &format!("/api/v1/workspaces/{ws}/notifications/read-all"),
         Some(&token),
         None,
     )
@@ -321,7 +321,7 @@ async fn mark_all_read_clears_unread_count(pool: PgPool) {
     let (_s, after) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/notifications/unread-count"),
+        &format!("/api/v1/workspaces/{ws}/notifications/unread-count"),
         Some(&token),
         None,
     )
@@ -345,7 +345,7 @@ async fn mark_all_read_is_scoped_to_workspace(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_a}/notifications/read-all"),
+        &format!("/api/v1/workspaces/{ws_a}/notifications/read-all"),
         Some(&token),
         None,
     )
@@ -355,7 +355,7 @@ async fn mark_all_read_is_scoped_to_workspace(pool: PgPool) {
     let (_sa, count_a) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_a}/notifications/unread-count"),
+        &format!("/api/v1/workspaces/{ws_a}/notifications/unread-count"),
         Some(&token),
         None,
     )
@@ -363,7 +363,7 @@ async fn mark_all_read_is_scoped_to_workspace(pool: PgPool) {
     let (_sb, count_b) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_b}/notifications/unread-count"),
+        &format!("/api/v1/workspaces/{ws_b}/notifications/unread-count"),
         Some(&token),
         None,
     )
@@ -381,7 +381,7 @@ async fn mark_all_read_without_token_is_401(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/notifications/read-all"),
+        &format!("/api/v1/workspaces/{ws}/notifications/read-all"),
         None,
         None,
     )
@@ -395,7 +395,7 @@ async fn a_member_sets_and_clears_a_channel_notify_level(pool: PgPool) {
     let (uid, _email, token) = seed_and_login(&app, &state, "level-owner", false).await;
     let ws = seed_workspace(&state, uid, "Levels WS").await;
     let ch = seed_channel(&state, ws, uid, "incidents", false).await;
-    let route = format!("/api/channels/{ch}/notify-level");
+    let route = format!("/api/v1/channels/{ch}/notify-level");
 
     let (status, body) = send(
         &app,
@@ -414,7 +414,7 @@ async fn a_member_sets_and_clears_a_channel_notify_level(pool: PgPool) {
     let (status, listed) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/channels"),
+        &format!("/api/v1/workspaces/{ws}/channels"),
         Some(&token),
         None,
     )
@@ -469,7 +469,7 @@ async fn only_a_member_sets_a_channel_notify_level(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PUT",
-        &format!("/api/channels/{ch}/notify-level"),
+        &format!("/api/v1/channels/{ch}/notify-level"),
         Some(&outsider_token),
         body.clone(),
     )
@@ -479,7 +479,7 @@ async fn only_a_member_sets_a_channel_notify_level(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PUT",
-        &format!("/api/channels/{ch}/notify-level"),
+        &format!("/api/v1/channels/{ch}/notify-level"),
         None,
         body.clone(),
     )
@@ -489,7 +489,7 @@ async fn only_a_member_sets_a_channel_notify_level(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PUT",
-        &format!("/api/channels/{}/notify-level", uuid::Uuid::new_v4()),
+        &format!("/api/v1/channels/{}/notify-level", uuid::Uuid::new_v4()),
         Some(&outsider_token),
         body,
     )
@@ -499,7 +499,7 @@ async fn only_a_member_sets_a_channel_notify_level(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/channels/{ch}/notifications"),
+        &format!("/api/v1/channels/{ch}/notifications"),
         Some(&outsider_token),
         Some(json!({ "muted": true })),
     )
@@ -519,7 +519,7 @@ async fn the_workspace_default_is_per_member_and_drives_the_effective_level(pool
         seed_and_login(&app, &state, "default-outsider", false).await;
     let ws = seed_workspace(&state, uid, "Default WS").await;
     let ch = seed_channel(&state, ws, uid, "general-ish", false).await;
-    let route = format!("/api/workspaces/{ws}/notify-default");
+    let route = format!("/api/v1/workspaces/{ws}/notify-default");
     let _ = outsider;
 
     let (status, body) = send(&app, "GET", &route, Some(&token), None).await;
@@ -540,7 +540,7 @@ async fn the_workspace_default_is_per_member_and_drives_the_effective_level(pool
     let (_, listed) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/channels"),
+        &format!("/api/v1/workspaces/{ws}/channels"),
         Some(&token),
         None,
     )
@@ -565,7 +565,7 @@ async fn keywords_are_one_list_replaced_whole(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (uid, _email, token) = seed_and_login(&app, &state, "keyword-owner", false).await;
     let ws = seed_workspace(&state, uid, "Keyword WS").await;
-    let route = format!("/api/workspaces/{ws}/notification-keywords");
+    let route = format!("/api/v1/workspaces/{ws}/notification-keywords");
 
     let (status, body) = send(&app, "GET", &route, Some(&token), None).await;
     assert_eq!(status, StatusCode::OK);
@@ -609,7 +609,7 @@ async fn a_keyword_list_is_refused_whole_when_one_keyword_is_wrong(pool: PgPool)
     let (app, state) = app_and_state(pool).await;
     let (uid, _email, token) = seed_and_login(&app, &state, "keyword-strict", false).await;
     let ws = seed_workspace(&state, uid, "Strict WS").await;
-    let route = format!("/api/workspaces/{ws}/notification-keywords");
+    let route = format!("/api/v1/workspaces/{ws}/notification-keywords");
     send(
         &app,
         "PUT",
@@ -655,7 +655,7 @@ async fn keywords_belong_to_a_member_of_the_workspace(pool: PgPool) {
         seed_and_login(&app, &state, "keyword-outsider", false).await;
     let ws = seed_workspace(&state, uid, "Members WS").await;
     add_ws_member(&state, ws, guest, "guest").await;
-    let route = format!("/api/workspaces/{ws}/notification-keywords");
+    let route = format!("/api/v1/workspaces/{ws}/notification-keywords");
     let body = json!({ "keywords": ["deploy"] });
 
     let (status, _) = send(&app, "PUT", &route, Some(&token), Some(body.clone())).await;
@@ -723,7 +723,7 @@ async fn a_schedule_is_stored_and_refused_when_it_cannot_mean_anything(pool: PgP
     let (app, state) = app_and_state(pool).await;
     let (uid, _email, token) = seed_and_login(&app, &state, "schedule-owner", false).await;
     let ws = seed_workspace(&state, uid, "Schedule WS").await;
-    let route = &format!("/api/workspaces/{ws}/notifications/schedule");
+    let route = &format!("/api/v1/workspaces/{ws}/notifications/schedule");
 
     let (status, body) = send(&app, "GET", route, Some(&token), None).await;
     assert_eq!(status, StatusCode::OK);
@@ -944,7 +944,7 @@ async fn a_scheduled_pause_is_reported_to_its_owner_and_to_the_workspace(pool: P
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/notifications/dnd"),
+        &format!("/api/v1/workspaces/{ws}/notifications/dnd"),
         Some(&token),
         None,
     )
@@ -964,7 +964,7 @@ async fn a_scheduled_pause_is_reported_to_its_owner_and_to_the_workspace(pool: P
     let (_, members) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/members"),
+        &format!("/api/v1/workspaces/{ws}/members"),
         Some(&token),
         None,
     )
@@ -980,7 +980,7 @@ async fn a_scheduled_pause_is_reported_to_its_owner_and_to_the_workspace(pool: P
     let (status, body) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{ws}/notifications/dnd"),
+        &format!("/api/v1/workspaces/{ws}/notifications/dnd"),
         Some(&token),
         Some(json!({ "dnd_until": null })),
     )
@@ -1003,7 +1003,7 @@ async fn a_pause_a_schedule_and_mention_emails_belong_to_one_workspace(pool: PgP
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{here}/notifications/dnd"),
+        &format!("/api/v1/workspaces/{here}/notifications/dnd"),
         Some(&token),
         Some(json!({ "dnd_until": until })),
     )
@@ -1015,7 +1015,7 @@ async fn a_pause_a_schedule_and_mention_emails_belong_to_one_workspace(pool: PgP
             let (_, members) = send(
                 app,
                 "GET",
-                &format!("/api/workspaces/{ws}/members"),
+                &format!("/api/v1/workspaces/{ws}/members"),
                 Some(token),
                 None,
             )
@@ -1029,7 +1029,7 @@ async fn a_pause_a_schedule_and_mention_emails_belong_to_one_workspace(pool: PgP
     let (status, _) = send(
         &app,
         "PUT",
-        &format!("/api/workspaces/{here}/notifications/schedule"),
+        &format!("/api/v1/workspaces/{here}/notifications/schedule"),
         Some(&token),
         Some(json!({ "enabled": true, "days": [1], "start_minute": 540, "end_minute": 1080 })),
     )
@@ -1038,7 +1038,7 @@ async fn a_pause_a_schedule_and_mention_emails_belong_to_one_workspace(pool: PgP
     let (_, body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{there}/notifications/schedule"),
+        &format!("/api/v1/workspaces/{there}/notifications/schedule"),
         Some(&token),
         None,
     )
@@ -1048,7 +1048,7 @@ async fn a_pause_a_schedule_and_mention_emails_belong_to_one_workspace(pool: PgP
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{here}/notifications/email"),
+        &format!("/api/v1/workspaces/{here}/notifications/email"),
         Some(&token),
         Some(json!({ "mention_emails": true })),
     )
@@ -1057,7 +1057,7 @@ async fn a_pause_a_schedule_and_mention_emails_belong_to_one_workspace(pool: PgP
     let (_, body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{there}/notifications/email"),
+        &format!("/api/v1/workspaces/{there}/notifications/email"),
         Some(&token),
         None,
     )
@@ -1069,7 +1069,7 @@ async fn a_pause_a_schedule_and_mention_emails_belong_to_one_workspace(pool: PgP
         let (status, _) = send(
             &app,
             method,
-            &format!("/api/workspaces/{here}/{path}"),
+            &format!("/api/v1/workspaces/{here}/{path}"),
             Some(&outsider),
             None,
         )
@@ -1082,7 +1082,7 @@ async fn unread_count(app: &axum::Router, token: &str, ws: uuid::Uuid) -> i64 {
     let (_, body) = send(
         app,
         "GET",
-        &format!("/api/workspaces/{ws}/notifications/unread-count"),
+        &format!("/api/v1/workspaces/{ws}/notifications/unread-count"),
         Some(token),
         None,
     )
@@ -1121,7 +1121,7 @@ async fn reading_a_channel_a_thread_or_a_dm_clears_only_what_was_read(pool: PgPo
     let (status, root) = send(
         &app,
         "POST",
-        &format!("/api/channels/{channel}/messages"),
+        &format!("/api/v1/channels/{channel}/messages"),
         Some(&token),
         Some(json!({ "content": "root" })),
     )
@@ -1132,7 +1132,7 @@ async fn reading_a_channel_a_thread_or_a_dm_clears_only_what_was_read(pool: PgPo
     let (status, dm) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/conversations"),
+        &format!("/api/v1/workspaces/{ws}/conversations"),
         Some(&token),
         Some(json!({ "participant_ids": [other] })),
     )
@@ -1142,7 +1142,7 @@ async fn reading_a_channel_a_thread_or_a_dm_clears_only_what_was_read(pool: PgPo
     let (status, dm_message) = send(
         &app,
         "POST",
-        &format!("/api/channels/{dm_id}/messages"),
+        &format!("/api/v1/channels/{dm_id}/messages"),
         Some(&token),
         Some(json!({ "content": "hello" })),
     )
@@ -1186,7 +1186,7 @@ async fn reading_a_channel_a_thread_or_a_dm_clears_only_what_was_read(pool: PgPo
     let (status, page) = send(
         &app,
         "GET",
-        &format!("/api/channels/{channel}/messages?mark_read=true"),
+        &format!("/api/v1/channels/{channel}/messages?mark_read=true"),
         Some(&token),
         None,
     )
@@ -1201,7 +1201,7 @@ async fn reading_a_channel_a_thread_or_a_dm_clears_only_what_was_read(pool: PgPo
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/threads/{root_id}/read"),
+        &format!("/api/v1/threads/{root_id}/read"),
         Some(&token),
         None,
     )
@@ -1216,7 +1216,7 @@ async fn reading_a_channel_a_thread_or_a_dm_clears_only_what_was_read(pool: PgPo
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{dm_id}/read"),
+        &format!("/api/v1/channels/{dm_id}/read"),
         Some(&token),
         Some(json!({ "message_id": dm_message_id })),
     )
@@ -1254,7 +1254,7 @@ async fn marking_a_workspace_read_clears_its_channel_notifications_but_not_threa
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/read"),
+        &format!("/api/v1/workspaces/{ws}/read"),
         Some(&token),
         None,
     )

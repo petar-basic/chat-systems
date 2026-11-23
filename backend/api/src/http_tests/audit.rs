@@ -14,7 +14,7 @@ async fn deleting_a_message_lands_in_the_workspace_trail(pool: PgPool) {
     let (_, msg) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&token),
         Some(json!({ "content": "regrettable" })),
     )
@@ -24,7 +24,7 @@ async fn deleting_a_message_lands_in_the_workspace_trail(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/messages/{msg_id}"),
+        &format!("/api/v1/messages/{msg_id}"),
         Some(&token),
         None,
     )
@@ -34,7 +34,7 @@ async fn deleting_a_message_lands_in_the_workspace_trail(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/audit-log"),
+        &format!("/api/v1/workspaces/{ws}/audit-log"),
         Some(&token),
         None,
     )
@@ -65,7 +65,7 @@ async fn a_moderated_deletion_names_the_moderator_and_the_author(pool: PgPool) {
     let (_, msg) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&author_token),
         Some(json!({ "content": "off topic" })),
     )
@@ -75,7 +75,7 @@ async fn a_moderated_deletion_names_the_moderator_and_the_author(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/messages/{msg_id}"),
+        &format!("/api/v1/messages/{msg_id}"),
         Some(&owner_token),
         None,
     )
@@ -85,7 +85,7 @@ async fn a_moderated_deletion_names_the_moderator_and_the_author(pool: PgPool) {
     let (_, body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/audit-log?action=message.deleted"),
+        &format!("/api/v1/workspaces/{ws}/audit-log?action=message.deleted"),
         Some(&owner_token),
         None,
     )
@@ -105,7 +105,7 @@ async fn the_trail_records_the_originating_address(pool: PgPool) {
 
     let request = axum::http::Request::builder()
         .method("DELETE")
-        .uri(format!("/api/channels/{ch}"))
+        .uri(format!("/api/v1/channels/{ch}"))
         .header(axum::http::header::AUTHORIZATION, format!("Bearer {token}"))
         .header("x-forwarded-for", "203.0.113.42")
         .body(axum::body::Body::empty())
@@ -141,7 +141,7 @@ async fn only_workspace_admins_can_read_the_trail(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/audit-log"),
+        &format!("/api/v1/workspaces/{ws}/audit-log"),
         Some(&member_token),
         None,
     )
@@ -153,7 +153,7 @@ async fn only_workspace_admins_can_read_the_trail(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/audit-log"),
+        &format!("/api/v1/workspaces/{ws}/audit-log"),
         Some(&outsider_token),
         None,
     )
@@ -163,7 +163,7 @@ async fn only_workspace_admins_can_read_the_trail(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/audit-log"),
+        &format!("/api/v1/workspaces/{ws}/audit-log"),
         None,
         None,
     )
@@ -182,7 +182,7 @@ async fn the_workspace_trail_never_shows_another_workspace(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/channels/{their_channel}"),
+        &format!("/api/v1/channels/{their_channel}"),
         Some(&token),
         None,
     )
@@ -192,7 +192,7 @@ async fn the_workspace_trail_never_shows_another_workspace(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{mine}/audit-log"),
+        &format!("/api/v1/workspaces/{mine}/audit-log"),
         Some(&token),
         None,
     )
@@ -215,7 +215,7 @@ async fn instance_admins_read_across_workspaces(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/channels/{ch}"),
+        &format!("/api/v1/channels/{ch}"),
         Some(&owner_token),
         None,
     )
@@ -226,7 +226,7 @@ async fn instance_admins_read_across_workspaces(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        "/api/admin/audit-log",
+        "/api/v1/admin/audit-log",
         Some(&admin_token),
         None,
     )
@@ -242,7 +242,7 @@ async fn instance_admins_read_across_workspaces(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        "/api/admin/audit-log",
+        "/api/v1/admin/audit-log",
         Some(&owner_token),
         None,
     )
@@ -263,7 +263,7 @@ async fn the_trail_survives_a_hard_workspace_delete(pool: PgPool) {
     let (status, body) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{ws}?hard=true"),
+        &format!("/api/v1/workspaces/{ws}?hard=true"),
         Some(&token),
         None,
     )
@@ -295,7 +295,7 @@ async fn role_changes_record_both_ends(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{ws}/members/{member_id}/role"),
+        &format!("/api/v1/workspaces/{ws}/members/{member_id}/role"),
         Some(&token),
         Some(json!({ "role": "admin" })),
     )
@@ -305,7 +305,7 @@ async fn role_changes_record_both_ends(pool: PgPool) {
     let (_, body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/audit-log?action=workspace.role_changed"),
+        &format!("/api/v1/workspaces/{ws}/audit-log?action=workspace.role_changed"),
         Some(&token),
         None,
     )
@@ -327,7 +327,7 @@ async fn the_trail_pages_backwards_without_skipping_or_repeating(pool: PgPool) {
         let (status, _) = send(
             &app,
             "DELETE",
-            &format!("/api/channels/{ch}"),
+            &format!("/api/v1/channels/{ch}"),
             Some(&token),
             None,
         )
@@ -338,7 +338,7 @@ async fn the_trail_pages_backwards_without_skipping_or_repeating(pool: PgPool) {
     let (_, first) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/audit-log?action=channel.archived&limit=2"),
+        &format!("/api/v1/workspaces/{ws}/audit-log?action=channel.archived&limit=2"),
         Some(&token),
         None,
     )
@@ -354,7 +354,7 @@ async fn the_trail_pages_backwards_without_skipping_or_repeating(pool: PgPool) {
         &app,
         "GET",
         &format!(
-            "/api/workspaces/{ws}/audit-log?action=channel.archived&limit=2\
+            "/api/v1/workspaces/{ws}/audit-log?action=channel.archived&limit=2\
              &before={before}&before_id={before_id}"
         ),
         Some(&token),

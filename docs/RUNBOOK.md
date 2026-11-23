@@ -80,7 +80,7 @@ or hand out a managed browser and desktop app.
 
 ## Single sign-on
 
-SSO is off until `OIDC_ISSUER` is set. Register `<PUBLIC_URL>/api/auth/oidc/callback` as the
+SSO is off until `OIDC_ISSUER` is set. Register `<PUBLIC_URL>/api/v1/auth/oidc/callback` as the
 redirect URI with the provider, then set:
 
 | Variable | What |
@@ -221,7 +221,7 @@ entries:
       signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
       redirect_uris:
         - matching_mode: strict
-          url: https://chat.example.com/api/auth/oidc/callback
+          url: https://chat.example.com/api/v1/auth/oidc/callback
       property_mappings:
         - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-openid]]
         - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-profile]]
@@ -551,7 +551,7 @@ is visible in those numbers before it is visible in a support ticket. The metric
 **SSO is off until `OIDC_ISSUER` is set.** Endpoints are read from the provider's
 `.well-known/openid-configuration`, so the settings are the issuer, the client id and the
 secret. The redirect URI to register with the provider is
-`<PUBLIC_URL>/api/auth/oidc/callback`. `OIDC_PROVISIONING` defaults to `invite_only`:
+`<PUBLIC_URL>/api/v1/auth/oidc/callback`. `OIDC_PROVISIONING` defaults to `invite_only`:
 existing accounts may sign in through the provider, but nobody new is created. Set it to
 `domain_allowlist` with `OIDC_ALLOWED_DOMAINS` if the provider is allowed to create
 accounts, or `disabled` to turn the door off without removing the configuration.
@@ -571,9 +571,9 @@ setup cannot lock anybody out. Recovery codes are shown once; the count remainin
 visible in the same panel.
 
 **SCIM needs a token minted here first.** An instance admin creates one in *Workspace
-settings → SCIM provisioning* (or `POST /api/admin/scim/tokens`), which shows it once — there
-is nowhere to read it again. Point the provider at `<PUBLIC_URL>/api/scim/v2` with that token
-as a bearer credential. *Rotate* (`POST /api/admin/scim/tokens/:id/rotate`) issues the
+settings → SCIM provisioning* (or `POST /api/v1/admin/scim/tokens`), which shows it once — there
+is nowhere to read it again. Point the provider at `<PUBLIC_URL>/api/v1/scim/v2` with that token
+as a bearer credential. *Rotate* (`POST /api/v1/admin/scim/tokens/:id/rotate`) issues the
 replacement and revokes the old one in the same call.
 
 Be aware of what deprovisioning does, because it is not reversible from the provider's side:
@@ -699,7 +699,7 @@ people your staff list. Members, admins and owners are unaffected.
 A guest also cannot start a conversation with somebody they share no channel with.
 Conversations that already exist keep working.
 
-**Announcement channels.** `PATCH /api/channels/:id` accepts `post_policy`: `everyone` (the
+**Announcement channels.** `PATCH /api/v1/channels/:id` accepts `post_policy`: `everyone` (the
 default, and what every existing channel is) or `moderators`. Under `moderators` the
 composer, thread replies, scheduled sends and `in_channel` slash commands are refused for
 everybody but workspace admins and that channel's admins; reading and reacting are
@@ -727,7 +727,7 @@ looks like "the invite never arrived". `outbound_emails` rows with `sent_at IS N
 mentioned while offline, with no push subscription, not muted and not in do-not-disturb, gets one digest email five minutes
 later — cancelled if they come online first. It carries who and where and a link, never the
 message text. It is off for every new member, since the desktop app and push already reach
-them; individuals turn it on per workspace at `PATCH /api/workspaces/{id}/notifications/email`; with SMTP
+them; individuals turn it on per workspace at `PATCH /api/v1/workspaces/{id}/notifications/email`; with SMTP
 unconfigured the whole feature is off and logs nothing.
 
 **Realtime events go through an outbox too.** Every durable event (messages, reactions,
@@ -1087,6 +1087,24 @@ so the api does not start until it is there. The compose files now run
 
 The indexes are built concurrently after the extension, so writes go on while they build.
 
+## Upgrade note: every route moves under /api/v1 (5.0.0)
+
+The API answers at `/api/v1` and the realtime socket at `/ws/v1`; the old `/api` and `/ws`
+answer 404, with no redirect. Upgrade `api`, `realtime`, `worker` and `frontend` together.
+Migration 128 moves the file links stored in avatars, workspace icons and message
+attachments, and in emails still waiting in the outbox. Then change what points at the old
+paths from outside:
+
+- the redirect URI at the identity provider: `<PUBLIC_URL>/api/v1/auth/oidc/callback`;
+- the SCIM base URL at the provider: `<PUBLIC_URL>/api/v1/scim/v2`;
+- every incoming webhook and workflow webhook URL pasted into another system;
+- the base URL of every bot and script;
+- a proxy of your own only if it matches exact paths rather than the `/api` and `/ws`
+  prefixes; the shipped nginx and Caddy files need nothing.
+
+Everyone signs in once more: the refresh cookie moved to `/api/v1/auth`. Links in emails
+sent before the upgrade (unsubscribe, export downloads) stop working.
+
 ## Postgres and pg_bigm
 
 pg_bigm has to be installed on the server and preloaded, and the migration creates the
@@ -1107,7 +1125,7 @@ database works only where its provider offers pg_bigm.
 
 ## Audit log
 
-`GET /api/workspaces/:ws_id/audit-log` (workspace admin) and `GET /api/admin/audit-log`
+`GET /api/v1/workspaces/:ws_id/audit-log` (workspace admin) and `GET /api/v1/admin/audit-log`
 (instance admin), both keyset-paginated on `(created_at, id)` via `before`/`before_id` and
 filterable by `action`, `user_id`, `since` and `until`. The UI is *Workspace settings → Audit log*
 (`?settings=audit-log`) and a tab in the instance admin page.
@@ -1384,7 +1402,7 @@ because the browser waits on it before giving up.
    credential of `base64(hmac_sha1(TURN_SECRET, username))`. A candidate of type `relay`
    means it works; only `srflx` means the port is closed or the secret does not match.
 4. Now set `TURN_URLS=turn:<host>:3478` on the api and restart it. `GET
-   /api/workspaces/{id}/ice-servers` should return two entries — the STUN one and a TURN
+   /api/v1/workspaces/{id}/ice-servers` should return two entries — the STUN one and a TURN
    one with credentials that expire after `TURN_TTL_SECS` (default 12h).
 
 Credentials are minted per user and time-limited (TURN REST API); coturn validates them
@@ -1397,7 +1415,7 @@ primitive against the host it runs on.
 Huddles are a mesh: everybody sends their audio and video to everybody else, which stops
 working somewhere between six and eight people. LiveKit is the selective forwarding unit that
 takes over above that: each person sends once, to LiveKit, and it forwards. It is optional.
-Without `LIVEKIT_URL` on the api, `POST /api/huddles/{id}/sfu-token` answers 404 and every
+Without `LIVEKIT_URL` on the api, `POST /api/v1/huddles/{id}/sfu-token` answers 404 and every
 huddle stays on the mesh, as before.
 
 The API decides who may join, with the same check the realtime gateway runs on `huddle.join`,
@@ -1602,7 +1620,7 @@ channels arrive archived.
 
 **A run that stops with the worker.** If the worker restarts mid-import, the run is marked
 failed within five minutes (*The import stopped when the worker did*). Press *Start again*
-under the run, or `POST /api/workspaces/{id}/slack-imports/{run}/retry`; it picks up where it
+under the run, or `POST /api/v1/workspaces/{id}/slack-imports/{run}/retry`; it picks up where it
 stopped. Migration 79 adds the heartbeat column the sweep reads. *Start again* is the same run,
 so it still finishes the channels that run made: their Slack members and, for one archived in
 Slack, the archiving.

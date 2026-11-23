@@ -45,7 +45,7 @@ async fn post(
 async fn forgot(app: &Router, email: &str, accept: Option<&str>) {
     post(
         app,
-        "/api/auth/forgot-password",
+        "/api/v1/auth/forgot-password",
         None,
         json!({ "email": email }),
         accept,
@@ -56,7 +56,7 @@ async fn forgot(app: &Router, email: &str, accept: Option<&str>) {
 async fn ask_for_code(app: &Router, email: &str, accept: Option<&str>) {
     post(
         app,
-        "/api/auth/email-code",
+        "/api/v1/auth/email-code",
         None,
         json!({ "email": email }),
         accept,
@@ -144,7 +144,7 @@ async fn an_invite_is_in_the_language_of_the_admin_who_sent_it(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "ja-owner", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Ja WS").await;
-    let invites = format!("/api/workspaces/{ws_id}/invites");
+    let invites = format!("/api/v1/workspaces/{ws_id}/invites");
     let invitee = |n: u8| format!("ja-invitee-{n}-{}@test.local", Uuid::new_v4().simple());
     let (first, second, third) = (invitee(1), invitee(2), invitee(3));
 
@@ -215,7 +215,7 @@ async fn a_japanese_invite_writes_the_names_it_was_given_as_plain_text(pool: PgP
     let invitee = unique_email("ja-names-invitee");
     post(
         &app,
-        &format!("/api/workspaces/{ws_id}/invites"),
+        &format!("/api/v1/workspaces/{ws_id}/invites"),
         Some(&owner_token),
         json!({ "email": invitee }),
         None,
@@ -273,7 +273,7 @@ async fn a_japanese_invite_request_writes_what_the_requester_wrote_as_plain_text
     let (status, request) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/invite-requests"),
+        &format!("/api/v1/workspaces/{ws_id}/invite-requests"),
         Some(&member_token),
         Some(json!({
             "emails": [newcomer],
@@ -324,7 +324,7 @@ async fn a_japanese_invite_request_writes_what_the_requester_wrote_as_plain_text
     let (status, approved) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/invite-requests/{id}/approve"),
+        &format!("/api/v1/workspaces/{ws_id}/invite-requests/{id}/approve"),
         Some(&owner_token),
         Some(json!({})),
     )

@@ -32,7 +32,7 @@ async fn create_section(s: &Setup, token: &str, name: &str) -> (StatusCode, serd
     send(
         &s.app,
         "POST",
-        &format!("/api/workspaces/{}/sidebar/sections", s.ws_id),
+        &format!("/api/v1/workspaces/{}/sidebar/sections", s.ws_id),
         Some(token),
         Some(json!({ "name": name })),
     )
@@ -43,7 +43,7 @@ async fn layout(s: &Setup, token: &str) -> serde_json::Value {
     let (status, body) = send(
         &s.app,
         "GET",
-        &format!("/api/workspaces/{}/sidebar", s.ws_id),
+        &format!("/api/v1/workspaces/{}/sidebar", s.ws_id),
         Some(token),
         None,
     )
@@ -56,7 +56,7 @@ async fn place(s: &Setup, token: &str, section: serde_json::Value) -> StatusCode
     send(
         &s.app,
         "PUT",
-        &format!("/api/channels/{}/section", s.ch_id),
+        &format!("/api/v1/channels/{}/section", s.ch_id),
         Some(token),
         Some(json!({ "section_id": section })),
     )
@@ -89,7 +89,7 @@ async fn sections_can_be_created_renamed_reordered_and_collapsed(pool: PgPool) {
         &s.app,
         "PATCH",
         &format!(
-            "/api/workspaces/{}/sidebar/sections/{}",
+            "/api/v1/workspaces/{}/sidebar/sections/{}",
             s.ws_id,
             projects["id"].as_str().unwrap()
         ),
@@ -103,7 +103,7 @@ async fn sections_can_be_created_renamed_reordered_and_collapsed(pool: PgPool) {
     let (status, _) = send(
         &s.app,
         "PUT",
-        &format!("/api/workspaces/{}/sidebar/order", s.ws_id),
+        &format!("/api/v1/workspaces/{}/sidebar/order", s.ws_id),
         Some(&s.token),
         Some(json!({ "section_ids": [clients["id"], projects["id"]] })),
     )
@@ -150,7 +150,7 @@ async fn a_channel_moves_into_a_section_and_back_when_it_is_deleted(pool: PgPool
         &s.app,
         "DELETE",
         &format!(
-            "/api/workspaces/{}/sidebar/sections/{}",
+            "/api/v1/workspaces/{}/sidebar/sections/{}",
             s.ws_id,
             section["id"].as_str().unwrap()
         ),
@@ -195,7 +195,7 @@ async fn nobody_else_can_touch_your_sections(pool: PgPool) {
         .expect("join");
 
     let section_url = format!(
-        "/api/workspaces/{}/sidebar/sections/{}",
+        "/api/v1/workspaces/{}/sidebar/sections/{}",
         s.ws_id,
         section["id"].as_str().unwrap()
     );
@@ -222,7 +222,7 @@ async fn collapse_dms(s: &Setup, collapsed: bool) -> StatusCode {
     send(
         &s.app,
         "PUT",
-        &format!("/api/workspaces/{}/sidebar/builtins", s.ws_id),
+        &format!("/api/v1/workspaces/{}/sidebar/builtins", s.ws_id),
         Some(&s.token),
         Some(json!({ "section": "dms", "collapsed": collapsed })),
     )
@@ -250,7 +250,7 @@ async fn sidebar_outsider_forbidden(pool: PgPool) {
     let (status, _) = send(
         &s.app,
         "GET",
-        &format!("/api/workspaces/{}/sidebar", s.ws_id),
+        &format!("/api/v1/workspaces/{}/sidebar", s.ws_id),
         Some(&outsider_token),
         None,
     )

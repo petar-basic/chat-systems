@@ -9,7 +9,7 @@ async fn scim_token(app: &axum::Router, admin_token: &str) -> String {
     let (status, body) = send(
         app,
         "POST",
-        "/api/admin/scim/tokens",
+        "/api/v1/admin/scim/tokens",
         Some(admin_token),
         Some(json!({ "description": "Okta" })),
     )
@@ -67,7 +67,7 @@ async fn deactivating_ends_the_sessions_and_the_memberships(pool: sqlx::PgPool) 
     let (status, body) = send(
         &app,
         "PATCH",
-        &format!("/api/scim/v2/Users/{leaver_id}"),
+        &format!("/api/v1/scim/v2/Users/{leaver_id}"),
         Some(&token),
         Some(json!({
             "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
@@ -85,7 +85,7 @@ async fn deactivating_ends_the_sessions_and_the_memberships(pool: sqlx::PgPool) 
         "deprovisioning leaves no way back in"
     );
 
-    let (status, _) = send(&app, "GET", "/api/users/me", Some(&leaver), None).await;
+    let (status, _) = send(&app, "GET", "/api/v1/users/me", Some(&leaver), None).await;
     assert_eq!(
         status,
         StatusCode::UNAUTHORIZED,
@@ -131,7 +131,7 @@ async fn delete_deactivates_and_destroys_nothing(pool: sqlx::PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/scim/v2/Users/{leaver_id}"),
+        &format!("/api/v1/scim/v2/Users/{leaver_id}"),
         Some(&token),
         None,
     )
@@ -176,7 +176,7 @@ async fn coming_back_needs_a_fresh_invite(pool: sqlx::PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/scim/v2/Users/{returner_id}"),
+        &format!("/api/v1/scim/v2/Users/{returner_id}"),
         Some(&token),
         Some(patch(false)),
     )
@@ -190,7 +190,7 @@ async fn coming_back_needs_a_fresh_invite(pool: sqlx::PgPool) {
     let (status, body) = send(
         &app,
         "PATCH",
-        &format!("/api/scim/v2/Users/{returner_id}"),
+        &format!("/api/v1/scim/v2/Users/{returner_id}"),
         Some(&token),
         Some(patch(true)),
     )
@@ -218,7 +218,7 @@ async fn a_wrong_or_revoked_token_gets_nowhere(pool: sqlx::PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/scim/v2/Users/{target_id}"),
+        &format!("/api/v1/scim/v2/Users/{target_id}"),
         None,
         None,
     )
@@ -228,7 +228,7 @@ async fn a_wrong_or_revoked_token_gets_nowhere(pool: sqlx::PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/scim/v2/Users/{target_id}"),
+        &format!("/api/v1/scim/v2/Users/{target_id}"),
         Some("not-a-real-token"),
         None,
     )
@@ -246,7 +246,7 @@ async fn a_wrong_or_revoked_token_gets_nowhere(pool: sqlx::PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/admin/scim/tokens/{id}"),
+        &format!("/api/v1/admin/scim/tokens/{id}"),
         Some(&admin),
         None,
     )
@@ -256,7 +256,7 @@ async fn a_wrong_or_revoked_token_gets_nowhere(pool: sqlx::PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/scim/v2/Users/{target_id}"),
+        &format!("/api/v1/scim/v2/Users/{target_id}"),
         Some(&token),
         None,
     )
@@ -283,7 +283,7 @@ async fn rotation_replaces_the_credential_without_a_gap(pool: sqlx::PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/admin/scim/tokens/{id}/rotate"),
+        &format!("/api/v1/admin/scim/tokens/{id}/rotate"),
         Some(&admin),
         None,
     )
@@ -292,7 +292,7 @@ async fn rotation_replaces_the_credential_without_a_gap(pool: sqlx::PgPool) {
     let new = body["token"].as_str().expect("new token").to_string();
     assert_ne!(new, old);
 
-    let path = format!("/api/scim/v2/Users/{target_id}");
+    let path = format!("/api/v1/scim/v2/Users/{target_id}");
     let (status, _) = send(&app, "GET", &path, Some(&new), None).await;
     assert_eq!(status, StatusCode::OK);
     let (status, _) = send(&app, "GET", &path, Some(&old), None).await;
@@ -308,7 +308,7 @@ async fn provisioning_creates_an_account_with_no_password(pool: sqlx::PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        "/api/scim/v2/Users",
+        "/api/v1/scim/v2/Users",
         Some(&token),
         Some(json!({
             "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
@@ -339,7 +339,7 @@ async fn provisioning_creates_an_account_with_no_password(pool: sqlx::PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        "/api/scim/v2/Users",
+        "/api/v1/scim/v2/Users",
         Some(&token),
         Some(json!({ "userName": "newcomer@acme.test" })),
     )
@@ -363,7 +363,7 @@ async fn the_lookup_a_provider_makes_before_every_sync(pool: sqlx::PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/scim/v2/Users?filter={filter}"),
+        &format!("/api/v1/scim/v2/Users?filter={filter}"),
         Some(&token),
         None,
     )
@@ -380,7 +380,7 @@ async fn the_lookup_a_provider_makes_before_every_sync(pool: sqlx::PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/scim/v2/Users?filter={missing}"),
+        &format!("/api/v1/scim/v2/Users?filter={missing}"),
         Some(&token),
         None,
     )
@@ -392,7 +392,7 @@ async fn the_lookup_a_provider_makes_before_every_sync(pool: sqlx::PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/scim/v2/Users?filter={unsupported}"),
+        &format!("/api/v1/scim/v2/Users?filter={unsupported}"),
         Some(&token),
         None,
     )
@@ -409,7 +409,7 @@ async fn only_an_instance_admin_may_mint_a_token(pool: sqlx::PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        "/api/admin/scim/tokens",
+        "/api/v1/admin/scim/tokens",
         Some(&ordinary),
         Some(json!({ "description": "mine" })),
     )

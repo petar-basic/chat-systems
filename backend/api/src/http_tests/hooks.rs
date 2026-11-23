@@ -18,7 +18,7 @@ async fn owner_can_create_hook(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&token),
         Some(json!({
             "hook_type": "incoming_webhook",
@@ -45,7 +45,7 @@ async fn incoming_webhook_requires_channel_id(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&token),
         Some(json!({
             "hook_type": "incoming_webhook",
@@ -67,7 +67,7 @@ async fn incoming_webhook_posts_message_to_channel(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&token),
         Some(json!({
             "hook_type": "incoming_webhook",
@@ -83,7 +83,7 @@ async fn incoming_webhook_posts_message_to_channel(pool: PgPool) {
     let (post_status, post_body) = send(
         &app,
         "POST",
-        &format!("/api/hooks/incoming/{webhook_token}"),
+        &format!("/api/v1/hooks/incoming/{webhook_token}"),
         None,
         Some(json!({ "text": "deploy succeeded :rocket:" })),
     )
@@ -93,7 +93,7 @@ async fn incoming_webhook_posts_message_to_channel(pool: PgPool) {
     let (list_status, list_body) = send(
         &app,
         "GET",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&token),
         None,
     )
@@ -116,7 +116,7 @@ async fn incoming_webhook_invalid_token_rejected(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "POST",
-        "/api/hooks/incoming/not-a-real-token",
+        "/api/v1/hooks/incoming/not-a-real-token",
         None,
         Some(json!({ "text": "hello" })),
     )
@@ -138,7 +138,7 @@ async fn ws_admin_can_create_hook(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&admin_token),
         Some(incoming_hook(channel, "helper-bot")),
     )
@@ -160,7 +160,7 @@ async fn plain_member_cannot_create_hook(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&member_token),
         Some(incoming_hook(channel, "nope-bot")),
     )
@@ -178,7 +178,7 @@ async fn create_hook_without_token_is_unauthorized(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         None,
         Some(incoming_hook(channel, "anon-bot")),
     )
@@ -195,7 +195,7 @@ async fn create_hook_missing_required_field_is_unprocessable(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&token),
         Some(json!({ "name": "no-type" })),
     )
@@ -213,7 +213,7 @@ async fn list_hooks_redacts_secrets(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&token),
         Some(json!({
             "hook_type": "outgoing_webhook",
@@ -232,7 +232,7 @@ async fn list_hooks_redacts_secrets(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&token),
         None,
     )
@@ -262,7 +262,7 @@ async fn member_cannot_list_hooks(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&member_token),
         None,
     )
@@ -279,7 +279,7 @@ async fn list_hooks_without_token_is_unauthorized(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         None,
         None,
     )
@@ -297,7 +297,7 @@ async fn get_hook_by_id_redacts_secrets(pool: PgPool) {
     let (status, created) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&token),
         Some(json!({
             "hook_type": "incoming_webhook",
@@ -312,7 +312,7 @@ async fn get_hook_by_id_redacts_secrets(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/hooks/{hook_id}"),
+        &format!("/api/v1/hooks/{hook_id}"),
         Some(&token),
         None,
     )
@@ -331,7 +331,7 @@ async fn get_hook_unknown_id_is_not_found(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/hooks/{missing}"),
+        &format!("/api/v1/hooks/{missing}"),
         Some(&token),
         None,
     )
@@ -349,7 +349,7 @@ async fn get_hook_by_non_admin_member_is_forbidden(pool: PgPool) {
     let (status, created) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&owner_token),
         Some(incoming_hook(channel, "guarded-bot")),
     )
@@ -364,7 +364,7 @@ async fn get_hook_by_non_admin_member_is_forbidden(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/hooks/{hook_id}"),
+        &format!("/api/v1/hooks/{hook_id}"),
         Some(&member_token),
         None,
     )
@@ -382,7 +382,7 @@ async fn get_hook_by_outsider_is_forbidden(pool: PgPool) {
     let (status, created) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&owner_token),
         Some(incoming_hook(channel, "outsider-bot")),
     )
@@ -395,7 +395,7 @@ async fn get_hook_by_outsider_is_forbidden(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/hooks/{hook_id}"),
+        &format!("/api/v1/hooks/{hook_id}"),
         Some(&outsider_token),
         None,
     )
@@ -413,7 +413,7 @@ async fn owner_can_delete_hook(pool: PgPool) {
     let (status, created) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&token),
         Some(incoming_hook(channel, "delete-me")),
     )
@@ -424,7 +424,7 @@ async fn owner_can_delete_hook(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/hooks/{hook_id}"),
+        &format!("/api/v1/hooks/{hook_id}"),
         Some(&token),
         None,
     )
@@ -434,7 +434,7 @@ async fn owner_can_delete_hook(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/hooks/{hook_id}"),
+        &format!("/api/v1/hooks/{hook_id}"),
         Some(&token),
         None,
     )
@@ -452,7 +452,7 @@ async fn delete_hook_by_member_is_forbidden(pool: PgPool) {
     let (status, created) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&owner_token),
         Some(incoming_hook(channel, "protected-bot")),
     )
@@ -467,7 +467,7 @@ async fn delete_hook_by_member_is_forbidden(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/hooks/{hook_id}"),
+        &format!("/api/v1/hooks/{hook_id}"),
         Some(&member_token),
         None,
     )
@@ -484,7 +484,7 @@ async fn delete_hook_unknown_id_is_not_found(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/hooks/{missing}"),
+        &format!("/api/v1/hooks/{missing}"),
         Some(&token),
         None,
     )
@@ -496,7 +496,14 @@ async fn delete_hook_unknown_id_is_not_found(pool: PgPool) {
 async fn delete_hook_without_token_is_unauthorized(pool: PgPool) {
     let (app, _state) = app_and_state(pool).await;
     let missing = uuid::Uuid::new_v4();
-    let (status, _) = send(&app, "DELETE", &format!("/api/hooks/{missing}"), None, None).await;
+    let (status, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/v1/hooks/{missing}"),
+        None,
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
@@ -510,7 +517,7 @@ async fn reveal_returns_the_full_incoming_url_that_list_redacts(pool: PgPool) {
     let (_, created) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&token),
         Some(json!({
             "hook_type": "incoming_webhook",
@@ -528,7 +535,7 @@ async fn reveal_returns_the_full_incoming_url_that_list_redacts(pool: PgPool) {
     let (_, listed) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&token),
         None,
     )
@@ -541,7 +548,7 @@ async fn reveal_returns_the_full_incoming_url_that_list_redacts(pool: PgPool) {
     let (status, revealed) = send(
         &app,
         "POST",
-        &format!("/api/hooks/{hook_id}/reveal"),
+        &format!("/api/v1/hooks/{hook_id}/reveal"),
         Some(&token),
         None,
     )
@@ -550,7 +557,7 @@ async fn reveal_returns_the_full_incoming_url_that_list_redacts(pool: PgPool) {
     assert_eq!(revealed["config"]["token"], minted);
     assert_eq!(
         revealed["incoming_url"],
-        format!("http://localhost/api/hooks/incoming/{minted}"),
+        format!("http://localhost/api/v1/hooks/incoming/{minted}"),
         "reveal returns a ready-to-paste URL: {revealed:?}"
     );
 
@@ -574,7 +581,7 @@ async fn rotate_replaces_the_incoming_token_and_retires_the_old_one(pool: PgPool
     let (_, created) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&token),
         Some(json!({
             "hook_type": "incoming_webhook",
@@ -592,7 +599,7 @@ async fn rotate_replaces_the_incoming_token_and_retires_the_old_one(pool: PgPool
     let (status, rotated) = send(
         &app,
         "POST",
-        &format!("/api/hooks/{hook_id}/rotate"),
+        &format!("/api/v1/hooks/{hook_id}/rotate"),
         Some(&token),
         None,
     )
@@ -604,7 +611,7 @@ async fn rotate_replaces_the_incoming_token_and_retires_the_old_one(pool: PgPool
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/hooks/incoming/{old_token}"),
+        &format!("/api/v1/hooks/incoming/{old_token}"),
         None,
         Some(json!({ "text": "posted with the retired token" })),
     )
@@ -618,7 +625,7 @@ async fn rotate_replaces_the_incoming_token_and_retires_the_old_one(pool: PgPool
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/hooks/incoming/{new_token}"),
+        &format!("/api/v1/hooks/incoming/{new_token}"),
         None,
         Some(json!({ "text": "posted with the fresh token" })),
     )
@@ -636,7 +643,7 @@ async fn reveal_and_rotate_refuse_a_plain_member(pool: PgPool) {
     let (_, created) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&token),
         Some(json!({
             "hook_type": "incoming_webhook",
@@ -654,7 +661,7 @@ async fn reveal_and_rotate_refuse_a_plain_member(pool: PgPool) {
         let (status, _) = send(
             &app,
             "POST",
-            &format!("/api/hooks/{hook_id}/{route}"),
+            &format!("/api/v1/hooks/{hook_id}/{route}"),
             Some(&member_token),
             None,
         )
@@ -664,7 +671,7 @@ async fn reveal_and_rotate_refuse_a_plain_member(pool: PgPool) {
         let (status, _) = send(
             &app,
             "POST",
-            &format!("/api/hooks/{hook_id}/{route}"),
+            &format!("/api/v1/hooks/{hook_id}/{route}"),
             None,
             None,
         )
@@ -676,7 +683,7 @@ async fn reveal_and_rotate_refuse_a_plain_member(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/hooks/{unknown}/reveal"),
+        &format!("/api/v1/hooks/{unknown}/reveal"),
         Some(&token),
         None,
     )
@@ -694,7 +701,7 @@ async fn outgoing_webhook_gets_a_generated_secret_and_a_validated_url(pool: PgPo
     let (status, created) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&token),
         Some(json!({
             "hook_type": "outgoing_webhook",
@@ -713,7 +720,7 @@ async fn outgoing_webhook_gets_a_generated_secret_and_a_validated_url(pool: PgPo
     let (_, rotated) = send(
         &app,
         "POST",
-        &format!("/api/hooks/{hook_id}/rotate"),
+        &format!("/api/v1/hooks/{hook_id}/rotate"),
         Some(&token),
         None,
     )
@@ -731,7 +738,7 @@ async fn outgoing_webhook_gets_a_generated_secret_and_a_validated_url(pool: PgPo
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&token),
         Some(json!({
             "hook_type": "outgoing_webhook",
@@ -749,7 +756,7 @@ async fn outgoing_webhook_gets_a_generated_secret_and_a_validated_url(pool: PgPo
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&token),
         Some(json!({ "hook_type": "outgoing_webhook", "name": "No URL" })),
     )
@@ -771,7 +778,7 @@ async fn outgoing_webhook_requires_a_channel_scope(pool: PgPool) {
         let (status, body) = send(
             &app,
             "POST",
-            &format!("/api/workspaces/{ws}/hooks"),
+            &format!("/api/v1/workspaces/{ws}/hooks"),
             Some(&token),
             Some(json!({
                 "hook_type": "outgoing_webhook",
@@ -799,7 +806,7 @@ async fn outgoing_webhook_cannot_be_scoped_to_a_foreign_channel(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&token),
         Some(json!({
             "hook_type": "outgoing_webhook",
@@ -829,7 +836,7 @@ async fn attaching_a_hook_to_a_private_channel_needs_membership(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&admin_token),
         Some(json!({
             "hook_type": "outgoing_webhook",
@@ -856,7 +863,7 @@ async fn hooked_channels_are_listed_for_every_member(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&token),
         Some(json!({
             "hook_type": "outgoing_webhook",
@@ -874,7 +881,7 @@ async fn hooked_channels_are_listed_for_every_member(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/hooks/channels"),
+        &format!("/api/v1/workspaces/{ws}/hooks/channels"),
         Some(&member_token),
         None,
     )
@@ -907,7 +914,7 @@ async fn outgoing_hooks_only_match_their_own_channel(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&token),
         Some(json!({
             "hook_type": "outgoing_webhook",
@@ -949,7 +956,7 @@ async fn an_incoming_webhook_still_posts_into_an_announcement_channel(pool: PgPo
     let (status, hook) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/hooks"),
+        &format!("/api/v1/workspaces/{ws_id}/hooks"),
         Some(&owner_token),
         Some(json!({
             "hook_type": "incoming_webhook",
@@ -964,7 +971,7 @@ async fn an_incoming_webhook_still_posts_into_an_announcement_channel(pool: PgPo
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/channels/{ch_id}"),
+        &format!("/api/v1/channels/{ch_id}"),
         Some(&owner_token),
         Some(json!({ "post_policy": "moderators" })),
     )
@@ -974,7 +981,7 @@ async fn an_incoming_webhook_still_posts_into_an_announcement_channel(pool: PgPo
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/hooks/incoming/{token}"),
+        &format!("/api/v1/hooks/incoming/{token}"),
         None,
         Some(json!({ "text": "build 42 shipped" })),
     )
@@ -1021,7 +1028,7 @@ async fn a_hook_stops_when_its_creator_can_no_longer_read_its_channel(pool: PgPo
     let (status, hook) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&admin),
         Some(json!({
             "hook_type": "outgoing_webhook",
@@ -1073,7 +1080,7 @@ async fn an_admin_hook_stops_when_its_creator_is_no_longer_an_admin(pool: PgPool
     let (status, hook) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&admin),
         Some(json!({
             "hook_type": "outgoing_webhook",
@@ -1124,7 +1131,7 @@ async fn an_incoming_webhook_from_a_suspended_creator_posts_nothing(pool: PgPool
     let (status, hook) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&token),
         Some(incoming_hook(ch, "deploy-bot")),
     )
@@ -1141,7 +1148,7 @@ async fn an_incoming_webhook_from_a_suspended_creator_posts_nothing(pool: PgPool
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/hooks/incoming/{webhook_token}"),
+        &format!("/api/v1/hooks/incoming/{webhook_token}"),
         None,
         Some(json!({ "text": "still here?" })),
     )
@@ -1173,7 +1180,7 @@ async fn suspending_someone_turns_off_their_hooks_and_says_who_did(pool: PgPool)
     let (status, hook) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&owner),
         Some(incoming_hook(ch, "deploy-bot")),
     )
@@ -1184,7 +1191,7 @@ async fn suspending_someone_turns_off_their_hooks_and_says_who_did(pool: PgPool)
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/admin/users/{owner_id}/suspend"),
+        &format!("/api/v1/admin/users/{owner_id}/suspend"),
         Some(&admin_token),
         None,
     )
@@ -1210,7 +1217,7 @@ async fn suspending_someone_turns_off_their_hooks_and_says_who_did(pool: PgPool)
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/admin/users/{owner_id}/activate"),
+        &format!("/api/v1/admin/users/{owner_id}/activate"),
         Some(&admin_token),
         None,
     )
@@ -1233,7 +1240,7 @@ async fn removing_someone_from_the_workspace_turns_off_their_hooks(pool: PgPool)
     let (status, hook) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&admin),
         Some(json!({
             "hook_type": "outgoing_webhook",
@@ -1247,7 +1254,7 @@ async fn removing_someone_from_the_workspace_turns_off_their_hooks(pool: PgPool)
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{ws}/members/{admin_id}"),
+        &format!("/api/v1/workspaces/{ws}/members/{admin_id}"),
         Some(&owner),
         None,
     )
@@ -1274,7 +1281,7 @@ async fn an_admin_turns_a_stopped_hook_back_on_and_owns_it(pool: PgPool) {
     let (status, hook) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(&admin),
         Some(json!({
             "hook_type": "outgoing_webhook",
@@ -1298,7 +1305,7 @@ async fn an_admin_turns_a_stopped_hook_back_on_and_owns_it(pool: PgPool) {
         .is_empty());
     assert!(!hook_state(&state, id).await.0);
 
-    let route = format!("/api/hooks/{id}");
+    let route = format!("/api/v1/hooks/{id}");
     let on = json!({ "is_active": true });
     let (status, _) = send(&app, "PATCH", &route, Some(&admin), Some(on.clone())).await;
     assert_eq!(

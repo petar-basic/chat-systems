@@ -67,7 +67,7 @@ async fn create(app: &axum::Router, token: &str, ws: Uuid, body: Value) -> (Stat
     send(
         app,
         "POST",
-        &format!("/api/workspaces/{ws}/custom-responses"),
+        &format!("/api/v1/workspaces/{ws}/custom-responses"),
         Some(token),
         Some(body),
     )
@@ -84,7 +84,7 @@ async fn list(app: &axum::Router, token: &str, ws: Uuid) -> (StatusCode, Value) 
     send(
         app,
         "GET",
-        &format!("/api/workspaces/{ws}/custom-responses"),
+        &format!("/api/v1/workspaces/{ws}/custom-responses"),
         Some(token),
         None,
     )
@@ -105,7 +105,7 @@ async fn say_in(
     let (status, body) = send(
         app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(token),
         Some(json!({ "content": content, "thread_parent_id": thread })),
     )
@@ -218,7 +218,7 @@ async fn members_edit_responses_unless_the_rule_says_admins(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{}", t.ws),
+        &format!("/api/v1/workspaces/{}", t.ws),
         Some(&t.admin),
         Some(json!({ "custom_responders": "admins" })),
     )
@@ -232,7 +232,7 @@ async fn members_edit_responses_unless_the_rule_says_admins(pool: PgPool) {
         create(&app, &t.ana, t.ws, wifi()).await.0,
         StatusCode::FORBIDDEN
     );
-    let path = format!("/api/workspaces/{}/custom-responses/{id}", t.ws);
+    let path = format!("/api/v1/workspaces/{}/custom-responses/{id}", t.ws);
     let (status, _) = send(
         &app,
         "PATCH",
@@ -259,7 +259,7 @@ async fn members_edit_responses_unless_the_rule_says_admins(pool: PgPool) {
     assert_eq!(updated["triggers"], json!(["wifi password"]));
     assert_eq!(updated["answers"], json!(["Ask IT", "It's on the fridge"]));
 
-    let rename = format!("/api/workspaces/{}/custom-responses/bot", t.ws);
+    let rename = format!("/api/v1/workspaces/{}/custom-responses/bot", t.ws);
     assert_eq!(
         send(
             &app,
@@ -437,7 +437,7 @@ async fn bots_archived_channels_and_direct_messages_get_no_answer(pool: PgPool) 
     let (status, dm) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{}/conversations", t.ws),
+        &format!("/api/v1/workspaces/{}/conversations", t.ws),
         Some(&t.ana),
         Some(json!({ "participant_ids": [t.ben_id] })),
     )
@@ -453,7 +453,7 @@ async fn bots_archived_channels_and_direct_messages_get_no_answer(pool: PgPool) 
     let (status, group) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{}/conversations", t.ws),
+        &format!("/api/v1/workspaces/{}/conversations", t.ws),
         Some(&t.ana),
         Some(json!({ "participant_ids": [t.ben_id, t.owner_id] })),
     )

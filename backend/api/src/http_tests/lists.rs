@@ -14,7 +14,7 @@ async fn create_list(
     send(
         app,
         "POST",
-        &format!("/api/workspaces/{ws}/lists"),
+        &format!("/api/v1/workspaces/{ws}/lists"),
         Some(token),
         Some(body),
     )
@@ -51,7 +51,7 @@ async fn add_item(app: &axum::Router, token: &str, list: &str, body: Value) -> (
     send(
         app,
         "POST",
-        &format!("/api/lists/{list}/items"),
+        &format!("/api/v1/lists/{list}/items"),
         Some(token),
         Some(body),
     )
@@ -67,7 +67,7 @@ async fn edit_item(
     send(
         app,
         "PATCH",
-        &format!("/api/list-items/{item}"),
+        &format!("/api/v1/list-items/{item}"),
         Some(token),
         Some(json!({ "values": values })),
     )
@@ -78,7 +78,7 @@ async fn items(app: &axum::Router, token: &str, list: &str) -> Vec<Value> {
     let (status, body) = send(
         app,
         "GET",
-        &format!("/api/lists/{list}/items"),
+        &format!("/api/v1/lists/{list}/items"),
         Some(token),
         None,
     )
@@ -192,7 +192,7 @@ async fn a_list_is_seen_and_edited_exactly_as_its_conversation(pool: PgPool) {
         let (status, _) = send(
             &app,
             "GET",
-            &format!("/api/lists/{list}"),
+            &format!("/api/v1/lists/{list}"),
             Some(token),
             None,
         )
@@ -201,7 +201,7 @@ async fn a_list_is_seen_and_edited_exactly_as_its_conversation(pool: PgPool) {
         let (status, _) = send(
             &app,
             "GET",
-            &format!("/api/lists/{list}/items"),
+            &format!("/api/v1/lists/{list}/items"),
             Some(token),
             None,
         )
@@ -212,7 +212,7 @@ async fn a_list_is_seen_and_edited_exactly_as_its_conversation(pool: PgPool) {
         let (status, _) = send(
             &app,
             "POST",
-            &format!("/api/lists/{list}/columns"),
+            &format!("/api/v1/lists/{list}/columns"),
             Some(token),
             Some(text_column("Notes")),
         )
@@ -286,7 +286,7 @@ async fn a_list_is_seen_and_edited_exactly_as_its_conversation(pool: PgPool) {
     let (_, seen) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/lists"),
+        &format!("/api/v1/workspaces/{ws}/lists"),
         Some(&member),
         None,
     )
@@ -305,7 +305,7 @@ async fn a_list_is_seen_and_edited_exactly_as_its_conversation(pool: PgPool) {
     let (_, in_lobby) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/lists?channel_id={public}"),
+        &format!("/api/v1/workspaces/{ws}/lists?channel_id={public}"),
         Some(&owner),
         None,
     )
@@ -314,7 +314,7 @@ async fn a_list_is_seen_and_edited_exactly_as_its_conversation(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/lists?channel_id={private}"),
+        &format!("/api/v1/workspaces/{ws}/lists?channel_id={private}"),
         Some(&member),
         None,
     )
@@ -324,7 +324,7 @@ async fn a_list_is_seen_and_edited_exactly_as_its_conversation(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/lists/{}", list_id(&open)),
+        &format!("/api/v1/lists/{}", list_id(&open)),
         Some(&member),
         None,
     )
@@ -337,7 +337,7 @@ async fn a_list_is_seen_and_edited_exactly_as_its_conversation(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/lists/{}", list_id(&open)),
+        &format!("/api/v1/lists/{}", list_id(&open)),
         Some(&owner),
         None,
     )
@@ -346,7 +346,7 @@ async fn a_list_is_seen_and_edited_exactly_as_its_conversation(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/lists/{}", list_id(&open)),
+        &format!("/api/v1/lists/{}", list_id(&open)),
         Some(&owner),
         None,
     )
@@ -545,7 +545,7 @@ async fn items_move_by_writing_one_rank(pool: PgPool) {
             send(
                 &app,
                 "POST",
-                &format!("/api/list-items/{item}/move"),
+                &format!("/api/v1/list-items/{item}/move"),
                 Some(&owner),
                 Some(json!({ "after_id": after })),
             )
@@ -592,7 +592,7 @@ async fn items_move_by_writing_one_rank(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/list-items/{}", ids[1]),
+        &format!("/api/v1/list-items/{}", ids[1]),
         Some(&owner),
         None,
     )
@@ -634,7 +634,7 @@ async fn changing_a_column_kind_converts_what_it_can_after_naming_the_loss(pool:
             send(
                 &app,
                 "PATCH",
-                &format!("/api/list-columns/{column}"),
+                &format!("/api/v1/list-columns/{column}"),
                 Some(&owner),
                 Some(body),
             )
@@ -645,7 +645,7 @@ async fn changing_a_column_kind_converts_what_it_can_after_naming_the_loss(pool:
     let (status, preview) = send(
         &app,
         "POST",
-        &format!("/api/list-columns/{column}/preview"),
+        &format!("/api/v1/list-columns/{column}/preview"),
         Some(&owner),
         Some(json!({ "kind": "number" })),
     )
@@ -740,7 +740,7 @@ async fn columns_and_items_have_limits_and_columns_keep_an_order(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/lists/{list}/columns"),
+        &format!("/api/v1/lists/{list}/columns"),
         Some(&owner),
         Some(text_column("c30")),
     )
@@ -758,7 +758,7 @@ async fn columns_and_items_have_limits_and_columns_keep_an_order(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/list-columns/{first}"),
+        &format!("/api/v1/list-columns/{first}"),
         Some(&owner),
         None,
     )
@@ -774,7 +774,7 @@ async fn columns_and_items_have_limits_and_columns_keep_an_order(pool: PgPool) {
     let (_, detail) = send(
         &app,
         "GET",
-        &format!("/api/lists/{list}"),
+        &format!("/api/v1/lists/{list}"),
         Some(&owner),
         None,
     )
@@ -789,7 +789,7 @@ async fn columns_and_items_have_limits_and_columns_keep_an_order(pool: PgPool) {
     let (status, reordered) = send(
         &app,
         "PUT",
-        &format!("/api/lists/{list}/column-order"),
+        &format!("/api/v1/lists/{list}/column-order"),
         Some(&owner),
         Some(json!({ "column_ids": order })),
     )
@@ -799,7 +799,7 @@ async fn columns_and_items_have_limits_and_columns_keep_an_order(pool: PgPool) {
     let (status, hidden) = send(
         &app,
         "PATCH",
-        &format!("/api/list-columns/{}", order[0]),
+        &format!("/api/v1/list-columns/{}", order[0]),
         Some(&owner),
         Some(json!({ "hidden": true })),
     )
@@ -809,7 +809,7 @@ async fn columns_and_items_have_limits_and_columns_keep_an_order(pool: PgPool) {
     let (_, renamed) = send(
         &app,
         "PATCH",
-        &format!("/api/list-columns/{}", order[0]),
+        &format!("/api/v1/list-columns/{}", order[0]),
         Some(&owner),
         Some(json!({ "name": "Renamed" })),
     )
@@ -822,7 +822,7 @@ async fn columns_and_items_have_limits_and_columns_keep_an_order(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PUT",
-        &format!("/api/lists/{list}/column-order"),
+        &format!("/api/v1/lists/{list}/column-order"),
         Some(&owner),
         Some(json!({ "column_ids": &order[1..] })),
     )
@@ -868,7 +868,7 @@ async fn every_change_is_staged_for_the_lists_audience(pool: PgPool) {
     send(
         &app,
         "DELETE",
-        &format!("/api/list-items/{item}"),
+        &format!("/api/v1/list-items/{item}"),
         Some(&owner),
         None,
     )
@@ -876,7 +876,7 @@ async fn every_change_is_staged_for_the_lists_audience(pool: PgPool) {
     send(
         &app,
         "POST",
-        &format!("/api/lists/{}/columns", list_id(&personal)),
+        &format!("/api/v1/lists/{}/columns", list_id(&personal)),
         Some(&owner),
         Some(text_column("Notes")),
     )
@@ -884,7 +884,7 @@ async fn every_change_is_staged_for_the_lists_audience(pool: PgPool) {
     send(
         &app,
         "DELETE",
-        &format!("/api/lists/{}", list_id(&personal)),
+        &format!("/api/v1/lists/{}", list_id(&personal)),
         Some(&owner),
         None,
     )
@@ -947,7 +947,7 @@ async fn exports_retention_and_channel_deletion_cover_lists(pool: PgPool) {
     let (_, conv) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/conversations"),
+        &format!("/api/v1/workspaces/{ws}/conversations"),
         Some(&owner),
         Some(json!({ "participant_ids": [peer_id] })),
     )
@@ -978,7 +978,7 @@ async fn exports_retention_and_channel_deletion_cover_lists(pool: PgPool) {
     send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/exports"),
+        &format!("/api/v1/workspaces/{ws}/exports"),
         Some(&owner),
         Some(json!({})),
     )
@@ -1019,7 +1019,7 @@ async fn exports_retention_and_channel_deletion_cover_lists(pool: PgPool) {
     send(
         &app,
         "DELETE",
-        &format!("/api/lists/{}", list_id(&gone)),
+        &format!("/api/v1/lists/{}", list_id(&gone)),
         Some(&owner),
         None,
     )
@@ -1074,7 +1074,7 @@ async fn add_view(app: &axum::Router, token: &str, list: &str, body: Value) -> (
     send(
         app,
         "POST",
-        &format!("/api/lists/{list}/views"),
+        &format!("/api/v1/lists/{list}/views"),
         Some(token),
         Some(body),
     )
@@ -1082,7 +1082,14 @@ async fn add_view(app: &axum::Router, token: &str, list: &str, body: Value) -> (
 }
 
 async fn views(app: &axum::Router, token: &str, list: &str) -> Vec<Value> {
-    let (status, body) = send(app, "GET", &format!("/api/lists/{list}"), Some(token), None).await;
+    let (status, body) = send(
+        app,
+        "GET",
+        &format!("/api/v1/lists/{list}"),
+        Some(token),
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK, "{body:?}");
     body["views"].as_array().unwrap().clone()
 }
@@ -1192,7 +1199,7 @@ async fn views_are_shared_checked_and_follow_their_columns(pool: PgPool) {
     let (status, renamed) = send(
         &app,
         "PATCH",
-        &format!("/api/list-views/{board_id}"),
+        &format!("/api/v1/list-views/{board_id}"),
         Some(&owner),
         Some(json!({
             "name": "By status",
@@ -1210,7 +1217,7 @@ async fn views_are_shared_checked_and_follow_their_columns(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/list-columns/{status_col}"),
+        &format!("/api/v1/list-columns/{status_col}"),
         Some(&owner),
         Some(json!({ "options": { "choices": [{ "label": "Done" }] } })),
     )
@@ -1227,7 +1234,7 @@ async fn views_are_shared_checked_and_follow_their_columns(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/list-columns/{status_col}"),
+        &format!("/api/v1/list-columns/{status_col}"),
         Some(&owner),
         None,
     )
@@ -1250,7 +1257,7 @@ async fn views_are_shared_checked_and_follow_their_columns(pool: PgPool) {
     let (status, reordered) = send(
         &app,
         "PUT",
-        &format!("/api/lists/{list}/view-order"),
+        &format!("/api/v1/lists/{list}/view-order"),
         Some(&member),
         Some(json!({ "view_ids": order })),
     )
@@ -1260,7 +1267,7 @@ async fn views_are_shared_checked_and_follow_their_columns(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PUT",
-        &format!("/api/lists/{list}/view-order"),
+        &format!("/api/v1/lists/{list}/view-order"),
         Some(&member),
         Some(json!({ "view_ids": &order[..1] })),
     )
@@ -1270,7 +1277,7 @@ async fn views_are_shared_checked_and_follow_their_columns(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/list-views/{}", order[1]),
+        &format!("/api/v1/list-views/{}", order[1]),
         Some(&member),
         None,
     )
@@ -1279,7 +1286,7 @@ async fn views_are_shared_checked_and_follow_their_columns(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/list-views/{}", order[0]),
+        &format!("/api/v1/list-views/{}", order[0]),
         Some(&member),
         None,
     )
@@ -1349,7 +1356,7 @@ async fn comment(
     send(
         app,
         "POST",
-        &format!("/api/list-items/{item}/comments"),
+        &format!("/api/v1/list-items/{item}/comments"),
         Some(token),
         Some(json!({ "content": content })),
     )
@@ -1412,7 +1419,7 @@ async fn an_item_keeps_a_comment_thread_its_conversation_can_join(pool: PgPool) 
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/list-items/{item}/comments"),
+        &format!("/api/v1/list-items/{item}/comments"),
         Some(&outsider),
         None,
     )
@@ -1422,7 +1429,7 @@ async fn an_item_keeps_a_comment_thread_its_conversation_can_join(pool: PgPool) 
     let (status, thread) = send(
         &app,
         "GET",
-        &format!("/api/list-items/{item}/comments"),
+        &format!("/api/v1/list-items/{item}/comments"),
         Some(&owner),
         None,
     )
@@ -1444,7 +1451,7 @@ async fn an_item_keeps_a_comment_thread_its_conversation_can_join(pool: PgPool) 
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/list-comments/{first_id}"),
+        &format!("/api/v1/list-comments/{first_id}"),
         Some(&peer),
         Some(json!({ "content": "rewritten" })),
     )
@@ -1453,7 +1460,7 @@ async fn an_item_keeps_a_comment_thread_its_conversation_can_join(pool: PgPool) 
     let (status, edited) = send(
         &app,
         "PATCH",
-        &format!("/api/list-comments/{first_id}"),
+        &format!("/api/v1/list-comments/{first_id}"),
         Some(&member),
         Some(json!({ "content": "first, edited" })),
     )
@@ -1464,7 +1471,7 @@ async fn an_item_keeps_a_comment_thread_its_conversation_can_join(pool: PgPool) 
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/list-comments/{first_id}"),
+        &format!("/api/v1/list-comments/{first_id}"),
         Some(&peer),
         None,
     )
@@ -1473,7 +1480,7 @@ async fn an_item_keeps_a_comment_thread_its_conversation_can_join(pool: PgPool) 
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/list-comments/{first_id}"),
+        &format!("/api/v1/list-comments/{first_id}"),
         Some(&owner),
         None,
     )
@@ -1670,7 +1677,7 @@ async fn an_item_due_tomorrow_waits_in_later_and_completing_it_checks_it_off(poo
             send(
                 &app,
                 "PATCH",
-                &format!("/api/list-columns/{column}"),
+                &format!("/api/v1/list-columns/{column}"),
                 Some(&owner),
                 Some(body),
             )
@@ -1687,7 +1694,7 @@ async fn an_item_due_tomorrow_waits_in_later_and_completing_it_checks_it_off(poo
     let (_, detail) = send(
         &app,
         "GET",
-        &format!("/api/lists/{}", list_id(&list)),
+        &format!("/api/v1/lists/{}", list_id(&list)),
         Some(&owner),
         None,
     )
@@ -1726,7 +1733,7 @@ async fn an_item_due_tomorrow_waits_in_later_and_completing_it_checks_it_off(poo
             let (code, body) = send(
                 &app,
                 "GET",
-                &format!("/api/workspaces/{ws}/later?status={status}"),
+                &format!("/api/v1/workspaces/{ws}/later?status={status}"),
                 Some(&token),
                 None,
             )
@@ -1759,7 +1766,7 @@ async fn an_item_due_tomorrow_waits_in_later_and_completing_it_checks_it_off(poo
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/later/{later_id}"),
+        &format!("/api/v1/later/{later_id}"),
         Some(&member),
         Some(json!({ "status": "completed" })),
     )

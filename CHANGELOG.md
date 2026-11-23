@@ -17,6 +17,37 @@ instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ## [Unreleased]
 
+### Upgrading from 4.8.1
+
+- Every API route moves from `/api` to `/api/v1`, and the realtime socket from `/ws` to
+  `/ws/v1`. Nothing answers at the old paths, and nothing redirects. Restart `api`,
+  `realtime`, `worker` and `frontend` together. The `api` runs migration 128 on start, which
+  moves the file links stored in profiles, workspace icons and messages to the new path.
+- Every URL you registered somewhere else changes with it:
+  - SSO: the redirect URI at your identity provider becomes
+    `<PUBLIC_URL>/api/v1/auth/oidc/callback`.
+  - SCIM: the provider's base URL becomes `<PUBLIC_URL>/api/v1/scim/v2`.
+  - Incoming webhooks and workflow webhooks: each pasted URL needs the `/v1`.
+    *Integrations* and the workflow show the new one.
+  - Bots and scripts call `/api/v1`. A socket-mode app keeps working once its base URL is
+    changed, because `apps.connections.open` hands it the new socket address.
+  - A proxy of your own that routes `/api` and `/ws` by prefix needs nothing. One that
+    matches exact paths needs the `/v1`.
+- Everyone signs in again once. The browser's refresh cookie now lives under
+  `/api/v1/auth`, so the one set before the upgrade is not sent any more.
+- Unsubscribe and export links in emails sent before the upgrade stop working. Emails
+  still waiting in the outbox get the new links.
+- The desktop app updates itself. Until it is on 5.0.0 its SSO sign-in fails, and from
+  5.0.0 on it signs in with SSO only to servers on 5.0.0 or later.
+
+### Added
+
+- A client and a server know each other's version. `GET /api/v1/instance/info` reports
+  `api_version` and `min_client_version`, the oldest app the server still serves. The web
+  client sends its version in `X-Client-Version`. A server that no longer serves that
+  version answers `426`, and the app says the server needs a newer app. A server with no
+  `/api/v1` gets a banner saying it is too old for this app (CS-141).
+
 ## [4.8.1] — 2026-11-23
 
 ### Upgrading from 4.8.0

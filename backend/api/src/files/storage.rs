@@ -197,7 +197,7 @@ impl FileStorage {
     }
 
     pub fn public_url(&self, key: &str) -> String {
-        format!("{}/api/files/download/{}", self.public_url, key)
+        format!("{}/api/v1/files/download/{}", self.public_url, key)
     }
 
     fn attributes_for(&self, content_type: &str) -> Attributes {

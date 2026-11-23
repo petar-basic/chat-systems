@@ -32,7 +32,7 @@ async fn an_invite_never_carries_a_role_above_the_person_who_made_it(pool: PgPoo
     let ws = seed_workspace(&state, owner, "Invite Roles").await;
     add_ws_member(&state, ws, admin, "admin").await;
     let lounge = seed_channel(&state, ws, owner, "lounge", false).await;
-    let path = format!("/api/workspaces/{ws}/invites");
+    let path = format!("/api/v1/workspaces/{ws}/invites");
 
     for (token, role, expected) in [
         (&admin_token, "owner", StatusCode::FORBIDDEN),
@@ -101,13 +101,16 @@ async fn opening_an_invite_keeps_the_role_you_already_have(pool: PgPool) {
     let (status, invite) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/invites"),
+        &format!("/api/v1/workspaces/{ws}/invites"),
         Some(&owner_token),
         Some(json!({ "role": "member", "max_uses": 1 })),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{invite:?}");
-    let accept = format!("/api/invites/{}/accept", invite["token"].as_str().unwrap());
+    let accept = format!(
+        "/api/v1/invites/{}/accept",
+        invite["token"].as_str().unwrap()
+    );
 
     for (id, token, kept) in &people {
         let (status, body) = send(&app, "POST", &accept, Some(token), None).await;
@@ -143,8 +146,8 @@ async fn an_owner_steps_down_or_leaves_only_while_another_owner_remains(pool: Pg
     let (bo, _, bo_token) = seed_and_login(&app, &state, "own-bo", false).await;
     let ws = seed_workspace(&state, ana, "Two Owners").await;
     add_ws_member(&state, ws, bo, "member").await;
-    let role_of = |user: Uuid| format!("/api/workspaces/{ws}/members/{user}/role");
-    let member = |user: Uuid| format!("/api/workspaces/{ws}/members/{user}");
+    let role_of = |user: Uuid| format!("/api/v1/workspaces/{ws}/members/{user}/role");
+    let member = |user: Uuid| format!("/api/v1/workspaces/{ws}/members/{user}");
 
     let (status, body) = send(
         &app,
@@ -282,7 +285,7 @@ async fn an_instance_admin_gives_a_workspace_whose_owner_is_gone_a_new_one(pool:
         let (status, body) = send(
             &app,
             "POST",
-            &format!("/api/admin/users/{user}/suspend"),
+            &format!("/api/v1/admin/users/{user}/suspend"),
             Some(&root),
             None,
         )
@@ -290,7 +293,7 @@ async fn an_instance_admin_gives_a_workspace_whose_owner_is_gone_a_new_one(pool:
         assert_eq!(status, StatusCode::OK, "{body:?}");
     }
 
-    let (status, list) = send(&app, "GET", "/api/admin/workspaces", Some(&root), None).await;
+    let (status, list) = send(&app, "GET", "/api/v1/admin/workspaces", Some(&root), None).await;
     assert_eq!(status, StatusCode::OK, "{list:?}");
     let listed = list["data"]
         .as_array()
@@ -308,7 +311,7 @@ async fn an_instance_admin_gives_a_workspace_whose_owner_is_gone_a_new_one(pool:
     let (status, people) = send(
         &app,
         "GET",
-        &format!("/api/admin/workspaces/{ws}/members"),
+        &format!("/api/v1/admin/workspaces/{ws}/members"),
         Some(&root),
         None,
     )
@@ -316,7 +319,7 @@ async fn an_instance_admin_gives_a_workspace_whose_owner_is_gone_a_new_one(pool:
     assert_eq!(status, StatusCode::OK, "{people:?}");
     assert_eq!(people["data"].as_array().unwrap().len(), 3);
 
-    let appoint = format!("/api/admin/workspaces/{ws}/owners");
+    let appoint = format!("/api/v1/admin/workspaces/{ws}/owners");
     let (status, _) = send(
         &app,
         "POST",
@@ -368,7 +371,7 @@ async fn an_instance_admin_gives_a_workspace_whose_owner_is_gone_a_new_one(pool:
     let (status, body) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{ws}/retention"),
+        &format!("/api/v1/workspaces/{ws}/retention"),
         Some(&maya_token),
         Some(json!({ "message_days": 90 })),
     )

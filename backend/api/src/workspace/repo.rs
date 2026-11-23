@@ -244,8 +244,8 @@ impl WorkspaceRepo {
         let rows = sqlx::query!(
             r#"
             SELECT id, icon_url AS "icon_url!" FROM workspaces
-             WHERE icon_url LIKE '%/api/files/download/%'
-               AND icon_url NOT LIKE '%/api/files/download/icons/%'
+             WHERE icon_url LIKE '%/api/v1/files/download/%'
+               AND icon_url NOT LIKE '%/api/v1/files/download/icons/%'
             "#
         )
         .fetch_all(&self.pool)

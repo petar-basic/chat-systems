@@ -20,7 +20,7 @@ and shows every part of [interactivity](../../docs/bot-api.md#buttons-menus-and-
    by the app, with no URL:
 
    ```bash
-   curl -s -X POST https://chat.example.com/api/workspaces/$WORKSPACE_ID/hooks \
+   curl -s -X POST https://chat.example.com/api/v1/workspaces/$WORKSPACE_ID/hooks \
      -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' \
      -d '{ "hook_type": "slash_command", "name": "request", "app_id": "'$APP_ID'",
            "config": { "command": "request", "channel_ids": ["'$CHANNEL_ID'"] } }'
@@ -29,7 +29,7 @@ and shows every part of [interactivity](../../docs/bot-api.md#buttons-menus-and-
 4. Run it:
 
    ```bash
-   CHAT_API_URL=https://chat.example.com/api CHAT_BOT_TOKEN=cbot-… CHAT_APP_TOKEN=capp-… node deploy-approval.mjs
+   CHAT_API_URL=https://chat.example.com/api/v1 CHAT_BOT_TOKEN=cbot-… CHAT_APP_TOKEN=capp-… node deploy-approval.mjs
    ```
 
 Type `/request` in that channel. `--once` exits after the first approval or rejection; the

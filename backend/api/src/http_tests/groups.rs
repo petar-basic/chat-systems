@@ -14,7 +14,7 @@ async fn create_group(
     send(
         app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/groups"),
+        &format!("/api/v1/workspaces/{ws_id}/groups"),
         Some(token),
         Some(json!({ "handle": handle, "name": handle })),
     )
@@ -39,7 +39,7 @@ async fn a_group_is_created_by_an_admin_and_seen_by_everyone(pool: PgPool) {
     let (status, listed) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/groups"),
+        &format!("/api/v1/workspaces/{ws_id}/groups"),
         Some(&member_token),
         None,
     )
@@ -75,7 +75,7 @@ async fn membership_is_workspace_membership_first(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/groups/{group_id}/members"),
+        &format!("/api/v1/workspaces/{ws_id}/groups/{group_id}/members"),
         Some(&owner_token),
         Some(json!({ "user_id": outsider_id })),
     )
@@ -89,7 +89,7 @@ async fn membership_is_workspace_membership_first(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/groups/{group_id}/members"),
+        &format!("/api/v1/workspaces/{ws_id}/groups/{group_id}/members"),
         Some(&owner_token),
         Some(json!({ "user_id": member_id })),
     )
@@ -99,7 +99,7 @@ async fn membership_is_workspace_membership_first(pool: PgPool) {
     let (status, members) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/groups/{group_id}/members"),
+        &format!("/api/v1/workspaces/{ws_id}/groups/{group_id}/members"),
         Some(&owner_token),
         None,
     )
@@ -110,7 +110,7 @@ async fn membership_is_workspace_membership_first(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{ws_id}/groups/{group_id}/members/{member_id}"),
+        &format!("/api/v1/workspaces/{ws_id}/groups/{group_id}/members/{member_id}"),
         Some(&owner_token),
         None,
     )
@@ -157,7 +157,7 @@ async fn mentioning_a_group_notifies_only_the_members_who_are_in_the_channel(poo
         let (status, _) = send(
             &app,
             "POST",
-            &format!("/api/workspaces/{ws_id}/groups/{group_id}/members"),
+            &format!("/api/v1/workspaces/{ws_id}/groups/{group_id}/members"),
             Some(&owner_token),
             Some(json!({ "user_id": member })),
         )
@@ -168,7 +168,7 @@ async fn mentioning_a_group_notifies_only_the_members_who_are_in_the_channel(poo
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(&owner_token),
         Some(json!({ "content": format!("ship it @[backend](group:{group_id})") })),
     )
@@ -228,7 +228,7 @@ async fn a_group_from_another_workspace_never_resolves(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{theirs}/groups/{group_id}/members"),
+        &format!("/api/v1/workspaces/{theirs}/groups/{group_id}/members"),
         Some(&owner_token),
         Some(json!({ "user_id": member_id })),
     )
@@ -238,7 +238,7 @@ async fn a_group_from_another_workspace_never_resolves(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(&owner_token),
         Some(json!({ "content": format!("@[backend](group:{group_id}) hello") })),
     )

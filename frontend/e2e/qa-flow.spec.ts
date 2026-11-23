@@ -190,14 +190,14 @@ test('8. unread indicator appears on a channel the user is not viewing', async (
   const auth = await authHeaders(api, 'admin@dev.local');
   const wsId = (await devWorkspace(api, 'admin@dev.local')).id;
   const chList = await (
-    await api.get(`http://localhost:3000/api/workspaces/${wsId}/channels`, { headers: auth })
+    await api.get(`http://localhost:3000/api/v1/workspaces/${wsId}/channels`, { headers: auth })
   ).json();
   const randomId = chList.data.find((c: { name: string }) => c.name === 'random').id;
   const members = await (
-    await api.get(`http://localhost:3000/api/workspaces/${wsId}/members`, { headers: auth })
+    await api.get(`http://localhost:3000/api/v1/workspaces/${wsId}/members`, { headers: auth })
   ).json();
   const bobId = members.data.find((m: { email: string }) => m.email === 'bob@dev.local').user_id;
-  await api.post(`http://localhost:3000/api/channels/${randomId}/members`, {
+  await api.post(`http://localhost:3000/api/v1/channels/${randomId}/members`, {
     headers: auth,
     data: { user_id: bobId },
   });
@@ -274,7 +274,7 @@ test('12. suspending a user kills their live session', async () => {
   await bob.goto('/');
   await expect(bob.locator('[data-qa="message-list"]')).toBeVisible({ timeout: 20_000 });
 
-  const susp = await api.post(`http://localhost:3000/api/admin/users/${bobId}/suspend`, { headers: auth });
+  const susp = await api.post(`http://localhost:3000/api/v1/admin/users/${bobId}/suspend`, { headers: auth });
   expect(susp.status()).toBe(200);
 
   // No reload: the gateway pushes the revocation and the client drops the
@@ -283,5 +283,5 @@ test('12. suspending a user kills their live session', async () => {
   await expect(bob.locator('[data-qa="login-email"]')).toBeVisible({ timeout: 20_000 });
   await bob.screenshot({ path: `${SHOTS}/12-bob-suspended.png` });
 
-  await api.post(`http://localhost:3000/api/admin/users/${bobId}/activate`, { headers: auth });
+  await api.post(`http://localhost:3000/api/v1/admin/users/${bobId}/activate`, { headers: auth });
 });

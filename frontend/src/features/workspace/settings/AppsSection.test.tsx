@@ -124,7 +124,7 @@ describe('AppsSection', () => {
     enableMutate.mockImplementation((_id: string, options?: { onSuccess?: (turnedOn: unknown) => void }) =>
       options?.onSuccess?.({
         hook: {},
-        secrets: { incoming_url: 'https://chat.example/api/hooks/incoming/tok-new', config: {} },
+        secrets: { incoming_url: 'https://chat.example/api/v1/hooks/incoming/tok-new', config: {} },
       }),
     );
     fireEvent.click(screen.getByTestId('app-reinstall'));
@@ -370,7 +370,7 @@ describe('AppsSection app page in Japanese', () => {
       ],
     };
     rotateMutate.mockImplementation((_id: string, options?: { onSuccess?: (made: unknown) => void }) =>
-      options?.onSuccess?.({ incoming_url: 'https://chat.example/api/hooks/incoming/tok-r', config: {} }),
+      options?.onSuccess?.({ incoming_url: 'https://chat.example/api/v1/hooks/incoming/tok-r', config: {} }),
     );
     render(<AppsSection workspaceId="ws-1" />);
     fireEvent.click(rows()[0]);

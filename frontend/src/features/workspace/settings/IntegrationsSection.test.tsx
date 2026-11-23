@@ -31,7 +31,7 @@ const secrets = (over: Partial<HookSecrets>): HookSecrets => ({
   hook_id: 'hook-1',
   hook_type: 'incoming_webhook',
   config: { token: 'tok-123' },
-  incoming_url: 'http://localhost:8080/api/hooks/incoming/tok-123',
+  incoming_url: 'http://localhost:8080/api/v1/hooks/incoming/tok-123',
   ...over,
 });
 
@@ -73,7 +73,7 @@ describe('IntegrationsSection', () => {
     rotateMutate.mockReset().mockResolvedValue(
       secrets({
         config: { token: 'tok-999' },
-        incoming_url: 'http://localhost:8080/api/hooks/incoming/tok-999',
+        incoming_url: 'http://localhost:8080/api/v1/hooks/incoming/tok-999',
       }),
     );
   });
@@ -92,7 +92,9 @@ describe('IntegrationsSection', () => {
         config: { channel_id: 'ch-1' },
       }),
     );
-    expect(await screen.findByText('http://localhost:8080/api/hooks/incoming/tok-123')).toBeInTheDocument();
+    expect(
+      await screen.findByText('http://localhost:8080/api/v1/hooks/incoming/tok-123'),
+    ).toBeInTheDocument();
   });
 
   it('keeps credentials hidden until the admin asks to reveal them', async () => {
@@ -217,7 +219,7 @@ describe('IntegrationsSection', () => {
       hook: hook({}),
       secrets: secrets({
         config: { token: 'tok-new' },
-        incoming_url: 'http://localhost:8080/api/hooks/incoming/tok-new',
+        incoming_url: 'http://localhost:8080/api/v1/hooks/incoming/tok-new',
       }),
     });
 

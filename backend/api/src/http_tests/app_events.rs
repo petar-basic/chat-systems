@@ -89,7 +89,7 @@ async fn setup(pool: PgPool, scopes: &[&str]) -> Setup {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/bot-apps"),
+        &format!("/api/v1/workspaces/{ws_id}/bot-apps"),
         Some(&token),
         Some(json!({ "name": "Listener", "scopes": scopes })),
     )
@@ -116,7 +116,7 @@ impl Setup {
         send(
             &self.app,
             "PATCH",
-            &format!("/api/bot-apps/{}", self.app_id),
+            &format!("/api/v1/bot-apps/{}", self.app_id),
             Some(&self.token),
             Some(body),
         )
@@ -127,7 +127,7 @@ impl Setup {
         let (status, body) = send(
             &self.app,
             "GET",
-            &format!("/api/bot-apps/{}", self.app_id),
+            &format!("/api/v1/bot-apps/{}", self.app_id),
             Some(&self.token),
             None,
         )
@@ -147,7 +147,7 @@ impl Setup {
         let (status, body) = send(
             &self.app,
             "POST",
-            &format!("/api/channels/{ch_id}/members"),
+            &format!("/api/v1/channels/{ch_id}/members"),
             Some(&self.token),
             Some(json!({ "user_id": user_id })),
         )
@@ -159,7 +159,7 @@ impl Setup {
         let (status, body) = send(
             &self.app,
             "POST",
-            &format!("/api/channels/{ch_id}/messages"),
+            &format!("/api/v1/channels/{ch_id}/messages"),
             Some(token),
             Some(json!({ "content": content })),
         )
@@ -213,7 +213,7 @@ impl Setup {
         let (status, body) = send(
             &self.app,
             "GET",
-            &format!("/api/bot-apps/{}/signing-secret", self.app_id),
+            &format!("/api/v1/bot-apps/{}/signing-secret", self.app_id),
             Some(&self.token),
             None,
         )
@@ -262,7 +262,7 @@ async fn a_request_url_is_saved_only_once_it_answers_the_challenge(pool: PgPool)
     let (status, _) = send(
         &s.app,
         "GET",
-        &format!("/api/bot-apps/{}/signing-secret", s.app_id),
+        &format!("/api/v1/bot-apps/{}/signing-secret", s.app_id),
         Some(&member_token),
         None,
     )
@@ -310,10 +310,10 @@ async fn each_event_reaches_an_app_only_in_the_channels_it_is_in(pool: PgPool) {
             assert_eq!(status, StatusCode::OK, "{body:?}");
         }
     };
-    reacted("POST", format!("/api/messages/{msg_id}/reactions")).await;
+    reacted("POST", format!("/api/v1/messages/{msg_id}/reactions")).await;
     reacted(
         "DELETE",
-        format!("/api/messages/{msg_id}/reactions/{}", urlencode("🚀")),
+        format!("/api/v1/messages/{msg_id}/reactions/{}", urlencode("🚀")),
     )
     .await;
 
@@ -324,7 +324,7 @@ async fn each_event_reaches_an_app_only_in_the_channels_it_is_in(pool: PgPool) {
     let (status, created) = send(
         &s.app,
         "POST",
-        &format!("/api/workspaces/{}/channels", s.ws_id),
+        &format!("/api/v1/workspaces/{}/channels", s.ws_id),
         Some(&s.token),
         Some(json!({ "name": "fresh" })),
     )
@@ -333,7 +333,7 @@ async fn each_event_reaches_an_app_only_in_the_channels_it_is_in(pool: PgPool) {
     let (status, hidden) = send(
         &s.app,
         "POST",
-        &format!("/api/workspaces/{}/channels", s.ws_id),
+        &format!("/api/v1/workspaces/{}/channels", s.ws_id),
         Some(&s.token),
         Some(json!({ "name": "hidden", "channel_type": "private" })),
     )
@@ -343,7 +343,7 @@ async fn each_event_reaches_an_app_only_in_the_channels_it_is_in(pool: PgPool) {
     let (status, body) = send(
         &s.app,
         "PATCH",
-        &format!("/api/channels/{joined}"),
+        &format!("/api/v1/channels/{joined}"),
         Some(&s.token),
         Some(json!({ "topic": "shipping soon" })),
     )
@@ -352,7 +352,7 @@ async fn each_event_reaches_an_app_only_in_the_channels_it_is_in(pool: PgPool) {
     let (status, body) = send(
         &s.app,
         "DELETE",
-        &format!("/api/channels/{joined}"),
+        &format!("/api/v1/channels/{joined}"),
         Some(&s.token),
         None,
     )
@@ -526,7 +526,7 @@ async fn an_app_nothing_reaches_for_an_hour_is_shown_failing(pool: PgPool) {
 }
 
 async fn open_connection(s: &Setup, token: Option<&str>) -> (StatusCode, Value) {
-    send(&s.app, "POST", "/api/apps/connections.open", token, None).await
+    send(&s.app, "POST", "/api/v1/apps/connections.open", token, None).await
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
@@ -548,7 +548,7 @@ async fn an_app_token_opens_a_short_lived_socket_url(pool: PgPool) {
     let (status, _) = send(
         &s.app,
         "POST",
-        &format!("/api/bot-apps/{}/app-token", s.app_id),
+        &format!("/api/v1/bot-apps/{}/app-token", s.app_id),
         Some(&member_token),
         None,
     )
@@ -559,7 +559,7 @@ async fn an_app_token_opens_a_short_lived_socket_url(pool: PgPool) {
         let (status, body) = send(
             &s.app,
             "POST",
-            &format!("/api/bot-apps/{}/app-token", s.app_id),
+            &format!("/api/v1/bot-apps/{}/app-token", s.app_id),
             Some(&s.token),
             None,
         )
@@ -580,7 +580,7 @@ async fn an_app_token_opens_a_short_lived_socket_url(pool: PgPool) {
     assert_eq!(status, StatusCode::OK, "{body:?}");
     let url = body["url"].as_str().expect("url");
     let ticket = url
-        .strip_prefix("ws://localhost/ws/apps?ticket=")
+        .strip_prefix("ws://localhost/ws/v1/apps?ticket=")
         .expect("a socket url on this instance");
     let stored: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM app_sockets WHERE app_id = $1 AND ticket_hash = $2",
@@ -609,7 +609,7 @@ async fn an_app_token_opens_a_short_lived_socket_url(pool: PgPool) {
     let (status, body) = send(
         &s.app,
         "DELETE",
-        &format!("/api/bot-apps/{}/app-token", s.app_id),
+        &format!("/api/v1/bot-apps/{}/app-token", s.app_id),
         Some(&s.token),
         None,
     )
@@ -629,7 +629,7 @@ async fn a_socket_mode_app_takes_slash_commands_without_a_url(pool: PgPool) {
     let (status, body) = send(
         &s.app,
         "POST",
-        &format!("/api/workspaces/{}/hooks", s.ws_id),
+        &format!("/api/v1/workspaces/{}/hooks", s.ws_id),
         Some(&s.token),
         Some(json!({
             "hook_type": "slash_command",
@@ -641,7 +641,7 @@ async fn a_socket_mode_app_takes_slash_commands_without_a_url(pool: PgPool) {
     .await;
     assert_eq!(status, StatusCode::OK, "{body:?}");
 
-    let uri = format!("/api/channels/{ch}/commands");
+    let uri = format!("/api/v1/channels/{ch}/commands");
     let invoke = || {
         send(
             &s.app,
@@ -686,5 +686,5 @@ async fn a_socket_mode_app_takes_slash_commands_without_a_url(pool: PgPool) {
     assert!(payload["response_url"]
         .as_str()
         .expect("response_url")
-        .contains("/api/commands/responses/"));
+        .contains("/api/v1/commands/responses/"));
 }

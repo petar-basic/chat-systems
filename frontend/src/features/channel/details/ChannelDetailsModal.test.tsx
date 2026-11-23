@@ -108,8 +108,10 @@ beforeEach(() => {
   updateChannel.mockReset().mockResolvedValue({});
   setRetention.mockReset().mockResolvedValue({});
   createHook.mockReset().mockResolvedValue({ id: 'h-new' });
-  revealHook.mockReset().mockResolvedValue({ incoming_url: 'https://chat.test/api/hooks/incoming/first' });
-  rotateHook.mockReset().mockResolvedValue({ incoming_url: 'https://chat.test/api/hooks/incoming/second' });
+  revealHook.mockReset().mockResolvedValue({ incoming_url: 'https://chat.test/api/v1/hooks/incoming/first' });
+  rotateHook
+    .mockReset()
+    .mockResolvedValue({ incoming_url: 'https://chat.test/api/v1/hooks/incoming/second' });
   deleteHook.mockReset().mockResolvedValue({});
   analytics = {
     from: '2026-10-07',
@@ -368,7 +370,7 @@ describe('ChannelDetailsModal integrations', () => {
     await waitFor(() => expect(screen.getByTestId('channel-webhook-name')).toHaveValue(''));
     const urls = screen.getAllByTestId('channel-webhook-url-value');
     expect(urls).toHaveLength(1);
-    expect(urls[0]).toHaveTextContent('https://chat.test/api/hooks/incoming/first');
+    expect(urls[0]).toHaveTextContent('https://chat.test/api/v1/hooks/incoming/first');
   });
 
   it('makes a new URL for a webhook and shows it under that webhook', async () => {
@@ -379,7 +381,7 @@ describe('ChannelDetailsModal integrations', () => {
     fireEvent.click(within(incoming).getByTestId('channel-webhook-rotate'));
     await waitFor(() =>
       expect(within(incoming).getByTestId('channel-webhook-url-value')).toHaveTextContent(
-        'https://chat.test/api/hooks/incoming/second',
+        'https://chat.test/api/v1/hooks/incoming/second',
       ),
     );
     expect(rotateHook).toHaveBeenCalledWith('h-ci');

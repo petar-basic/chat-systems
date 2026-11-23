@@ -35,7 +35,7 @@ async fn post_message(w: &World, token: &str, channel: Uuid, content: &str) -> S
     let (status, message) = send(
         &w.app,
         "POST",
-        &format!("/api/channels/{channel}/messages"),
+        &format!("/api/v1/channels/{channel}/messages"),
         Some(token),
         Some(json!({ "content": content })),
     )
@@ -48,7 +48,7 @@ async fn later(w: &World, token: &str, status: &str) -> Vec<Value> {
     let (code, body) = send(
         &w.app,
         "GET",
-        &format!("/api/workspaces/{}/later?status={status}", w.ws_id),
+        &format!("/api/v1/workspaces/{}/later?status={status}", w.ws_id),
         Some(token),
         None,
     )
@@ -61,7 +61,7 @@ async fn create(w: &World, token: &str, body: Value) -> (StatusCode, Value) {
     send(
         &w.app,
         "POST",
-        &format!("/api/workspaces/{}/later", w.ws_id),
+        &format!("/api/v1/workspaces/{}/later", w.ws_id),
         Some(token),
         Some(body),
     )
@@ -72,7 +72,7 @@ async fn patch(w: &World, token: &str, id: &str, body: Value) -> StatusCode {
     send(
         &w.app,
         "PATCH",
-        &format!("/api/later/{id}"),
+        &format!("/api/v1/later/{id}"),
         Some(token),
         Some(body),
     )
@@ -124,7 +124,7 @@ async fn a_saved_message_moves_through_in_progress_completed_and_archived(pool: 
     let (status, _) = send(
         &w.app,
         "DELETE",
-        &format!("/api/later/{id}"),
+        &format!("/api/v1/later/{id}"),
         Some(&w.owner),
         None,
     )
@@ -303,7 +303,7 @@ async fn nobody_sees_or_changes_anyone_elses_list(pool: PgPool) {
     let (status, _) = send(
         &w.app,
         "DELETE",
-        &format!("/api/later/{id}"),
+        &format!("/api/v1/later/{id}"),
         Some(&member),
         None,
     )
@@ -314,7 +314,7 @@ async fn nobody_sees_or_changes_anyone_elses_list(pool: PgPool) {
     let (status, _) = send(
         &w.app,
         "GET",
-        &format!("/api/workspaces/{}/later", w.ws_id),
+        &format!("/api/v1/workspaces/{}/later", w.ws_id),
         Some(&outsider),
         None,
     )
@@ -323,7 +323,7 @@ async fn nobody_sees_or_changes_anyone_elses_list(pool: PgPool) {
     let (status, _) = send(
         &w.app,
         "GET",
-        &format!("/api/workspaces/{}/later", w.ws_id),
+        &format!("/api/v1/workspaces/{}/later", w.ws_id),
         None,
         None,
     )

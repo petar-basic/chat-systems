@@ -193,7 +193,7 @@ async fn configure(s: &Setup, token: &str, body: Value) -> (StatusCode, Value) {
     send(
         &s.app,
         "PUT",
-        &format!("/api/workspaces/{}/apps/jira", s.ws_id),
+        &format!("/api/v1/workspaces/{}/apps/jira", s.ws_id),
         Some(token),
         Some(body),
     )
@@ -204,7 +204,7 @@ async fn list(s: &Setup, token: &str) -> Value {
     let (status, body) = send(
         &s.app,
         "GET",
-        &format!("/api/workspaces/{}/apps", s.ws_id),
+        &format!("/api/v1/workspaces/{}/apps", s.ws_id),
         Some(token),
         None,
     )
@@ -217,7 +217,7 @@ async fn connect(s: &Setup, token: &str) -> String {
     let (status, body) = send(
         &s.app,
         "POST",
-        &format!("/api/workspaces/{}/apps/jira/connect", s.ws_id),
+        &format!("/api/v1/workspaces/{}/apps/jira/connect", s.ws_id),
         Some(token),
         Some(json!({ "return_to": "/app/somewhere" })),
     )
@@ -241,7 +241,7 @@ async fn complete(s: &Setup, token: &str, state: &str) -> (StatusCode, Value) {
     send(
         &s.app,
         "POST",
-        "/api/apps/connections",
+        "/api/v1/apps/connections",
         Some(token),
         Some(json!({ "code": "good-code", "state": state })),
     )
@@ -379,7 +379,7 @@ async fn a_member_connects_once_and_cards_use_their_account(pool: PgPool) {
     let (status, _) = send(
         &s.app,
         "DELETE",
-        &format!("/api/workspaces/{}/apps/jira/connection", s.ws_id),
+        &format!("/api/v1/workspaces/{}/apps/jira/connection", s.ws_id),
         Some(&member_token),
         None,
     )
@@ -421,7 +421,7 @@ async fn a_disabled_app_previews_nothing_and_cannot_be_connected(pool: PgPool) {
     let (status, _) = send(
         &s.app,
         "POST",
-        &format!("/api/workspaces/{}/apps/jira/connect", s.ws_id),
+        &format!("/api/v1/workspaces/{}/apps/jira/connect", s.ws_id),
         Some(&s.owner_token),
         Some(json!({})),
     )
@@ -453,7 +453,7 @@ async fn never_ask_again_silences_the_prompt_until_the_member_connects(pool: PgP
         seed_and_login(&s.app, &s.state, "apps-member", false).await;
     add_ws_member(&s.state, s.ws_id, member, "member").await;
     let issue = "https://acme.atlassian.net/browse/PT-262";
-    let prompts = format!("/api/workspaces/{}/apps/jira/prompts", s.ws_id);
+    let prompts = format!("/api/v1/workspaces/{}/apps/jira/prompts", s.ws_id);
 
     let (status, _) = send(&s.app, "PUT", &prompts, Some(&member_token), None).await;
     assert_eq!(status, StatusCode::OK);
@@ -504,7 +504,7 @@ async fn never_ask_again_silences_the_prompt_until_the_member_connects(pool: PgP
     let (status, _) = send(
         &s.app,
         "PUT",
-        &format!("/api/workspaces/{}/apps/nope/prompts", s.ws_id),
+        &format!("/api/v1/workspaces/{}/apps/nope/prompts", s.ws_id),
         Some(&member_token),
         None,
     )
@@ -531,7 +531,7 @@ async fn suspending_a_user_drops_their_connections(pool: PgPool) {
     let (status, _) = send(
         &s.app,
         "POST",
-        &format!("/api/admin/users/{}/suspend", s.owner),
+        &format!("/api/v1/admin/users/{}/suspend", s.owner),
         Some(&admin_token),
         None,
     )
@@ -553,7 +553,7 @@ async fn apps_outsider_forbidden(pool: PgPool) {
     let (status, _) = send(
         &s.app,
         "GET",
-        &format!("/api/workspaces/{}/apps", s.ws_id),
+        &format!("/api/v1/workspaces/{}/apps", s.ws_id),
         Some(&outsider_token),
         None,
     )
@@ -562,7 +562,7 @@ async fn apps_outsider_forbidden(pool: PgPool) {
     let (status, _) = send(
         &s.app,
         "PUT",
-        &format!("/api/workspaces/{}/apps/jira/prompts", s.ws_id),
+        &format!("/api/v1/workspaces/{}/apps/jira/prompts", s.ws_id),
         Some(&outsider_token),
         None,
     )
@@ -571,7 +571,7 @@ async fn apps_outsider_forbidden(pool: PgPool) {
     let (status, _) = send(
         &s.app,
         "PUT",
-        &format!("/api/workspaces/{}/apps/jira/prompts", s.ws_id),
+        &format!("/api/v1/workspaces/{}/apps/jira/prompts", s.ws_id),
         None,
         None,
     )
@@ -697,7 +697,7 @@ async fn a_private_issue_needs_the_posters_github_account(pool: PgPool) {
     let (status, body) = send(
         &s.app,
         "PUT",
-        &format!("/api/workspaces/{}/apps/github", s.ws_id),
+        &format!("/api/v1/workspaces/{}/apps/github", s.ws_id),
         Some(&s.owner_token),
         Some(json!({ "client_id": "gh-client", "client_secret": "shh", "enabled": true })),
     )
@@ -713,7 +713,7 @@ async fn a_private_issue_needs_the_posters_github_account(pool: PgPool) {
     let (status, body) = send(
         &s.app,
         "POST",
-        &format!("/api/workspaces/{}/apps/github/connect", s.ws_id),
+        &format!("/api/v1/workspaces/{}/apps/github/connect", s.ws_id),
         Some(&s.owner_token),
         Some(json!({})),
     )
@@ -730,7 +730,7 @@ async fn a_private_issue_needs_the_posters_github_account(pool: PgPool) {
     let (status, body) = send(
         &s.app,
         "POST",
-        "/api/apps/connections",
+        "/api/v1/apps/connections",
         Some(&s.owner_token),
         Some(json!({ "code": "good-code", "state": oauth_state })),
     )
@@ -753,7 +753,7 @@ async fn a_rejected_github_code_is_an_error_not_a_connection(pool: PgPool) {
     send(
         &s.app,
         "PUT",
-        &format!("/api/workspaces/{}/apps/github", s.ws_id),
+        &format!("/api/v1/workspaces/{}/apps/github", s.ws_id),
         Some(&s.owner_token),
         Some(json!({ "client_id": "gh-client", "client_secret": "shh", "enabled": true })),
     )
@@ -761,7 +761,7 @@ async fn a_rejected_github_code_is_an_error_not_a_connection(pool: PgPool) {
     let (_, body) = send(
         &s.app,
         "POST",
-        &format!("/api/workspaces/{}/apps/github/connect", s.ws_id),
+        &format!("/api/v1/workspaces/{}/apps/github/connect", s.ws_id),
         Some(&s.owner_token),
         Some(json!({})),
     )
@@ -775,7 +775,7 @@ async fn a_rejected_github_code_is_an_error_not_a_connection(pool: PgPool) {
     let (status, _) = send(
         &s.app,
         "POST",
-        "/api/apps/connections",
+        "/api/v1/apps/connections",
         Some(&s.owner_token),
         Some(json!({ "code": "bad-code", "state": oauth_state })),
     )
@@ -913,7 +913,7 @@ async fn google_connected(pool: PgPool) -> Setup {
     let (status, body) = send(
         &s.app,
         "PUT",
-        &format!("/api/workspaces/{}/apps/google_drive", s.ws_id),
+        &format!("/api/v1/workspaces/{}/apps/google_drive", s.ws_id),
         Some(&s.owner_token),
         Some(json!({ "client_id": "g-client", "client_secret": "shh", "enabled": true })),
     )
@@ -929,7 +929,7 @@ async fn google_connected(pool: PgPool) -> Setup {
     let (status, body) = send(
         &s.app,
         "POST",
-        &format!("/api/workspaces/{}/apps/google_drive/connect", s.ws_id),
+        &format!("/api/v1/workspaces/{}/apps/google_drive/connect", s.ws_id),
         Some(&s.owner_token),
         Some(json!({})),
     )
@@ -948,7 +948,7 @@ async fn google_connected(pool: PgPool) -> Setup {
     let (status, body) = send(
         &s.app,
         "POST",
-        "/api/apps/connections",
+        "/api/v1/apps/connections",
         Some(&s.owner_token),
         Some(json!({ "code": "good-code", "state": oauth_state })),
     )
@@ -1156,7 +1156,7 @@ async fn figma_connected(pool: PgPool) -> Setup {
     let (status, body) = send(
         &s.app,
         "PUT",
-        &format!("/api/workspaces/{}/apps/figma", s.ws_id),
+        &format!("/api/v1/workspaces/{}/apps/figma", s.ws_id),
         Some(&s.owner_token),
         Some(json!({ "client_id": "figma-client", "client_secret": "shh", "enabled": true })),
     )
@@ -1172,7 +1172,7 @@ async fn figma_connected(pool: PgPool) -> Setup {
     let (status, body) = send(
         &s.app,
         "POST",
-        &format!("/api/workspaces/{}/apps/figma/connect", s.ws_id),
+        &format!("/api/v1/workspaces/{}/apps/figma/connect", s.ws_id),
         Some(&s.owner_token),
         Some(json!({})),
     )
@@ -1194,7 +1194,7 @@ async fn figma_connected(pool: PgPool) -> Setup {
     let (status, body) = send(
         &s.app,
         "POST",
-        "/api/apps/connections",
+        "/api/v1/apps/connections",
         Some(&s.owner_token),
         Some(json!({ "code": "good-code", "state": oauth_state })),
     )
@@ -1283,7 +1283,7 @@ async fn configure_confluence(s: &Setup, token: &str, body: Value) -> (StatusCod
     send(
         &s.app,
         "PUT",
-        &format!("/api/workspaces/{}/apps/confluence", s.ws_id),
+        &format!("/api/v1/workspaces/{}/apps/confluence", s.ws_id),
         Some(token),
         Some(body),
     )
@@ -1318,7 +1318,7 @@ async fn confluence_reuses_the_jira_app_without_the_secret_leaving_the_server(po
     let (status, body) = send(
         &s.app,
         "GET",
-        &format!("/api/workspaces/{}/apps", s.ws_id),
+        &format!("/api/v1/workspaces/{}/apps", s.ws_id),
         Some(&s.owner_token),
         None,
     )
@@ -1351,7 +1351,7 @@ async fn confluence_reuses_the_jira_app_without_the_secret_leaving_the_server(po
     let (status, _) = send(
         &s.app,
         "PUT",
-        &format!("/api/workspaces/{}/apps/github", s.ws_id),
+        &format!("/api/v1/workspaces/{}/apps/github", s.ws_id),
         Some(&s.owner_token),
         Some(json!({ "client_id": "", "enabled": true, "reuse_from": "jira" })),
     )
@@ -1406,7 +1406,7 @@ async fn a_confluence_page_needs_its_own_connection_then_gets_a_card(pool: PgPoo
     let (status, body) = send(
         &s.app,
         "POST",
-        &format!("/api/workspaces/{}/apps/confluence/connect", s.ws_id),
+        &format!("/api/v1/workspaces/{}/apps/confluence/connect", s.ws_id),
         Some(&s.owner_token),
         Some(json!({})),
     )

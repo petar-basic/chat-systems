@@ -56,7 +56,7 @@ async fn create(app: &axum::Router, token: &str, ws: Uuid, body: Value) -> (Stat
     send(
         app,
         "POST",
-        &format!("/api/workspaces/{ws}/profile-fields"),
+        &format!("/api/v1/workspaces/{ws}/profile-fields"),
         Some(token),
         Some(body),
     )
@@ -79,7 +79,7 @@ async fn patch(
     send(
         app,
         "PATCH",
-        &format!("/api/workspaces/{ws}/profile-fields/{}", id(field)),
+        &format!("/api/v1/workspaces/{ws}/profile-fields/{}", id(field)),
         Some(token),
         Some(body),
     )
@@ -96,7 +96,7 @@ async fn set(
     send(
         app,
         "PUT",
-        &format!("/api/workspaces/{ws}/members/{user}/profile-fields"),
+        &format!("/api/v1/workspaces/{ws}/members/{user}/profile-fields"),
         Some(token),
         Some(json!({ "values": values })),
     )
@@ -107,7 +107,7 @@ async fn fields(app: &axum::Router, token: &str, ws: Uuid) -> (StatusCode, Value
     send(
         app,
         "GET",
-        &format!("/api/workspaces/{ws}/profile-fields"),
+        &format!("/api/v1/workspaces/{ws}/profile-fields"),
         Some(token),
         None,
     )
@@ -118,7 +118,7 @@ async fn people(app: &axum::Router, token: &str, ws: Uuid, query: &str) -> (Stat
     send(
         app,
         "GET",
-        &format!("/api/workspaces/{ws}/members{query}"),
+        &format!("/api/v1/workspaces/{ws}/members{query}"),
         Some(token),
         None,
     )
@@ -217,7 +217,7 @@ async fn only_admins_define_fields_and_every_member_reads_them(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{}/profile-fields/{}", t.ws, id(&dept)),
+        &format!("/api/v1/workspaces/{}/profile-fields/{}", t.ws, id(&dept)),
         Some(&t.ana),
         None,
     )
@@ -276,7 +276,7 @@ async fn only_admins_define_fields_and_every_member_reads_them(pool: PgPool) {
     let (status, body) = send(
         &app,
         "PUT",
-        &format!("/api/workspaces/{}/profile-fields/order", t.ws),
+        &format!("/api/v1/workspaces/{}/profile-fields/order", t.ws),
         Some(&t.admin),
         Some(json!({ "field_ids": &ids[..2] })),
     )
@@ -289,7 +289,7 @@ async fn only_admins_define_fields_and_every_member_reads_them(pool: PgPool) {
     let (status, body) = send(
         &app,
         "PUT",
-        &format!("/api/workspaces/{}/profile-fields/order", t.ws),
+        &format!("/api/v1/workspaces/{}/profile-fields/order", t.ws),
         Some(&t.admin),
         Some(json!({ "field_ids": ids })),
     )
@@ -352,7 +352,11 @@ async fn only_admins_define_fields_and_every_member_reads_them(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{}/profile-fields/{}", t.ws, id(&manager)),
+        &format!(
+            "/api/v1/workspaces/{}/profile-fields/{}",
+            t.ws,
+            id(&manager)
+        ),
         Some(&t.admin),
         None,
     )
@@ -697,7 +701,7 @@ async fn a_bot_with_users_read_gets_fields_and_values(pool: PgPool) {
         let (status, bot) = send(
             &app,
             "POST",
-            &format!("/api/workspaces/{}/bot-apps", t.ws),
+            &format!("/api/v1/workspaces/{}/bot-apps", t.ws),
             Some(&owner),
             Some(json!({ "name": format!("Directory {}", tokens.len()), "description": "Looks people up", "scopes": scopes })),
         )
@@ -763,7 +767,7 @@ async fn export_carries_the_values_and_erase_and_leaving_remove_them(pool: PgPoo
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/users/{}/exports", t.ben_id),
+        &format!("/api/v1/users/{}/exports", t.ben_id),
         Some(&t.ben),
         Some(json!({})),
     )
@@ -807,7 +811,7 @@ async fn export_carries_the_values_and_erase_and_leaving_remove_them(pool: PgPoo
     let (status, body) = send(
         &app,
         "DELETE",
-        &format!("/api/admin/users/{}/data", t.ben_id),
+        &format!("/api/v1/admin/users/{}/data", t.ben_id),
         Some(&instance_admin),
         Some(json!({})),
     )
@@ -818,7 +822,7 @@ async fn export_carries_the_values_and_erase_and_leaving_remove_them(pool: PgPoo
     let (status, body) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{}/members/{}", t.ws, t.cleo_id),
+        &format!("/api/v1/workspaces/{}/members/{}", t.ws, t.cleo_id),
         Some(&t.admin),
         None,
     )

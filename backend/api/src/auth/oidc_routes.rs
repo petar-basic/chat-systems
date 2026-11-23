@@ -43,7 +43,7 @@ pub fn settings_from(config: &crate::config::AppConfig) -> OidcSettings {
         issuer: config.oidc_issuer.clone(),
         client_id: config.oidc_client_id.clone(),
         client_secret: config.oidc_client_secret.clone(),
-        redirect_url: format!("{}/api/auth/oidc/callback", config.public_url),
+        redirect_url: format!("{}/api/v1/auth/oidc/callback", config.public_url),
         provisioning: Provisioning::parse(&config.oidc_provisioning, &config.oidc_allowed_domains),
     }
 }

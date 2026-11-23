@@ -9,7 +9,7 @@ const image = (n: number) => ({
   filename: `shot-${n}.png`,
   mime_type: 'image/png',
   size_bytes: 1000,
-  url: `https://chat.test/api/files/download/ws/${n}/shot-${n}.png`,
+  url: `https://chat.test/api/v1/files/download/ws/${n}/shot-${n}.png`,
 });
 
 const pdf = {
@@ -17,7 +17,7 @@ const pdf = {
   filename: 'Izveštaj o radu.pdf',
   mime_type: 'application/pdf',
   size_bytes: 1536 * 1024,
-  url: 'https://chat.test/api/files/download/ws/9/report.pdf',
+  url: 'https://chat.test/api/v1/files/download/ws/9/report.pdf',
 };
 
 describe('MessageAttachments', () => {
@@ -55,8 +55,8 @@ describe('MessageAttachments', () => {
       filename: 'Clip 2026-11-17 09.05.07.mp4',
       mime_type: 'video/mp4',
       size_bytes: 4_000_000,
-      url: 'https://chat.test/api/files/download/ws/7/Clip.mp4',
-      thumbnail_url: 'https://chat.test/api/files/download/ws/7/poster.jpg',
+      url: 'https://chat.test/api/v1/files/download/ws/7/Clip.mp4',
+      thumbnail_url: 'https://chat.test/api/v1/files/download/ws/7/poster.jpg',
       width: 1280,
       height: 720,
       clip: { kind: 'video' as const, duration_ms: 20_000 },
@@ -87,13 +87,13 @@ describe('MessageAttachments image boxes', () => {
             ...image(7),
             width: 1600,
             height: 900,
-            thumbnail_url: 'https://chat.test/api/files/download/ws/t/thumbnail.jpg',
+            thumbnail_url: 'https://chat.test/api/v1/files/download/ws/t/thumbnail.jpg',
           },
         ]}
       />,
     );
     const img = screen.getByRole('img');
-    expect(img).toHaveAttribute('src', 'https://chat.test/api/files/download/ws/t/thumbnail.jpg');
+    expect(img).toHaveAttribute('src', 'https://chat.test/api/v1/files/download/ws/t/thumbnail.jpg');
     expect(img).toHaveAttribute('width', '360');
     expect(img).toHaveAttribute('height', '203');
     fireEvent.click(screen.getByTestId('attachment-image'));
@@ -119,7 +119,7 @@ describe('MessageAttachments media', () => {
     filename: 'demo.mp4',
     mime_type: 'video/mp4',
     size_bytes: 2048,
-    url: 'https://chat.test/api/files/download/ws/v/demo.mp4',
+    url: 'https://chat.test/api/v1/files/download/ws/v/demo.mp4',
   };
   const note = { ...clip, id: 'a-1', filename: 'note.mp3', mime_type: 'audio/mpeg' };
 

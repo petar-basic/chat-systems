@@ -10,10 +10,10 @@ async fn list_workspaces_requires_auth_and_returns_data(pool: PgPool) {
     let (owner_id, _, token) = seed_and_login(&app, &state, "ws-list", false).await;
     seed_workspace(&state, owner_id, "List WS").await;
 
-    let (status, _) = send(&app, "GET", "/api/workspaces", None, None).await;
+    let (status, _) = send(&app, "GET", "/api/v1/workspaces", None, None).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 
-    let (status, body) = send(&app, "GET", "/api/workspaces", Some(&token), None).await;
+    let (status, body) = send(&app, "GET", "/api/v1/workspaces", Some(&token), None).await;
     assert_eq!(status, StatusCode::OK);
     assert!(
         body["data"].is_array(),
@@ -29,7 +29,7 @@ async fn create_workspace_happy_path(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        "/api/workspaces",
+        "/api/v1/workspaces",
         Some(&token),
         Some(json!({ "name": format!("Create WS {}", uuid_suffix()) })),
     )
@@ -44,7 +44,7 @@ async fn create_workspace_rejects_unauthenticated(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        "/api/workspaces",
+        "/api/v1/workspaces",
         None,
         Some(json!({ "name": "Nope WS" })),
     )
@@ -60,7 +60,7 @@ async fn create_workspace_rejects_blank_name(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        "/api/workspaces",
+        "/api/v1/workspaces",
         Some(&token),
         Some(json!({ "name": "" })),
     )
@@ -75,13 +75,20 @@ async fn get_workspace_owner_ok_nonmember_forbidden(pool: PgPool) {
     let (_, _, outsider_token) = seed_and_login(&app, &state, "ws-get-out", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Get WS").await;
 
-    let (status, _) = send(&app, "GET", &format!("/api/workspaces/{ws_id}"), None, None).await;
+    let (status, _) = send(
+        &app,
+        "GET",
+        &format!("/api/v1/workspaces/{ws_id}"),
+        None,
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}"),
+        &format!("/api/v1/workspaces/{ws_id}"),
         Some(&owner_token),
         None,
     )
@@ -92,7 +99,7 @@ async fn get_workspace_owner_ok_nonmember_forbidden(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}"),
+        &format!("/api/v1/workspaces/{ws_id}"),
         Some(&outsider_token),
         None,
     )
@@ -114,7 +121,7 @@ async fn update_workspace_admin_ok_member_and_nonmember_forbidden(pool: PgPool) 
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{ws_id}"),
+        &format!("/api/v1/workspaces/{ws_id}"),
         None,
         Some(body.clone()),
     )
@@ -124,7 +131,7 @@ async fn update_workspace_admin_ok_member_and_nonmember_forbidden(pool: PgPool) 
     let (status, resp) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{ws_id}"),
+        &format!("/api/v1/workspaces/{ws_id}"),
         Some(&owner_token),
         Some(body.clone()),
     )
@@ -134,7 +141,7 @@ async fn update_workspace_admin_ok_member_and_nonmember_forbidden(pool: PgPool) 
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{ws_id}"),
+        &format!("/api/v1/workspaces/{ws_id}"),
         Some(&member_token),
         Some(body.clone()),
     )
@@ -144,7 +151,7 @@ async fn update_workspace_admin_ok_member_and_nonmember_forbidden(pool: PgPool) 
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{ws_id}"),
+        &format!("/api/v1/workspaces/{ws_id}"),
         Some(&outsider_token),
         Some(body),
     )
@@ -164,7 +171,7 @@ async fn delete_and_restore_workspace_admin_ok_nonadmin_forbidden(pool: PgPool) 
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{ws_id}"),
+        &format!("/api/v1/workspaces/{ws_id}"),
         None,
         None,
     )
@@ -174,7 +181,7 @@ async fn delete_and_restore_workspace_admin_ok_nonadmin_forbidden(pool: PgPool) 
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{ws_id}"),
+        &format!("/api/v1/workspaces/{ws_id}"),
         Some(&member_token),
         None,
     )
@@ -184,7 +191,7 @@ async fn delete_and_restore_workspace_admin_ok_nonadmin_forbidden(pool: PgPool) 
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{ws_id}"),
+        &format!("/api/v1/workspaces/{ws_id}"),
         Some(&outsider_token),
         None,
     )
@@ -194,7 +201,7 @@ async fn delete_and_restore_workspace_admin_ok_nonadmin_forbidden(pool: PgPool) 
     let (status, body) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{ws_id}"),
+        &format!("/api/v1/workspaces/{ws_id}"),
         Some(&owner_token),
         None,
     )
@@ -204,7 +211,7 @@ async fn delete_and_restore_workspace_admin_ok_nonadmin_forbidden(pool: PgPool) 
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/restore"),
+        &format!("/api/v1/workspaces/{ws_id}/restore"),
         Some(&owner_token),
         None,
     )
@@ -221,7 +228,7 @@ async fn restore_workspace_rejects_unauthenticated(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/restore"),
+        &format!("/api/v1/workspaces/{ws_id}/restore"),
         None,
         None,
     )
@@ -234,10 +241,17 @@ async fn list_deleted_workspaces_requires_auth(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_, _, token) = seed_and_login(&app, &state, "ws-deleted", false).await;
 
-    let (status, _) = send(&app, "GET", "/api/workspaces/deleted", None, None).await;
+    let (status, _) = send(&app, "GET", "/api/v1/workspaces/deleted", None, None).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 
-    let (status, body) = send(&app, "GET", "/api/workspaces/deleted", Some(&token), None).await;
+    let (status, body) = send(
+        &app,
+        "GET",
+        "/api/v1/workspaces/deleted",
+        Some(&token),
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
     assert!(
         body["data"].is_array(),
@@ -255,7 +269,7 @@ async fn list_members_member_ok_nonmember_forbidden(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/members"),
+        &format!("/api/v1/workspaces/{ws_id}/members"),
         None,
         None,
     )
@@ -265,7 +279,7 @@ async fn list_members_member_ok_nonmember_forbidden(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/members"),
+        &format!("/api/v1/workspaces/{ws_id}/members"),
         Some(&owner_token),
         None,
     )
@@ -279,7 +293,7 @@ async fn list_members_member_ok_nonmember_forbidden(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/members"),
+        &format!("/api/v1/workspaces/{ws_id}/members"),
         Some(&outsider_token),
         None,
     )
@@ -296,7 +310,7 @@ async fn listed(
     let (status, body) = send(
         app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/members{query}"),
+        &format!("/api/v1/workspaces/{ws_id}/members{query}"),
         Some(token),
         None,
     )
@@ -344,7 +358,7 @@ async fn erased_and_suspended_accounts_stay_out_of_the_member_list_unless_asked_
     let (status, body) = send(
         &app,
         "DELETE",
-        &format!("/api/admin/users/{erased_id}/data"),
+        &format!("/api/v1/admin/users/{erased_id}/data"),
         Some(&instance_admin),
         Some(json!({})),
     )
@@ -353,7 +367,7 @@ async fn erased_and_suspended_accounts_stay_out_of_the_member_list_unless_asked_
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/admin/users/{suspended_id}/suspend"),
+        &format!("/api/v1/admin/users/{suspended_id}/suspend"),
         Some(&instance_admin),
         None,
     )
@@ -403,7 +417,7 @@ async fn update_member_role_admin_only(pool: PgPool) {
     add_ws_member(&state, ws_id, member_id, "member").await;
     add_ws_member(&state, ws_id, target_id, "member").await;
 
-    let path = format!("/api/workspaces/{ws_id}/members/{target_id}/role");
+    let path = format!("/api/v1/workspaces/{ws_id}/members/{target_id}/role");
     let body = json!({ "role": "admin" });
 
     let (status, _) = send(&app, "PATCH", &path, None, Some(body.clone())).await;
@@ -444,7 +458,7 @@ async fn remove_member_admin_only(pool: PgPool) {
     add_ws_member(&state, ws_id, member_id, "member").await;
     add_ws_member(&state, ws_id, target_id, "member").await;
 
-    let path = format!("/api/workspaces/{ws_id}/members/{target_id}");
+    let path = format!("/api/v1/workspaces/{ws_id}/members/{target_id}");
 
     let (status, _) = send(&app, "DELETE", &path, None, None).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
@@ -468,7 +482,7 @@ async fn list_invites_admin_only(pool: PgPool) {
     let ws_id = seed_workspace(&state, owner_id, "Invite List WS").await;
     add_ws_member(&state, ws_id, member_id, "member").await;
 
-    let path = format!("/api/workspaces/{ws_id}/invites");
+    let path = format!("/api/v1/workspaces/{ws_id}/invites");
 
     let (status, _) = send(&app, "GET", &path, None, None).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
@@ -496,7 +510,7 @@ async fn create_invite_admin_only(pool: PgPool) {
     let ws_id = seed_workspace(&state, owner_id, "Invite Create WS").await;
     add_ws_member(&state, ws_id, member_id, "member").await;
 
-    let path = format!("/api/workspaces/{ws_id}/invites");
+    let path = format!("/api/v1/workspaces/{ws_id}/invites");
     let body = json!({ "role": "member", "max_uses": 5 });
 
     let (status, _) = send(&app, "POST", &path, None, Some(body.clone())).await;
@@ -530,13 +544,13 @@ async fn accept_invite_bogus_token_is_404_and_valid_token_joins(pool: PgPool) {
     let (joiner_id, _, joiner_token) = seed_and_login(&app, &state, "inv-acc-join", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Accept WS").await;
 
-    let (status, _) = send(&app, "POST", "/api/invites/whatever/accept", None, None).await;
+    let (status, _) = send(&app, "POST", "/api/v1/invites/whatever/accept", None, None).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 
     let (status, _) = send(
         &app,
         "POST",
-        "/api/invites/this-token-does-not-exist/accept",
+        "/api/v1/invites/this-token-does-not-exist/accept",
         Some(&joiner_token),
         None,
     )
@@ -546,7 +560,7 @@ async fn accept_invite_bogus_token_is_404_and_valid_token_joins(pool: PgPool) {
     let (status, invite) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/invites"),
+        &format!("/api/v1/workspaces/{ws_id}/invites"),
         Some(&owner_token),
         Some(json!({ "role": "member", "max_uses": 5 })),
     )
@@ -557,7 +571,7 @@ async fn accept_invite_bogus_token_is_404_and_valid_token_joins(pool: PgPool) {
     let (status, resp) = send(
         &app,
         "POST",
-        &format!("/api/invites/{token}/accept"),
+        &format!("/api/v1/invites/{token}/accept"),
         Some(&joiner_token),
         None,
     )
@@ -590,14 +604,14 @@ async fn revoke_invite_admin_only(pool: PgPool) {
     let (status, invite) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/invites"),
+        &format!("/api/v1/workspaces/{ws_id}/invites"),
         Some(&owner_token),
         Some(json!({ "role": "member", "max_uses": 5 })),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "create invite: {invite:?}");
     let invite_id = invite["id"].as_str().expect("invite id");
-    let path = format!("/api/workspaces/{ws_id}/invites/{invite_id}");
+    let path = format!("/api/v1/workspaces/{ws_id}/invites/{invite_id}");
 
     let (status, _) = send(&app, "DELETE", &path, None, None).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
@@ -629,7 +643,7 @@ async fn workspace_admin_cannot_outrank_owner_or_itself(pool: PgPool) {
     let (status, body) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{ws_id}/members/{admin_id}/role"),
+        &format!("/api/v1/workspaces/{ws_id}/members/{admin_id}/role"),
         Some(&admin_token),
         Some(json!({ "role": "owner" })),
     )
@@ -639,7 +653,7 @@ async fn workspace_admin_cannot_outrank_owner_or_itself(pool: PgPool) {
     let (status, body) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{ws_id}/members/{owner_id}/role"),
+        &format!("/api/v1/workspaces/{ws_id}/members/{owner_id}/role"),
         Some(&admin_token),
         Some(json!({ "role": "member", "max_uses": 5 })),
     )
@@ -649,7 +663,7 @@ async fn workspace_admin_cannot_outrank_owner_or_itself(pool: PgPool) {
     let (status, body) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{ws_id}/members/{member_id}/role"),
+        &format!("/api/v1/workspaces/{ws_id}/members/{member_id}/role"),
         Some(&admin_token),
         Some(json!({ "role": "owner" })),
     )
@@ -659,7 +673,7 @@ async fn workspace_admin_cannot_outrank_owner_or_itself(pool: PgPool) {
     let (status, body) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{ws_id}/members/{owner_id}"),
+        &format!("/api/v1/workspaces/{ws_id}/members/{owner_id}"),
         Some(&admin_token),
         None,
     )
@@ -669,7 +683,7 @@ async fn workspace_admin_cannot_outrank_owner_or_itself(pool: PgPool) {
     let (status, body) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{ws_id}/members/{member_id}/role"),
+        &format!("/api/v1/workspaces/{ws_id}/members/{member_id}/role"),
         Some(&admin_token),
         Some(json!({ "role": "admin" })),
     )
@@ -685,7 +699,7 @@ async fn deleting_a_workspace_is_owner_only(pool: PgPool) {
     let ws_id = seed_workspace(&state, owner_id, "Delete WS").await;
     add_ws_member(&state, ws_id, admin_id, "admin").await;
 
-    let path = format!("/api/workspaces/{ws_id}");
+    let path = format!("/api/v1/workspaces/{ws_id}");
     let (status, body) = send(&app, "DELETE", &path, Some(&admin_token), None).await;
     assert_eq!(status, StatusCode::FORBIDDEN, "admin delete: {body:?}");
 
@@ -705,7 +719,7 @@ async fn guests_cannot_create_channels_or_reach_public_ones(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/channels"),
+        &format!("/api/v1/workspaces/{ws_id}/channels"),
         Some(&guest_token),
         Some(json!({ "name": "guest-room" })),
     )
@@ -719,7 +733,7 @@ async fn guests_cannot_create_channels_or_reach_public_ones(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/channels/{public_ch}/messages"),
+        &format!("/api/v1/channels/{public_ch}/messages"),
         Some(&guest_token),
         None,
     )
@@ -733,7 +747,7 @@ async fn guests_cannot_create_channels_or_reach_public_ones(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{public_ch}/members"),
+        &format!("/api/v1/channels/{public_ch}/members"),
         Some(&owner_token),
         Some(json!({ "user_id": guest_id })),
     )
@@ -743,7 +757,7 @@ async fn guests_cannot_create_channels_or_reach_public_ones(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{public_ch}/members"),
+        &format!("/api/v1/channels/{public_ch}/members"),
         Some(&owner_token),
         Some(json!({ "user_id": guest_id })),
     )
@@ -757,7 +771,7 @@ async fn guests_cannot_create_channels_or_reach_public_ones(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/channels/{public_ch}/messages"),
+        &format!("/api/v1/channels/{public_ch}/messages"),
         Some(&guest_token),
         None,
     )
@@ -774,7 +788,7 @@ async fn link_invite_requires_an_explicit_use_limit(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (owner_id, _, owner_token) = seed_and_login(&app, &state, "inv-cap-owner", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Invite Cap WS").await;
-    let path = format!("/api/workspaces/{ws_id}/invites");
+    let path = format!("/api/v1/workspaces/{ws_id}/invites");
 
     let (status, body) = send(
         &app,
@@ -828,7 +842,7 @@ async fn every_new_invite_carries_an_expiry_and_a_use_limit(pool: PgPool) {
     let (status, invite) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/invites"),
+        &format!("/api/v1/workspaces/{ws_id}/invites"),
         Some(&owner_token),
         Some(json!({ "role": "member", "max_uses": 3 })),
     )
@@ -851,7 +865,7 @@ async fn an_email_invite_only_works_for_the_address_it_was_issued_to(pool: PgPoo
     let (status, invite) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/invites"),
+        &format!("/api/v1/workspaces/{ws_id}/invites"),
         Some(&owner_token),
         Some(json!({ "role": "member", "email": invited_email })),
     )
@@ -864,7 +878,7 @@ async fn an_email_invite_only_works_for_the_address_it_was_issued_to(pool: PgPoo
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/invites/{token}/accept"),
+        &format!("/api/v1/invites/{token}/accept"),
         Some(&wrong_token),
         None,
     )
@@ -900,7 +914,7 @@ async fn an_email_invite_only_works_for_the_address_it_was_issued_to(pool: PgPoo
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/invites/{token}/accept"),
+        &format!("/api/v1/invites/{token}/accept"),
         Some(&invited_token),
         None,
     )
@@ -922,7 +936,7 @@ async fn an_expired_invite_is_refused(pool: PgPool) {
     let (_, invite) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/invites"),
+        &format!("/api/v1/workspaces/{ws_id}/invites"),
         Some(&owner_token),
         Some(json!({ "role": "member", "max_uses": 5 })),
     )
@@ -940,7 +954,7 @@ async fn an_expired_invite_is_refused(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/invites/{token}/accept"),
+        &format!("/api/v1/invites/{token}/accept"),
         Some(&joiner_token),
         None,
     )
@@ -985,7 +999,7 @@ async fn a_guest_sees_only_the_people_they_share_a_channel_with(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/members"),
+        &format!("/api/v1/workspaces/{ws_id}/members"),
         Some(&guest_token),
         None,
     )
@@ -1035,7 +1049,7 @@ async fn an_ordinary_member_still_sees_the_whole_workspace(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/members"),
+        &format!("/api/v1/workspaces/{ws_id}/members"),
         Some(&member_token),
         None,
     )
@@ -1061,7 +1075,7 @@ async fn a_guest_in_no_channels_sees_only_themselves(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/members"),
+        &format!("/api/v1/workspaces/{ws_id}/members"),
         Some(&guest_token),
         None,
     )
@@ -1086,32 +1100,32 @@ async fn a_workspace_icon_can_be_set_and_taken_off(pool: PgPool) {
     let (status, body) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{ws_id}"),
+        &format!("/api/v1/workspaces/{ws_id}"),
         Some(&token),
-        Some(serde_json::json!({ "icon_url": "/api/files/download/emoji/logo.png" })),
+        Some(serde_json::json!({ "icon_url": "/api/v1/files/download/emoji/logo.png" })),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body:?}");
-    assert_eq!(body["icon_url"], "/api/files/download/emoji/logo.png");
+    assert_eq!(body["icon_url"], "/api/v1/files/download/emoji/logo.png");
 
     let (status, unchanged) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{ws_id}"),
+        &format!("/api/v1/workspaces/{ws_id}"),
         Some(&token),
         Some(serde_json::json!({ "name": "Faces renamed" })),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(
-        unchanged["icon_url"], "/api/files/download/emoji/logo.png",
+        unchanged["icon_url"], "/api/v1/files/download/emoji/logo.png",
         "leaving the field out leaves the icon alone"
     );
 
     let (status, cleared) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{ws_id}"),
+        &format!("/api/v1/workspaces/{ws_id}"),
         Some(&token),
         Some(serde_json::json!({ "icon_url": "" })),
     )
@@ -1145,7 +1159,7 @@ async fn registration_token_accept_joins_an_already_active_account(pool: PgPool)
     let (status, resp) = send(
         &app,
         "GET",
-        &format!("/api/auth/invites/{reg_token}/verify"),
+        &format!("/api/v1/auth/invites/{reg_token}/verify"),
         None,
         None,
     )
@@ -1156,7 +1170,7 @@ async fn registration_token_accept_joins_an_already_active_account(pool: PgPool)
         "an active account must be flagged so the page offers a join, not a signup: {resp:?}"
     );
 
-    let path = format!("/api/auth/invites/{reg_token}/accept");
+    let path = format!("/api/v1/auth/invites/{reg_token}/accept");
 
     let (status, _) = send(&app, "POST", &path, None, None).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
@@ -1172,7 +1186,7 @@ async fn registration_token_accept_joins_an_already_active_account(pool: PgPool)
     assert_eq!(status, StatusCode::OK, "accept invite: {resp:?}");
     assert_eq!(resp["workspace_id"], ws_id.to_string());
 
-    let (status, resp) = send(&app, "GET", "/api/workspaces", Some(&joiner_token), None).await;
+    let (status, resp) = send(&app, "GET", "/api/v1/workspaces", Some(&joiner_token), None).await;
     assert_eq!(status, StatusCode::OK);
     let joined = resp["data"]
         .as_array()
@@ -1216,7 +1230,7 @@ async fn an_instance_without_email_still_invites_by_link(pool: PgPool) {
     let (status, created) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/invites"),
+        &format!("/api/v1/workspaces/{ws_id}/invites"),
         Some(&owner_token),
         Some(json!({ "email": invitee, "role": "member" })),
     )
@@ -1233,7 +1247,7 @@ async fn an_instance_without_email_still_invites_by_link(pool: PgPool) {
     let (status, preview) = send(
         &app,
         "GET",
-        &format!("/api/auth/invites/{token}/verify"),
+        &format!("/api/v1/auth/invites/{token}/verify"),
         None,
         None,
     )
@@ -1244,7 +1258,7 @@ async fn an_instance_without_email_still_invites_by_link(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        "/api/auth/complete-registration",
+        "/api/v1/auth/complete-registration",
         None,
         Some(json!({ "token": token, "password": "longenough123", "display_name": "Newcomer" })),
     )
@@ -1277,7 +1291,7 @@ async fn an_invite_whose_email_could_not_go_says_so(pool: PgPool) {
     let (status, created) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/invites"),
+        &format!("/api/v1/workspaces/{ws_id}/invites"),
         Some(&owner_token),
         Some(json!({ "email": format!("unlucky-{}@test.local", uuid::Uuid::new_v4().simple()) })),
     )
@@ -1299,14 +1313,14 @@ async fn a_pending_invite_hands_out_its_link_to_admins_until_revoked(pool: PgPoo
     let (_, created) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/invites"),
+        &format!("/api/v1/workspaces/{ws_id}/invites"),
         Some(&owner_token),
         Some(json!({ "email": invitee })),
     )
     .await;
     assert_eq!(created["email_status"], "sent");
     let invite_id = created["id"].as_str().expect("id").to_string();
-    let link = format!("/api/workspaces/{ws_id}/invites/{invite_id}/link");
+    let link = format!("/api/v1/workspaces/{ws_id}/invites/{invite_id}/link");
 
     let (status, _) = send(&app, "GET", &link, Some(&member_token), None).await;
     assert_eq!(status, StatusCode::FORBIDDEN);
@@ -1322,7 +1336,7 @@ async fn a_pending_invite_hands_out_its_link_to_admins_until_revoked(pool: PgPoo
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/auth/invites/{token}/verify"),
+        &format!("/api/v1/auth/invites/{token}/verify"),
         None,
         None,
     )
@@ -1332,7 +1346,7 @@ async fn a_pending_invite_hands_out_its_link_to_admins_until_revoked(pool: PgPoo
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{ws_id}/invites/{invite_id}"),
+        &format!("/api/v1/workspaces/{ws_id}/invites/{invite_id}"),
         Some(&owner_token),
         None,
     )
@@ -1343,7 +1357,7 @@ async fn a_pending_invite_hands_out_its_link_to_admins_until_revoked(pool: PgPoo
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/auth/invites/{token}/verify"),
+        &format!("/api/v1/auth/invites/{token}/verify"),
         None,
         None,
     )
@@ -1355,7 +1369,7 @@ async fn restrict_creation(app: &axum::Router, admin: &str, on: bool) {
     let (status, settings) = send(
         app,
         "PATCH",
-        "/api/admin/settings",
+        "/api/v1/admin/settings",
         Some(admin),
         Some(json!({ "workspace_creation_restricted": on })),
     )
@@ -1368,7 +1382,7 @@ async fn create(app: &axum::Router, token: &str) -> (StatusCode, serde_json::Val
     send(
         app,
         "POST",
-        "/api/workspaces",
+        "/api/v1/workspaces",
         Some(token),
         Some(json!({ "name": format!("Team {}", uuid_suffix()) })),
     )
@@ -1379,7 +1393,7 @@ async fn set_role(app: &axum::Router, admin: &str, user_id: uuid::Uuid, role: &s
     let (status, body) = send(
         app,
         "PATCH",
-        &format!("/api/admin/users/{user_id}/instance-role"),
+        &format!("/api/v1/admin/users/{user_id}/instance-role"),
         Some(admin),
         Some(json!({ "role": role })),
     )
@@ -1396,7 +1410,7 @@ async fn only_creators_and_admins_create_a_workspace_until_an_admin_opens_it_to_
     let (_, _, admin) = seed_and_login(&app, &state, "restrict-admin", true).await;
     let (_, _, member) = seed_and_login(&app, &state, "restrict-member", false).await;
 
-    let (_, info) = send(&app, "GET", "/api/instance/info", None, None).await;
+    let (_, info) = send(&app, "GET", "/api/v1/instance/info", None, None).await;
     assert_eq!(info["workspace_creation_restricted"], true);
 
     let before: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM workspaces")
@@ -1415,7 +1429,7 @@ async fn only_creators_and_admins_create_a_workspace_until_an_admin_opens_it_to_
     assert_eq!(status, StatusCode::OK, "an instance admin can: {body:?}");
 
     restrict_creation(&app, &admin, false).await;
-    let (_, info) = send(&app, "GET", "/api/instance/info", None, None).await;
+    let (_, info) = send(&app, "GET", "/api/v1/instance/info", None, None).await;
     assert_eq!(info["workspace_creation_restricted"], false);
     let (status, body) = create(&app, &member).await;
     assert_eq!(
@@ -1443,9 +1457,9 @@ async fn a_workspace_creator_creates_without_being_an_admin(pool: PgPool) {
     assert_eq!(status, StatusCode::FORBIDDEN);
 
     set_role(&app, &admin, creator_id, "workspace_creator").await;
-    let (_, me) = send(&app, "GET", "/api/users/me", Some(&creator), None).await;
+    let (_, me) = send(&app, "GET", "/api/v1/users/me", Some(&creator), None).await;
     assert_eq!(me["instance_role"], "workspace_creator");
-    let (_, users) = send(&app, "GET", "/api/admin/users", Some(&admin), None).await;
+    let (_, users) = send(&app, "GET", "/api/v1/admin/users", Some(&admin), None).await;
     let listed = users["data"]
         .as_array()
         .expect("users")
@@ -1456,7 +1470,7 @@ async fn a_workspace_creator_creates_without_being_an_admin(pool: PgPool) {
 
     let (status, body) = create(&app, &creator).await;
     assert_eq!(status, StatusCode::OK, "{body:?}");
-    let (status, _) = send(&app, "GET", "/api/admin/users", Some(&creator), None).await;
+    let (status, _) = send(&app, "GET", "/api/v1/admin/users", Some(&creator), None).await;
     assert_eq!(
         status,
         StatusCode::FORBIDDEN,
@@ -1491,7 +1505,7 @@ async fn an_admin_role_replaces_the_creator_role(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/admin/users/{}/instance-role", uuid::Uuid::new_v4()),
+        &format!("/api/v1/admin/users/{}/instance-role", uuid::Uuid::new_v4()),
         Some(&admin),
         Some(json!({ "role": "admin" })),
     )
@@ -1500,7 +1514,7 @@ async fn an_admin_role_replaces_the_creator_role(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/admin/users/{user_id}/instance-role"),
+        &format!("/api/v1/admin/users/{user_id}/instance-role"),
         Some(&admin),
         Some(json!({ "role": "owner" })),
     )
@@ -1514,14 +1528,14 @@ async fn a_settings_change_touches_only_the_setting_it_names(pool: PgPool) {
     let (_, _, admin) = seed_and_login(&app, &state, "settings-partial", true).await;
 
     restrict_creation(&app, &admin, false).await;
-    let (_, settings) = send(&app, "GET", "/api/admin/settings", Some(&admin), None).await;
+    let (_, settings) = send(&app, "GET", "/api/v1/admin/settings", Some(&admin), None).await;
     assert_eq!(settings["email_code_sign_in"], true);
     assert_eq!(settings["workspace_creation_restricted"], false);
 
     let (status, settings) = send(
         &app,
         "PATCH",
-        "/api/admin/settings",
+        "/api/v1/admin/settings",
         Some(&admin),
         Some(json!({ "email_code_sign_in": false })),
     )
@@ -1533,7 +1547,7 @@ async fn a_settings_change_touches_only_the_setting_it_names(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        "/api/admin/settings",
+        "/api/v1/admin/settings",
         Some(&admin),
         Some(json!({})),
     )
@@ -1544,7 +1558,7 @@ async fn a_settings_change_touches_only_the_setting_it_names(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        "/api/admin/settings",
+        "/api/v1/admin/settings",
         Some(&member),
         Some(json!({ "workspace_creation_restricted": true })),
     )
@@ -1556,7 +1570,7 @@ async fn post(app: &axum::Router, token: &str, channel: uuid::Uuid, content: &st
     let (status, body) = send(
         app,
         "POST",
-        &format!("/api/channels/{channel}/messages"),
+        &format!("/api/v1/channels/{channel}/messages"),
         Some(token),
         Some(json!({ "content": content })),
     )
@@ -1581,7 +1595,7 @@ async fn former(app: &axum::Router, token: &str, ws_id: uuid::Uuid) -> serde_jso
     let (status, body) = send(
         app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/former-members"),
+        &format!("/api/v1/workspaces/{ws_id}/former-members"),
         Some(token),
         None,
     )
@@ -1604,7 +1618,7 @@ async fn a_member_who_left_keeps_the_name_they_had_here(pool: PgPool) {
     let (status, body) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{ws_id}/profile"),
+        &format!("/api/v1/workspaces/{ws_id}/profile"),
         Some(&lena),
         Some(json!({ "display_name": "Lena from Design" })),
     )
@@ -1616,7 +1630,7 @@ async fn a_member_who_left_keeps_the_name_they_had_here(pool: PgPool) {
     let (status, body) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{ws_id}/members/{lena_id}"),
+        &format!("/api/v1/workspaces/{ws_id}/members/{lena_id}"),
         Some(&owner),
         None,
     )
@@ -1626,7 +1640,7 @@ async fn a_member_who_left_keeps_the_name_they_had_here(pool: PgPool) {
     let (_, members) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/members"),
+        &format!("/api/v1/workspaces/{ws_id}/members"),
         Some(&owner),
         None,
     )
@@ -1647,7 +1661,7 @@ async fn a_member_who_left_keeps_the_name_they_had_here(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/former-members"),
+        &format!("/api/v1/workspaces/{ws_id}/former-members"),
         Some(&outsider),
         None,
     )
@@ -1656,7 +1670,7 @@ async fn a_member_who_left_keeps_the_name_they_had_here(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/former-members"),
+        &format!("/api/v1/workspaces/{ws_id}/former-members"),
         Some(&lena),
         None,
     )
@@ -1677,7 +1691,7 @@ async fn someone_who_comes_back_gets_the_name_they_had_here(pool: PgPool) {
     let (status, body) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{ws_id}/profile"),
+        &format!("/api/v1/workspaces/{ws_id}/profile"),
         Some(&lena),
         Some(json!({ "display_name": "Lena from Design" })),
     )
@@ -1686,7 +1700,7 @@ async fn someone_who_comes_back_gets_the_name_they_had_here(pool: PgPool) {
     let (status, body) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{ws_id}/members/{lena_id}"),
+        &format!("/api/v1/workspaces/{ws_id}/members/{lena_id}"),
         Some(&lena),
         None,
     )
@@ -1705,7 +1719,7 @@ async fn someone_who_comes_back_gets_the_name_they_had_here(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/auth/invites/{token}/accept"),
+        &format!("/api/v1/auth/invites/{token}/accept"),
         Some(&lena),
         None,
     )
@@ -1716,7 +1730,7 @@ async fn someone_who_comes_back_gets_the_name_they_had_here(pool: PgPool) {
     let (_, members) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/members"),
+        &format!("/api/v1/workspaces/{ws_id}/members"),
         Some(&owner),
         None,
     )
@@ -1761,7 +1775,7 @@ async fn a_guest_sees_only_the_former_members_who_wrote_where_the_guest_is(pool:
         let (status, body) = send(
             &app,
             "DELETE",
-            &format!("/api/workspaces/{ws_id}/members/{gone}"),
+            &format!("/api/v1/workspaces/{ws_id}/members/{gone}"),
             Some(&owner),
             None,
         )
@@ -1799,7 +1813,7 @@ async fn an_erased_former_member_is_named_deleted_user(pool: PgPool) {
     let (status, body) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{ws_id}/profile"),
+        &format!("/api/v1/workspaces/{ws_id}/profile"),
         Some(&lena),
         Some(json!({ "display_name": "Lena from Design" })),
     )
@@ -1808,7 +1822,7 @@ async fn an_erased_former_member_is_named_deleted_user(pool: PgPool) {
     let (status, body) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{ws_id}/members/{lena_id}"),
+        &format!("/api/v1/workspaces/{ws_id}/members/{lena_id}"),
         Some(&lena),
         None,
     )
@@ -1818,7 +1832,7 @@ async fn an_erased_former_member_is_named_deleted_user(pool: PgPool) {
     let (status, body) = send(
         &app,
         "DELETE",
-        &format!("/api/admin/users/{lena_id}/data"),
+        &format!("/api/v1/admin/users/{lena_id}/data"),
         Some(&admin),
         Some(json!({})),
     )

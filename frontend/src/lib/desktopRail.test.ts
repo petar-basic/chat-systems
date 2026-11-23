@@ -71,6 +71,8 @@ describe('the desktop app and other servers', () => {
       setup_required: false,
       sso_enabled: false,
       workspace_creation_restricted: false,
+      api_version: 1,
+      min_client_version: '5.0.0',
     };
   }
 

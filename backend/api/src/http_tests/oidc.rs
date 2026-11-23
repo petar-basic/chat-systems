@@ -18,7 +18,7 @@ fn settings(provisioning: Provisioning) -> OidcSettings {
         issuer: "http://localhost:8090/chat".into(),
         client_id: "chat-systems".into(),
         client_secret: "dev-secret".into(),
-        redirect_url: "http://localhost/api/auth/oidc/callback".into(),
+        redirect_url: "http://localhost/api/v1/auth/oidc/callback".into(),
         provisioning,
     }
 }
@@ -42,7 +42,7 @@ fn configured() -> AppConfig {
 #[test_macros::db_test(migrations = "../migrations")]
 async fn starting_sso_on_an_instance_without_it_is_a_clear_no(pool: sqlx::PgPool) {
     let (app, _state) = app_and_state(pool).await;
-    let (status, _) = send(&app, "GET", "/api/auth/oidc/start", None, None).await;
+    let (status, _) = send(&app, "GET", "/api/v1/auth/oidc/start", None, None).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
 
@@ -53,7 +53,7 @@ async fn sso_can_be_configured_and_still_switched_off(pool: sqlx::PgPool) {
         ..configured()
     };
     let (app, _state) = app_and_state_with(pool, config).await;
-    let (status, _) = send(&app, "GET", "/api/auth/oidc/start", None, None).await;
+    let (status, _) = send(&app, "GET", "/api/v1/auth/oidc/start", None, None).await;
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
@@ -65,7 +65,7 @@ async fn a_callback_that_did_not_start_here_is_refused(pool: sqlx::PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        "/api/auth/oidc/callback?code=stolen&state=guessed",
+        "/api/v1/auth/oidc/callback?code=stolen&state=guessed",
         None,
         None,
     )
@@ -79,7 +79,7 @@ async fn a_provider_error_never_becomes_a_session(pool: sqlx::PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        "/api/auth/oidc/callback?error=access_denied",
+        "/api/v1/auth/oidc/callback?error=access_denied",
         None,
         None,
     )
@@ -287,7 +287,7 @@ async fn an_erased_account_loses_its_sso_link(pool: sqlx::PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/admin/users/{user_id}/data"),
+        &format!("/api/v1/admin/users/{user_id}/data"),
         Some(&instance_admin),
         Some(serde_json::json!({ "hard_delete": false })),
     )
@@ -344,7 +344,7 @@ async fn an_account_invited_in_mixed_case_is_the_one_sso_signs_in(pool: sqlx::Pg
 async fn exchange(app: &Router, code: &str) -> (StatusCode, Vec<String>, serde_json::Value) {
     let request = Request::builder()
         .method("POST")
-        .uri("/api/auth/oidc/exchange")
+        .uri("/api/v1/auth/oidc/exchange")
         .header(CONTENT_TYPE, "application/json")
         .body(Body::from(json!({ "code": code }).to_string()))
         .unwrap();
@@ -444,7 +444,7 @@ async fn a_desktop_sign_in_has_to_bring_its_nonce(pool: sqlx::PgPool) {
     let (missing, _) = send(
         &app,
         "GET",
-        "/api/auth/oidc/start?client=desktop",
+        "/api/v1/auth/oidc/start?client=desktop",
         None,
         None,
     )
@@ -453,7 +453,7 @@ async fn a_desktop_sign_in_has_to_bring_its_nonce(pool: sqlx::PgPool) {
     let (short, _) = send(
         &app,
         "GET",
-        "/api/auth/oidc/start?client=desktop&nonce=abc",
+        "/api/v1/auth/oidc/start?client=desktop&nonce=abc",
         None,
         None,
     )
@@ -462,7 +462,7 @@ async fn a_desktop_sign_in_has_to_bring_its_nonce(pool: sqlx::PgPool) {
     let (unknown, _) = send(
         &app,
         "GET",
-        "/api/auth/oidc/start?client=watch&nonce=0123456789abcdef0123",
+        "/api/v1/auth/oidc/start?client=watch&nonce=0123456789abcdef0123",
         None,
         None,
     )

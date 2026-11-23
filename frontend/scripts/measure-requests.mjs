@@ -75,7 +75,7 @@ await page.locator('[data-message-id], [data-qa="query-empty"]').first().waitFor
 const start = report('Sign-in to the first message', await requests.settle());
 
 const WORKSPACE = process.env.MEASURE_WORKSPACE || 'Dev Team';
-const workspaces = await page.evaluate(async () => (await (await fetch('/api/workspaces')).json()).data);
+const workspaces = await page.evaluate(async () => (await (await fetch('/api/v1/workspaces')).json()).data);
 const target = workspaces.find((ws) => ws.name === WORKSPACE);
 if (target) {
   await page.goto(`${BASE}/app/${target.id}`);

@@ -42,7 +42,7 @@ export function CustomEmojiSection({ workspaceId, instanceUrl }: Props) {
       // Multipart, so this goes through fetch rather than the JSON client.
       const token = await client.getValidToken();
       const res = await fetch(
-        `${instanceUrl ?? window.location.origin}/api/workspaces/${workspaceId}/emojis`,
+        `${instanceUrl ?? window.location.origin}/api/v1/workspaces/${workspaceId}/emojis`,
         {
           method: 'POST',
           headers: token ? { Authorization: `Bearer ${token}` } : {},
