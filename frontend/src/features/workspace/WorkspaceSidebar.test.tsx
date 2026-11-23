@@ -11,6 +11,8 @@ vi.mock('./hooks/useDesktopRail', () => ({ useDesktopRail: () => undefined }));
 vi.mock('@/lib/instances', () => ({ instanceManager: { get: vi.fn() } }));
 const creation = vi.hoisted(() => ({ map: {} as Record<string, boolean> }));
 vi.mock('./hooks/useWorkspaceCreation', () => ({ useWorkspaceCreation: () => creation.map }));
+const servers = vi.hoisted(() => ({ othersAllowed: true }));
+vi.mock('@/features/instance', () => ({ useOtherServersAllowed: () => servers.othersAllowed }));
 
 const url = 'https://chat.example.com';
 const hostile = '<img src=x onerror="alert(1)"> {{name}}';
@@ -37,6 +39,7 @@ describe('WorkspaceSidebar', () => {
     useInstanceStore.setState({ instances: [{ url } as never] });
     useWsStatusStore.setState({ statuses: { [url]: 'connected' } });
     creation.map = { [url]: true };
+    servers.othersAllowed = true;
   });
 
   afterEach(async () => {
@@ -71,6 +74,14 @@ describe('WorkspaceSidebar', () => {
 
     expect(screen.queryByRole('button', { name: 'Create workspace on chat.example.com' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Add instance' })).toBeInTheDocument();
+  });
+
+  it('offers no other server when this one keeps everyone to itself', () => {
+    servers.othersAllowed = false;
+    renderRail();
+
+    expect(screen.queryByRole('button', { name: 'Add instance' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Create workspace on chat.example.com' })).toBeInTheDocument();
   });
 
   it('keeps the dialog open and says why when the server refuses the workspace', async () => {

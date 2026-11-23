@@ -4281,3 +4281,24 @@ on the host against the Docker stack, signed in as Bob in Dev Team. The member l
 26 to 24, and to 18 for Diana, a guest. The directory, a search for *deleted*, the DM picker
 and `@Dele` showed neither account, while their two messages in #general still read
 *Deleted user* and *Settings → Members* still counted 26.
+
+### [#445] Keeping people to one server ✅ shipped
+A company running its own server asked for a way to stop people adding other Chat Systems
+servers next to it, in the browser's rail or the desktop app. Slack does this outside the app:
+Enterprise Grid admins have the company proxy add `X-Slack-Allowed-Workspaces` to every
+request, and mobile devices get the list through device management. Mattermost's desktop app
+reads `EnableServerManagement` from a group policy. Both put the lock on the device, where the
+person cannot lift it.
+
+This server has no device to manage, so the lock is an instance setting,
+`other_servers_allowed`, on by default and read from the public `/instance/info`. The web client
+enforces it in the store, not only in the pages: a sign-in to another origin is refused, and a
+reload drops servers added before together with their tokens. A `connect-src 'self'` header
+would have closed the browser more tightly, but GIF search calls GIPHY from the page, so it
+would have broken GIFs.
+
+The desktop app only hides *Add Server…* while a server it holds says no. It does not forget the
+others: every server can set the flag, so a server that could empty the app would let any
+server throw out the company's. A locked device, read from a managed configuration file as
+Mattermost does, is left for when someone needs it.
+

@@ -23,7 +23,7 @@ vi.mock('@/stores/instances', () => ({
   }),
 }));
 
-const server = vi.hoisted(() => ({ name: 'Northwind', emailCode: false }));
+const server = vi.hoisted(() => ({ name: 'Northwind', emailCode: false, othersAllowed: true }));
 
 vi.mock('@/features/instance/hooks/useInstanceInfo', () => ({
   useInstanceInfo: () => ({
@@ -32,6 +32,7 @@ vi.mock('@/features/instance/hooks/useInstanceInfo', () => ({
       sso_enabled: true,
       email_code_sign_in: server.emailCode,
       setup_required: false,
+      other_servers_allowed: server.othersAllowed,
     },
   }),
 }));
@@ -61,6 +62,7 @@ describe('AddInstancePage', () => {
     store.addInstanceWithPasskey.mockReset();
     server.name = 'Northwind';
     server.emailCode = false;
+    server.othersAllowed = true;
     await i18n.changeLanguage('en');
   });
 
@@ -94,6 +96,26 @@ describe('AddInstancePage', () => {
     expect(screen.getByRole('heading', { name: 'Welcome to Chat Systems' })).toBeInTheDocument();
     expect(screen.getByLabelText('Server URL')).toHaveValue(window.location.origin);
     expect(screen.getByRole('button', { name: 'Connect' })).toBeInTheDocument();
+  });
+
+  it('in a browser signs in only to this server when it lets nobody connect to others', () => {
+    server.othersAllowed = false;
+    renderPage();
+
+    expect(screen.getByRole('heading', { name: 'Welcome to Chat Systems' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Server URL')).not.toBeInTheDocument();
+    expect(screen.queryByText('Advanced options')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ana@chat.example' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
+    expect(store.addInstance).toHaveBeenCalledWith(
+      window.location.origin,
+      'ana@chat.example',
+      'secret',
+      undefined,
+      undefined,
+    );
   });
 
   it('offers an emailed code only where the server sends them', () => {

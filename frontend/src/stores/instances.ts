@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { instanceManager, type InstanceClients } from '../lib/instances';
+import { otherServersAllowed } from '../lib/instanceInfo';
+import i18n from '../lib/i18n';
 import { requestPasskey, wasCancelled } from '../lib/webauthn';
 import { useWsStatusStore } from './wsStatus';
 import { backfillAfterReconnect } from '../lib/realtimeBackfill';
@@ -180,6 +182,9 @@ async function signInTo(
   const normalized = instanceManager.normalize(url);
   const normalizedWsUrl = wsUrl?.trim() || undefined;
   try {
+    if (normalized !== window.location.origin && !(await otherServersAllowed())) {
+      throw new Error(i18n.t('auth:signIn.otherServersOff'));
+    }
     if (normalizedWsUrl) {
       instanceManager.setWsUrl(normalized, normalizedWsUrl);
     }
@@ -235,8 +240,15 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
     restorePromise = (async () => {
       const saved = loadFromStorage();
       const valid: InstanceConfig[] = [];
+      const origin = instanceManager.normalize(window.location.origin);
+      const elsewhere = (config: InstanceConfig) => instanceManager.normalize(config.url) !== origin;
+      const othersAllowed = saved.some(elsewhere) ? await otherServersAllowed() : true;
 
       for (const config of saved) {
+        if (!othersAllowed && elsewhere(config)) {
+          saveTokens(instanceManager.normalize(config.url), null, null);
+          continue;
+        }
         if (config.wsUrl) {
           instanceManager.setWsUrl(config.url, config.wsUrl);
         }

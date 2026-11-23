@@ -21143,7 +21143,8 @@
           "email_code_sign_in",
           "max_upload_bytes",
           "setup_required",
-          "workspace_creation_restricted"
+          "workspace_creation_restricted",
+          "other_servers_allowed"
         ],
         "properties": {
           "email_code_sign_in": {
@@ -21162,6 +21163,9 @@
           },
           "name": {
             "type": "string"
+          },
+          "other_servers_allowed": {
+            "type": "boolean"
           },
           "setup_required": {
             "type": "boolean"
@@ -21198,7 +21202,8 @@
         "required": [
           "email_code_sign_in",
           "email_configured",
-          "workspace_creation_restricted"
+          "workspace_creation_restricted",
+          "other_servers_allowed"
         ],
         "properties": {
           "email_code_sign_in": {
@@ -21212,6 +21217,9 @@
               "string",
               "null"
             ]
+          },
+          "other_servers_allowed": {
+            "type": "boolean"
           },
           "workspace_creation_restricted": {
             "type": "boolean"
@@ -26666,6 +26674,12 @@
           "giphy_api_key": {
             "type": [
               "string",
+              "null"
+            ]
+          },
+          "other_servers_allowed": {
+            "type": [
+              "boolean",
               "null"
             ]
           },

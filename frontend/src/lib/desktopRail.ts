@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { instanceManager } from '@/lib/instances';
 import { desktopShell } from '@/lib/desktopShell';
+import { instanceInfoQuery } from '@/lib/instanceInfo';
 import { useInstanceStore } from '@/stores/instances';
 
 export function useEmptyRailWhenSignedOut() {
@@ -11,4 +13,12 @@ export function useEmptyRailWhenSignedOut() {
   useEffect(() => {
     if (signedOut) desktopShell()?.reportWorkspaces([], null);
   }, [signedOut]);
+}
+
+export function useReportOtherServers() {
+  const { data } = useQuery(instanceInfoQuery(window.location.origin));
+  const allowed = data?.other_servers_allowed;
+  useEffect(() => {
+    if (allowed !== undefined) desktopShell()?.reportOtherServers?.(allowed);
+  }, [allowed]);
 }

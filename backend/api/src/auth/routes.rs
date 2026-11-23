@@ -403,6 +403,7 @@ async fn instance_info(State(state): State<Arc<AppState>>) -> AppResult<Json<Ins
             .instance_settings_repo
             .workspace_creation_restricted()
             .await?,
+        other_servers_allowed: state.instance_settings_repo.other_servers_allowed().await?,
     }))
 }
 

@@ -25,6 +25,7 @@
       reportTheme: (theme) => invoke('report_theme', { theme }),
       reportColours: (colours) => invoke('report_colours', { colours }),
       reportCreation: (allowed) => invoke('report_creation', { allowed }),
+      reportOtherServers: (allowed) => invoke('report_other_servers', { allowed }),
       openDrawOverlay: (width, height) => invoke('open_draw_overlay', { width, height }),
       drawOnOverlay: (stroke) => invoke('draw_on_overlay', { stroke }),
       closeDrawOverlay: () => invoke('close_draw_overlay'),

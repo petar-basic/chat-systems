@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { act, renderHook } from '@testing-library/react';
+import { createElement, type ReactNode } from 'react';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { DesktopShell } from './desktopShell';
-import { useEmptyRailWhenSignedOut } from './desktopRail';
+import { useEmptyRailWhenSignedOut, useReportOtherServers } from './desktopRail';
+import { instanceInfoQuery } from './instanceInfo';
 import { useInstanceStore, type InstanceConfig } from '@/stores/instances';
 
 function fakeShell(): DesktopShell {
@@ -51,5 +54,41 @@ describe('the desktop rail after signing out', () => {
     );
 
     expect(shell.reportWorkspaces).toHaveBeenCalledExactlyOnceWith([], null);
+  });
+});
+
+describe('the desktop app and other servers', () => {
+  afterEach(() => {
+    delete window.chatSystemsDesktop;
+  });
+
+  function info(otherServersAllowed: boolean) {
+    return {
+      name: 'Chat Systems',
+      email_code_sign_in: true,
+      max_upload_bytes: 1024,
+      other_servers_allowed: otherServersAllowed,
+      setup_required: false,
+      sso_enabled: false,
+      workspace_creation_restricted: false,
+    };
+  }
+
+  it('hears whether this server lets people add others, and hears it again when that changes', async () => {
+    const shell = { ...fakeShell(), reportOtherServers: vi.fn() };
+    window.chatSystemsDesktop = shell;
+    const client = new QueryClient();
+    const key = instanceInfoQuery(window.location.origin).queryKey;
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client }, children);
+
+    client.setQueryData(key, info(false));
+
+    renderHook(() => useReportOtherServers(), { wrapper });
+    expect(shell.reportOtherServers).toHaveBeenLastCalledWith(false);
+
+    act(() => client.setQueryData(key, info(true)));
+    await waitFor(() => expect(shell.reportOtherServers).toHaveBeenLastCalledWith(true));
+    expect(shell.reportOtherServers).toHaveBeenCalledTimes(2);
   });
 });

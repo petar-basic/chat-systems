@@ -6665,6 +6665,7 @@ export interface components {
             /** Format: int64 */
             max_upload_bytes: number;
             name: string;
+            other_servers_allowed: boolean;
             setup_required: boolean;
             sso_enabled: boolean;
             workspace_creation_restricted: boolean;
@@ -6678,6 +6679,7 @@ export interface components {
             email_code_sign_in: boolean;
             email_configured: boolean;
             giphy_api_key?: string | null;
+            other_servers_allowed: boolean;
             workspace_creation_restricted: boolean;
         };
         InstanceStats: {
@@ -8138,6 +8140,7 @@ export interface components {
         UpdateInstanceSettings: {
             email_code_sign_in?: boolean | null;
             giphy_api_key?: string | null;
+            other_servers_allowed?: boolean | null;
             workspace_creation_restricted?: boolean | null;
         };
         UpdateItemRequest: {
