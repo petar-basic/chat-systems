@@ -28,6 +28,26 @@
     "createHint": "Create one with + in the sidebar, or ask someone to invite you.",
     "inviteHint": "Once someone invites you to one, it shows up here."
   },
+  "checklist": {
+    "title": "Get {{name}} going",
+    "progress": "{{done}} of {{total}} done",
+    "showSteps": "Show steps",
+    "hideSteps": "Hide steps",
+    "dismiss": "Dismiss the checklist",
+    "done": " (done)",
+    "steps": {
+      "invite": "Invite your team",
+      "channel": "Create a channel",
+      "icon": "Set an icon",
+      "sso": "Connect SSO"
+    },
+    "actions": {
+      "invite": "Invite people",
+      "channel": "Create",
+      "icon": "Choose",
+      "sso": "How to"
+    }
+  },
   "guest": {
     "accessEnded": "Your guest access to {{workspace}} has ended.",
     "accessEndedUnnamed": "Your guest access to a workspace has ended.",

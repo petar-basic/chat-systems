@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { CheckCircle2, Circle, ExternalLink, X } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
 import { IconButton } from '@/shared/components/IconButton/IconButton';
@@ -31,6 +32,7 @@ export function WorkspaceChecklist({
   onCreateChannel,
   onSetIcon,
 }: Props) {
+  const { t } = useTranslation('workspace');
   const [dismissed, setDismissed] = useState(() => wasDismissed(workspace.id));
   const [expanded, setExpanded] = useState(() => !window.matchMedia?.('(max-width: 767px)')?.matches);
   const gettingStarted = !dismissed && members.length > 0 && isGettingStarted(members.length, channels);
@@ -56,17 +58,17 @@ export function WorkspaceChecklist({
   const actions: Record<StepKey, ReactNode> = {
     invite: (
       <Button size="sm" onClick={onInvite} data-qa="checklist-invite">
-        Invite people
+        {t('checklist.actions.invite')}
       </Button>
     ),
     channel: (
       <Button size="sm" onClick={onCreateChannel} data-qa="checklist-channel">
-        Create
+        {t('checklist.actions.channel')}
       </Button>
     ),
     icon: (
       <Button size="sm" onClick={onSetIcon} data-qa="checklist-icon">
-        Choose
+        {t('checklist.actions.icon')}
       </Button>
     ),
     sso: (
@@ -77,7 +79,7 @@ export function WorkspaceChecklist({
         className="inline-flex items-center gap-1 text-xs text-accent hover:underline"
         data-qa="checklist-sso"
       >
-        How to <ExternalLink className="w-3 h-3" />
+        {t('checklist.actions.sso')} <ExternalLink className="w-3 h-3" />
       </a>
     ),
   };
@@ -91,12 +93,10 @@ export function WorkspaceChecklist({
       <div className="flex items-start gap-3">
         <div className="flex-1 min-w-0">
           <h2 id="workspace-checklist-title" className="text-sm font-semibold text-fg">
-            Get {workspace.name} going
+            {t('checklist.title', { name: workspace.name })}
           </h2>
           <p className="text-xs text-muted">
-            <span data-qa="checklist-progress">
-              {done} of {steps.length} done
-            </span>
+            <span data-qa="checklist-progress">{t('checklist.progress', { done, total: steps.length })}</span>
             {' · '}
             <button
               type="button"
@@ -106,12 +106,12 @@ export function WorkspaceChecklist({
               className="text-accent hover:underline cursor-pointer"
               data-qa="checklist-toggle"
             >
-              {expanded ? 'Hide steps' : 'Show steps'}
+              {expanded ? t('checklist.hideSteps') : t('checklist.showSteps')}
             </button>
           </p>
         </div>
         <IconButton
-          label="Dismiss the checklist"
+          label={t('checklist.dismiss')}
           icon={<X className="w-4 h-4" />}
           onClick={dismiss}
           data-qa="checklist-dismiss"
@@ -132,8 +132,8 @@ export function WorkspaceChecklist({
               <Circle className="w-4 h-4 shrink-0 text-faint" aria-hidden />
             )}
             <span className={`flex-1 text-sm ${step.done ? 'text-muted line-through' : 'text-fg'}`}>
-              {step.label}
-              {step.done && <span className="sr-only"> (done)</span>}
+              {t(`checklist.steps.${step.key}`)}
+              {step.done && <span className="sr-only">{t('checklist.done')}</span>}
             </span>
             {!step.done && actions[step.key]}
           </li>

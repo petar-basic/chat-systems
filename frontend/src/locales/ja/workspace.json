@@ -28,6 +28,26 @@
     "createHint": "サイドバーの「+」で作成するか、誰かに招待してもらってください。",
     "inviteHint": "招待されると、ここに表示されます。"
   },
+  "checklist": {
+    "title": "{{name}} の準備を進めましょう",
+    "progress": "{{total}} 件中 {{done}} 件完了",
+    "showSteps": "手順を表示",
+    "hideSteps": "手順を隠す",
+    "dismiss": "チェックリストを閉じる",
+    "done": "（完了）",
+    "steps": {
+      "invite": "チームのメンバーを招待する",
+      "channel": "チャンネルを作成する",
+      "icon": "アイコンを設定する",
+      "sso": "SSO（シングルサインオン）を設定する"
+    },
+    "actions": {
+      "invite": "メンバーを招待",
+      "channel": "作成",
+      "icon": "選択",
+      "sso": "手順"
+    }
+  },
   "guest": {
     "accessEnded": "{{workspace}} のゲストとしてのアクセスは終了しました。",
     "accessEndedUnnamed": "ワークスペースのゲストとしてのアクセスは終了しました。",
