@@ -15,6 +15,14 @@
     "title": "Something went wrong",
     "reload": "Reload"
   },
+  "installApp": {
+    "title": "Install Chat Systems",
+    "window": " — its own window, and notifications when it is closed",
+    "ios": " — tap <share/> then “Add to Home Screen”",
+    "share": "Share",
+    "install": "Install",
+    "dismiss": "Dismiss install prompt"
+  },
   "dropToUpload": "Drop to upload",
   "actions": "Actions",
   "cancel": "Cancel",
