@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import i18n from '@/lib/i18n';
 import { useInstanceStore, type InstanceConfig } from './instances';
 
 const servers = vi.hoisted(() => ({ othersAllowed: false }));
@@ -33,6 +34,20 @@ describe('a server that keeps everyone to itself', () => {
     expect(useInstanceStore.getState().error).toBe('This server does not let you connect to other servers.');
     expect(useInstanceStore.getState().instances).toEqual([]);
     expect(localStorage.getItem('chat_instances')).toBeNull();
+  });
+
+  it('says why in Japanese', async () => {
+    await i18n.changeLanguage('ja');
+    try {
+      await expect(
+        useInstanceStore.getState().addInstance(ELSEWHERE, 'ana@chat.example', 'secret'),
+      ).rejects.toThrow('このサーバーでは、ほかのサーバーへの接続は許可されていません。');
+      expect(useInstanceStore.getState().error).toBe(
+        'このサーバーでは、ほかのサーバーへの接続は許可されていません。',
+      );
+    } finally {
+      await i18n.changeLanguage('en');
+    }
   });
 
   it('drops a server added before, and forgets its session', async () => {
