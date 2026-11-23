@@ -18,8 +18,8 @@ describe('railIcon', () => {
     const fetch = vi.fn().mockResolvedValue(new Response(null, { status: 401 }));
     vi.stubGlobal('fetch', fetch);
 
-    expect(await railIcon('/api/files/download/icons/a1.png')).toBeNull();
-    expect(await railIcon('/api/files/download/icons/a1.png')).toBeNull();
+    expect(await railIcon('/api/v1/files/download/icons/a1.png')).toBeNull();
+    expect(await railIcon('/api/v1/files/download/icons/a1.png')).toBeNull();
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 });

@@ -25,6 +25,7 @@ pub fn cors_layer(allowed_origins: &str) -> CorsLayer {
             axum::http::header::ACCEPT,
             axum::http::header::ORIGIN,
             axum::http::header::HeaderName::from_static("x-requested-with"),
+            axum::http::header::HeaderName::from_static("x-client-version"),
         ])
         .expose_headers([axum::http::header::RETRY_AFTER])
         .allow_credentials(true)

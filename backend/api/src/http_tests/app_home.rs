@@ -40,7 +40,7 @@ impl Setup {
         hash: Option<&str>,
     ) -> (StatusCode, Value) {
         self.as_bot(
-            "/api/views/publish",
+            "/api/v1/views/publish",
             json!({ "user_id": user_id, "view": view, "hash": hash }),
         )
         .await
@@ -50,7 +50,7 @@ impl Setup {
         send(
             &self.app,
             "GET",
-            &format!("/api/apps/{}/home", self.app_id),
+            &format!("/api/v1/apps/{}/home", self.app_id),
             Some(token),
             None,
         )
@@ -61,7 +61,7 @@ impl Setup {
         let (status, dm) = send(
             &self.app,
             "POST",
-            &format!("/api/workspaces/{}/conversations", self.ws_id),
+            &format!("/api/v1/workspaces/{}/conversations", self.ws_id),
             Some(token),
             Some(json!({ "participant_ids": [self.bot_user_id] })),
         )
@@ -143,7 +143,7 @@ async fn each_person_reads_only_the_home_published_for_them(pool: PgPool) {
     let (status, _) = send(
         &s.app,
         "POST",
-        "/api/views/publish",
+        "/api/v1/views/publish",
         Some(&s.member_token),
         Some(json!({ "user_id": s.member_id, "view": requests_home(&[]) })),
     )
@@ -175,7 +175,7 @@ async fn the_home_tab_is_there_only_while_it_is_on(pool: PgPool) {
             let (status, body) = send(
                 &app,
                 "GET",
-                &format!("/api/workspaces/{ws_id}/active-apps"),
+                &format!("/api/v1/workspaces/{ws_id}/active-apps"),
                 Some(&token),
                 None,
             )
@@ -235,7 +235,7 @@ async fn opening_the_home_tells_an_app_that_listens(pool: PgPool) {
             send(
                 &app,
                 "POST",
-                &format!("/api/apps/{app_id}/home/opened"),
+                &format!("/api/v1/apps/{app_id}/home/opened"),
                 Some(&token),
                 Some(json!({ "channel_id": channel_id })),
             )
@@ -301,7 +301,7 @@ async fn a_button_in_the_home_reaches_the_app_and_opens_a_modal(pool: PgPool) {
             send(
                 &app,
                 "POST",
-                &format!("/api/apps/{app_id}/home/actions"),
+                &format!("/api/v1/apps/{app_id}/home/actions"),
                 Some(&token),
                 Some(json!({ "block_id": "home", "action_id": "new_request" })),
             )
@@ -327,7 +327,7 @@ async fn a_button_in_the_home_reaches_the_app_and_opens_a_modal(pool: PgPool) {
 
     let (status, view) = s
         .as_bot(
-            "/api/views/open",
+            "/api/v1/views/open",
             json!({ "trigger_id": payload["trigger_id"], "view": {
                 "type": "modal",
                 "title": { "type": "plain_text", "text": "New request" },

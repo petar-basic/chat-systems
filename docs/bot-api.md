@@ -21,10 +21,12 @@ and takes the bot out of the workspace. What it posted stays.
 
 ## Call the API
 
-Send the token as a bearer token. Every route is under `/api` on the instance:
+Send the token as a bearer token. Every route is under `/api/v1` on the instance. Before
+5.0.0 it was `/api`, and nothing answers there now: a bot, script or pasted URL from before
+5.0.0 has to have the `/v1` added, incoming webhooks and workflow webhooks included.
 
 ```bash
-curl -s https://chat.example.com/api/bot-apps/me \
+curl -s https://chat.example.com/api/v1/bot-apps/me \
   -H "Authorization: Bearer $CHAT_BOT_TOKEN"
 ```
 
@@ -33,7 +35,7 @@ curl -s https://chat.example.com/api/bot-apps/me \
 
 A bot token works only on the routes below. Anything else answers `403 This route does not
 accept a bot token`, and a token the server does not know answers `401`. The OpenAPI document
-at `/api/openapi.json` tags these routes `bot` and lists each one's scope under the `bot`
+at `/api/v1/openapi.json` tags these routes `bot` and lists each one's scope under the `bot`
 security scheme.
 
 ## Scopes
@@ -95,7 +97,7 @@ an incoming webhook, and in a slash command's answer, inline or through `respons
 payload written for Slack works unchanged:
 
 ```bash
-curl -s https://chat.example.com/api/hooks/incoming/$HOOK_TOKEN \
+curl -s https://chat.example.com/api/v1/hooks/incoming/$HOOK_TOKEN \
   -H 'Content-Type: application/json' \
   -d '{
     "text": "Build 412 passed",
@@ -296,7 +298,7 @@ mode** on the app's page in *Apps* and makes an **app-level token** there. The t
 every socket the old one opened.
 
 ```bash
-curl -s -X POST https://chat.example.com/api/apps/connections.open \
+curl -s -X POST https://chat.example.com/api/v1/apps/connections.open \
   -H "Authorization: Bearer $CHAT_APP_TOKEN"
 ```
 
@@ -368,7 +370,7 @@ A button or menu in a message:
   "channel": { "id": "…", "name": "deploys" },
   "message": { "id": "…", "user_id": "…", "text": "…", "blocks": [ … ], "attachments": [ … ],
                "thread_parent_id": null, "created_at": "…" },
-  "response_url": "https://chat.example.com/api/interactions/responses/…",
+  "response_url": "https://chat.example.com/api/v1/interactions/responses/…",
   "actions": [
     { "type": "button", "block_id": "decision", "action_id": "approve", "value": "api@production",
       "text": { "type": "plain_text", "text": "Approve" }, "action_ts": "…" }
@@ -615,7 +617,7 @@ which the instance cannot fetch itself.
 ```
 
 ```http
-POST /api/messages/77aa…/unfurls
+POST /api/v1/messages/77aa…/unfurls
 Authorization: Bearer cbot-…
 
 {
@@ -676,7 +678,7 @@ ones: open a ticket, look a customer up, page whoever is on call.
 An *Open ticket* step that takes a title and hands back the ticket's id:
 
 ```http
-PUT /api/bot-apps/me/workflow-steps
+PUT /api/v1/bot-apps/me/workflow-steps
 Authorization: Bearer cbot-…
 
 {
@@ -714,14 +716,14 @@ A workflow runs it, then posts `Ticket {{step.1.ticket_id}} opened`. The app is 
 It opens the ticket and answers:
 
 ```http
-POST /api/workflow-executions/e7f0…/complete
+POST /api/v1/workflow-executions/e7f0…/complete
 Authorization: Bearer cbot-…
 
 { "outputs": { "ticket_id": "HD-42" } }
 ```
 
 The run goes on and posts *Ticket HD-42 opened*. Had the help desk been down, the app would
-have sent `POST /api/workflow-executions/e7f0…/fail` with
+have sent `POST /api/v1/workflow-executions/e7f0…/fail` with
 `{ "error": "The help desk is down" }`.
 
 ## Example
@@ -732,7 +734,7 @@ socket-mode twin, `echo-bot-socket.mjs`, listens for `app_mention` instead of re
 channels and answers the mention in a thread.
 
 ```js
-const api = 'https://chat.example.com/api';
+const api = 'https://chat.example.com/api/v1';
 const call = (method, path, body) =>
   fetch(`${api}${path}`, {
     method,

@@ -46,7 +46,7 @@ async fn register_command(
     send(
         app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/hooks"),
+        &format!("/api/v1/workspaces/{ws_id}/hooks"),
         Some(token),
         Some(json!({
             "hook_type": "slash_command",
@@ -71,7 +71,7 @@ async fn an_unknown_command_is_a_404_so_the_client_can_send_it_as_text(pool: PgP
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/commands"),
+        &format!("/api/v1/channels/{ch_id}/commands"),
         Some(&token),
         Some(json!({ "command": "nosuchthing", "text": "" })),
     )
@@ -93,7 +93,7 @@ async fn dnd_and_topic_are_built_in_and_change_real_state(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/commands"),
+        &format!("/api/v1/channels/{ch_id}/commands"),
         Some(&token),
         Some(json!({ "command": "/dnd", "text": "30" })),
     )
@@ -124,7 +124,7 @@ async fn dnd_and_topic_are_built_in_and_change_real_state(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/commands"),
+        &format!("/api/v1/channels/{ch_id}/commands"),
         Some(&token),
         Some(json!({ "command": "topic", "text": "release week" })),
     )
@@ -175,7 +175,7 @@ async fn a_registered_command_is_called_and_its_answer_comes_back(pool: PgPool) 
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/commands"),
+        &format!("/api/v1/channels/{ch_id}/commands"),
         Some(&token),
         Some(json!({ "command": "deploy", "text": "prod" })),
     )
@@ -214,7 +214,7 @@ async fn a_command_is_refused_in_a_channel_it_was_not_enabled_for(pool: PgPool) 
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{other}/commands"),
+        &format!("/api/v1/channels/{other}/commands"),
         Some(&token),
         Some(json!({ "command": "deploy", "text": "prod" })),
     )
@@ -261,7 +261,7 @@ async fn the_registry_lists_what_can_be_typed(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/commands"),
+        &format!("/api/v1/workspaces/{ws_id}/commands"),
         Some(&token),
         None,
     )
@@ -298,7 +298,7 @@ async fn a_command_cannot_be_run_from_outside_the_channel(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/commands"),
+        &format!("/api/v1/channels/{ch_id}/commands"),
         Some(&outsider_token),
         Some(json!({ "command": "topic", "text": "mine now" })),
     )
@@ -308,7 +308,7 @@ async fn a_command_cannot_be_run_from_outside_the_channel(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/commands"),
+        &format!("/api/v1/channels/{ch_id}/commands"),
         None,
         Some(json!({ "command": "topic", "text": "" })),
     )
@@ -326,7 +326,7 @@ async fn remind_creates_a_reminder_the_worker_will_deliver(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/commands"),
+        &format!("/api/v1/channels/{ch_id}/commands"),
         Some(&token),
         Some(json!({ "command": "/remind", "text": "me in 30m to stretch" })),
     )
@@ -337,7 +337,7 @@ async fn remind_creates_a_reminder_the_worker_will_deliver(pool: PgPool) {
     let (status, listing) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/later"),
+        &format!("/api/v1/workspaces/{ws_id}/later"),
         Some(&token),
         None,
     )
@@ -359,7 +359,7 @@ async fn remind_reads_a_clock_time_in_the_users_own_timezone(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        "/api/users/me",
+        "/api/v1/users/me",
         Some(&token),
         Some(json!({ "timezone": "Pacific/Kiritimati" })),
     )
@@ -369,7 +369,7 @@ async fn remind_reads_a_clock_time_in_the_users_own_timezone(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/commands"),
+        &format!("/api/v1/channels/{ch_id}/commands"),
         Some(&token),
         Some(json!({ "command": "/remind", "text": "me tomorrow at 9am to file the report" })),
     )
@@ -379,7 +379,7 @@ async fn remind_reads_a_clock_time_in_the_users_own_timezone(pool: PgPool) {
     let (_, listing) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/later"),
+        &format!("/api/v1/workspaces/{ws_id}/later"),
         Some(&token),
         None,
     )
@@ -412,7 +412,7 @@ async fn remind_rejects_a_time_it_cannot_read(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/commands"),
+        &format!("/api/v1/channels/{ch_id}/commands"),
         Some(&token),
         Some(json!({ "command": "/remind", "text": "me sometime to stretch" })),
     )
@@ -422,7 +422,7 @@ async fn remind_rejects_a_time_it_cannot_read(pool: PgPool) {
     let (_, listing) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/later"),
+        &format!("/api/v1/workspaces/{ws_id}/later"),
         Some(&token),
         None,
     )
@@ -447,7 +447,7 @@ async fn only_an_admin_reminds_somebody_else(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/commands"),
+        &format!("/api/v1/channels/{ch_id}/commands"),
         Some(&member_token),
         Some(json!({
             "command": "/remind",
@@ -460,7 +460,7 @@ async fn only_an_admin_reminds_somebody_else(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/commands"),
+        &format!("/api/v1/channels/{ch_id}/commands"),
         Some(&owner_token),
         Some(json!({
             "command": "/remind",
@@ -473,7 +473,7 @@ async fn only_an_admin_reminds_somebody_else(pool: PgPool) {
     let (_, listing) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/later"),
+        &format!("/api/v1/workspaces/{ws_id}/later"),
         Some(&member_token),
         None,
     )
@@ -552,7 +552,7 @@ async fn run(c: &Commanded) -> (StatusCode, serde_json::Value) {
     send(
         &c.app,
         "POST",
-        &format!("/api/channels/{}/commands", c.ch_id),
+        &format!("/api/v1/channels/{}/commands", c.ch_id),
         Some(&c.token),
         Some(json!({ "command": "deploy", "text": "prod" })),
     )
@@ -561,9 +561,9 @@ async fn run(c: &Commanded) -> (StatusCode, serde_json::Value) {
 
 async fn answer_later(c: &Commanded, url: &str, body: serde_json::Value) -> StatusCode {
     let path = url
-        .split_once("/api/")
-        .map(|(_, rest)| format!("/api/{rest}"))
-        .expect("an /api/ url");
+        .split_once("/api/v1/")
+        .map(|(_, rest)| format!("/api/v1/{rest}"))
+        .expect("an /api/v1/ url");
     send(&c.app, "POST", &path, None, Some(body)).await.0
 }
 
@@ -827,7 +827,7 @@ async fn thread_in(c: &Commanded) -> Uuid {
     let (status, root) = send(
         &c.app,
         "POST",
-        &format!("/api/channels/{}/messages", c.ch_id),
+        &format!("/api/v1/channels/{}/messages", c.ch_id),
         Some(&c.token),
         Some(json!({ "content": "release plan" })),
     )
@@ -863,7 +863,7 @@ async fn a_built_in_command_from_a_thread_answers_in_the_thread(pool: PgPool) {
     let (status, body) = send(
         &c.app,
         "POST",
-        &format!("/api/channels/{}/commands", c.ch_id),
+        &format!("/api/v1/channels/{}/commands", c.ch_id),
         Some(&c.token),
         Some(json!({ "command": "shrug", "text": "oh well", "thread_parent_id": root })),
     )
@@ -890,7 +890,7 @@ async fn a_registered_command_from_a_thread_is_told_the_thread_and_answers_in_it
     let (status, reply) = send(
         &c.app,
         "POST",
-        &format!("/api/channels/{}/messages", c.ch_id),
+        &format!("/api/v1/channels/{}/messages", c.ch_id),
         Some(&c.token),
         Some(json!({ "content": "a reply", "thread_parent_id": root })),
     )
@@ -900,7 +900,7 @@ async fn a_registered_command_from_a_thread_is_told_the_thread_and_answers_in_it
     let (status, body) = send(
         &c.app,
         "POST",
-        &format!("/api/channels/{}/commands", c.ch_id),
+        &format!("/api/v1/channels/{}/commands", c.ch_id),
         Some(&c.token),
         Some(json!({ "command": "deploy", "text": "prod", "thread_parent_id": reply["id"] })),
     )
@@ -950,7 +950,7 @@ async fn a_command_cannot_name_a_thread_of_another_channel(pool: PgPool) {
     let (status, root) = send(
         &c.app,
         "POST",
-        &format!("/api/channels/{elsewhere}/messages"),
+        &format!("/api/v1/channels/{elsewhere}/messages"),
         Some(&c.token),
         Some(json!({ "content": "over there" })),
     )
@@ -960,7 +960,7 @@ async fn a_command_cannot_name_a_thread_of_another_channel(pool: PgPool) {
     let (status, _) = send(
         &c.app,
         "POST",
-        &format!("/api/channels/{}/commands", c.ch_id),
+        &format!("/api/v1/channels/{}/commands", c.ch_id),
         Some(&c.token),
         Some(json!({ "command": "shrug", "thread_parent_id": root["id"] })),
     )
@@ -982,7 +982,7 @@ async fn a_command_without_channels_is_refused_as_a_command(pool: PgPool) {
         let (status, body) = send(
             &app,
             "POST",
-            &format!("/api/workspaces/{ws_id}/hooks"),
+            &format!("/api/v1/workspaces/{ws_id}/hooks"),
             Some(&token),
             Some(json!({ "hook_type": "slash_command", "name": "deploy", "config": config })),
         )

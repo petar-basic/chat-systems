@@ -146,8 +146,9 @@ async fn open_connection(
         .await?;
     Ok(Json(SocketUrl {
         url: format!(
-            "{}/ws/apps?ticket={ticket}",
-            socket_base(&state.config.public_url)
+            "{}{}/apps?ticket={ticket}",
+            socket_base(&state.config.public_url),
+            shared_common::paths::WS_V1
         ),
     }))
 }

@@ -9,7 +9,7 @@ with no dependencies, and uses only the [bot API](../../docs/bot-api.md).
 3. Run it:
 
    ```bash
-   CHAT_API_URL=https://chat.example.com/api CHAT_BOT_TOKEN=cbot-… node echo-bot.mjs
+   CHAT_API_URL=https://chat.example.com/api/v1 CHAT_BOT_TOKEN=cbot-… node echo-bot.mjs
    ```
 
 It polls the channels it is in every three seconds and answers messages posted after it
@@ -27,7 +27,7 @@ the instance and takes the app's events there.
 2. Add the bot to a channel, then run:
 
    ```bash
-   CHAT_API_URL=https://chat.example.com/api CHAT_BOT_TOKEN=cbot-… CHAT_APP_TOKEN=capp-… node echo-bot-socket.mjs
+   CHAT_API_URL=https://chat.example.com/api/v1 CHAT_BOT_TOKEN=cbot-… CHAT_APP_TOKEN=capp-… node echo-bot-socket.mjs
    ```
 
 Mention it with some text and it answers that text in the thread. It acknowledges each event

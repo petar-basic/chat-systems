@@ -17,6 +17,7 @@ import { registerWorker } from '@/lib/push';
 import { applyLanguage } from '@/lib/i18n';
 import { useEmptyRailWhenSignedOut, useReportOtherServers } from '@/lib/desktopRail';
 import NewVersionBanner from '@/features/instance/NewVersionBanner';
+import ServerSupportBanner from '@/features/instance/ServerSupportBanner';
 
 const Router = BrowserRouter;
 
@@ -55,6 +56,7 @@ function SignedInLayout() {
     <ProtectedRoute>
       <div className="h-dvh flex flex-col bg-app">
         <NewVersionBanner />
+        <ServerSupportBanner />
         <div className="flex-1 min-h-0 flex flex-col">
           <Suspense fallback={<SplashScreen height="flex-1" />}>
             <Outlet />

@@ -44,7 +44,7 @@ async fn post(room: &Room, token: &str, content: &str, parent: Option<Uuid>, als
     let (status, body) = send(
         &room.app,
         "POST",
-        &format!("/api/channels/{}/messages", room.ch_id),
+        &format!("/api/v1/channels/{}/messages", room.ch_id),
         Some(token),
         Some(json!({ "content": content, "thread_parent_id": parent, "also_to_channel": also })),
     )
@@ -60,11 +60,11 @@ async fn get(room: &Room, path: &str) -> Vec<Value> {
 }
 
 async fn channel(room: &Room) -> Vec<Value> {
-    get(room, &format!("/api/channels/{}/messages", room.ch_id)).await
+    get(room, &format!("/api/v1/channels/{}/messages", room.ch_id)).await
 }
 
 async fn thread(room: &Room, root: Uuid) -> Vec<Value> {
-    get(room, &format!("/api/messages/{root}/thread")).await
+    get(room, &format!("/api/v1/messages/{root}/thread")).await
 }
 
 fn find(messages: &[Value], id: Uuid) -> Option<&Value> {
@@ -75,7 +75,7 @@ async fn delete(room: &Room, token: &str, id: Uuid) {
     let (status, body) = send(
         &room.app,
         "DELETE",
-        &format!("/api/messages/{id}"),
+        &format!("/api/v1/messages/{id}"),
         Some(token),
         None,
     )
@@ -117,7 +117,7 @@ async fn a_long_thread_reads_back_to_its_first_reply(pool: PgPool) {
 
     let earlier = get(
         &room,
-        &format!("/api/messages/{root}/thread?cursor={cursor}"),
+        &format!("/api/v1/messages/{root}/thread?cursor={cursor}"),
     )
     .await;
     assert_eq!(earlier.len(), 10);
@@ -170,7 +170,7 @@ async fn a_deleted_parent_keeps_its_thread(pool: PgPool) {
     let (status, body) = send(
         &room.app,
         "GET",
-        &format!("/api/workspaces/{}/threads", room.ws_id),
+        &format!("/api/v1/workspaces/{}/threads", room.ws_id),
         Some(&room.colleague.1),
         None,
     )

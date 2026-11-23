@@ -79,11 +79,13 @@ pub fn budget_for(method: &Method, path: &str) -> Option<Budget> {
         return None;
     }
 
-    // `nest("/api", …)` strips the prefix before this middleware runs, so the
-    // path here is `/workspaces` while a caller sees `/api/workspaces`. Both
+    // `nest("/api/v1", …)` strips the prefix before this middleware runs, so the
+    // path here is `/workspaces` while a caller sees `/api/v1/workspaces`. Both
     // forms are matched: a classification that silently misses falls through to
     // the default budget, which is the loosest one there is.
-    let path = path.strip_prefix("/api").unwrap_or(path);
+    let path = path
+        .strip_prefix(shared_common::paths::API_V1)
+        .unwrap_or(path);
 
     let budget = if path.contains("/reactions") {
         REACTION
@@ -187,23 +189,23 @@ mod tests {
 
     #[test]
     fn reads_are_never_limited() {
-        assert_eq!(class(Method::GET, "/api/workspaces"), None);
-        assert_eq!(class(Method::GET, "/api/channels/abc/messages"), None);
+        assert_eq!(class(Method::GET, "/api/v1/workspaces"), None);
+        assert_eq!(class(Method::GET, "/api/v1/channels/abc/messages"), None);
     }
 
     #[test]
     fn every_mutating_route_lands_in_a_class() {
         for path in [
-            "/api/workspaces",
-            "/api/workspaces/abc/invites",
-            "/api/workspaces/abc/channels",
-            "/api/channels/abc/messages",
-            "/api/messages/abc/thread",
-            "/api/messages/abc/reactions",
-            "/api/conversations/abc/messages",
-            "/api/users/me/password",
-            "/api/files/upload/abc",
-            "/api/scheduled-messages/abc",
+            "/api/v1/workspaces",
+            "/api/v1/workspaces/abc/invites",
+            "/api/v1/workspaces/abc/channels",
+            "/api/v1/channels/abc/messages",
+            "/api/v1/messages/abc/thread",
+            "/api/v1/messages/abc/reactions",
+            "/api/v1/conversations/abc/messages",
+            "/api/v1/users/me/password",
+            "/api/v1/files/upload/abc",
+            "/api/v1/scheduled-messages/abc",
         ] {
             assert!(
                 class(Method::POST, path).is_some(),
@@ -212,8 +214,8 @@ mod tests {
         }
     }
 
-    /// `nest("/api", …)` means the middleware is handed `/workspaces`, never
-    /// `/api/workspaces`. Asserting only the outward-facing form is how the
+    /// `nest("/api/v1", …)` means the middleware is handed `/workspaces`, never
+    /// `/api/v1/workspaces`. Asserting only the outward-facing form is how the
     /// workspace budget came to be dead: every path fell through to the
     /// default class and nobody noticed for five waves.
     #[test]
@@ -229,7 +231,7 @@ mod tests {
         ] {
             assert_eq!(
                 class(Method::POST, path),
-                class(Method::POST, &format!("/api{path}")),
+                class(Method::POST, &format!("/api/v1{path}")),
                 "{path} is classified differently once it is nested"
             );
         }
@@ -238,31 +240,31 @@ mod tests {
 
     #[test]
     fn the_abusable_actions_get_their_own_budget() {
-        assert_eq!(class(Method::POST, "/api/workspaces"), Some("workspace"));
+        assert_eq!(class(Method::POST, "/api/v1/workspaces"), Some("workspace"));
         assert_eq!(
-            class(Method::POST, "/api/workspaces/abc/invites"),
+            class(Method::POST, "/api/v1/workspaces/abc/invites"),
             Some("invite")
         );
         assert_eq!(
-            class(Method::POST, "/api/workspaces/abc/channels"),
+            class(Method::POST, "/api/v1/workspaces/abc/channels"),
             Some("channel")
         );
         assert_eq!(
-            class(Method::POST, "/api/messages/abc/reactions"),
+            class(Method::POST, "/api/v1/messages/abc/reactions"),
             Some("reaction")
         );
         assert_eq!(
-            class(Method::POST, "/api/channels/abc/messages"),
+            class(Method::POST, "/api/v1/channels/abc/messages"),
             Some("message")
         );
         assert_eq!(
-            class(Method::POST, "/api/conversations/abc/messages"),
+            class(Method::POST, "/api/v1/conversations/abc/messages"),
             Some("message")
         );
         assert_eq!(
-            class(Method::POST, "/api/workspaces/abc/app-requests"),
+            class(Method::POST, "/api/v1/workspaces/abc/app-requests"),
             Some("app-request")
         );
-        assert_eq!(class(Method::DELETE, "/api/files/abc"), Some("default"));
+        assert_eq!(class(Method::DELETE, "/api/v1/files/abc"), Some("default"));
     }
 }

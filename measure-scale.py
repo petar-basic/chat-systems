@@ -15,7 +15,7 @@ def parse_args():
             "instance, as one signed-in user, and prints p50/p95/max per scenario."
         )
     )
-    parser.add_argument("--api", default="http://localhost:3000/api")
+    parser.add_argument("--api", default="http://localhost:3000/api/v1")
     parser.add_argument("--email", default=os.environ.get("SCALE_EMAIL"))
     parser.add_argument("--password", default=os.environ.get("SCALE_PASSWORD"))
     parser.add_argument("--workspace", required=True, help="workspace uuid")

@@ -136,7 +136,7 @@ is persisted depends on origin:
 
 | Context | Access token | Refresh token | Sent as |
 |---------|-------------|---------------|---------|
-| Same-origin web | in memory | server cookie (`/api/auth`) | cookie (`credentials: 'include'`) |
+| Same-origin web | in memory | server cookie (`/api/v1/auth`) | cookie (`credentials: 'include'`) |
 | Cross-origin web | in memory | `localStorage` (`chat_tokens`, per-URL) | `Authorization: Bearer` header + WS `bearer` subprotocol |
 
 **Consequences for the frontend:**
@@ -766,7 +766,7 @@ be used, each with *Copy invite link* (GET `/workspaces/{id}/invites/{invite_id}
 *Revoke* behind a confirmation. An owner sees what they can do with the role above the list:
 the only owner is told to make someone else an owner first, and one of several gets *Step down*
 on their own row, which asks first and makes them an admin. The invite page (`/invite/:token`) offers *Continue with SSO*
-when the instance has it, starting `/api/auth/oidc/start?invite=<token>`, and so does the
+when the instance has it, starting `/api/v1/auth/oidc/start?invite=<token>`, and so does the
 sign-in page when it was reached from an invite.
 
 An integration that stopped with its creator says why on its page in *Apps* and in
@@ -1203,8 +1203,10 @@ overlay over that display. `lib/drawOverlay.ts` hands it each stroke of the shar
 An `openapi-fetch` client typed by `src/api/schema.d.ts`. All requests include
 `credentials: 'include'`. Cross-origin/desktop clients additionally set
 `Authorization: Bearer <access>` from the in-memory token; same-origin relies on the cookie.
-- Same-origin: routes through `/api` (Vite proxy)
-- Cross-origin: routes to `{instanceUrl}/api`
+- Same-origin: routes through `/api/v1` (Vite proxy)
+- Cross-origin: routes to `{instanceUrl}/api/v1`
+- The version is `API_VERSION` in `lib/apiVersion.ts`; the API base, the socket path, the SSO
+  start and the two hand-built `fetch`es read it from there
 - `typed((c) => c.GET('/channels/{ch_id}/messages', { params }))` — the only way to call a JSON route; paths, params, bodies and responses come from the schema
 - `upload<T>(path, formData)` — the one multipart path (files, avatars, Slack archives)
 - Regenerate with `npm run api:types` after `cargo run --bin chat-openapi > src/api/openapi.json`

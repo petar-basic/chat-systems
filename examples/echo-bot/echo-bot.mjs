@@ -1,4 +1,4 @@
-const api = (process.env.CHAT_API_URL ?? 'http://localhost:3000/api').replace(/\/$/, '');
+const api = (process.env.CHAT_API_URL ?? 'http://localhost:3000/api/v1').replace(/\/$/, '');
 const token = process.env.CHAT_BOT_TOKEN;
 const once = process.argv.includes('--once');
 const pollMs = 3000;

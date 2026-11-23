@@ -191,7 +191,7 @@ docs/         this folder
   `LEFT JOIN`, and `$1::text` when sqlx reports inconsistent parameter types.
 - **The API contract is generated, not hand-written.** Handlers carry `#[utoipa::path]`
   and their request and response types derive `ToSchema`; `chat-api` serves the result at
-  `/api/openapi.json`, and `cargo run --bin chat-openapi > ../frontend/src/api/openapi.json`
+  `/api/v1/openapi.json`, and `cargo run --bin chat-openapi > ../frontend/src/api/openapi.json`
   writes it to the repo. The frontend turns that into `src/api/schema.d.ts` with
   `npm run api:types` and calls the API through `apiClient.typed(...)`, so a route change
   that the frontend has not caught up with fails `tsc`, not a user. CI checks both generated

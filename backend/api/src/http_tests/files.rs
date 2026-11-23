@@ -31,7 +31,7 @@ async fn upload_request(
     data: &[u8],
 ) -> (StatusCode, serde_json::Value) {
     let body = multipart(BOUNDARY, filename, ctype, data);
-    let uri = format!("/api/files/upload/{ws_id}?draft=true");
+    let uri = format!("/api/v1/files/upload/{ws_id}?draft=true");
     let mut builder = Request::builder().method("POST").uri(uri).header(
         header::CONTENT_TYPE,
         format!("multipart/form-data; boundary={BOUNDARY}"),
@@ -61,7 +61,7 @@ async fn raw_get_status(app: &axum::Router, uri: &str, token: Option<&str>) -> S
 }
 
 fn storage_key_from_url(url: &str) -> String {
-    let marker = "/api/files/download/";
+    let marker = "/api/v1/files/download/";
     let idx = url.find(marker).expect("download marker in url") + marker.len();
     url[idx..].to_string()
 }
@@ -139,7 +139,7 @@ async fn download_by_storage_key_as_member(pool: PgPool) {
     assert_eq!(status, StatusCode::OK, "upload: {body:?}");
     let key = storage_key_from_url(body[0]["url"].as_str().expect("url"));
 
-    let uri = format!("/api/files/download/{key}");
+    let uri = format!("/api/v1/files/download/{key}");
     let dl_status = raw_get_status(&app, &uri, Some(&token)).await;
     assert_eq!(dl_status, StatusCode::OK, "download key={key}");
 }
@@ -162,7 +162,7 @@ async fn download_without_token_is_unauthorized(pool: PgPool) {
     assert_eq!(status, StatusCode::OK, "upload: {body:?}");
     let key = storage_key_from_url(body[0]["url"].as_str().expect("url"));
 
-    let uri = format!("/api/files/download/{key}");
+    let uri = format!("/api/v1/files/download/{key}");
     let dl_status = raw_get_status(&app, &uri, None).await;
     assert_eq!(dl_status, StatusCode::UNAUTHORIZED);
 }
@@ -187,7 +187,7 @@ async fn download_cross_tenant_is_forbidden(pool: PgPool) {
 
     let (_outsider_id, _email, outsider_token) =
         seed_and_login(&app, &state, "outsider", false).await;
-    let uri = format!("/api/files/download/{key}");
+    let uri = format!("/api/v1/files/download/{key}");
     let dl_status = raw_get_status(&app, &uri, Some(&outsider_token)).await;
     assert_eq!(dl_status, StatusCode::FORBIDDEN);
 }
@@ -206,7 +206,7 @@ async fn get_file_meta_as_member(pool: PgPool) {
     let (meta_status, meta) = send(
         &app,
         "GET",
-        &format!("/api/files/{file_id}"),
+        &format!("/api/v1/files/{file_id}"),
         Some(&token),
         None,
     )
@@ -227,7 +227,7 @@ async fn get_file_meta_without_token_is_unauthorized(pool: PgPool) {
     let file_id = body[0]["id"].as_str().expect("file id").to_string();
 
     let (meta_status, _meta) =
-        send(&app, "GET", &format!("/api/files/{file_id}"), None, None).await;
+        send(&app, "GET", &format!("/api/v1/files/{file_id}"), None, None).await;
     assert_eq!(meta_status, StatusCode::UNAUTHORIZED);
 }
 
@@ -254,7 +254,7 @@ async fn get_file_meta_cross_tenant_is_forbidden(pool: PgPool) {
     let (meta_status, _meta) = send(
         &app,
         "GET",
-        &format!("/api/files/{file_id}"),
+        &format!("/api/v1/files/{file_id}"),
         Some(&outsider_token),
         None,
     )
@@ -271,7 +271,7 @@ async fn get_file_meta_missing_is_not_found(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "GET",
-        &format!("/api/files/{missing}"),
+        &format!("/api/v1/files/{missing}"),
         Some(&token),
         None,
     )
@@ -292,7 +292,7 @@ async fn list_workspace_files_as_member(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/files/workspace/{ws_id}"),
+        &format!("/api/v1/files/workspace/{ws_id}"),
         Some(&token),
         None,
     )
@@ -311,7 +311,7 @@ async fn list_workspace_files_without_token_is_unauthorized(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "GET",
-        &format!("/api/files/workspace/{ws_id}"),
+        &format!("/api/v1/files/workspace/{ws_id}"),
         None,
         None,
     )
@@ -330,7 +330,7 @@ async fn list_workspace_files_cross_tenant_is_forbidden(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "GET",
-        &format!("/api/files/workspace/{ws_id}"),
+        &format!("/api/v1/files/workspace/{ws_id}"),
         Some(&outsider_token),
         None,
     )
@@ -352,7 +352,7 @@ async fn delete_own_file_succeeds(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "DELETE",
-        &format!("/api/files/{file_id}"),
+        &format!("/api/v1/files/{file_id}"),
         Some(&token),
         None,
     )
@@ -362,7 +362,7 @@ async fn delete_own_file_succeeds(pool: PgPool) {
     let (after_status, _after) = send(
         &app,
         "GET",
-        &format!("/api/files/{file_id}"),
+        &format!("/api/v1/files/{file_id}"),
         Some(&token),
         None,
     )
@@ -394,7 +394,7 @@ async fn delete_someone_elses_file_is_forbidden(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "DELETE",
-        &format!("/api/files/{file_id}"),
+        &format!("/api/v1/files/{file_id}"),
         Some(&other_token),
         None,
     )
@@ -413,7 +413,14 @@ async fn delete_without_token_is_unauthorized(pool: PgPool) {
     assert_eq!(up_status, StatusCode::OK, "upload: {up_body:?}");
     let file_id = up_body[0]["id"].as_str().expect("file id").to_string();
 
-    let (status, _body) = send(&app, "DELETE", &format!("/api/files/{file_id}"), None, None).await;
+    let (status, _body) = send(
+        &app,
+        "DELETE",
+        &format!("/api/v1/files/{file_id}"),
+        None,
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
@@ -426,7 +433,7 @@ async fn delete_missing_file_is_not_found(pool: PgPool) {
     let (status, _body) = send(
         &app,
         "DELETE",
-        &format!("/api/files/{missing}"),
+        &format!("/api/v1/files/{missing}"),
         Some(&token),
         None,
     )
@@ -470,14 +477,14 @@ async fn private_channel_attachment_is_gated_to_channel_members(pool: PgPool) {
     let (send_status, send_body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(&owner_token),
         Some(serde_json::json!({ "content": "", "attachment_ids": [up_body[0]["id"]] })),
     )
     .await;
     assert_eq!(send_status, StatusCode::OK, "send: {send_body:?}");
 
-    let dl_uri = format!("/api/files/download/{key}");
+    let dl_uri = format!("/api/v1/files/download/{key}");
 
     let owner_dl = raw_get_status(&app, &dl_uri, Some(&owner_token)).await;
     assert_eq!(
@@ -504,7 +511,7 @@ async fn upload_one(app: &axum::Router, token: &str, ws_id: Uuid, name: &str) ->
     );
     let request = axum::http::Request::builder()
         .method("POST")
-        .uri(format!("/api/files/upload/{ws_id}?draft=true"))
+        .uri(format!("/api/v1/files/upload/{ws_id}?draft=true"))
         .header(axum::http::header::AUTHORIZATION, format!("Bearer {token}"))
         .header(
             axum::http::header::CONTENT_TYPE,
@@ -523,7 +530,7 @@ async fn upload_one(app: &axum::Router, token: &str, ws_id: Uuid, name: &str) ->
     let key = value[0]["url"]
         .as_str()
         .expect("upload response carries a url")
-        .split("/api/files/download/")
+        .split("/api/v1/files/download/")
         .nth(1)
         .expect("url contains a storage key")
         .to_string();
@@ -549,7 +556,7 @@ async fn a_dm_attachment_is_readable_by_participants_and_nobody_else(pool: PgPoo
     let (status, conv) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&alice),
         Some(json!({ "participant_ids": [bob_id] })),
     )
@@ -560,14 +567,14 @@ async fn a_dm_attachment_is_readable_by_participants_and_nobody_else(pool: PgPoo
     let (status, msg) = send(
         &app,
         "POST",
-        &format!("/api/channels/{conv_id}/messages"),
+        &format!("/api/v1/channels/{conv_id}/messages"),
         Some(&alice),
         Some(json!({ "content": "here it is", "attachment_ids": [file_id] })),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "send dm: {msg:?}");
 
-    let download = format!("/api/files/download/{key}");
+    let download = format!("/api/v1/files/download/{key}");
     let (status, _b) = send(&app, "GET", &download, Some(&bob), None).await;
     assert_eq!(status, StatusCode::OK, "the other participant can read it");
 
@@ -588,7 +595,7 @@ async fn an_unposted_upload_belongs_to_whoever_uploaded_it(pool: PgPool) {
     add_ws_member(&state, ws_id, bob_id, "member").await;
 
     let (_, key) = upload_one(&app, &alice, ws_id, "draft.txt").await;
-    let download = format!("/api/files/download/{key}");
+    let download = format!("/api/v1/files/download/{key}");
 
     let (status, _b) = send(&app, "GET", &download, Some(&alice), None).await;
     assert_eq!(status, StatusCode::OK, "the uploader can read their draft");
@@ -613,7 +620,7 @@ async fn an_upload_over_the_cap_is_refused_and_leaves_nothing_behind(pool: PgPoo
     let body = multipart(boundary, "big.bin", "application/octet-stream", &oversized);
     let request = Request::builder()
         .method("POST")
-        .uri(format!("/api/files/upload/{ws_id}"))
+        .uri(format!("/api/v1/files/upload/{ws_id}"))
         .header(header::AUTHORIZATION, format!("Bearer {alice}"))
         .header(
             header::CONTENT_TYPE,
@@ -655,7 +662,7 @@ async fn a_channel_moderator_can_take_down_somebody_elses_file(pool: PgPool) {
     let (status, posted) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&poster),
         Some(json!({ "content": "here", "attachment_ids": [file_id] })),
     )
@@ -669,7 +676,7 @@ async fn a_channel_moderator_can_take_down_somebody_elses_file(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/files/{file_id}"),
+        &format!("/api/v1/files/{file_id}"),
         Some(&bystander),
         None,
     )
@@ -683,7 +690,7 @@ async fn a_channel_moderator_can_take_down_somebody_elses_file(pool: PgPool) {
     let (status, body) = send(
         &app,
         "DELETE",
-        &format!("/api/files/{file_id}"),
+        &format!("/api/v1/files/{file_id}"),
         Some(&owner),
         None,
     )
@@ -728,7 +735,7 @@ async fn deleting_a_message_takes_its_attachment_with_it(pool: PgPool) {
     let (_, msg) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&owner),
         Some(json!({ "content": "see", "attachment_ids": [uploaded[0]["id"]] })),
     )
@@ -738,7 +745,7 @@ async fn deleting_a_message_takes_its_attachment_with_it(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/messages/{msg_id}"),
+        &format!("/api/v1/messages/{msg_id}"),
         Some(&owner),
         None,
     )
@@ -755,7 +762,7 @@ async fn deleting_a_message_takes_its_attachment_with_it(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/files/download/{key}"),
+        &format!("/api/v1/files/download/{key}"),
         Some(&owner),
         None,
     )
@@ -786,7 +793,7 @@ async fn editing_a_message_releases_the_attachment_it_drops(pool: PgPool) {
     let (_, msg) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&owner),
         Some(
             json!({ "content": "two files", "attachment_ids": [kept[0]["id"], dropped[0]["id"]] }),
@@ -802,7 +809,7 @@ async fn editing_a_message_releases_the_attachment_it_drops(pool: PgPool) {
     let (status, body) = send(
         &app,
         "PATCH",
-        &format!("/api/messages/{msg_id}"),
+        &format!("/api/v1/messages/{msg_id}"),
         Some(&owner),
         Some(json!({ "content": "one file", "attachment_ids": [kept[0]["id"]] })),
     )
@@ -848,7 +855,7 @@ async fn files_and_text_go_out_as_one_message(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&owner),
         Some(json!({ "content": "  " })),
     )
@@ -862,7 +869,7 @@ async fn files_and_text_go_out_as_one_message(pool: PgPool) {
     let (status, msg) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&owner),
         Some(json!({ "content": "", "attachment_ids": [second, first] })),
     )
@@ -883,7 +890,7 @@ async fn files_and_text_go_out_as_one_message(pool: PgPool) {
     let (_, page) = send(
         &app,
         "GET",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&owner),
         None,
     )
@@ -899,7 +906,7 @@ async fn files_and_text_go_out_as_one_message(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&owner),
         Some(json!({ "content": "again", "attachment_ids": [first] })),
     )
@@ -933,7 +940,7 @@ async fn only_your_own_unsent_drafts_can_be_attached(pool: PgPool) {
             send(
                 &app,
                 "POST",
-                &format!("/api/channels/{ch}/messages"),
+                &format!("/api/v1/channels/{ch}/messages"),
                 Some(&token),
                 Some(body),
             )
@@ -974,7 +981,7 @@ async fn only_your_own_unsent_drafts_can_be_attached(pool: PgPool) {
     let boundary = "plain-upload";
     let request = Request::builder()
         .method("POST")
-        .uri(format!("/api/files/upload/{ws_id}"))
+        .uri(format!("/api/v1/files/upload/{ws_id}"))
         .header(header::AUTHORIZATION, format!("Bearer {owner}"))
         .header(
             header::CONTENT_TYPE,
@@ -1029,7 +1036,7 @@ async fn forwarding_copies_the_files_into_the_new_message(pool: PgPool) {
     let (_, original) = send(
         &app,
         "POST",
-        &format!("/api/channels/{source_ch}/messages"),
+        &format!("/api/v1/channels/{source_ch}/messages"),
         Some(&owner),
         Some(json!({ "content": "the plan", "attachment_ids": [file] })),
     )
@@ -1039,7 +1046,7 @@ async fn forwarding_copies_the_files_into_the_new_message(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{target_ch}/messages"),
+        &format!("/api/v1/channels/{target_ch}/messages"),
         Some(&bob),
         Some(json!({ "content": "fwd", "forwarded_from": original_id })),
     )
@@ -1053,7 +1060,7 @@ async fn forwarding_copies_the_files_into_the_new_message(pool: PgPool) {
     let (status, forwarded) = send(
         &app,
         "POST",
-        &format!("/api/channels/{target_ch}/messages"),
+        &format!("/api/v1/channels/{target_ch}/messages"),
         Some(&owner),
         Some(json!({ "content": "", "forwarded_from": original_id })),
     )
@@ -1074,14 +1081,14 @@ async fn forwarding_copies_the_files_into_the_new_message(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/messages/{original_id}"),
+        &format!("/api/v1/messages/{original_id}"),
         Some(&owner),
         None,
     )
     .await;
     assert_eq!(status, StatusCode::OK);
     let url = copy["url"].as_str().expect("url");
-    let download = &url[url.find("/api/files/download/").expect("marker")..];
+    let download = &url[url.find("/api/v1/files/download/").expect("marker")..];
     let (status, _) = send(&app, "GET", download, Some(&bob), None).await;
     assert_eq!(status, StatusCode::OK, "the forward keeps its own copy");
 }
@@ -1122,7 +1129,7 @@ async fn a_scheduled_message_keeps_its_files_until_it_is_sent(pool: PgPool) {
     let (status, scheduled) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/scheduled-messages"),
+        &format!("/api/v1/workspaces/{ws_id}/scheduled-messages"),
         Some(&owner),
         Some(json!({ "channel_id": ch, "content": "", "send_at": send_at, "attachment_ids": [file] })),
     )
@@ -1148,7 +1155,7 @@ async fn a_scheduled_message_keeps_its_files_until_it_is_sent(pool: PgPool) {
     let (_, page) = send(
         &app,
         "GET",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&owner),
         None,
     )
@@ -1211,7 +1218,7 @@ async fn raw_get(
 }
 
 fn download_path(url: &str) -> &str {
-    &url[url.find("/api/files/download/").expect("marker")..]
+    &url[url.find("/api/v1/files/download/").expect("marker")..]
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
@@ -1257,7 +1264,7 @@ async fn a_phone_photo_is_stored_upright_without_its_location_and_with_a_thumbna
     let (_, msg) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&owner),
         Some(json!({ "content": "", "attachment_ids": [file["id"]] })),
     )
@@ -1368,14 +1375,14 @@ async fn deleting_an_image_takes_its_thumbnail_with_it(pool: PgPool) {
     let thumbnail_key = uploaded[0]["thumbnail_url"]
         .as_str()
         .expect("thumbnail")
-        .split("/api/files/download/")
+        .split("/api/v1/files/download/")
         .nth(1)
         .expect("key")
         .to_string();
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/files/{}", uploaded[0]["id"].as_str().expect("id")),
+        &format!("/api/v1/files/{}", uploaded[0]["id"].as_str().expect("id")),
         Some(&owner),
         None,
     )
@@ -1531,7 +1538,7 @@ async fn a_channel_lists_its_files_by_kind_newest_first(pool: PgPool) {
         let (_, msg) = send(
             &app,
             "POST",
-            &format!("/api/channels/{ch}/messages"),
+            &format!("/api/v1/channels/{ch}/messages"),
             Some(&owner),
             Some(json!({ "content": name, "attachment_ids": [uploaded[0]["id"]] })),
         )
@@ -1541,7 +1548,7 @@ async fn a_channel_lists_its_files_by_kind_newest_first(pool: PgPool) {
     let list = |query: &str| {
         let app = app.clone();
         let token = owner.clone();
-        let uri = format!("/api/channels/{ch}/files{query}");
+        let uri = format!("/api/v1/channels/{ch}/files{query}");
         async move {
             let (status, body) = send(&app, "GET", &uri, Some(&token), None).await;
             assert_eq!(status, StatusCode::OK, "{body:?}");
@@ -1565,7 +1572,7 @@ async fn a_channel_lists_its_files_by_kind_newest_first(pool: PgPool) {
     let (_, page) = send(
         &app,
         "GET",
-        &format!("/api/channels/{ch}/files?limit=2"),
+        &format!("/api/v1/channels/{ch}/files?limit=2"),
         Some(&owner),
         None,
     )
@@ -1580,7 +1587,7 @@ async fn a_channel_lists_its_files_by_kind_newest_first(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/messages/{}", post[0]),
+        &format!("/api/v1/messages/{}", post[0]),
         Some(&owner),
         None,
     )
@@ -1591,7 +1598,7 @@ async fn a_channel_lists_its_files_by_kind_newest_first(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/channels/{ch}/files"),
+        &format!("/api/v1/channels/{ch}/files"),
         Some(&outsider),
         None,
     )
@@ -1604,7 +1611,7 @@ async fn a_channel_lists_its_files_by_kind_newest_first(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/channels/{ch}/files"),
+        &format!("/api/v1/channels/{ch}/files"),
         None,
         None,
     )
@@ -1613,7 +1620,7 @@ async fn a_channel_lists_its_files_by_kind_newest_first(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/channels/{}/files", Uuid::new_v4()),
+        &format!("/api/v1/channels/{}/files", Uuid::new_v4()),
         Some(&owner),
         None,
     )
@@ -1622,7 +1629,7 @@ async fn a_channel_lists_its_files_by_kind_newest_first(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/channels/{ch}/files?kind=spreadsheet"),
+        &format!("/api/v1/channels/{ch}/files?kind=spreadsheet"),
         Some(&owner),
         None,
     )

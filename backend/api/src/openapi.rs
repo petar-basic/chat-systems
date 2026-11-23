@@ -16,7 +16,6 @@ use crate::state::AppState;
         title = "Chat Systems API",
         description = "Every error response carries `{\"error\": \"<message>\"}` with the HTTP status saying what kind of error it is."
     ),
-    servers((url = "/api")),
     components(schemas(crate::messaging::models::SearchScope)),
     security(("bearer" = [])),
     modifiers(&BearerAuth),
@@ -182,17 +181,24 @@ pub fn public_routes() -> OpenApiRouter<Arc<AppState>> {
 }
 
 pub fn spec() -> utoipa::openapi::OpenApi {
-    OpenApiRouter::<Arc<AppState>>::with_openapi(ApiDoc::openapi())
+    let mut doc = OpenApiRouter::<Arc<AppState>>::with_openapi(ApiDoc::openapi())
         .merge(public_routes())
         .merge(typed_routes())
-        .into_openapi()
+        .into_openapi();
+    doc.servers = Some(vec![utoipa::openapi::Server::new(
+        shared_common::paths::API_V1,
+    )]);
+    doc
 }
 
 static SPEC_JSON: LazyLock<String> =
     LazyLock::new(|| serde_json::to_string(&spec()).expect("the OpenAPI document serialises"));
 
 pub fn router() -> Router {
-    Router::new().route("/api/openapi.json", get(serve))
+    Router::new().route(
+        &format!("{}/openapi.json", shared_common::paths::API_V1),
+        get(serve),
+    )
 }
 
 async fn serve() -> impl IntoResponse {
@@ -209,7 +215,7 @@ mod tests {
         assert!(paths["/channels/{ch_id}/messages"]["post"].is_object());
         assert!(paths["/messages/{msg_id}/reactions/{emoji}"]["delete"].is_object());
         assert!(paths["/search"]["get"].is_object());
-        assert_eq!(json["servers"][0]["url"], "/api");
+        assert_eq!(json["servers"][0]["url"], "/api/v1");
         assert!(json["components"]["securitySchemes"]["bearer"].is_object());
 
         let schemas = json["components"]["schemas"].as_object().unwrap();

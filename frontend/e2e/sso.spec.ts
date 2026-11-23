@@ -10,7 +10,7 @@ test.use({
 });
 
 test('signing in through the identity provider lands in the app', async ({ page }) => {
-  await page.goto('/api/auth/oidc/start');
+  await page.goto('/api/v1/auth/oidc/start');
 
   await page.waitForURL(/\/app/, { timeout: 20_000 });
   await expect(page).toHaveURL(/\/app/);

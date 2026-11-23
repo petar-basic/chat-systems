@@ -16,9 +16,71 @@ use crate::workspace::models::WorkspaceRole;
 async fn instance_info_is_public(pool: PgPool) {
     let (app, _state) = app_and_state(pool).await;
 
-    let (status, body) = send(&app, "GET", "/api/instance/info", None, None).await;
+    let (status, body) = send(&app, "GET", "/api/v1/instance/info", None, None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["name"], "Test");
+    assert_eq!(body["api_version"], 1);
+    assert_eq!(body["min_client_version"], "5.0.0");
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn a_client_older_than_the_oldest_served_is_refused(pool: PgPool) {
+    let (app, _state) = app_and_state(pool).await;
+    let version = axum::http::HeaderName::from_static("x-client-version");
+
+    let (status, body) = send_with_header(
+        &app,
+        "GET",
+        "/api/v1/instance/info",
+        None,
+        None,
+        Some((version.clone(), "4.8.1")),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UPGRADE_REQUIRED);
+    assert_eq!(body["error"], "This server needs a newer app");
+    assert_eq!(body["min_client_version"], "5.0.0");
+
+    let (status, _) = send_with_header(
+        &app,
+        "POST",
+        "/api/v1/auth/login",
+        None,
+        Some(json!({ "email": "a@example.com", "password": "x" })),
+        Some((version.clone(), "4.8.1")),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UPGRADE_REQUIRED);
+
+    let (status, _) = send_with_header(
+        &app,
+        "GET",
+        "/api/v1/instance/info",
+        None,
+        None,
+        Some((version, "5.0.0")),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn nothing_answers_at_the_old_paths(pool: PgPool) {
+    let (app, _state) = app_and_state(pool).await;
+
+    let (status, _) = send(&app, "GET", "/api/instance/info", None, None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = send(
+        &app,
+        "POST",
+        "/api/auth/login",
+        None,
+        Some(json!({ "email": "a@example.com", "password": "x" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = send(&app, "GET", "/api/openapi.json", None, None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
 #[test_macros::db_test(migrations = "../migrations")]
@@ -28,7 +90,7 @@ async fn update_me_requires_auth(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        "/api/users/me",
+        "/api/v1/users/me",
         None,
         Some(json!({ "display_name": "Nope" })),
     )
@@ -44,7 +106,7 @@ async fn update_me_updates_profile(pool: PgPool) {
     let (status, body) = send(
         &app,
         "PATCH",
-        "/api/users/me",
+        "/api/v1/users/me",
         Some(&token),
         Some(json!({
             "display_name": "Updated Name",
@@ -62,7 +124,7 @@ async fn update_me_updates_profile(pool: PgPool) {
     assert_eq!(body["bio"], "hello world");
     assert_eq!(body["timezone"], "Europe/Berlin");
 
-    let (status, me) = send(&app, "GET", "/api/users/me", Some(&token), None).await;
+    let (status, me) = send(&app, "GET", "/api/v1/users/me", Some(&token), None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(me["display_name"], "Updated Name");
 }
@@ -73,13 +135,13 @@ async fn a_new_account_has_no_timezone_until_one_is_set_and_members_show_it(pool
     let (id, _email, token) = seed_and_login(&app, &state, "tz-new", false).await;
     let ws_id = seed_workspace(&state, id, "Zones").await;
 
-    let (_, me) = send(&app, "GET", "/api/users/me", Some(&token), None).await;
+    let (_, me) = send(&app, "GET", "/api/v1/users/me", Some(&token), None).await;
     assert_eq!(me["timezone"], serde_json::Value::Null);
 
     let (status, body) = send(
         &app,
         "PATCH",
-        "/api/users/me",
+        "/api/v1/users/me",
         Some(&token),
         Some(json!({ "timezone": "Asia/Tokyo" })),
     )
@@ -89,7 +151,7 @@ async fn a_new_account_has_no_timezone_until_one_is_set_and_members_show_it(pool
     let (_, members) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/members"),
+        &format!("/api/v1/workspaces/{ws_id}/members"),
         Some(&token),
         None,
     )
@@ -106,7 +168,7 @@ async fn an_unknown_timezone_is_refused(pool: PgPool) {
         let (status, body) = send(
             &app,
             "PATCH",
-            "/api/users/me",
+            "/api/v1/users/me",
             Some(&token),
             Some(json!({ "timezone": timezone })),
         )
@@ -118,7 +180,7 @@ async fn an_unknown_timezone_is_refused(pool: PgPool) {
         );
     }
 
-    let (_, me) = send(&app, "GET", "/api/users/me", Some(&token), None).await;
+    let (_, me) = send(&app, "GET", "/api/v1/users/me", Some(&token), None).await;
     assert_eq!(
         me["timezone"],
         serde_json::Value::Null,
@@ -134,18 +196,18 @@ async fn update_me_sets_clears_and_rejects_avatar_urls(pool: PgPool) {
     let (status, body) = send(
         &app,
         "PATCH",
-        "/api/users/me",
+        "/api/v1/users/me",
         Some(&token),
-        Some(json!({ "avatar_url": "/api/files/download/ws/id/me.png" })),
+        Some(json!({ "avatar_url": "/api/v1/files/download/ws/id/me.png" })),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "setting an avatar: {body:?}");
-    assert_eq!(body["avatar_url"], "/api/files/download/ws/id/me.png");
+    assert_eq!(body["avatar_url"], "/api/v1/files/download/ws/id/me.png");
 
     let (status, body) = send(
         &app,
         "PATCH",
-        "/api/users/me",
+        "/api/v1/users/me",
         Some(&token),
         Some(json!({ "avatar_url": "javascript:alert(1)" })),
     )
@@ -156,13 +218,13 @@ async fn update_me_sets_clears_and_rejects_avatar_urls(pool: PgPool) {
         "hostile scheme: {body:?}"
     );
 
-    let (_status, me) = send(&app, "GET", "/api/users/me", Some(&token), None).await;
-    assert_eq!(me["avatar_url"], "/api/files/download/ws/id/me.png");
+    let (_status, me) = send(&app, "GET", "/api/v1/users/me", Some(&token), None).await;
+    assert_eq!(me["avatar_url"], "/api/v1/files/download/ws/id/me.png");
 
     let (status, body) = send(
         &app,
         "PATCH",
-        "/api/users/me",
+        "/api/v1/users/me",
         Some(&token),
         Some(json!({ "avatar_url": "" })),
     )
@@ -175,7 +237,7 @@ async fn update_me_sets_clears_and_rejects_avatar_urls(pool: PgPool) {
 async fn refresh_without_cookie_is_unauthorized(pool: PgPool) {
     let (app, _state) = app_and_state(pool).await;
 
-    let (status, _) = send(&app, "POST", "/api/auth/refresh", None, None).await;
+    let (status, _) = send(&app, "POST", "/api/v1/auth/refresh", None, None).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
@@ -183,11 +245,11 @@ async fn refresh_without_cookie_is_unauthorized(pool: PgPool) {
 async fn logout_is_ok_and_idempotent(pool: PgPool) {
     let (app, _state) = app_and_state(pool).await;
 
-    let (status, body) = send(&app, "POST", "/api/auth/logout", None, None).await;
+    let (status, body) = send(&app, "POST", "/api/v1/auth/logout", None, None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["status"], "logged_out");
 
-    let (status, _) = send(&app, "POST", "/api/auth/logout", None, None).await;
+    let (status, _) = send(&app, "POST", "/api/v1/auth/logout", None, None).await;
     assert_eq!(status, StatusCode::OK);
 }
 
@@ -199,7 +261,7 @@ async fn forgot_password_does_not_leak_account_existence(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        "/api/auth/forgot-password",
+        "/api/v1/auth/forgot-password",
         None,
         Some(json!({ "email": email })),
     )
@@ -210,7 +272,7 @@ async fn forgot_password_does_not_leak_account_existence(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        "/api/auth/forgot-password",
+        "/api/v1/auth/forgot-password",
         None,
         Some(json!({ "email": unique_email("ghost") })),
     )
@@ -226,7 +288,7 @@ async fn reset_password_rejects_bogus_token(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        "/api/auth/reset-password",
+        "/api/v1/auth/reset-password",
         None,
         Some(json!({ "token": "not-a-real-token", "password": PASSWORD })),
     )
@@ -244,7 +306,7 @@ async fn complete_registration_rejects_bogus_token(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        "/api/auth/complete-registration",
+        "/api/v1/auth/complete-registration",
         None,
         Some(json!({
             "token": "not-a-real-token",
@@ -285,7 +347,7 @@ async fn complete_registration_activates_account_and_allows_login(pool: PgPool) 
     let (status, body) = send(
         &app,
         "POST",
-        "/api/auth/complete-registration",
+        "/api/v1/auth/complete-registration",
         None,
         Some(json!({
             "token": token,
@@ -310,7 +372,7 @@ async fn complete_registration_activates_account_and_allows_login(pool: PgPool) 
     let (status, login_body) = send(
         &app,
         "POST",
-        "/api/auth/login",
+        "/api/v1/auth/login",
         None,
         Some(json!({ "email": invitee_email, "password": new_password })),
     )
@@ -363,7 +425,7 @@ async fn an_email_invite_link_lives_and_dies_with_its_invite(pool: PgPool) {
             send(
                 &app,
                 "GET",
-                &format!("/api/auth/invites/{token}/verify"),
+                &format!("/api/v1/auth/invites/{token}/verify"),
                 None,
                 None,
             )
@@ -377,7 +439,7 @@ async fn an_email_invite_link_lives_and_dies_with_its_invite(pool: PgPool) {
             send(
                 &app,
                 "POST",
-                "/api/auth/complete-registration",
+                "/api/v1/auth/complete-registration",
                 None,
                 Some(json!({
                     "token": token,
@@ -484,7 +546,7 @@ async fn reset_password_changes_password_and_is_single_use(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        "/api/auth/reset-password",
+        "/api/v1/auth/reset-password",
         None,
         Some(json!({ "token": reset_token, "password": new_password })),
     )
@@ -499,7 +561,7 @@ async fn reset_password_changes_password_and_is_single_use(pool: PgPool) {
     let (status, login_body) = send(
         &app,
         "POST",
-        "/api/auth/login",
+        "/api/v1/auth/login",
         None,
         Some(json!({ "email": email, "password": new_password })),
     )
@@ -516,7 +578,7 @@ async fn reset_password_changes_password_and_is_single_use(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        "/api/auth/login",
+        "/api/v1/auth/login",
         None,
         Some(json!({ "email": email, "password": PASSWORD })),
     )
@@ -530,7 +592,7 @@ async fn reset_password_changes_password_and_is_single_use(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        "/api/auth/reset-password",
+        "/api/v1/auth/reset-password",
         None,
         Some(json!({ "token": reset_token, "password": "yetanotherpw123" })),
     )
@@ -543,7 +605,7 @@ async fn reset_password_changes_password_and_is_single_use(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        "/api/auth/login",
+        "/api/v1/auth/login",
         None,
         Some(json!({ "email": email, "password": new_password })),
     )
@@ -603,7 +665,7 @@ async fn refresh_with_cookie_returns_new_access_token(pool: PgPool) {
     let login_resp = send_raw(
         &app,
         "POST",
-        "/api/auth/login",
+        "/api/v1/auth/login",
         None,
         Some(json!({ "email": email, "password": PASSWORD })),
     )
@@ -615,7 +677,7 @@ async fn refresh_with_cookie_returns_new_access_token(pool: PgPool) {
     let refresh_resp = send_raw(
         &app,
         "POST",
-        "/api/auth/refresh",
+        "/api/v1/auth/refresh",
         Some(&refresh_cookie),
         None,
     )
@@ -645,7 +707,7 @@ async fn revoke_all_rejects_every_outstanding_access_token(pool: PgPool) {
     let second = login(&app, &email, PASSWORD).await;
 
     for token in [&first, &second] {
-        let (status, _b) = send(&app, "GET", "/api/workspaces", Some(token), None).await;
+        let (status, _b) = send(&app, "GET", "/api/v1/workspaces", Some(token), None).await;
         assert_eq!(status, StatusCode::OK, "both sessions start valid");
     }
 
@@ -654,7 +716,7 @@ async fn revoke_all_rejects_every_outstanding_access_token(pool: PgPool) {
         .expect("revoke");
 
     for token in [&first, &second] {
-        let (status, _b) = send(&app, "GET", "/api/workspaces", Some(token), None).await;
+        let (status, _b) = send(&app, "GET", "/api/v1/workspaces", Some(token), None).await;
         assert_eq!(status, StatusCode::UNAUTHORIZED, "every session is cut off");
     }
 }
@@ -678,14 +740,14 @@ async fn revoke_all_except_spares_the_named_session(pool: PgPool) {
     .await
     .expect("revoke");
 
-    let (kept, _b) = send(&app, "GET", "/api/workspaces", Some(&survivor), None).await;
+    let (kept, _b) = send(&app, "GET", "/api/v1/workspaces", Some(&survivor), None).await;
     assert_eq!(
         kept,
         StatusCode::OK,
         "the session that initiated the change keeps working"
     );
 
-    let (cut, _b) = send(&app, "GET", "/api/workspaces", Some(&doomed), None).await;
+    let (cut, _b) = send(&app, "GET", "/api/v1/workspaces", Some(&doomed), None).await;
     assert_eq!(cut, StatusCode::UNAUTHORIZED, "every other session is cut");
 }
 
@@ -697,7 +759,7 @@ async fn revoke_all_leaves_the_refresh_token_of_the_spared_session(pool: PgPool)
     let (status, body) = send(
         &app,
         "POST",
-        "/api/auth/login",
+        "/api/v1/auth/login",
         None,
         Some(serde_json::json!({ "email": email, "password": PASSWORD })),
     )
@@ -721,7 +783,7 @@ async fn revoke_all_leaves_the_refresh_token_of_the_spared_session(pool: PgPool)
     .await
     .expect("revoke");
 
-    let (status, body) = send(&app, "POST", "/api/auth/refresh", Some(&refresh), None).await;
+    let (status, body) = send(&app, "POST", "/api/v1/auth/refresh", Some(&refresh), None).await;
     assert_eq!(
         status,
         StatusCode::OK,
@@ -758,7 +820,7 @@ async fn a_legacy_revocation_record_still_locks_the_session_out(pool: PgPool) {
         .await
         .expect("write legacy revocation record");
 
-    let (status, _b) = send(&app, "GET", "/api/workspaces", Some(&token), None).await;
+    let (status, _b) = send(&app, "GET", "/api/v1/workspaces", Some(&token), None).await;
     assert_eq!(
         status,
         StatusCode::UNAUTHORIZED,
@@ -777,7 +839,7 @@ async fn a_password_reset_ends_every_existing_session(pool: PgPool) {
     let (user_id, email) = seed(&state, "reset-revokes", false).await;
 
     let stolen = login(&app, &email, PASSWORD).await;
-    let (status, _b) = send(&app, "GET", "/api/workspaces", Some(&stolen), None).await;
+    let (status, _b) = send(&app, "GET", "/api/v1/workspaces", Some(&stolen), None).await;
     assert_eq!(status, StatusCode::OK, "the session starts valid");
 
     let reset_token = state
@@ -789,14 +851,14 @@ async fn a_password_reset_ends_every_existing_session(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        "/api/auth/reset-password",
+        "/api/v1/auth/reset-password",
         None,
         Some(json!({ "token": reset_token, "password": "a-brand-new-password" })),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "reset: {body:?}");
 
-    let (status, _b) = send(&app, "GET", "/api/workspaces", Some(&stolen), None).await;
+    let (status, _b) = send(&app, "GET", "/api/v1/workspaces", Some(&stolen), None).await;
     assert_eq!(
         status,
         StatusCode::UNAUTHORIZED,
@@ -823,21 +885,21 @@ async fn changing_the_password_keeps_the_session_that_did_it(pool: PgPool) {
     let (status, body) = send(
         &app,
         "PATCH",
-        "/api/users/me/password",
+        "/api/v1/users/me/password",
         Some(&mine),
         Some(json!({ "current_password": PASSWORD, "new_password": "a-brand-new-password" })),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "change password: {body:?}");
 
-    let (status, _b) = send(&app, "GET", "/api/workspaces", Some(&mine), None).await;
+    let (status, _b) = send(&app, "GET", "/api/v1/workspaces", Some(&mine), None).await;
     assert_eq!(
         status,
         StatusCode::OK,
         "the tab that changed the password stays signed in"
     );
 
-    let (status, _b) = send(&app, "GET", "/api/workspaces", Some(&other_device), None).await;
+    let (status, _b) = send(&app, "GET", "/api/v1/workspaces", Some(&other_device), None).await;
     assert_eq!(
         status,
         StatusCode::UNAUTHORIZED,
@@ -874,7 +936,7 @@ async fn every_login_failure_looks_the_same(pool: PgPool) {
         let (status, body) = send(
             &app,
             "POST",
-            "/api/auth/login",
+            "/api/v1/auth/login",
             None,
             Some(json!({ "email": email, "password": "whatever-goes-here" })),
         )
@@ -948,7 +1010,7 @@ async fn a_revocation_store_that_cannot_answer_refuses_the_request(pool: PgPool)
         );
     }
 
-    let (status, _) = send(&app, "GET", "/api/users/me", Some(&token), None).await;
+    let (status, _) = send(&app, "GET", "/api/v1/users/me", Some(&token), None).await;
     assert_eq!(
         status,
         StatusCode::UNAUTHORIZED,
@@ -980,7 +1042,7 @@ async fn forgot(app: &Router, email: &str) {
     let (status, _) = send(
         app,
         "POST",
-        "/api/auth/forgot-password",
+        "/api/v1/auth/forgot-password",
         None,
         Some(json!({ "email": email })),
     )
@@ -1005,7 +1067,7 @@ async fn a_short_password_does_not_burn_the_reset_link(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        "/api/auth/reset-password",
+        "/api/v1/auth/reset-password",
         None,
         Some(json!({ "token": token, "password": "short" })),
     )
@@ -1020,7 +1082,7 @@ async fn a_short_password_does_not_burn_the_reset_link(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        "/api/auth/reset-password",
+        "/api/v1/auth/reset-password",
         None,
         Some(json!({ "token": token, "password": "long-enough-now-123" })),
     )
@@ -1044,7 +1106,7 @@ async fn emailed_links_are_short_and_only_their_hash_is_kept(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/invites"),
+        &format!("/api/v1/workspaces/{ws_id}/invites"),
         Some(&owner_token),
         Some(json!({ "email": invitee })),
     )
@@ -1137,7 +1199,7 @@ async fn forgetting_a_password_never_set_sends_the_invite_again(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/invites"),
+        &format!("/api/v1/workspaces/{ws_id}/invites"),
         Some(&owner_token),
         Some(json!({ "email": invitee })),
     )
@@ -1204,7 +1266,7 @@ async fn an_invite_to_a_mixed_case_address_registers_and_signs_in_in_any_case(po
     let (status, body) = send(
         &app,
         "POST",
-        "/api/auth/complete-registration",
+        "/api/v1/auth/complete-registration",
         None,
         Some(json!({ "token": token, "password": "newpassword123", "display_name": "Ana" })),
     )
@@ -1216,7 +1278,7 @@ async fn an_invite_to_a_mixed_case_address_registers_and_signs_in_in_any_case(po
         let (status, body) = send(
             &app,
             "POST",
-            "/api/auth/login",
+            "/api/v1/auth/login",
             None,
             Some(json!({ "email": spelling, "password": "newpassword123" })),
         )

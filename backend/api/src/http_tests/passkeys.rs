@@ -25,7 +25,7 @@ pub(super) async fn add_passkey(app: &Router, token: &str, device: &mut SoftPass
     let (status, body) = send(
         app,
         "POST",
-        "/api/auth/passkeys/registration",
+        "/api/v1/auth/passkeys/registration",
         Some(token),
         Some(json!({ "password": PASSWORD })),
     )
@@ -53,7 +53,7 @@ pub(super) async fn add_passkey(app: &Router, token: &str, device: &mut SoftPass
     let (status, added) = send(
         app,
         "POST",
-        "/api/auth/passkeys",
+        "/api/v1/auth/passkeys",
         Some(token),
         Some(json!({
             "challenge_id": body["challenge_id"],
@@ -68,7 +68,14 @@ pub(super) async fn add_passkey(app: &Router, token: &str, device: &mut SoftPass
 }
 
 async fn start_sign_in(app: &Router) -> (Value, Value) {
-    let (status, body) = send(app, "POST", "/api/auth/passkeys/sign-in/start", None, None).await;
+    let (status, body) = send(
+        app,
+        "POST",
+        "/api/v1/auth/passkeys/sign-in/start",
+        None,
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK, "{body:?}");
     (body["challenge_id"].clone(), body["options"].clone())
 }
@@ -97,7 +104,7 @@ async fn sign_in(
     send(
         app,
         "POST",
-        "/api/auth/passkeys/sign-in",
+        "/api/v1/auth/passkeys/sign-in",
         None,
         Some(json!({ "challenge_id": challenge_id, "credential": assertion })),
     )
@@ -108,7 +115,7 @@ async fn password_login(app: &Router, email: &str) -> (StatusCode, Value) {
     send(
         app,
         "POST",
-        "/api/auth/login",
+        "/api/v1/auth/login",
         None,
         Some(json!({ "email": email, "password": PASSWORD })),
     )
@@ -137,11 +144,11 @@ async fn a_passkey_signs_in_with_no_email_and_skips_the_totp_code(pool: PgPool) 
     );
     let access = session["access_token"].as_str().expect("access token");
 
-    let (status, me) = send(&app, "GET", "/api/users/me", Some(access), None).await;
+    let (status, me) = send(&app, "GET", "/api/v1/users/me", Some(access), None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(me["id"], user_id.to_string());
 
-    let (_, listed) = send(&app, "GET", "/api/auth/passkeys", Some(&token), None).await;
+    let (_, listed) = send(&app, "GET", "/api/v1/auth/passkeys", Some(&token), None).await;
     assert!(
         listed["data"][0]["last_used_at"].is_string(),
         "the list says when a passkey was last used: {listed:?}"
@@ -236,7 +243,7 @@ async fn after_a_password_a_passkey_stands_in_for_the_code(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        "/api/auth/passkeys/second-factor/start",
+        "/api/v1/auth/passkeys/second-factor/start",
         None,
         Some(json!({ "email": email, "password": "not the password" })),
     )
@@ -246,7 +253,7 @@ async fn after_a_password_a_passkey_stands_in_for_the_code(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        "/api/auth/passkeys/second-factor/start",
+        "/api/v1/auth/passkeys/second-factor/start",
         None,
         Some(json!({ "email": email, "password": PASSWORD })),
     )
@@ -261,7 +268,7 @@ async fn after_a_password_a_passkey_stands_in_for_the_code(pool: PgPool) {
     let (status, session) = send(
         &app,
         "POST",
-        "/api/auth/passkeys/second-factor",
+        "/api/v1/auth/passkeys/second-factor",
         None,
         Some(json!({ "challenge_id": body["challenge_id"], "credential": assertion })),
     )
@@ -278,7 +285,7 @@ async fn adding_or_removing_asks_for_the_password_first(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        "/api/auth/passkeys/registration",
+        "/api/v1/auth/passkeys/registration",
         Some(&token),
         Some(json!({})),
     )
@@ -288,7 +295,7 @@ async fn adding_or_removing_asks_for_the_password_first(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        "/api/auth/passkeys/registration",
+        "/api/v1/auth/passkeys/registration",
         Some(&token),
         Some(json!({ "password": "not the password" })),
     )
@@ -297,13 +304,13 @@ async fn adding_or_removing_asks_for_the_password_first(pool: PgPool) {
 
     let mut device = device();
     add_passkey(&app, &token, &mut device).await;
-    let (_, listed) = send(&app, "GET", "/api/auth/passkeys", Some(&token), None).await;
+    let (_, listed) = send(&app, "GET", "/api/v1/auth/passkeys", Some(&token), None).await;
     let id = listed["data"][0]["id"].as_str().expect("id").to_string();
 
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/auth/passkeys/{id}"),
+        &format!("/api/v1/auth/passkeys/{id}"),
         Some(&token),
         Some(json!({ "name": "Phone" })),
     )
@@ -313,7 +320,7 @@ async fn adding_or_removing_asks_for_the_password_first(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/auth/passkeys/{id}/remove"),
+        &format!("/api/v1/auth/passkeys/{id}/remove"),
         Some(&token),
         Some(json!({ "password": "not the password" })),
     )
@@ -323,14 +330,14 @@ async fn adding_or_removing_asks_for_the_password_first(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/auth/passkeys/{id}/remove"),
+        &format!("/api/v1/auth/passkeys/{id}/remove"),
         Some(&token),
         Some(json!({ "password": PASSWORD })),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
 
-    let (_, listed) = send(&app, "GET", "/api/auth/passkeys", Some(&token), None).await;
+    let (_, listed) = send(&app, "GET", "/api/v1/auth/passkeys", Some(&token), None).await;
     assert_eq!(listed["data"], json!([]));
     let (status, _) = password_login(&app, &email).await;
     assert_eq!(
@@ -353,14 +360,14 @@ async fn sso_accounts_are_not_offered_passkeys(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        "/api/auth/passkeys/registration",
+        "/api/v1/auth/passkeys/registration",
         Some(&token),
         Some(json!({ "password": PASSWORD })),
     )
     .await;
     assert_eq!(status, StatusCode::FORBIDDEN);
 
-    let (_, listed) = send(&app, "GET", "/api/auth/passkeys", Some(&token), None).await;
+    let (_, listed) = send(&app, "GET", "/api/v1/auth/passkeys", Some(&token), None).await;
     assert_eq!(listed["offered"], false, "{listed:?}");
 }
 
@@ -407,12 +414,12 @@ async fn a_passkey_satisfies_an_instance_that_requires_admins_to_have_a_second_f
     let (status, session) = sign_in(&app, &challenge_id, &assertion).await;
     assert_eq!(status, StatusCode::OK, "{session:?}");
 
-    let (_, listed) = send(&app, "GET", "/api/auth/passkeys", Some(&token), None).await;
+    let (_, listed) = send(&app, "GET", "/api/v1/auth/passkeys", Some(&token), None).await;
     let id = listed["data"][0]["id"].as_str().expect("id").to_string();
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/auth/passkeys/{id}/remove"),
+        &format!("/api/v1/auth/passkeys/{id}/remove"),
         Some(&token),
         Some(json!({ "password": PASSWORD })),
     )
@@ -437,7 +444,7 @@ async fn a_passkey_used_in_the_system_browser_signs_the_desktop_app_in(pool: PgP
     let (status, body) = send(
         &app,
         "POST",
-        "/api/auth/passkeys/sign-in/desktop",
+        "/api/v1/auth/passkeys/sign-in/desktop",
         None,
         Some(json!({ "challenge_id": challenge_id, "credential": assertion })),
     )
@@ -452,7 +459,7 @@ async fn a_passkey_used_in_the_system_browser_signs_the_desktop_app_in(pool: PgP
     let (status, exchanged) = send(
         &app,
         "POST",
-        "/api/auth/oidc/exchange",
+        "/api/v1/auth/oidc/exchange",
         None,
         Some(json!({ "code": code })),
     )
@@ -463,7 +470,7 @@ async fn a_passkey_used_in_the_system_browser_signs_the_desktop_app_in(pool: PgP
     let (status, _) = send(
         &app,
         "POST",
-        "/api/auth/oidc/exchange",
+        "/api/v1/auth/oidc/exchange",
         None,
         Some(json!({ "code": code })),
     )

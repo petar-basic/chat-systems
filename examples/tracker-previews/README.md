@@ -19,7 +19,7 @@ dependencies, uses socket mode so it needs no public URL, and shows the
 5. Run it:
 
    ```bash
-   CHAT_API_URL=https://chat.example.com/api CHAT_BOT_TOKEN=cbot-… CHAT_APP_TOKEN=capp-… node tracker.mjs
+   CHAT_API_URL=https://chat.example.com/api/v1 CHAT_BOT_TOKEN=cbot-… CHAT_APP_TOKEN=capp-… node tracker.mjs
    ```
 
 Post `https://tracker.example.com/issues/7` in one of those channels to see its preview.

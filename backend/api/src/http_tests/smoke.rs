@@ -23,7 +23,7 @@ async fn login_rejects_bad_credentials_and_authenticates_valid_user(pool: PgPool
     let (status, _) = send(
         &app,
         "POST",
-        "/api/auth/login",
+        "/api/v1/auth/login",
         None,
         Some(json!({ "email": unique_email("ghost"), "password": PASSWORD })),
     )
@@ -33,7 +33,7 @@ async fn login_rejects_bad_credentials_and_authenticates_valid_user(pool: PgPool
     let (status, _) = send(
         &app,
         "POST",
-        "/api/auth/login",
+        "/api/v1/auth/login",
         None,
         Some(json!({ "email": email, "password": "wrong-password" })),
     )
@@ -42,14 +42,14 @@ async fn login_rejects_bad_credentials_and_authenticates_valid_user(pool: PgPool
 
     let token = login(&app, &email, PASSWORD).await;
 
-    let (status, _) = send(&app, "GET", "/api/users/me", None, None).await;
+    let (status, _) = send(&app, "GET", "/api/v1/users/me", None, None).await;
     assert_eq!(
         status,
         StatusCode::UNAUTHORIZED,
         "no token must be rejected"
     );
 
-    let (status, body) = send(&app, "GET", "/api/users/me", Some(&token), None).await;
+    let (status, body) = send(&app, "GET", "/api/v1/users/me", Some(&token), None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["email"], email);
 }
@@ -68,7 +68,7 @@ async fn hooks_enforce_cross_tenant_authorization(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_a}/hooks"),
+        &format!("/api/v1/workspaces/{ws_a}/hooks"),
         Some(&b_token),
         None,
     )
@@ -78,7 +78,7 @@ async fn hooks_enforce_cross_tenant_authorization(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_b}/hooks"),
+        &format!("/api/v1/workspaces/{ws_b}/hooks"),
         Some(&b_token),
         None,
     )
@@ -88,7 +88,7 @@ async fn hooks_enforce_cross_tenant_authorization(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_b}/hooks"),
+        &format!("/api/v1/workspaces/{ws_b}/hooks"),
         None,
         None,
     )
@@ -105,7 +105,7 @@ async fn change_password_revokes_old_password(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        "/api/users/me/password",
+        "/api/v1/users/me/password",
         Some(&token),
         Some(json!({ "current_password": PASSWORD, "new_password": "password123-new" })),
     )
@@ -115,7 +115,7 @@ async fn change_password_revokes_old_password(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        "/api/auth/login",
+        "/api/v1/auth/login",
         None,
         Some(json!({ "email": email, "password": PASSWORD })),
     )
@@ -128,6 +128,6 @@ async fn change_password_revokes_old_password(pool: PgPool) {
 #[test_macros::db_test(migrations = "../migrations")]
 async fn unknown_route_returns_404(pool: PgPool) {
     let (app, _state) = app_and_state(pool).await;
-    let (status, _) = send(&app, "GET", "/api/this-route-does-not-exist", None, None).await;
+    let (status, _) = send(&app, "GET", "/api/v1/this-route-does-not-exist", None, None).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }

@@ -12,7 +12,7 @@ async fn ice_servers_returns_stun_for_member(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/ice-servers"),
+        &format!("/api/v1/workspaces/{ws_id}/ice-servers"),
         Some(&token),
         None,
     )
@@ -51,7 +51,7 @@ async fn ice_servers_forbidden_for_non_member(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/ice-servers"),
+        &format!("/api/v1/workspaces/{ws_id}/ice-servers"),
         Some(&outsider_token),
         None,
     )
@@ -75,7 +75,7 @@ async fn start_huddle_happy_path(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/huddles"),
+        &format!("/api/v1/workspaces/{ws_id}/huddles"),
         Some(&token),
         Some(json!({ "dm_partner_id": partner_id })),
     )
@@ -102,7 +102,7 @@ async fn start_huddle_partner_not_member_forbidden(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/huddles"),
+        &format!("/api/v1/workspaces/{ws_id}/huddles"),
         Some(&token),
         Some(json!({ "dm_partner_id": outsider_id })),
     )
@@ -141,7 +141,7 @@ async fn a_guest_rings_only_somebody_they_could_message(pool: PgPool) {
             .expect("add to the shared channel");
     }
 
-    let path = format!("/api/workspaces/{ws_id}/huddles");
+    let path = format!("/api/v1/workspaces/{ws_id}/huddles");
     let start = |partner: uuid::Uuid| {
         send(
             &app,
@@ -172,7 +172,7 @@ async fn a_guest_rings_only_somebody_they_could_message(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/huddles/{huddle_id}/invite"),
+        &format!("/api/v1/workspaces/{ws_id}/huddles/{huddle_id}/invite"),
         Some(&guest_token),
         Some(json!({ "user_ids": [stranger_id] })),
     )
@@ -199,7 +199,7 @@ async fn start_huddle_channel_happy_path(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/huddles"),
+        &format!("/api/v1/workspaces/{ws_id}/huddles"),
         Some(&token),
         Some(json!({ "channel_id": channel_id })),
     )
@@ -219,7 +219,7 @@ async fn start_channel_huddle_posts_system_message(pool: PgPool) {
     let (s1, start_body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/huddles"),
+        &format!("/api/v1/workspaces/{ws_id}/huddles"),
         Some(&token),
         Some(json!({ "channel_id": channel_id })),
     )
@@ -230,7 +230,7 @@ async fn start_channel_huddle_posts_system_message(pool: PgPool) {
     let (s2, msgs) = send(
         &app,
         "GET",
-        &format!("/api/channels/{channel_id}/messages"),
+        &format!("/api/v1/channels/{channel_id}/messages"),
         Some(&token),
         None,
     )
@@ -260,7 +260,7 @@ async fn start_huddle_channel_non_member_forbidden(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/huddles"),
+        &format!("/api/v1/workspaces/{ws_id}/huddles"),
         Some(&outsider_token),
         Some(json!({ "channel_id": channel_id })),
     )
@@ -278,7 +278,7 @@ async fn start_huddle_rejects_ambiguous_or_missing_scope(pool: PgPool) {
     let (partner_id, _, _) = seed_and_login(&app, &state, "huddle-partner", false).await;
     add_ws_member(&state, ws_id, partner_id, "member").await;
 
-    let uri = format!("/api/workspaces/{ws_id}/huddles");
+    let uri = format!("/api/v1/workspaces/{ws_id}/huddles");
 
     let (no_scope, _) = send(&app, "POST", &uri, Some(&token), Some(json!({}))).await;
     assert_eq!(no_scope, StatusCode::BAD_REQUEST, "missing scope must 400");
@@ -309,7 +309,7 @@ async fn only_someone_in_an_open_huddle_can_invite_and_the_invite_is_recorded(po
     let (_, body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/huddles"),
+        &format!("/api/v1/workspaces/{ws_id}/huddles"),
         Some(&token),
         Some(json!({ "dm_partner_id": partner_id })),
     )
@@ -322,7 +322,7 @@ async fn only_someone_in_an_open_huddle_can_invite_and_the_invite_is_recorded(po
             send(
                 &app,
                 "POST",
-                &format!("/api/workspaces/{ws_id}/huddles/{huddle}/invite"),
+                &format!("/api/v1/workspaces/{ws_id}/huddles/{huddle}/invite"),
                 Some(&token),
                 Some(json!({ "user_ids": [third_id] })),
             )
@@ -379,7 +379,7 @@ async fn invite_to_huddle_non_member_forbidden(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/huddles/{huddle_id}/invite"),
+        &format!("/api/v1/workspaces/{ws_id}/huddles/{huddle_id}/invite"),
         Some(&outsider_token),
         Some(json!({ "user_ids": [target_id] })),
     )
@@ -399,7 +399,7 @@ async fn huddle_history_lifecycle_tracks_participants_and_ends(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/huddles"),
+        &format!("/api/v1/workspaces/{ws_id}/huddles"),
         Some(&token),
         Some(json!({ "dm_partner_id": partner_id })),
     )
@@ -459,7 +459,7 @@ async fn active_huddles_lists_only_live_channel_huddles(pool: PgPool) {
     let (_s0, body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/huddles"),
+        &format!("/api/v1/workspaces/{ws_id}/huddles"),
         Some(&token),
         Some(json!({ "channel_id": channel_id })),
     )
@@ -469,7 +469,7 @@ async fn active_huddles_lists_only_live_channel_huddles(pool: PgPool) {
     let (s1, empty) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/active-huddles"),
+        &format!("/api/v1/workspaces/{ws_id}/active-huddles"),
         Some(&token),
         None,
     )
@@ -488,7 +488,7 @@ async fn active_huddles_lists_only_live_channel_huddles(pool: PgPool) {
     let (s2, listed) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/active-huddles"),
+        &format!("/api/v1/workspaces/{ws_id}/active-huddles"),
         Some(&token),
         None,
     )
@@ -508,7 +508,7 @@ async fn active_huddles_lists_only_live_channel_huddles(pool: PgPool) {
     let (s3, hidden) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/active-huddles"),
+        &format!("/api/v1/workspaces/{ws_id}/active-huddles"),
         Some(&outsider_token),
         None,
     )
@@ -664,7 +664,7 @@ async fn a_paused_workspace_is_rung_quietly(pool: PgPool) {
         }
     };
 
-    let path = format!("/api/workspaces/{ws_id}/huddles");
+    let path = format!("/api/v1/workspaces/{ws_id}/huddles");
     let start = || {
         send(
             &app,
@@ -714,7 +714,7 @@ async fn sfu_token(
     send(
         app,
         "POST",
-        &format!("/api/huddles/{huddle_id}/sfu-token"),
+        &format!("/api/v1/huddles/{huddle_id}/sfu-token"),
         Some(token),
         None,
     )
@@ -736,7 +736,7 @@ async fn a_member_gets_a_token_for_the_huddles_room_and_nobody_else_does(pool: P
     let (_, body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/huddles"),
+        &format!("/api/v1/workspaces/{ws_id}/huddles"),
         Some(&owner),
         Some(json!({ "channel_id": channel_id })),
     )
@@ -781,7 +781,7 @@ async fn a_member_gets_a_token_for_the_huddles_room_and_nobody_else_does(pool: P
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{channel_id}/members"),
+        &format!("/api/v1/channels/{channel_id}/members"),
         Some(&owner),
         Some(json!({ "user_id": member_id })),
     )
@@ -813,7 +813,7 @@ async fn there_is_no_token_route_without_an_sfu(pool: PgPool) {
     let (_, body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/huddles"),
+        &format!("/api/v1/workspaces/{ws_id}/huddles"),
         Some(&owner),
         Some(json!({ "channel_id": channel_id })),
     )

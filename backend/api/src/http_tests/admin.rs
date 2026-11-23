@@ -8,7 +8,7 @@ async fn stats_as_admin_returns_200(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, _email, token) = seed_and_login(&app, &state, "admin-stats", true).await;
 
-    let (status, body) = send(&app, "GET", "/api/admin/stats", Some(&token), None).await;
+    let (status, body) = send(&app, "GET", "/api/v1/admin/stats", Some(&token), None).await;
     assert_eq!(status, StatusCode::OK, "stats: {body:?}");
     assert!(body["users"].is_number(), "stats body: {body:?}");
 }
@@ -16,7 +16,7 @@ async fn stats_as_admin_returns_200(pool: PgPool) {
 #[test_macros::db_test(migrations = "../migrations")]
 async fn stats_without_token_returns_401(pool: PgPool) {
     let (app, _state) = app_and_state(pool).await;
-    let (status, _body) = send(&app, "GET", "/api/admin/stats", None, None).await;
+    let (status, _body) = send(&app, "GET", "/api/v1/admin/stats", None, None).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
@@ -25,7 +25,7 @@ async fn stats_as_non_admin_returns_403(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, _email, token) = seed_and_login(&app, &state, "stats-nonadmin", false).await;
 
-    let (status, _body) = send(&app, "GET", "/api/admin/stats", Some(&token), None).await;
+    let (status, _body) = send(&app, "GET", "/api/v1/admin/stats", Some(&token), None).await;
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
@@ -34,7 +34,7 @@ async fn health_as_admin_returns_200(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, _email, token) = seed_and_login(&app, &state, "admin-health", true).await;
 
-    let (status, body) = send(&app, "GET", "/api/admin/health", Some(&token), None).await;
+    let (status, body) = send(&app, "GET", "/api/v1/admin/health", Some(&token), None).await;
     assert_eq!(status, StatusCode::OK, "health: {body:?}");
 }
 
@@ -43,7 +43,7 @@ async fn health_as_non_admin_returns_403(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, _email, token) = seed_and_login(&app, &state, "health-nonadmin", false).await;
 
-    let (status, _body) = send(&app, "GET", "/api/admin/health", Some(&token), None).await;
+    let (status, _body) = send(&app, "GET", "/api/v1/admin/health", Some(&token), None).await;
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
@@ -54,7 +54,7 @@ async fn list_users_as_admin_returns_200(pool: PgPool) {
     let _ = seed(&state, "listed-a", false).await;
     let _ = seed(&state, "listed-b", false).await;
 
-    let (status, body) = send(&app, "GET", "/api/admin/users", Some(&token), None).await;
+    let (status, body) = send(&app, "GET", "/api/v1/admin/users", Some(&token), None).await;
     assert_eq!(status, StatusCode::OK, "list_users: {body:?}");
     assert!(body["data"].is_array(), "list_users body: {body:?}");
 }
@@ -69,7 +69,7 @@ async fn list_users_paginated_returns_200(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        "/api/admin/users?limit=1&offset=0",
+        "/api/v1/admin/users?limit=1&offset=0",
         Some(&token),
         None,
     )
@@ -82,7 +82,7 @@ async fn list_users_paginated_returns_200(pool: PgPool) {
 #[test_macros::db_test(migrations = "../migrations")]
 async fn list_users_without_token_returns_401(pool: PgPool) {
     let (app, _state) = app_and_state(pool).await;
-    let (status, _body) = send(&app, "GET", "/api/admin/users", None, None).await;
+    let (status, _body) = send(&app, "GET", "/api/v1/admin/users", None, None).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
@@ -91,7 +91,7 @@ async fn list_users_as_non_admin_returns_403(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, _email, token) = seed_and_login(&app, &state, "listusers-nonadmin", false).await;
 
-    let (status, _body) = send(&app, "GET", "/api/admin/users", Some(&token), None).await;
+    let (status, _body) = send(&app, "GET", "/api/v1/admin/users", Some(&token), None).await;
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
@@ -101,7 +101,7 @@ async fn suspend_user_as_admin_returns_200(pool: PgPool) {
     let (_admin_id, _email, token) = seed_and_login(&app, &state, "admin-suspend", true).await;
     let (target_id, _target_email) = seed(&state, "suspend-target", false).await;
 
-    let uri = format!("/api/admin/users/{target_id}/suspend");
+    let uri = format!("/api/v1/admin/users/{target_id}/suspend");
     let (status, body) = send(&app, "POST", &uri, Some(&token), None).await;
     assert_eq!(status, StatusCode::OK, "suspend: {body:?}");
 }
@@ -112,11 +112,11 @@ async fn activate_user_as_admin_returns_200(pool: PgPool) {
     let (_admin_id, _email, token) = seed_and_login(&app, &state, "admin-activate", true).await;
     let (target_id, _target_email) = seed(&state, "activate-target", false).await;
 
-    let suspend_uri = format!("/api/admin/users/{target_id}/suspend");
+    let suspend_uri = format!("/api/v1/admin/users/{target_id}/suspend");
     let (s_status, _s_body) = send(&app, "POST", &suspend_uri, Some(&token), None).await;
     assert_eq!(s_status, StatusCode::OK);
 
-    let activate_uri = format!("/api/admin/users/{target_id}/activate");
+    let activate_uri = format!("/api/v1/admin/users/{target_id}/activate");
     let (status, body) = send(&app, "POST", &activate_uri, Some(&token), None).await;
     assert_eq!(status, StatusCode::OK, "activate: {body:?}");
 }
@@ -137,7 +137,7 @@ async fn an_account_nobody_ever_signed_up_for_comes_back_waiting_for_its_invite(
         .await
         .expect("suspend");
 
-    let uri = format!("/api/admin/users/{}/activate", imported.id);
+    let uri = format!("/api/v1/admin/users/{}/activate", imported.id);
     let (status, body) = send(&app, "POST", &uri, Some(&token), None).await;
     assert_eq!(status, StatusCode::OK, "activate: {body:?}");
 
@@ -162,25 +162,25 @@ async fn suspended_user_live_access_token_is_revoked(pool: PgPool) {
     let (target_id, _t_email, target_token) =
         seed_and_login(&app, &state, "revoke-target", false).await;
 
-    let (pre, _b) = send(&app, "GET", "/api/workspaces", Some(&target_token), None).await;
+    let (pre, _b) = send(&app, "GET", "/api/v1/workspaces", Some(&target_token), None).await;
     assert_eq!(pre, StatusCode::OK, "token valid before suspension");
 
-    let suspend_uri = format!("/api/admin/users/{target_id}/suspend");
+    let suspend_uri = format!("/api/v1/admin/users/{target_id}/suspend");
     let (s, _b) = send(&app, "POST", &suspend_uri, Some(&admin_token), None).await;
     assert_eq!(s, StatusCode::OK);
 
-    let (post, _b) = send(&app, "GET", "/api/workspaces", Some(&target_token), None).await;
+    let (post, _b) = send(&app, "GET", "/api/v1/workspaces", Some(&target_token), None).await;
     assert_eq!(
         post,
         StatusCode::UNAUTHORIZED,
         "suspended user's still-unexpired access token must be rejected"
     );
 
-    let activate_uri = format!("/api/admin/users/{target_id}/activate");
+    let activate_uri = format!("/api/v1/admin/users/{target_id}/activate");
     let (a, _b) = send(&app, "POST", &activate_uri, Some(&admin_token), None).await;
     assert_eq!(a, StatusCode::OK);
 
-    let (after, _b) = send(&app, "GET", "/api/workspaces", Some(&target_token), None).await;
+    let (after, _b) = send(&app, "GET", "/api/v1/workspaces", Some(&target_token), None).await;
     assert_eq!(after, StatusCode::OK, "reactivated user regains access");
 }
 
@@ -189,7 +189,7 @@ async fn suspend_user_without_token_returns_401(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (target_id, _target_email) = seed(&state, "suspend-noauth", false).await;
 
-    let uri = format!("/api/admin/users/{target_id}/suspend");
+    let uri = format!("/api/v1/admin/users/{target_id}/suspend");
     let (status, _body) = send(&app, "POST", &uri, None, None).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
@@ -200,7 +200,7 @@ async fn suspend_user_as_non_admin_returns_403(pool: PgPool) {
     let (_id, _email, token) = seed_and_login(&app, &state, "suspend-nonadmin", false).await;
     let (target_id, _target_email) = seed(&state, "suspend-target2", false).await;
 
-    let uri = format!("/api/admin/users/{target_id}/suspend");
+    let uri = format!("/api/v1/admin/users/{target_id}/suspend");
     let (status, _body) = send(&app, "POST", &uri, Some(&token), None).await;
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
@@ -211,7 +211,7 @@ async fn activate_user_as_non_admin_returns_403(pool: PgPool) {
     let (_id, _email, token) = seed_and_login(&app, &state, "activate-nonadmin", false).await;
     let (target_id, _target_email) = seed(&state, "activate-target2", false).await;
 
-    let uri = format!("/api/admin/users/{target_id}/activate");
+    let uri = format!("/api/v1/admin/users/{target_id}/activate");
     let (status, _body) = send(&app, "POST", &uri, Some(&token), None).await;
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
@@ -222,7 +222,7 @@ async fn update_instance_role_as_admin_returns_200(pool: PgPool) {
     let (_admin_id, _email, token) = seed_and_login(&app, &state, "admin-role", true).await;
     let (target_id, _target_email) = seed(&state, "role-target", false).await;
 
-    let uri = format!("/api/admin/users/{target_id}/instance-role");
+    let uri = format!("/api/v1/admin/users/{target_id}/instance-role");
     let (status, body) = send(
         &app,
         "PATCH",
@@ -241,7 +241,7 @@ async fn update_instance_role_bad_body_returns_422(pool: PgPool) {
     let (_admin_id, _email, token) = seed_and_login(&app, &state, "admin-rolebad", true).await;
     let (target_id, _target_email) = seed(&state, "rolebad-target", false).await;
 
-    let uri = format!("/api/admin/users/{target_id}/instance-role");
+    let uri = format!("/api/v1/admin/users/{target_id}/instance-role");
     let (status, _body) = send(&app, "PATCH", &uri, Some(&token), Some(json!({}))).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
 }
@@ -251,7 +251,7 @@ async fn update_instance_role_without_token_returns_401(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (target_id, _target_email) = seed(&state, "role-noauth", false).await;
 
-    let uri = format!("/api/admin/users/{target_id}/instance-role");
+    let uri = format!("/api/v1/admin/users/{target_id}/instance-role");
     let (status, _body) = send(&app, "PATCH", &uri, None, Some(json!({ "role": "admin" }))).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
@@ -262,7 +262,7 @@ async fn update_instance_role_as_non_admin_returns_403(pool: PgPool) {
     let (_id, _email, token) = seed_and_login(&app, &state, "role-nonadmin", false).await;
     let (target_id, _target_email) = seed(&state, "role-target2", false).await;
 
-    let uri = format!("/api/admin/users/{target_id}/instance-role");
+    let uri = format!("/api/v1/admin/users/{target_id}/instance-role");
     let (status, _body) = send(
         &app,
         "PATCH",
@@ -280,7 +280,7 @@ async fn list_workspaces_as_admin_returns_200(pool: PgPool) {
     let (admin_id, _email, token) = seed_and_login(&app, &state, "admin-listws", true).await;
     let _ws = seed_workspace(&state, admin_id, "Admin WS").await;
 
-    let (status, body) = send(&app, "GET", "/api/admin/workspaces", Some(&token), None).await;
+    let (status, body) = send(&app, "GET", "/api/v1/admin/workspaces", Some(&token), None).await;
     assert_eq!(status, StatusCode::OK, "list_workspaces: {body:?}");
     assert!(body["data"].is_array(), "list_workspaces body: {body:?}");
 }
@@ -288,7 +288,7 @@ async fn list_workspaces_as_admin_returns_200(pool: PgPool) {
 #[test_macros::db_test(migrations = "../migrations")]
 async fn list_workspaces_without_token_returns_401(pool: PgPool) {
     let (app, _state) = app_and_state(pool).await;
-    let (status, _body) = send(&app, "GET", "/api/admin/workspaces", None, None).await;
+    let (status, _body) = send(&app, "GET", "/api/v1/admin/workspaces", None, None).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
@@ -297,7 +297,7 @@ async fn list_workspaces_as_non_admin_returns_403(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (_id, _email, token) = seed_and_login(&app, &state, "listws-nonadmin", false).await;
 
-    let (status, _body) = send(&app, "GET", "/api/admin/workspaces", Some(&token), None).await;
+    let (status, _body) = send(&app, "GET", "/api/v1/admin/workspaces", Some(&token), None).await;
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
@@ -307,7 +307,7 @@ async fn delete_workspace_as_admin_returns_200(pool: PgPool) {
     let (admin_id, _email, token) = seed_and_login(&app, &state, "admin-delws", true).await;
     let ws_id = seed_workspace(&state, admin_id, "Doomed WS").await;
 
-    let uri = format!("/api/admin/workspaces/{ws_id}");
+    let uri = format!("/api/v1/admin/workspaces/{ws_id}");
     let (status, body) = send(&app, "DELETE", &uri, Some(&token), None).await;
     assert_eq!(status, StatusCode::OK, "delete_workspace: {body:?}");
 }
@@ -318,7 +318,7 @@ async fn delete_workspace_without_token_returns_401(pool: PgPool) {
     let (owner_id, _email) = seed(&state, "delws-owner", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Survives WS").await;
 
-    let uri = format!("/api/admin/workspaces/{ws_id}");
+    let uri = format!("/api/v1/admin/workspaces/{ws_id}");
     let (status, _body) = send(&app, "DELETE", &uri, None, None).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
@@ -329,7 +329,7 @@ async fn delete_workspace_as_non_admin_returns_403(pool: PgPool) {
     let (owner_id, _email, token) = seed_and_login(&app, &state, "delws-nonadmin", false).await;
     let ws_id = seed_workspace(&state, owner_id, "Protected WS").await;
 
-    let uri = format!("/api/admin/workspaces/{ws_id}");
+    let uri = format!("/api/v1/admin/workspaces/{ws_id}");
     let (status, _body) = send(&app, "DELETE", &uri, Some(&token), None).await;
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
@@ -339,20 +339,20 @@ async fn a_demoted_instance_admin_is_refused_at_once_with_the_token_they_hold(po
     let (app, state) = app_and_state(pool).await;
     let (_, _, admin) = seed_and_login(&app, &state, "demoter", true).await;
     let (demoted_id, _, held) = seed_and_login(&app, &state, "demoted", true).await;
-    let (status, _) = send(&app, "GET", "/api/admin/stats", Some(&held), None).await;
+    let (status, _) = send(&app, "GET", "/api/v1/admin/stats", Some(&held), None).await;
     assert_eq!(status, StatusCode::OK);
 
     let (status, body) = send(
         &app,
         "PATCH",
-        &format!("/api/admin/users/{demoted_id}/instance-role"),
+        &format!("/api/v1/admin/users/{demoted_id}/instance-role"),
         Some(&admin),
         Some(json!({ "role": "member" })),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body:?}");
 
-    let (status, _) = send(&app, "GET", "/api/admin/stats", Some(&held), None).await;
+    let (status, _) = send(&app, "GET", "/api/v1/admin/stats", Some(&held), None).await;
     assert_eq!(
         status,
         StatusCode::FORBIDDEN,
@@ -368,7 +368,7 @@ async fn allow_other_servers(
     send(
         app,
         "PATCH",
-        "/api/admin/settings",
+        "/api/v1/admin/settings",
         Some(token),
         Some(json!({ "other_servers_allowed": on })),
     )
@@ -383,7 +383,7 @@ async fn an_instance_admin_keeps_everyone_to_this_server_and_the_sign_in_page_he
     let (_, _, admin) = seed_and_login(&app, &state, "servers-admin", true).await;
     let (_, _, member) = seed_and_login(&app, &state, "servers-member", false).await;
 
-    let (_, info) = send(&app, "GET", "/api/instance/info", None, None).await;
+    let (_, info) = send(&app, "GET", "/api/v1/instance/info", None, None).await;
     assert_eq!(
         info["other_servers_allowed"], true,
         "an instance starts as it was"
@@ -396,7 +396,7 @@ async fn an_instance_admin_keeps_everyone_to_this_server_and_the_sign_in_page_he
     assert_eq!(status, StatusCode::OK, "{settings:?}");
     assert_eq!(settings["other_servers_allowed"], false);
     assert_eq!(settings["email_code_sign_in"], true);
-    let (_, info) = send(&app, "GET", "/api/instance/info", None, None).await;
+    let (_, info) = send(&app, "GET", "/api/v1/instance/info", None, None).await;
     assert_eq!(info["other_servers_allowed"], false);
 
     let details: serde_json::Value = sqlx::query_scalar(
@@ -410,7 +410,7 @@ async fn an_instance_admin_keeps_everyone_to_this_server_and_the_sign_in_page_he
     let (status, settings) = send(
         &app,
         "PATCH",
-        "/api/admin/settings",
+        "/api/v1/admin/settings",
         Some(&admin),
         Some(json!({ "email_code_sign_in": false })),
     )

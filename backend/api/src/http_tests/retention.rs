@@ -19,7 +19,7 @@ async fn post(app: &axum::Router, token: &str, ch: Uuid, content: &str) -> Uuid 
     let (status, body) = send(
         app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(token),
         Some(json!({ "content": content })),
     )
@@ -224,7 +224,7 @@ async fn the_policy_is_owner_only_and_the_change_is_audited(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{ws}/retention"),
+        &format!("/api/v1/workspaces/{ws}/retention"),
         Some(&admin),
         Some(json!({ "message_days": 30 })),
     )
@@ -238,7 +238,7 @@ async fn the_policy_is_owner_only_and_the_change_is_audited(pool: PgPool) {
     let (status, body) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{ws}/retention"),
+        &format!("/api/v1/workspaces/{ws}/retention"),
         Some(&owner),
         Some(json!({ "message_days": 30 })),
     )
@@ -249,7 +249,7 @@ async fn the_policy_is_owner_only_and_the_change_is_audited(pool: PgPool) {
     let (status, read) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/retention"),
+        &format!("/api/v1/workspaces/{ws}/retention"),
         Some(&admin),
         None,
     )
@@ -281,7 +281,7 @@ async fn the_preview_counts_what_a_period_would_remove_now(pool: PgPool) {
     post(&app, &owner, ch, "fresh").await;
 
     let preview =
-        |days: &str| format!("/api/workspaces/{ws}/retention/preview?message_days={days}");
+        |days: &str| format!("/api/v1/workspaces/{ws}/retention/preview?message_days={days}");
 
     let (status, body) = send(&app, "GET", &preview("30"), Some(&owner), None).await;
     assert_eq!(status, StatusCode::OK, "{body:?}");
@@ -455,7 +455,7 @@ async fn channel_periods_are_ignored_while_overrides_are_off(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/channels/{ch}/retention"),
+        &format!("/api/v1/channels/{ch}/retention"),
         Some(&token),
         None,
     )
@@ -468,7 +468,7 @@ async fn channel_periods_are_ignored_while_overrides_are_off(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PUT",
-        &format!("/api/channels/{ch}/retention"),
+        &format!("/api/v1/channels/{ch}/retention"),
         Some(&token),
         Some(json!({ "message_days": 5 })),
     )
@@ -491,14 +491,14 @@ async fn a_moderator_sets_the_period_and_the_channel_and_audit_log_say_so(pool: 
     send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/join"),
+        &format!("/api/v1/channels/{ch}/join"),
         Some(&member),
         None,
     )
     .await;
     allow_channel_periods(&state, ws, owner_id, Some(365), true).await;
 
-    let path = format!("/api/channels/{ch}/retention");
+    let path = format!("/api/v1/channels/{ch}/retention");
     let (status, _) = send(
         &app,
         "PUT",
@@ -625,7 +625,7 @@ async fn an_archived_channel_changes_its_period_without_a_new_message(pool: PgPo
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/channels/{ch}"),
+        &format!("/api/v1/channels/{ch}"),
         Some(&owner),
         None,
     )
@@ -640,7 +640,7 @@ async fn an_archived_channel_changes_its_period_without_a_new_message(pool: PgPo
     let (status, body) = send(
         &app,
         "PUT",
-        &format!("/api/channels/{ch}/retention"),
+        &format!("/api/v1/channels/{ch}/retention"),
         Some(&owner),
         Some(json!({ "message_days": 7 })),
     )

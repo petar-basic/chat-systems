@@ -744,7 +744,7 @@ async fn an_email_names_its_sender_domain_and_says_it_is_automatic(pool: PgPool)
             subject: "Hello",
             text: "Hello",
             html: Some("<p>Hello</p>"),
-            list_unsubscribe: Some("https://chat.example/api/email/unsubscribe/x"),
+            list_unsubscribe: Some("https://chat.example/api/v1/email/unsubscribe/x"),
         })
         .expect("message");
     let raw = String::from_utf8(message.formatted()).expect("utf-8");
@@ -754,7 +754,7 @@ async fn an_email_names_its_sender_domain_and_says_it_is_automatic(pool: PgPool)
     );
     assert!(raw.contains("Auto-Submitted: auto-generated"), "{raw}");
     assert!(
-        raw.contains("List-Unsubscribe: <https://chat.example/api/email/unsubscribe/x>"),
+        raw.contains("List-Unsubscribe: <https://chat.example/api/v1/email/unsubscribe/x>"),
         "{raw}"
     );
     assert!(

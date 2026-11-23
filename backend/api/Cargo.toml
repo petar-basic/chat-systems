@@ -120,6 +120,7 @@ futures-util = { workspace = true }
 dotenvy = "0.15"
 web-push = { workspace = true }
 jsonwebtoken = { workspace = true }
+semver = "1"
 
 [dev-dependencies]
 # `#[tokio::test]` (macros) + a real runtime for async tests.

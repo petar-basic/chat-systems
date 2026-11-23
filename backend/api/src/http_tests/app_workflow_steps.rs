@@ -68,7 +68,7 @@ async fn steps_setup(pool: PgPool, prefix: &str) -> Steps {
     let (status, made) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/bot-apps"),
+        &format!("/api/v1/workspaces/{ws}/bot-apps"),
         Some(&owner),
         Some(json!({ "name": "Ticketing", "scopes": ["chat:write", "workflow.steps:execute"] })),
     )
@@ -100,7 +100,7 @@ impl Steps {
         let (status, body) = send(
             &self.app,
             "PATCH",
-            &format!("/api/bot-apps/{}", self.app_id),
+            &format!("/api/v1/bot-apps/{}", self.app_id),
             Some(&self.owner),
             Some(settings),
         )
@@ -112,7 +112,7 @@ impl Steps {
         send(
             &self.app,
             "PUT",
-            &format!("/api/bot-apps/{}/workflow-steps", self.app_id),
+            &format!("/api/v1/bot-apps/{}/workflow-steps", self.app_id),
             Some(token),
             Some(body),
         )
@@ -123,7 +123,7 @@ impl Steps {
         send(
             &self.app,
             "GET",
-            &format!("/api/workspaces/{}/workflow-step-apps", self.ws),
+            &format!("/api/v1/workspaces/{}/workflow-step-apps", self.ws),
             Some(token),
             None,
         )
@@ -140,7 +140,7 @@ impl Steps {
         send(
             &self.app,
             "POST",
-            &format!("/api/workflow-executions/{execution}/{how}"),
+            &format!("/api/v1/workflow-executions/{execution}/{how}"),
             Some(token),
             Some(body),
         )
@@ -231,7 +231,7 @@ async fn admins_and_the_app_define_up_to_twenty_typed_steps(pool: PgPool) {
     let (status, listed) = send(
         &s.app,
         "GET",
-        &format!("/api/bot-apps/{}/workflow-steps", s.app_id),
+        &format!("/api/v1/bot-apps/{}/workflow-steps", s.app_id),
         Some(&s.owner),
         None,
     )
@@ -248,7 +248,7 @@ async fn admins_and_the_app_define_up_to_twenty_typed_steps(pool: PgPool) {
     let (status, body) = send(
         &s.app,
         "PUT",
-        "/api/bot-apps/me/workflow-steps",
+        "/api/v1/bot-apps/me/workflow-steps",
         Some(&s.bot),
         Some(renamed),
     )
@@ -268,7 +268,7 @@ async fn admins_and_the_app_define_up_to_twenty_typed_steps(pool: PgPool) {
     let (status, _) = send(
         &s.app,
         "PUT",
-        "/api/bot-apps/me/workflow-steps",
+        "/api/v1/bot-apps/me/workflow-steps",
         Some(&s.bot),
         Some(ticket_steps()),
     )
@@ -559,7 +559,7 @@ async fn only_the_app_with_the_scope_finishes_its_step(pool: PgPool) {
     let (status, other) = send(
         &s.app,
         "POST",
-        &format!("/api/workspaces/{}/bot-apps", s.ws),
+        &format!("/api/v1/workspaces/{}/bot-apps", s.ws),
         Some(&s.owner),
         Some(json!({ "name": "Impostor", "scopes": ["workflow.steps:execute"] })),
     )
@@ -704,7 +704,7 @@ async fn a_turned_off_app_fails_its_steps_and_tells_the_owner_once(pool: PgPool)
     let (status, body) = send(
         &s.app,
         "PUT",
-        &format!("/api/workflows/{}", workflow["id"].as_str().expect("id")),
+        &format!("/api/v1/workflows/{}", workflow["id"].as_str().expect("id")),
         Some(&s.member),
         Some(json!({ "name": "Report a problem", "definition": workflow["definition"] })),
     )
@@ -715,7 +715,7 @@ async fn a_turned_off_app_fails_its_steps_and_tells_the_owner_once(pool: PgPool)
     let (status, _) = send(
         &s.app,
         "DELETE",
-        &format!("/api/bot-apps/{}", s.app_id),
+        &format!("/api/v1/bot-apps/{}", s.app_id),
         Some(&s.owner),
         None,
     )
@@ -732,7 +732,7 @@ async fn removing_the_app_fails_its_steps_and_tells_the_owner(pool: PgPool) {
     let (status, body) = send(
         &s.app,
         "DELETE",
-        &format!("/api/bot-apps/{}", s.app_id),
+        &format!("/api/v1/bot-apps/{}", s.app_id),
         Some(&s.owner),
         None,
     )

@@ -9,7 +9,7 @@ const image = (id: string) => ({
   filename: `${id}.png`,
   mime_type: 'image/png',
   size_bytes: 10,
-  url: `https://chat.test/api/files/download/ws/${id}.png`,
+  url: `https://chat.test/api/v1/files/download/ws/${id}.png`,
 });
 
 const message = (id: string, attachments: ReturnType<typeof image>[]): Message => ({

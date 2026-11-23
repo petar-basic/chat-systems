@@ -42,7 +42,7 @@ async fn a_workspace_export_counts_what_it_wrote(pool: PgPool) {
         send(
             &app,
             "POST",
-            &format!("/api/channels/{ch}/messages"),
+            &format!("/api/v1/channels/{ch}/messages"),
             Some(&owner),
             Some(json!({ "content": format!("line {i}") })),
         )
@@ -52,7 +52,7 @@ async fn a_workspace_export_counts_what_it_wrote(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/exports"),
+        &format!("/api/v1/workspaces/{ws}/exports"),
         Some(&owner),
         Some(json!({})),
     )
@@ -94,7 +94,7 @@ async fn private_conversations_stay_out_unless_asked_for(pool: PgPool) {
     let (_, conv) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/conversations"),
+        &format!("/api/v1/workspaces/{ws}/conversations"),
         Some(&owner),
         Some(json!({ "participant_ids": [other_id] })),
     )
@@ -103,7 +103,7 @@ async fn private_conversations_stay_out_unless_asked_for(pool: PgPool) {
     send(
         &app,
         "POST",
-        &format!("/api/channels/{conv_id}/messages"),
+        &format!("/api/v1/channels/{conv_id}/messages"),
         Some(&owner),
         Some(json!({ "content": "between us" })),
     )
@@ -112,7 +112,7 @@ async fn private_conversations_stay_out_unless_asked_for(pool: PgPool) {
     send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/exports"),
+        &format!("/api/v1/workspaces/{ws}/exports"),
         Some(&owner),
         Some(json!({})),
     )
@@ -126,7 +126,7 @@ async fn private_conversations_stay_out_unless_asked_for(pool: PgPool) {
     send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/exports"),
+        &format!("/api/v1/workspaces/{ws}/exports"),
         Some(&owner),
         Some(json!({ "include_dms": true })),
     )
@@ -158,7 +158,7 @@ async fn a_user_export_contains_only_that_persons_authorship(pool: PgPool) {
     send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&owner),
         Some(json!({ "content": "not theirs" })),
     )
@@ -166,7 +166,7 @@ async fn a_user_export_contains_only_that_persons_authorship(pool: PgPool) {
     send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&subject),
         Some(json!({ "content": "theirs" })),
     )
@@ -175,7 +175,7 @@ async fn a_user_export_contains_only_that_persons_authorship(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/users/{subject_id}/exports"),
+        &format!("/api/v1/users/{subject_id}/exports"),
         Some(&subject),
         Some(json!({})),
     )
@@ -199,7 +199,7 @@ async fn exports_are_owner_only_and_downloads_work_once(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/exports"),
+        &format!("/api/v1/workspaces/{ws}/exports"),
         Some(&admin),
         Some(json!({})),
     )
@@ -213,7 +213,7 @@ async fn exports_are_owner_only_and_downloads_work_once(pool: PgPool) {
     send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/exports"),
+        &format!("/api/v1/workspaces/{ws}/exports"),
         Some(&owner),
         Some(json!({})),
     )
@@ -223,7 +223,7 @@ async fn exports_are_owner_only_and_downloads_work_once(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/exports/{id}"),
+        &format!("/api/v1/exports/{id}"),
         Some(&owner),
         None,
     )
@@ -235,7 +235,7 @@ async fn exports_are_owner_only_and_downloads_work_once(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/exports/download/{token}"),
+        &format!("/api/v1/exports/download/{token}"),
         None,
         None,
     )
@@ -245,7 +245,7 @@ async fn exports_are_owner_only_and_downloads_work_once(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/exports/download/{token}"),
+        &format!("/api/v1/exports/download/{token}"),
         None,
         None,
     )
@@ -270,7 +270,7 @@ async fn anonymising_keeps_the_conversation_readable(pool: PgPool) {
     send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&subject),
         Some(json!({ "content": "still readable" })),
     )
@@ -280,7 +280,7 @@ async fn anonymising_keeps_the_conversation_readable(pool: PgPool) {
     let (status, body) = send(
         &app,
         "DELETE",
-        &format!("/api/admin/users/{subject_id}/data"),
+        &format!("/api/v1/admin/users/{subject_id}/data"),
         Some(&instance_admin),
         Some(json!({})),
     )
@@ -304,7 +304,7 @@ async fn anonymising_keeps_the_conversation_readable(pool: PgPool) {
         .expect("email");
     assert!(email.ends_with("@invalid"), "the person is gone: {email}");
 
-    let (status, _) = send(&app, "GET", "/api/users/me", Some(&subject), None).await;
+    let (status, _) = send(&app, "GET", "/api/v1/users/me", Some(&subject), None).await;
     assert_eq!(
         status,
         StatusCode::UNAUTHORIZED,
@@ -325,7 +325,7 @@ async fn hard_delete_removes_the_messages(pool: PgPool) {
     send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&subject),
         Some(json!({ "content": "will be gone" })),
     )
@@ -335,7 +335,7 @@ async fn hard_delete_removes_the_messages(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/admin/users/{subject_id}/data"),
+        &format!("/api/v1/admin/users/{subject_id}/data"),
         Some(&instance_admin),
         Some(json!({ "hard_delete": true })),
     )
@@ -370,7 +370,7 @@ async fn hard_delete_leaves_nothing_they_wrote_reacted_or_uploaded(pool: PgPool)
     let (_, question) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&subject),
         Some(json!({ "content": "my first draft" })),
     )
@@ -379,7 +379,7 @@ async fn hard_delete_leaves_nothing_they_wrote_reacted_or_uploaded(pool: PgPool)
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/messages/{question_id}"),
+        &format!("/api/v1/messages/{question_id}"),
         Some(&subject),
         Some(json!({ "content": "my second draft" })),
     )
@@ -388,7 +388,7 @@ async fn hard_delete_leaves_nothing_they_wrote_reacted_or_uploaded(pool: PgPool)
     send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&owner),
         Some(json!({ "content": "an answer", "thread_parent_id": question_id })),
     )
@@ -396,7 +396,7 @@ async fn hard_delete_leaves_nothing_they_wrote_reacted_or_uploaded(pool: PgPool)
     let (_, theirs) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&owner),
         Some(json!({ "content": "someone else's" })),
     )
@@ -404,7 +404,10 @@ async fn hard_delete_leaves_nothing_they_wrote_reacted_or_uploaded(pool: PgPool)
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/messages/{}/reactions", theirs["id"].as_str().unwrap()),
+        &format!(
+            "/api/v1/messages/{}/reactions",
+            theirs["id"].as_str().unwrap()
+        ),
         Some(&subject),
         Some(json!({ "emoji": "👍" })),
     )
@@ -422,7 +425,7 @@ async fn hard_delete_leaves_nothing_they_wrote_reacted_or_uploaded(pool: PgPool)
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&subject),
         Some(json!({ "content": "attached", "attachment_ids": [file_id] })),
     )
@@ -439,7 +442,7 @@ async fn hard_delete_leaves_nothing_they_wrote_reacted_or_uploaded(pool: PgPool)
     let (status, erased) = send(
         &app,
         "DELETE",
-        &format!("/api/admin/users/{subject_id}/data"),
+        &format!("/api/v1/admin/users/{subject_id}/data"),
         Some(&instance_admin),
         Some(json!({ "hard_delete": true })),
     )
@@ -495,7 +498,7 @@ async fn an_admin_lists_the_workspaces_exports_and_nobody_elses(pool: PgPool) {
         let (status, body) = send(
             &app,
             "POST",
-            &format!("/api/workspaces/{target}/exports"),
+            &format!("/api/v1/workspaces/{target}/exports"),
             Some(&owner),
             Some(json!({})),
         )
@@ -504,7 +507,7 @@ async fn an_admin_lists_the_workspaces_exports_and_nobody_elses(pool: PgPool) {
     }
     run_pending_export(&state).await;
 
-    let list = format!("/api/workspaces/{ws}/exports");
+    let list = format!("/api/v1/workspaces/{ws}/exports");
     let (status, body) = send(&app, "GET", &list, Some(&owner), None).await;
     assert_eq!(status, StatusCode::OK, "{body:?}");
     let rows = body["data"].as_array().expect("rows");
@@ -526,7 +529,7 @@ async fn an_admin_lists_the_workspaces_exports_and_nobody_elses(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{other}/exports"),
+        &format!("/api/v1/workspaces/{other}/exports"),
         Some(&admin),
         None,
     )
@@ -537,7 +540,7 @@ async fn an_admin_lists_the_workspaces_exports_and_nobody_elses(pool: PgPool) {
     assert!(
         body["data"][0]["download_url"]
             .as_str()
-            .is_some_and(|url| url.contains("/api/exports/download/")),
+            .is_some_and(|url| url.contains("/api/v1/exports/download/")),
         "the requester gets the link once it is ready: {body:?}"
     );
 }
@@ -558,7 +561,7 @@ async fn a_person_export_an_admin_started_is_listed_with_the_workspace(pool: PgP
         let (status, body) = send(
             &app,
             "POST",
-            &format!("/api/users/{subject}/exports"),
+            &format!("/api/v1/users/{subject}/exports"),
             Some(&root),
             Some(json!({})),
         )
@@ -569,7 +572,7 @@ async fn a_person_export_an_admin_started_is_listed_with_the_workspace(pool: PgP
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/exports"),
+        &format!("/api/v1/workspaces/{ws}/exports"),
         Some(&root),
         None,
     )
@@ -614,7 +617,7 @@ async fn files_follow_the_same_dm_rule_and_dates_as_messages(pool: PgPool) {
     let (_, conv) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/conversations"),
+        &format!("/api/v1/workspaces/{ws}/conversations"),
         Some(&owner),
         Some(json!({ "participant_ids": [other_id] })),
     )
@@ -623,7 +626,7 @@ async fn files_follow_the_same_dm_rule_and_dates_as_messages(pool: PgPool) {
     let (_, in_dm) = send(
         &app,
         "POST",
-        &format!("/api/channels/{conv_id}/messages"),
+        &format!("/api/v1/channels/{conv_id}/messages"),
         Some(&owner),
         Some(json!({ "content": "the contract, privately" })),
     )
@@ -631,7 +634,7 @@ async fn files_follow_the_same_dm_rule_and_dates_as_messages(pool: PgPool) {
     let (_, in_channel) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&owner),
         Some(json!({ "content": "the plan" })),
     )
@@ -645,7 +648,7 @@ async fn files_follow_the_same_dm_rule_and_dates_as_messages(pool: PgPool) {
     send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/exports"),
+        &format!("/api/v1/workspaces/{ws}/exports"),
         Some(&owner),
         Some(json!({})),
     )
@@ -659,7 +662,7 @@ async fn files_follow_the_same_dm_rule_and_dates_as_messages(pool: PgPool) {
     send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/exports"),
+        &format!("/api/v1/workspaces/{ws}/exports"),
         Some(&owner),
         Some(json!({ "include_dms": true })),
     )
@@ -671,7 +674,7 @@ async fn files_follow_the_same_dm_rule_and_dates_as_messages(pool: PgPool) {
     send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/exports"),
+        &format!("/api/v1/workspaces/{ws}/exports"),
         Some(&owner),
         Some(json!({ "since": since })),
     )
@@ -694,7 +697,7 @@ async fn edits_and_reactions_follow_their_messages_dates(pool: PgPool) {
         let (_, message) = send(
             &app,
             "POST",
-            &format!("/api/channels/{ch}/messages"),
+            &format!("/api/v1/channels/{ch}/messages"),
             Some(&owner),
             Some(json!({ "content": content })),
         )
@@ -728,7 +731,7 @@ async fn edits_and_reactions_follow_their_messages_dates(pool: PgPool) {
     send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/exports"),
+        &format!("/api/v1/workspaces/{ws}/exports"),
         Some(&owner),
         Some(json!({ "since": since })),
     )
@@ -792,7 +795,7 @@ async fn an_erase_leaves_no_passkey_keyword_push_subscription_or_poll(pool: PgPo
     let (status, _) = send(
         &app,
         "PUT",
-        &format!("/api/workspaces/{ws}/notification-keywords"),
+        &format!("/api/v1/workspaces/{ws}/notification-keywords"),
         Some(&subject),
         Some(json!({ "keywords": ["divorce lawyer"] })),
     )
@@ -801,7 +804,7 @@ async fn an_erase_leaves_no_passkey_keyword_push_subscription_or_poll(pool: PgPo
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/sidebar/sections"),
+        &format!("/api/v1/workspaces/{ws}/sidebar/sections"),
         Some(&subject),
         Some(json!({ "name": "Job hunt" })),
     )
@@ -810,7 +813,7 @@ async fn an_erase_leaves_no_passkey_keyword_push_subscription_or_poll(pool: PgPo
     let (status, poll) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/polls"),
+        &format!("/api/v1/channels/{ch}/polls"),
         Some(&subject),
         Some(json!({ "question": "Should I quit?", "options": ["Yes", "No"] })),
     )
@@ -820,7 +823,7 @@ async fn an_erase_leaves_no_passkey_keyword_push_subscription_or_poll(pool: PgPo
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&owner),
         Some(json!({ "content": "please don't", "thread_parent_id": poll_message })),
     )
@@ -831,7 +834,7 @@ async fn an_erase_leaves_no_passkey_keyword_push_subscription_or_poll(pool: PgPo
     let (status, erased) = send(
         &app,
         "DELETE",
-        &format!("/api/admin/users/{subject_id}/data"),
+        &format!("/api/v1/admin/users/{subject_id}/data"),
         Some(&instance_admin),
         Some(json!({ "hard_delete": true })),
     )
@@ -949,7 +952,7 @@ async fn an_export_names_the_author_of_every_message_even_one_who_left(pool: PgP
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&gone),
         Some(json!({ "content": "my last words here" })),
     )
@@ -958,7 +961,7 @@ async fn an_export_names_the_author_of_every_message_even_one_who_left(pool: PgP
     let (status, body) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{ws}/members/{gone_id}"),
+        &format!("/api/v1/workspaces/{ws}/members/{gone_id}"),
         Some(&gone),
         None,
     )
@@ -968,7 +971,7 @@ async fn an_export_names_the_author_of_every_message_even_one_who_left(pool: PgP
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/exports"),
+        &format!("/api/v1/workspaces/{ws}/exports"),
         Some(&owner),
         Some(json!({})),
     )

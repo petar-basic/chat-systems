@@ -44,3 +44,7 @@ export function watchForNewBuild(
   }
   return stop;
 }
+
+export const clientVersion: string | undefined = /^\d+\.\d+\.\d+/.test(runningBuild ?? '')
+  ? runningBuild
+  : undefined;

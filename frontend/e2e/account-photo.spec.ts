@@ -31,7 +31,7 @@ test('an account photo is stored on the account and shows to people in other wor
     const res = await uploaded;
     expect(res.status()).toBe(200);
     const me = await res.json();
-    expect(me.avatar_url).toContain(`/api/files/download/avatars/${me.id}/`);
+    expect(me.avatar_url).toContain(`/api/v1/files/download/avatars/${me.id}/`);
     await expect(page.getByText('Photo updated.')).toBeVisible();
 
     const path = me.avatar_url.slice(me.avatar_url.indexOf('/files/download/'));

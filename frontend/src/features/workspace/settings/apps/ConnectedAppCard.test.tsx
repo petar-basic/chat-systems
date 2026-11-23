@@ -33,7 +33,7 @@ const status = (over: Partial<AppStatus> = {}): AppStatus => ({
   client_id: null,
   connected_account: null,
   console_url: 'https://developer.atlassian.com/console/myapps/',
-  redirect_url: 'https://chat.test/api/apps/jira/callback',
+  redirect_url: 'https://chat.test/api/v1/apps/jira/callback',
   scopes: ['read:jira-work'],
   setup_steps: ['Make an app'],
   ...over,

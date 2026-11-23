@@ -34,7 +34,7 @@ test('a passkey added in Preferences signs in with no email typed', async ({ pag
     await page.goto('/');
 
     const signIn = page.waitForResponse(
-      (r) => r.url().endsWith('/api/auth/passkeys/sign-in') && r.request().method() === 'POST',
+      (r) => r.url().endsWith('/api/v1/auth/passkeys/sign-in') && r.request().method() === 'POST',
     );
     await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
     expect((await signIn).status()).toBe(200);

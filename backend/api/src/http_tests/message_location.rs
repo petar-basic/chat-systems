@@ -41,7 +41,7 @@ async fn post(place: &Place, token: &str, channel: Uuid, parent: Option<Uuid>) -
     let (status, body) = send(
         &place.app,
         "POST",
-        &format!("/api/channels/{channel}/messages"),
+        &format!("/api/v1/channels/{channel}/messages"),
         Some(token),
         Some(json!({ "content": "where is this", "thread_parent_id": parent })),
     )
@@ -54,7 +54,7 @@ async fn conversation(place: &Place, with: &[Uuid]) -> Uuid {
     let (status, body) = send(
         &place.app,
         "POST",
-        &format!("/api/workspaces/{}/conversations", place.ws_id),
+        &format!("/api/v1/workspaces/{}/conversations", place.ws_id),
         Some(&place.owner.1),
         Some(json!({ "participant_ids": with })),
     )
@@ -67,7 +67,7 @@ async fn locate(place: &Place, token: &str, message: Uuid) -> (StatusCode, Value
     send(
         &place.app,
         "GET",
-        &format!("/api/messages/{message}/location"),
+        &format!("/api/v1/messages/{message}/location"),
         Some(token),
         None,
     )
@@ -111,7 +111,7 @@ async fn a_deleted_root_that_still_has_replies_is_found(pool: PgPool) {
     let (status, _) = send(
         &place.app,
         "DELETE",
-        &format!("/api/messages/{root}"),
+        &format!("/api/v1/messages/{root}"),
         Some(&place.owner.1),
         None,
     )

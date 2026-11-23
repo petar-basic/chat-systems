@@ -14,6 +14,7 @@ pub mod bots;
 pub mod calendars;
 pub mod channel_context;
 pub mod channel_integrations;
+pub mod client_version;
 pub mod commands;
 pub mod config;
 pub mod conversations;
@@ -256,10 +257,13 @@ pub fn build_app(state: Arc<AppState>) -> Router {
         ))
         .merge(export::routes::download_router().with_state(state.clone()))
         .merge(auth::oidc_routes::router(state.clone()))
-        .merge(scim::routes::router(state.clone()));
+        .merge(scim::routes::router(state.clone()))
+        .layer(axum::middleware::from_fn(
+            client_version::refuse_old_clients,
+        ));
 
     Router::new()
-        .nest("/api", api)
+        .nest(shared_common::paths::API_V1, api)
         .merge(health::router(state.clone()))
         .merge(openapi::router())
         .layer(axum::middleware::from_fn(metrics::track_metrics))

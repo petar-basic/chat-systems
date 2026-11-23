@@ -4,14 +4,14 @@ import { API, login, userContext } from './helpers';
 const ADD = { name: 'Add instance' };
 
 async function openSignIn(page: Page) {
-  const info = page.waitForResponse((r) => r.url().includes('/api/instance/info') && r.ok());
+  const info = page.waitForResponse((r) => r.url().includes('/api/v1/instance/info') && r.ok());
   await page.goto('/');
   await info;
   await expect(page.getByTestId('login-email')).toBeVisible();
 }
 
 async function reloadRail(page: Page) {
-  const info = page.waitForResponse((r) => r.url().includes('/api/instance/info') && r.ok());
+  const info = page.waitForResponse((r) => r.url().includes('/api/v1/instance/info') && r.ok());
   await page.reload();
   await info;
   await expect(page.getByTestId('workspace-tile').first()).toBeVisible();

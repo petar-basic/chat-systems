@@ -100,7 +100,7 @@ mod tests {
     fn a_download_never_overwrites_a_file() {
         let dir = std::env::temp_dir().join(format!("chat-systems-dl-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        let file = url("https://chat.example.com/api/files/1/download");
+        let file = url("https://chat.example.com/api/v1/files/1/download");
 
         let first = download_path(&dir, Path::new("report.pdf"), &file);
         assert_eq!(first, dir.join("report.pdf"));

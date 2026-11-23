@@ -29,7 +29,7 @@ test('a channel admin adds an incoming webhook from Channel details and a post t
     await page.getByTestId('channel-webhook-add').click();
 
     const shown = page.getByTestId('channel-webhook-url-value');
-    await expect(shown).toContainText('/api/hooks/incoming/');
+    await expect(shown).toContainText('/api/v1/hooks/incoming/');
     await expect(page.getByTestId('channel-integration-incoming')).toContainText('Build bot');
     const token = (await shown.textContent())!.split('/hooks/incoming/')[1];
     await page.keyboard.press('Escape');

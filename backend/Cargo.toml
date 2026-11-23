@@ -111,3 +111,4 @@ split-debuginfo = "unpacked"
 
 [profile.dev.package."*"]
 debug = false
+strip = "none"

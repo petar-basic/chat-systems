@@ -21,7 +21,7 @@ async function pasteImage(page: Page, composer: ReturnType<Page['locator']>) {
 }
 
 async function cutSends(page: Page) {
-  await page.route('**/api/channels/*/messages', (route) =>
+  await page.route('**/api/v1/channels/*/messages', (route) =>
     route.request().method() === 'POST' ? route.abort('internetdisconnected') : route.continue(),
   );
 }
@@ -54,7 +54,7 @@ test('a send that loses the network keeps its text and files until it is retried
     await page.getByRole('navigation').getByText(channel.name).click();
     await expect(row.locator('[data-qa="message-failed"]'), 'a refetch does not lose it').toBeVisible();
 
-    await page.unroute('**/api/channels/*/messages');
+    await page.unroute('**/api/v1/channels/*/messages');
     await row.locator('[data-qa="message-retry"]').click();
     await expect(row.locator('[data-qa="message-failed"]')).toHaveCount(0, { timeout: 15_000 });
     await expect(row.locator('[data-qa="attachment-image"]')).toHaveCount(1);
@@ -102,7 +102,7 @@ test('a thread reply that loses the network can be retried or put back', async (
     await expect(panel.locator('[data-qa="thread-reply"]', { hasText: `put-back-${stamp}` })).toHaveCount(0);
     await expect(editor).toContainText(`put-back-${stamp}`);
 
-    await page.unroute('**/api/channels/*/messages');
+    await page.unroute('**/api/v1/channels/*/messages');
     const retried = panel.locator('[data-qa="thread-reply"]', { hasText: `retried-${stamp}` });
     await retried.locator('[data-qa="message-retry"]').click();
     await expect(retried.locator('[data-qa="message-failed"]')).toHaveCount(0, { timeout: 15_000 });
@@ -143,7 +143,7 @@ test('a reply from the Threads view that loses the network stays on its card', a
     const failed = card.locator('li', { hasText: text }).locator('[data-qa="message-failed"]');
     await expect(failed).toBeVisible({ timeout: 15_000 });
 
-    await page.unroute('**/api/channels/*/messages');
+    await page.unroute('**/api/v1/channels/*/messages');
     await card.locator('li', { hasText: text }).locator('[data-qa="message-retry"]').click();
     await expect(failed).toHaveCount(0, { timeout: 15_000 });
     await expect(card.getByText(text)).toBeVisible({ timeout: 15_000 });
@@ -173,7 +173,7 @@ test('a failed message is still there after a reload', async ({ page }) => {
     const row = page.locator('[data-qa="message-row"]', { hasText: text });
     await expect(row.locator('[data-qa="message-failed"]')).toBeVisible({ timeout: 15_000 });
 
-    await page.unroute('**/api/channels/*/messages');
+    await page.unroute('**/api/v1/channels/*/messages');
     await page.reload();
     await expect(page.locator('[data-qa="channel-header-name"]')).toHaveText(channel.name, {
       timeout: 20_000,

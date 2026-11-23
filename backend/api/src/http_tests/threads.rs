@@ -53,7 +53,7 @@ async fn post(room: &Room, token: &str, content: &str, parent: Option<Uuid>) -> 
     let (status, body) = send(
         &room.app,
         "POST",
-        &format!("/api/channels/{}/messages", room.ch_id),
+        &format!("/api/v1/channels/{}/messages", room.ch_id),
         Some(token),
         Some(json!({ "content": content, "thread_parent_id": parent })),
     )
@@ -70,7 +70,7 @@ async fn threads(room: &Room, token: &str) -> Vec<Value> {
     let (status, body) = send(
         &room.app,
         "GET",
-        &format!("/api/workspaces/{}/threads", room.ws_id),
+        &format!("/api/v1/workspaces/{}/threads", room.ws_id),
         Some(token),
         None,
     )
@@ -83,7 +83,7 @@ async fn unread_threads(room: &Room, token: &str) -> i64 {
     let (status, body) = send(
         &room.app,
         "GET",
-        &format!("/api/workspaces/{}/threads/unread", room.ws_id),
+        &format!("/api/v1/workspaces/{}/threads/unread", room.ws_id),
         Some(token),
         None,
     )
@@ -96,7 +96,7 @@ async fn thread_call(room: &Room, method: &str, token: &str, path: &str) -> (Sta
     send(
         &room.app,
         method,
-        &format!("/api/threads/{path}"),
+        &format!("/api/v1/threads/{path}"),
         Some(token),
         None,
     )
@@ -236,7 +236,7 @@ async fn threads_are_for_the_people_who_can_see_them(pool: PgPool) {
         let (status, _) = send(
             &room.app,
             method,
-            &format!("/api/threads/{path}"),
+            &format!("/api/v1/threads/{path}"),
             None,
             None,
         )
@@ -247,7 +247,7 @@ async fn threads_are_for_the_people_who_can_see_them(pool: PgPool) {
         let (status, _) = send(
             &room.app,
             "GET",
-            &format!("/api/workspaces/{}/{path}", room.ws_id),
+            &format!("/api/v1/workspaces/{}/{path}", room.ws_id),
             Some(&outsider_token),
             None,
         )

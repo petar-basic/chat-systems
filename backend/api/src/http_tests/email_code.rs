@@ -16,7 +16,7 @@ async fn ask(app: &Router, email: &str) -> (StatusCode, Value) {
     send(
         app,
         "POST",
-        "/api/auth/email-code",
+        "/api/v1/auth/email-code",
         None,
         Some(json!({ "email": email })),
     )
@@ -27,7 +27,7 @@ async fn verify(app: &Router, email: &str, code: &str) -> (StatusCode, Value) {
     send(
         app,
         "POST",
-        "/api/auth/email-code/verify",
+        "/api/v1/auth/email-code/verify",
         None,
         Some(json!({ "email": email, "code": code })),
     )
@@ -84,7 +84,7 @@ async fn an_emailed_code_signs_in_once(pool: PgPool) {
     let (app, state) = app_and_state(pool).await;
     let (user_id, email) = seed(&state, "code-once", false).await;
 
-    let (status, info) = send(&app, "GET", "/api/instance/info", None, None).await;
+    let (status, info) = send(&app, "GET", "/api/v1/instance/info", None, None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(info["email_code_sign_in"], true);
 
@@ -95,7 +95,7 @@ async fn an_emailed_code_signs_in_once(pool: PgPool) {
     let (status, session) = verify(&app, &email, &code).await;
     assert_eq!(status, StatusCode::OK, "{session:?}");
     let access = session["access_token"].as_str().expect("access token");
-    let (status, me) = send(&app, "GET", "/api/users/me", Some(access), None).await;
+    let (status, me) = send(&app, "GET", "/api/v1/users/me", Some(access), None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(me["id"], user_id.to_string());
 
@@ -254,7 +254,7 @@ async fn a_pending_account_whose_invite_expired_is_told_so(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/invites"),
+        &format!("/api/v1/workspaces/{ws_id}/invites"),
         Some(&owner_token),
         Some(json!({ "email": invitee })),
     )
@@ -355,7 +355,7 @@ async fn an_account_with_totp_is_asked_for_its_code_after_the_emailed_one(pool: 
     let (status, session) = send(
         &app,
         "POST",
-        "/api/auth/email-code/verify",
+        "/api/v1/auth/email-code/verify",
         None,
         Some(json!({ "email": email, "code": code, "totp_code": recovery[0] })),
     )
@@ -381,7 +381,7 @@ async fn after_an_emailed_code_a_passkey_stands_in_for_the_totp_code(pool: PgPoo
     let (status, body) = send(
         &app,
         "POST",
-        "/api/auth/passkeys/second-factor/start",
+        "/api/v1/auth/passkeys/second-factor/start",
         None,
         Some(json!({ "email": email, "email_code": code })),
     )
@@ -396,7 +396,7 @@ async fn after_an_emailed_code_a_passkey_stands_in_for_the_totp_code(pool: PgPoo
     let (status, session) = send(
         &app,
         "POST",
-        "/api/auth/passkeys/second-factor",
+        "/api/v1/auth/passkeys/second-factor",
         None,
         Some(json!({ "challenge_id": body["challenge_id"], "credential": assertion })),
     )
@@ -421,7 +421,7 @@ async fn the_instance_admin_can_turn_the_option_off(pool: PgPool) {
     let (status, settings) = send(
         &app,
         "PATCH",
-        "/api/admin/settings",
+        "/api/v1/admin/settings",
         Some(&admin),
         Some(json!({ "email_code_sign_in": false })),
     )
@@ -430,7 +430,7 @@ async fn the_instance_admin_can_turn_the_option_off(pool: PgPool) {
     assert_eq!(settings["email_code_sign_in"], false);
     assert_eq!(settings["email_configured"], true);
 
-    let (_, info) = send(&app, "GET", "/api/instance/info", None, None).await;
+    let (_, info) = send(&app, "GET", "/api/v1/instance/info", None, None).await;
     assert_eq!(info["email_code_sign_in"], false);
     let (status, _) = ask(&app, &email).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
@@ -439,13 +439,13 @@ async fn the_instance_admin_can_turn_the_option_off(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        "/api/admin/settings",
+        "/api/v1/admin/settings",
         Some(&admin),
         Some(json!({ "email_code_sign_in": true })),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    let (_, info) = send(&app, "GET", "/api/instance/info", None, None).await;
+    let (_, info) = send(&app, "GET", "/api/v1/instance/info", None, None).await;
     assert_eq!(info["email_code_sign_in"], true);
 }
 
@@ -458,7 +458,7 @@ async fn an_instance_with_no_smtp_does_not_offer_the_option(pool: PgPool) {
     let (app, state) = app_and_state_with(pool, config).await;
     let (_, email) = seed(&state, "code-nosmtp", false).await;
 
-    let (_, info) = send(&app, "GET", "/api/instance/info", None, None).await;
+    let (_, info) = send(&app, "GET", "/api/v1/instance/info", None, None).await;
     assert_eq!(info["email_code_sign_in"], false);
     let (status, _) = ask(&app, &email).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);

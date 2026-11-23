@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiClient } from './api';
 import { ApiError } from './errors';
+import { useServerSupportStore } from '@/stores/serverSupport';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -157,5 +158,87 @@ describe('ApiClient single-flight refresh', () => {
     ).rejects.toMatchObject({ status: 401, message: 'Invalid email or password' });
     expect(onExpired).not.toHaveBeenCalled();
     expect(fetchMock.mock.calls.filter(isRefreshCall)).toHaveLength(0);
+  });
+});
+
+describe('ApiClient and the server version', () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    useServerSupportStore.setState({ problems: {} });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('asks for every route under /api/v1', async () => {
+    const client = new ApiClient('http://api.test');
+    fetchMock.mockResolvedValue(makeResponse(200, { name: 'Chat' }));
+
+    await client.typed((c) => c.GET('/instance/info'), { anonymous: true });
+
+    expect(urlOf(fetchMock.mock.calls[0])).toBe('http://api.test/api/v1/instance/info');
+  });
+
+  it('says the server needs a newer app when it answers 426', async () => {
+    const client = new ApiClient('http://api.test');
+    fetchMock.mockResolvedValue(
+      makeResponse(426, { error: 'This server needs a newer app', min_client_version: '6.0.0' }),
+    );
+
+    await expect(client.typed((c) => c.GET('/users/me'))).rejects.toMatchObject({
+      status: 426,
+      message: 'This server needs a newer app: Chat Systems 6.0.0 or later.',
+    });
+    expect(useServerSupportStore.getState().problems['http://api.test']).toEqual({
+      kind: 'needsNewerApp',
+      minVersion: '6.0.0',
+    });
+  });
+
+  it('says the server is too old when it has no /api/v1 but answers at the old path', async () => {
+    const client = new ApiClient('http://api.test');
+    fetchMock.mockImplementation((input: string | URL | Request) => {
+      const url = requested(input).url;
+      if (url === 'http://api.test/api/instance/info')
+        return Promise.resolve(makeResponse(200, { name: 'Old' }));
+      return Promise.resolve(new Response('', { status: 404 }));
+    });
+
+    await expect(client.typed((c) => c.GET('/instance/info'), { anonymous: true })).rejects.toMatchObject({
+      status: 404,
+      message: 'This server runs an older Chat Systems. This app needs 5.0 or later there.',
+    });
+    expect(useServerSupportStore.getState().problems['http://api.test']).toEqual({ kind: 'serverTooOld' });
+  });
+
+  it('keeps a 404 with a reason as it is, without asking the old path', async () => {
+    const client = new ApiClient('http://api.test');
+    fetchMock.mockResolvedValue(makeResponse(404, { error: 'Channel not found' }));
+
+    await expect(client.typed((c) => c.GET('/users/me'))).rejects.toMatchObject({
+      status: 404,
+      message: 'Channel not found',
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(useServerSupportStore.getState().problems).toEqual({});
+  });
+
+  it('says the server is too old when a request to another server never gets an answer', async () => {
+    const client = new ApiClient('http://api.test');
+    fetchMock.mockImplementation((input: string | URL | Request) => {
+      const url = requested(input).url;
+      if (url === 'http://api.test/api/instance/info')
+        return Promise.resolve(makeResponse(200, { name: 'Old' }));
+      return Promise.reject(new TypeError('Failed to fetch'));
+    });
+
+    await expect(client.typed((c) => c.GET('/users/me'))).rejects.toMatchObject({
+      message: 'This server runs an older Chat Systems. This app needs 5.0 or later there.',
+    });
   });
 });

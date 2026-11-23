@@ -35,7 +35,7 @@ async fn create(app: &axum::Router, token: &str, ws: Uuid, body: Value) -> Value
     let (status, made) = send(
         app,
         "POST",
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         Some(token),
         Some(body),
     )
@@ -48,7 +48,7 @@ async fn turn_on(app: &axum::Router, token: &str, id: &str) -> (StatusCode, Valu
     send(
         app,
         "PATCH",
-        &format!("/api/hooks/{id}"),
+        &format!("/api/v1/hooks/{id}"),
         Some(token),
         Some(json!({ "is_active": true })),
     )
@@ -59,7 +59,7 @@ async fn invoke(app: &axum::Router, token: &str, ch: Uuid, command: &str) -> (St
     send(
         app,
         "POST",
-        &format!("/api/channels/{ch}/commands"),
+        &format!("/api/v1/channels/{ch}/commands"),
         Some(token),
         Some(json!({ "command": command, "text": "now" })),
     )
@@ -107,7 +107,7 @@ async fn a_demoted_creators_command_answers_unknown_command(pool: PgPool) {
     let (status, directory) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/app-directory"),
+        &format!("/api/v1/workspaces/{ws}/app-directory"),
         Some(&owner),
         None,
     )
@@ -165,13 +165,13 @@ async fn an_incoming_webhook_turned_back_on_answers_only_at_its_new_url(pool: Pg
     assert!(revived["secrets"]["incoming_url"]
         .as_str()
         .expect("the new URL, shown once")
-        .ends_with(&format!("/api/hooks/incoming/{new}")));
+        .ends_with(&format!("/api/v1/hooks/incoming/{new}")));
 
     let message = json!({ "text": "build passed" });
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/hooks/incoming/{old}"),
+        &format!("/api/v1/hooks/incoming/{old}"),
         None,
         Some(message.clone()),
     )
@@ -180,7 +180,7 @@ async fn an_incoming_webhook_turned_back_on_answers_only_at_its_new_url(pool: Pg
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/hooks/incoming/{new}"),
+        &format!("/api/v1/hooks/incoming/{new}"),
         None,
         Some(message),
     )
@@ -256,7 +256,7 @@ async fn make_bot(app: &axum::Router, token: &str, ws: Uuid, name: &str) -> Bot 
     let (status, made) = send(
         app,
         "POST",
-        &format!("/api/workspaces/{ws}/bot-apps"),
+        &format!("/api/v1/workspaces/{ws}/bot-apps"),
         Some(token),
         Some(json!({ "name": name, "scopes": ["chat:write"] })),
     )
@@ -266,7 +266,7 @@ async fn make_bot(app: &axum::Router, token: &str, ws: Uuid, name: &str) -> Bot 
     let (status, body) = send(
         app,
         "PATCH",
-        &format!("/api/bot-apps/{id}"),
+        &format!("/api/v1/bot-apps/{id}"),
         Some(token),
         Some(json!({ "events": ["message"], "socket_mode": true })),
     )
@@ -275,7 +275,7 @@ async fn make_bot(app: &axum::Router, token: &str, ws: Uuid, name: &str) -> Bot 
     let (status, body) = send(
         app,
         "POST",
-        &format!("/api/bot-apps/{id}/app-token"),
+        &format!("/api/v1/bot-apps/{id}/app-token"),
         Some(token),
         None,
     )
@@ -288,7 +288,7 @@ async fn make_bot(app: &axum::Router, token: &str, ws: Uuid, name: &str) -> Bot 
 }
 
 async fn bot_status(app: &axum::Router, token: &str) -> StatusCode {
-    send(app, "GET", "/api/bot-apps/me", Some(token), None)
+    send(app, "GET", "/api/v1/bot-apps/me", Some(token), None)
         .await
         .0
 }
@@ -307,7 +307,7 @@ async fn read_app(app: &axum::Router, token: &str, bot: &Bot) -> Value {
     let (status, shown) = send(
         app,
         "GET",
-        &format!("/api/bot-apps/{}", bot.id),
+        &format!("/api/v1/bot-apps/{}", bot.id),
         Some(token),
         None,
     )
@@ -331,7 +331,7 @@ async fn an_app_stops_with_its_creator_and_an_admin_turns_it_back_on(pool: PgPoo
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{ws}/members/{admin_id}"),
+        &format!("/api/v1/workspaces/{ws}/members/{admin_id}"),
         Some(&owner),
         None,
     )
@@ -354,7 +354,7 @@ async fn an_app_stops_with_its_creator_and_an_admin_turns_it_back_on(pool: PgPoo
             .expect("secret");
     let (member_id, _, member) = seed_and_login(&app, &state, "app-member", false).await;
     add_ws_member(&state, ws, member_id, "member").await;
-    let route = format!("/api/bot-apps/{}/enable", bot.id);
+    let route = format!("/api/v1/bot-apps/{}/enable", bot.id);
     let (status, _) = send(&app, "POST", &route, Some(&member), None).await;
     assert_eq!(status, StatusCode::FORBIDDEN);
 
@@ -401,7 +401,7 @@ async fn suspending_or_deprovisioning_an_apps_creator_stops_it(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/admin/users/{suspended_id}/suspend"),
+        &format!("/api/v1/admin/users/{suspended_id}/suspend"),
         Some(&instance_admin),
         None,
     )
@@ -427,7 +427,7 @@ async fn suspending_or_deprovisioning_an_apps_creator_stops_it(pool: PgPool) {
     let (status, scim) = send(
         &app,
         "POST",
-        "/api/admin/scim/tokens",
+        "/api/v1/admin/scim/tokens",
         Some(&instance_admin),
         Some(json!({ "description": "Okta" })),
     )
@@ -436,7 +436,7 @@ async fn suspending_or_deprovisioning_an_apps_creator_stops_it(pool: PgPool) {
     let (status, body) = send(
         &app,
         "PATCH",
-        &format!("/api/scim/v2/Users/{leaver_id}"),
+        &format!("/api/v1/scim/v2/Users/{leaver_id}"),
         scim["token"].as_str(),
         Some(json!({
             "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
@@ -456,7 +456,7 @@ async fn invite(app: &axum::Router, token: &str, ws: Uuid, body: Value) -> (Uuid
     let (status, made) = send(
         app,
         "POST",
-        &format!("/api/workspaces/{ws}/invites"),
+        &format!("/api/v1/workspaces/{ws}/invites"),
         Some(token),
         Some(body),
     )
@@ -501,7 +501,7 @@ async fn a_removed_or_suspended_admins_invite_links_stop_but_email_invites_stay(
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{ws}/members/{removed_id}"),
+        &format!("/api/v1/workspaces/{ws}/members/{removed_id}"),
         Some(&owner),
         None,
     )
@@ -510,7 +510,7 @@ async fn a_removed_or_suspended_admins_invite_links_stop_but_email_invites_stay(
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/admin/users/{suspended_id}/suspend"),
+        &format!("/api/v1/admin/users/{suspended_id}/suspend"),
         Some(&instance_admin),
         None,
     )
@@ -532,7 +532,7 @@ async fn a_removed_or_suspended_admins_invite_links_stop_but_email_invites_stay(
         let (status, body) = send(
             &app,
             "POST",
-            &format!("/api/invites/{token}/accept"),
+            &format!("/api/v1/invites/{token}/accept"),
             Some(&newcomer),
             None,
         )
@@ -542,7 +542,7 @@ async fn a_removed_or_suspended_admins_invite_links_stop_but_email_invites_stay(
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/invites/{owners_token}/accept"),
+        &format!("/api/v1/invites/{owners_token}/accept"),
         Some(&newcomer),
         None,
     )
@@ -556,8 +556,8 @@ async fn only_an_admin_reads_a_workspaces_apps(pool: PgPool) {
     let (owner_id, _, owner) = seed_and_login(&app, &state, "apps-owner", false).await;
     let ws = seed_workspace(&state, owner_id, "Apps").await;
     let bot = make_bot(&app, &owner, ws, "Echo").await;
-    let list = format!("/api/workspaces/{ws}/bot-apps");
-    let one = format!("/api/bot-apps/{}", bot.id);
+    let list = format!("/api/v1/workspaces/{ws}/bot-apps");
+    let one = format!("/api/v1/bot-apps/{}", bot.id);
 
     for (role, expected) in [
         ("admin", StatusCode::OK),

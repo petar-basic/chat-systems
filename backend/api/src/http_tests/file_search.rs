@@ -28,7 +28,7 @@ pub(super) async fn upload_bytes(
     body.extend_from_slice(format!("\r\n--{BOUNDARY}--\r\n").as_bytes());
     let request = Request::builder()
         .method("POST")
-        .uri(format!("/api/files/upload/{ws_id}?draft=true"))
+        .uri(format!("/api/v1/files/upload/{ws_id}?draft=true"))
         .header(header::AUTHORIZATION, format!("Bearer {token}"))
         .header(
             header::CONTENT_TYPE,
@@ -69,7 +69,7 @@ pub(super) async fn post_bytes(
     let (status, msg) = send(
         app,
         "POST",
-        &format!("/api/channels/{channel_id}/messages"),
+        &format!("/api/v1/channels/{channel_id}/messages"),
         Some(token),
         Some(json!({ "content": "", "attachment_ids": [file_id] })),
     )
@@ -87,7 +87,7 @@ pub(super) async fn found(
     let (status, body) = send(
         app,
         "GET",
-        &format!("/api/search/files?workspace_id={ws_id}&{query}"),
+        &format!("/api/v1/search/files?workspace_id={ws_id}&{query}"),
         Some(token),
         None,
     )
@@ -164,7 +164,7 @@ async fn a_file_is_found_by_any_fragment_of_its_name(pool: PgPool) {
     let (_, body) = send(
         &app,
         "GET",
-        &format!("/api/search/files?workspace_id={ws_id}&q=xlsx"),
+        &format!("/api/v1/search/files?workspace_id={ws_id}&q=xlsx"),
         Some(&owner),
         None,
     )
@@ -179,7 +179,7 @@ async fn a_file_is_found_by_any_fragment_of_its_name(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/search/files?workspace_id={ws_id}&q=%20"),
+        &format!("/api/v1/search/files?workspace_id={ws_id}&q=%20"),
         Some(&owner),
         None,
     )
@@ -192,7 +192,7 @@ async fn a_file_is_found_by_any_fragment_of_its_name(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/search/files?workspace_id={ws_id}&q=budget"),
+        &format!("/api/v1/search/files?workspace_id={ws_id}&q=budget"),
         None,
         None,
     )
@@ -222,7 +222,7 @@ async fn file_search_finds_only_what_the_searcher_can_read(pool: PgPool) {
     let (status, conv) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&owner),
         Some(json!({ "participant_ids": [dm_peer_id] })),
     )
@@ -262,7 +262,7 @@ async fn file_search_finds_only_what_the_searcher_can_read(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/messages/{gone}"),
+        &format!("/api/v1/messages/{gone}"),
         Some(&owner),
         None,
     )
@@ -290,7 +290,7 @@ async fn file_search_finds_only_what_the_searcher_can_read(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{public}/members"),
+        &format!("/api/v1/channels/{public}/members"),
         Some(&owner),
         Some(json!({ "user_id": guest_id })),
     )
@@ -304,7 +304,7 @@ async fn file_search_finds_only_what_the_searcher_can_read(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/search/files?workspace_id={ws_id}&q=plan"),
+        &format!("/api/v1/search/files?workspace_id={ws_id}&q=plan"),
         Some(&stranger),
         None,
     )
@@ -313,7 +313,7 @@ async fn file_search_finds_only_what_the_searcher_can_read(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/search/files?workspace_id={ws_id}&channel_id={private}"),
+        &format!("/api/v1/search/files?workspace_id={ws_id}&channel_id={private}"),
         Some(&member),
         None,
     )
@@ -414,7 +414,7 @@ async fn file_search_filters_combine(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/search/files?workspace_id={ws_id}&kind=spreadsheets"),
+        &format!("/api/v1/search/files?workspace_id={ws_id}&kind=spreadsheets"),
         Some(&owner),
         None,
     )

@@ -11,7 +11,7 @@ describe('ClipPlayer', () => {
   it('plays an audio clip over its waveform at one, one and a half and two times', () => {
     render(
       <ClipPlayer
-        url="https://chat.test/api/files/download/ws/1/Clip.m4a"
+        url="https://chat.test/api/v1/files/download/ws/1/Clip.m4a"
         clip={{ kind: 'audio', duration_ms: 12_000, waveform: peaks }}
         filename="Clip.m4a"
       />,
@@ -42,8 +42,8 @@ describe('ClipPlayer', () => {
   it('shows a video clip with its poster, in its own shape', () => {
     render(
       <ClipPlayer
-        url="https://chat.test/api/files/download/ws/1/Clip.mp4"
-        posterUrl="https://chat.test/api/files/download/ws/1/poster.jpg"
+        url="https://chat.test/api/v1/files/download/ws/1/Clip.mp4"
+        posterUrl="https://chat.test/api/v1/files/download/ws/1/poster.jpg"
         clip={{ kind: 'video', duration_ms: 20_000 }}
         filename="Clip.mp4"
         width={1280}
@@ -51,7 +51,7 @@ describe('ClipPlayer', () => {
       />,
     );
     const video = document.querySelector('video');
-    expect(video).toHaveAttribute('poster', 'https://chat.test/api/files/download/ws/1/poster.jpg');
+    expect(video).toHaveAttribute('poster', 'https://chat.test/api/v1/files/download/ws/1/poster.jpg');
     expect(video).toHaveAttribute('preload', 'metadata');
     expect(video?.style.aspectRatio).toBe('1280 / 800');
     expect(screen.getByTestId('clip-duration')).toHaveTextContent('0:20');
@@ -71,7 +71,7 @@ describe('ClipPlayer in Japanese', () => {
   it('names its controls, and a clip by its file name as text', () => {
     render(
       <ClipPlayer
-        url="https://chat.test/api/files/download/ws/1/clip.m4a"
+        url="https://chat.test/api/v1/files/download/ws/1/clip.m4a"
         clip={{ kind: 'audio', duration_ms: 12_000, waveform: peaks }}
         filename={hostile}
         onExpand={vi.fn()}

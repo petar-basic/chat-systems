@@ -18,7 +18,7 @@ dependencies, uses socket mode so it needs no public URL, and shows the
 3. Run it:
 
    ```bash
-   CHAT_API_URL=https://chat.example.com/api CHAT_BOT_TOKEN=cbot-… CHAT_APP_TOKEN=capp-… node ticketing.mjs
+   CHAT_API_URL=https://chat.example.com/api/v1 CHAT_BOT_TOKEN=cbot-… CHAT_APP_TOKEN=capp-… node ticketing.mjs
    ```
 
 In *Workflows*, add a step, pick *Open ticket* under the app's name, fill in *Title*, and add a

@@ -68,10 +68,12 @@ pub fn first_retry_delay() -> f64 {
 }
 
 pub fn response_url(state: &AppState, id: Uuid) -> String {
-    format!(
-        "{}/api/commands/responses/{}",
+    shared_common::paths::api_url(
         state.config.public_url.trim_end_matches('/'),
-        sealed::sign_id(&state.config.secrets_keys, sealed::COMMAND_RESPONSES, id)
+        &format!(
+            "/commands/responses/{}",
+            sealed::sign_id(&state.config.secrets_keys, sealed::COMMAND_RESPONSES, id)
+        ),
     )
 }
 

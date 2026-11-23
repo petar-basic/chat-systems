@@ -17,7 +17,7 @@ async fn integrations(app: &axum::Router, token: &str, channel: Uuid) -> (Status
     send(
         app,
         "GET",
-        &format!("/api/channels/{channel}/integrations"),
+        &format!("/api/v1/channels/{channel}/integrations"),
         Some(token),
         None,
     )
@@ -65,8 +65,8 @@ async fn everyone_in_a_channel_sees_what_touches_it_and_no_secret(pool: PgPool) 
     add_ws_member(&state, ws, member_id, "member").await;
     let deploys = seed_channel(&state, ws, owner_id, "deploys", false).await;
     let elsewhere = seed_channel(&state, ws, owner_id, "elsewhere", false).await;
-    let hooks = format!("/api/workspaces/{ws}/hooks");
-    let workflows = format!("/api/workspaces/{ws}/workflows");
+    let hooks = format!("/api/v1/workspaces/{ws}/hooks");
+    let workflows = format!("/api/v1/workspaces/{ws}/workflows");
 
     let ci = created(&app, &owner, &hooks, incoming(deploys, "CI")).await;
     created(&app, &owner, &hooks, incoming(elsewhere, "Other CI")).await;
@@ -167,7 +167,7 @@ async fn a_private_channel_shows_its_integrations_only_to_its_members(pool: PgPo
     created(
         &app,
         &owner,
-        &format!("/api/workspaces/{ws}/hooks"),
+        &format!("/api/v1/workspaces/{ws}/hooks"),
         incoming(secret, "Board"),
     )
     .await;
@@ -194,7 +194,7 @@ async fn a_channel_admin_runs_the_incoming_webhooks_of_their_channel(pool: PgPoo
     let other = seed_channel(&state, ws, owner_id, "other", false).await;
     join(&state, deploys, lead_id, ChannelRole::Admin).await;
     join(&state, deploys, member_id, ChannelRole::Member).await;
-    let hooks = format!("/api/workspaces/{ws}/hooks");
+    let hooks = format!("/api/v1/workspaces/{ws}/hooks");
 
     let (_, body) = integrations(&app, &lead, deploys).await;
     assert_eq!(body["can_add_webhook"], true);
@@ -206,7 +206,7 @@ async fn a_channel_admin_runs_the_incoming_webhooks_of_their_channel(pool: PgPoo
     let rotated = created(
         &app,
         &lead,
-        &format!("/api/hooks/{hook_id}/rotate"),
+        &format!("/api/v1/hooks/{hook_id}/rotate"),
         json!({}),
     )
     .await;
@@ -215,7 +215,7 @@ async fn a_channel_admin_runs_the_incoming_webhooks_of_their_channel(pool: PgPoo
     let revealed = created(
         &app,
         &lead,
-        &format!("/api/hooks/{hook_id}/reveal"),
+        &format!("/api/v1/hooks/{hook_id}/reveal"),
         json!({}),
     )
     .await;
@@ -228,7 +228,7 @@ async fn a_channel_admin_runs_the_incoming_webhooks_of_their_channel(pool: PgPoo
         let (status, _) = send(
             &app,
             "POST",
-            &format!("/api/hooks/{hook_id}/{route}"),
+            &format!("/api/v1/hooks/{hook_id}/{route}"),
             Some(&member),
             None,
         )
@@ -242,7 +242,7 @@ async fn a_channel_admin_runs_the_incoming_webhooks_of_their_channel(pool: PgPoo
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/hooks/{hook_id}"),
+        &format!("/api/v1/hooks/{hook_id}"),
         Some(&member),
         None,
     )
@@ -313,7 +313,7 @@ async fn a_channel_admin_runs_the_incoming_webhooks_of_their_channel(pool: PgPoo
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/hooks/{hook_id}"),
+        &format!("/api/v1/hooks/{hook_id}"),
         Some(&lead),
         None,
     )

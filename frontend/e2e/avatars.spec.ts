@@ -66,7 +66,7 @@ test('a broken avatar url degrades to initials instead of a broken image', async
   const { workspace, general } = await generalChannel(alice);
 
   const saved = await alice.patch(`${API}/users/me`, {
-    data: { avatar_url: '/api/files/download/does/not/exist.png' },
+    data: { avatar_url: '/api/v1/files/download/does/not/exist.png' },
   });
   expect(saved.status()).toBe(200);
 

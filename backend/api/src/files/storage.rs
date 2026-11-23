@@ -197,7 +197,10 @@ impl FileStorage {
     }
 
     pub fn public_url(&self, key: &str) -> String {
-        format!("{}/api/files/download/{}", self.public_url, key)
+        shared_common::paths::api_url(
+            &self.public_url,
+            &format!("{}{key}", shared_common::paths::DOWNLOADS),
+        )
     }
 
     fn attributes_for(&self, content_type: &str) -> Attributes {

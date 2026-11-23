@@ -22,7 +22,7 @@ uses socket mode so it needs no public URL, and shows the parts of the
 5. Run it:
 
    ```bash
-   CHAT_API_URL=https://chat.example.com/api CHAT_BOT_TOKEN=cbot-… CHAT_APP_TOKEN=capp-… node helpdesk.mjs
+   CHAT_API_URL=https://chat.example.com/api/v1 CHAT_BOT_TOKEN=cbot-… CHAT_APP_TOKEN=capp-… node helpdesk.mjs
    ```
 
 Open a conversation with the app to see its Home. `--once` exits after three requests; the

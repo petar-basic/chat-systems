@@ -9,7 +9,7 @@ async fn post_message(app: &axum::Router, token: &str, ch: Uuid, content: &str) 
     let (status, body) = send(
         app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(token),
         Some(json!({ "content": content })),
     )
@@ -22,7 +22,7 @@ async fn edit(app: &axum::Router, token: &str, msg_id: &str, content: &str) {
     let (status, body) = send(
         app,
         "PATCH",
-        &format!("/api/messages/{msg_id}"),
+        &format!("/api/v1/messages/{msg_id}"),
         Some(token),
         Some(json!({ "content": content })),
     )
@@ -45,7 +45,7 @@ async fn every_edit_leaves_the_text_it_replaced(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/messages/{msg_id}/history"),
+        &format!("/api/v1/messages/{msg_id}/history"),
         Some(&token),
         None,
     )
@@ -95,7 +95,7 @@ async fn history_is_for_the_author_and_workspace_admins_only(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/messages/{msg_id}/history"),
+        &format!("/api/v1/messages/{msg_id}/history"),
         Some(&author),
         None,
     )
@@ -105,7 +105,7 @@ async fn history_is_for_the_author_and_workspace_admins_only(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/messages/{msg_id}/history"),
+        &format!("/api/v1/messages/{msg_id}/history"),
         Some(&owner),
         None,
     )
@@ -115,7 +115,7 @@ async fn history_is_for_the_author_and_workspace_admins_only(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/messages/{msg_id}/history"),
+        &format!("/api/v1/messages/{msg_id}/history"),
         Some(&bystander),
         None,
     )
@@ -129,7 +129,7 @@ async fn history_is_for_the_author_and_workspace_admins_only(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/messages/{msg_id}/history"),
+        &format!("/api/v1/messages/{msg_id}/history"),
         None,
         None,
     )
@@ -154,7 +154,7 @@ async fn an_admin_reading_somebody_elses_history_is_audited(pool: PgPool) {
     send(
         &app,
         "GET",
-        &format!("/api/messages/{msg_id}/history"),
+        &format!("/api/v1/messages/{msg_id}/history"),
         Some(&author),
         None,
     )
@@ -169,7 +169,7 @@ async fn an_admin_reading_somebody_elses_history_is_audited(pool: PgPool) {
     send(
         &app,
         "GET",
-        &format!("/api/messages/{msg_id}/history"),
+        &format!("/api/v1/messages/{msg_id}/history"),
         Some(&owner),
         None,
     )
@@ -229,7 +229,7 @@ async fn conversation_messages_keep_history_too(pool: PgPool) {
     let (_, conv) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/conversations"),
+        &format!("/api/v1/workspaces/{ws}/conversations"),
         Some(&alice),
         Some(json!({ "participant_ids": [bob_id] })),
     )
@@ -239,7 +239,7 @@ async fn conversation_messages_keep_history_too(pool: PgPool) {
     let (_, msg) = send(
         &app,
         "POST",
-        &format!("/api/channels/{conv_id}/messages"),
+        &format!("/api/v1/channels/{conv_id}/messages"),
         Some(&alice),
         Some(json!({ "content": "original" })),
     )
@@ -249,7 +249,7 @@ async fn conversation_messages_keep_history_too(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/messages/{msg_id}"),
+        &format!("/api/v1/messages/{msg_id}"),
         Some(&alice),
         Some(json!({ "content": "revised" })),
     )
@@ -259,7 +259,7 @@ async fn conversation_messages_keep_history_too(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/messages/{msg_id}/history"),
+        &format!("/api/v1/messages/{msg_id}/history"),
         Some(&alice),
         None,
     )
@@ -270,7 +270,7 @@ async fn conversation_messages_keep_history_too(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/messages/{msg_id}/history"),
+        &format!("/api/v1/messages/{msg_id}/history"),
         Some(&bob),
         None,
     )

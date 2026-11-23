@@ -220,7 +220,7 @@ async fn set_up(s: &Setup, provider: &str) {
     let (status, body) = send(
         &s.app,
         "PUT",
-        &format!("/api/workspaces/{}/apps/{provider}", s.ws_id),
+        &format!("/api/v1/workspaces/{}/apps/{provider}", s.ws_id),
         Some(&s.owner_token),
         Some(json!({ "client_id": "cal-client", "client_secret": "shh", "enabled": true })),
     )
@@ -232,7 +232,7 @@ async fn connect(s: &Setup, token: &str, provider: &str) -> (reqwest::Url, Value
     let (status, body) = send(
         &s.app,
         "POST",
-        &format!("/api/workspaces/{}/apps/{provider}/connect", s.ws_id),
+        &format!("/api/v1/workspaces/{}/apps/{provider}/connect", s.ws_id),
         Some(token),
         Some(json!({})),
     )
@@ -247,7 +247,7 @@ async fn connect(s: &Setup, token: &str, provider: &str) -> (reqwest::Url, Value
     let (status, body) = send(
         &s.app,
         "POST",
-        "/api/apps/connections",
+        "/api/v1/apps/connections",
         Some(token),
         Some(json!({ "code": "good-code", "state": oauth_state })),
     )
@@ -260,7 +260,7 @@ async fn calendars(s: &Setup, token: &str) -> Value {
     let (status, body) = send(
         &s.app,
         "GET",
-        &format!("/api/workspaces/{}/calendars", s.ws_id),
+        &format!("/api/v1/workspaces/{}/calendars", s.ws_id),
         Some(token),
         None,
     )
@@ -353,7 +353,7 @@ async fn google_calendar_reuses_drive_and_disconnecting_forgets_everything(pool:
     let (status, _) = send(
         &s.app,
         "PUT",
-        &format!("/api/workspaces/{}/apps/outlook_calendar", s.ws_id),
+        &format!("/api/v1/workspaces/{}/apps/outlook_calendar", s.ws_id),
         Some(&s.owner_token),
         Some(reuse.clone()),
     )
@@ -366,7 +366,7 @@ async fn google_calendar_reuses_drive_and_disconnecting_forgets_everything(pool:
     let (status, body) = send(
         &s.app,
         "PUT",
-        &format!("/api/workspaces/{}/apps/google_calendar", s.ws_id),
+        &format!("/api/v1/workspaces/{}/apps/google_calendar", s.ws_id),
         Some(&s.owner_token),
         Some(reuse),
     )
@@ -405,7 +405,7 @@ async fn google_calendar_reuses_drive_and_disconnecting_forgets_everything(pool:
         &s.app,
         "DELETE",
         &format!(
-            "/api/workspaces/{}/apps/google_calendar/connection",
+            "/api/v1/workspaces/{}/apps/google_calendar/connection",
             s.ws_id
         ),
         Some(&s.owner_token),
@@ -516,7 +516,7 @@ async fn the_status_is_never_written_over_the_persons_own_or_after_they_clear_it
     let (status, _) = send(
         &s.app,
         "DELETE",
-        &format!("/api/workspaces/{}/profile/status", s.ws_id),
+        &format!("/api/v1/workspaces/{}/profile/status", s.ws_id),
         Some(&s.owner_token),
         None,
     )
@@ -538,7 +538,7 @@ async fn the_status_is_never_written_over_the_persons_own_or_after_they_clear_it
     let (status, _) = send(
         &s.app,
         "PUT",
-        &format!("/api/workspaces/{}/profile/status", s.ws_id),
+        &format!("/api/v1/workspaces/{}/profile/status", s.ws_id),
         Some(&s.owner_token),
         Some(json!({ "emoji": "🍔", "text": "Lunch" })),
     )
@@ -560,7 +560,7 @@ async fn a_reminder_comes_a_minute_before_with_join_and_a_private_one_says_busy(
     let (status, _) = send(
         &s.app,
         "PATCH",
-        &format!("/api/workspaces/{}/calendars/google_calendar", s.ws_id),
+        &format!("/api/v1/workspaces/{}/calendars/google_calendar", s.ws_id),
         Some(&s.owner_token),
         Some(json!({ "agenda": false })),
     )
@@ -659,7 +659,7 @@ async fn the_agenda_comes_at_the_chosen_time_once_a_day(pool: PgPool) {
     let (status, body) = send(
         &s.app,
         "PATCH",
-        &format!("/api/workspaces/{}/calendars/google_calendar", s.ws_id),
+        &format!("/api/v1/workspaces/{}/calendars/google_calendar", s.ws_id),
         Some(&s.owner_token),
         Some(json!({ "agenda_at": "8:00" })),
     )
@@ -668,7 +668,7 @@ async fn the_agenda_comes_at_the_chosen_time_once_a_day(pool: PgPool) {
     let (status, body) = send(
         &s.app,
         "PATCH",
-        &format!("/api/workspaces/{}/calendars/google_calendar", s.ws_id),
+        &format!("/api/v1/workspaces/{}/calendars/google_calendar", s.ws_id),
         Some(&s.owner_token),
         Some(json!({ "agenda_at": "08:00" })),
     )
@@ -695,7 +695,7 @@ async fn the_agenda_comes_at_the_chosen_time_once_a_day(pool: PgPool) {
     let (status, _) = send(
         &s.app,
         "PATCH",
-        &format!("/api/workspaces/{}/calendars/google_calendar", s.ws_id),
+        &format!("/api/v1/workspaces/{}/calendars/google_calendar", s.ws_id),
         Some(&s.owner_token),
         Some(json!({ "agenda": false })),
     )
@@ -773,7 +773,7 @@ async fn an_outlook_out_of_office_day_shows_the_person_away_until_it_is_removed(
         .await
         .expect("away")
     };
-    let settings = format!("/api/workspaces/{}/calendars/outlook_calendar", s.ws_id);
+    let settings = format!("/api/v1/workspaces/{}/calendars/outlook_calendar", s.ws_id);
     let switch = |on: bool| {
         send(
             &s.app,
@@ -834,7 +834,7 @@ async fn erasing_a_person_removes_their_calendar(pool: PgPool) {
     let (status, _) = send(
         &s.app,
         "GET",
-        &format!("/api/workspaces/{}/calendars", s.ws_id),
+        &format!("/api/v1/workspaces/{}/calendars", s.ws_id),
         Some(&outsider_token),
         None,
     )
@@ -845,7 +845,7 @@ async fn erasing_a_person_removes_their_calendar(pool: PgPool) {
     let (status, body) = send(
         &s.app,
         "DELETE",
-        &format!("/api/admin/users/{member}/data"),
+        &format!("/api/v1/admin/users/{member}/data"),
         Some(&instance_admin),
         Some(json!({})),
     )

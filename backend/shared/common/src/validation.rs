@@ -612,8 +612,10 @@ mod tests {
     #[test]
     fn validate_avatar_url_accepts_http_and_site_relative() {
         assert!(validate_avatar_url("https://cdn.example.com/a.png").is_ok());
-        assert!(validate_avatar_url("http://localhost:8080/api/files/download/ws/a.png").is_ok());
-        assert!(validate_avatar_url("/api/files/download/ws/id/a.png").is_ok());
+        assert!(
+            validate_avatar_url("http://localhost:8080/api/v1/files/download/ws/a.png").is_ok()
+        );
+        assert!(validate_avatar_url("/api/v1/files/download/ws/id/a.png").is_ok());
     }
 
     #[test]

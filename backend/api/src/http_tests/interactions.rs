@@ -95,7 +95,7 @@ pub(super) async fn setup(pool: PgPool) -> Setup {
     let (status, made) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/bot-apps"),
+        &format!("/api/v1/workspaces/{ws_id}/bot-apps"),
         Some(&owner_token),
         Some(json!({ "name": "Deployer", "scopes": ["chat:write", "commands"] })),
     )
@@ -167,7 +167,7 @@ impl Setup {
         let (status, body) = send(
             &self.app,
             "POST",
-            &format!("/api/channels/{}/members", self.ch_id),
+            &format!("/api/v1/channels/{}/members", self.ch_id),
             Some(&self.owner_token),
             Some(json!({ "user_id": user_id })),
         )
@@ -179,7 +179,7 @@ impl Setup {
         let (status, body) = send(
             &self.app,
             "PATCH",
-            &format!("/api/bot-apps/{}", self.app_id),
+            &format!("/api/v1/bot-apps/{}", self.app_id),
             Some(&self.owner_token),
             Some(settings),
         )
@@ -196,7 +196,7 @@ impl Setup {
         let (status, body) = send(
             &self.app,
             "POST",
-            &format!("/api/channels/{}/messages", self.ch_id),
+            &format!("/api/v1/channels/{}/messages", self.ch_id),
             Some(&self.bot_token),
             Some(json!({ "blocks": deploy_blocks() })),
         )
@@ -214,7 +214,7 @@ impl Setup {
         send(
             &self.app,
             "POST",
-            &format!("/api/messages/{msg_id}/actions"),
+            &format!("/api/v1/messages/{msg_id}/actions"),
             Some(&self.member_token),
             Some(json!({ "block_id": "deploy", "action_id": action_id, "value": value })),
         )
@@ -260,7 +260,7 @@ impl Setup {
         let trigger_id = fake.last()["trigger_id"].clone();
         let (status, view) = self
             .as_bot(
-                "/api/views/open",
+                "/api/v1/views/open",
                 json!({ "trigger_id": trigger_id, "view": request_view(title) }),
             )
             .await;
@@ -282,7 +282,7 @@ impl Setup {
 
     async fn submit(&self, view_id: &Value, values: Value) -> (StatusCode, Value) {
         self.as_member(
-            &format!("/api/views/{}/submit", view_id.as_str().expect("id")),
+            &format!("/api/v1/views/{}/submit", view_id.as_str().expect("id")),
             json!({ "values": values }),
         )
         .await
@@ -292,7 +292,7 @@ impl Setup {
         let (status, body) = send(
             &self.app,
             "GET",
-            &format!("/api/bot-apps/{}/signing-secret", self.app_id),
+            &format!("/api/v1/bot-apps/{}/signing-secret", self.app_id),
             Some(&self.owner_token),
             None,
         )
@@ -459,7 +459,7 @@ async fn elements_reach_nobody_while_interactivity_is_off(pool: PgPool) {
             let (status, body) = send(
                 &app,
                 "GET",
-                &format!("/api/workspaces/{ws_id}/active-apps"),
+                &format!("/api/v1/workspaces/{ws_id}/active-apps"),
                 Some(&token),
                 None,
             )
@@ -486,7 +486,7 @@ async fn elements_reach_nobody_while_interactivity_is_off(pool: PgPool) {
     let (status, person) = send(
         &s.app,
         "POST",
-        &format!("/api/channels/{}/messages", s.ch_id),
+        &format!("/api/v1/channels/{}/messages", s.ch_id),
         Some(&s.member_token),
         Some(json!({ "content": "not from an app" })),
     )
@@ -528,7 +528,7 @@ async fn a_trigger_opens_one_view_and_then_expires(pool: PgPool) {
     let (status, body) = send(
         &s.app,
         "POST",
-        "/api/views/open",
+        "/api/v1/views/open",
         Some(&s.member_token),
         Some(json!({ "trigger_id": trigger_id, "view": request_view("Request") })),
     )
@@ -537,7 +537,7 @@ async fn a_trigger_opens_one_view_and_then_expires(pool: PgPool) {
 
     let (status, body) = s
         .as_bot(
-            "/api/views/open",
+            "/api/v1/views/open",
             json!({ "trigger_id": trigger_id, "view": { "type": "modal", "blocks": [] } }),
         )
         .await;
@@ -549,7 +549,7 @@ async fn a_trigger_opens_one_view_and_then_expires(pool: PgPool) {
 
     let (status, view) = s
         .as_bot(
-            "/api/views/open",
+            "/api/v1/views/open",
             json!({ "trigger_id": trigger_id, "view": request_view("Request") }),
         )
         .await;
@@ -560,7 +560,7 @@ async fn a_trigger_opens_one_view_and_then_expires(pool: PgPool) {
 
     let (status, body) = s
         .as_bot(
-            "/api/views/open",
+            "/api/v1/views/open",
             json!({ "trigger_id": trigger_id, "view": request_view("Again") }),
         )
         .await;
@@ -574,7 +574,7 @@ async fn a_trigger_opens_one_view_and_then_expires(pool: PgPool) {
         .expect("expire");
     let (status, body) = s
         .as_bot(
-            "/api/views/open",
+            "/api/v1/views/open",
             json!({ "trigger_id": stale, "view": request_view("Late") }),
         )
         .await;
@@ -594,7 +594,7 @@ async fn a_command_opens_a_modal_that_shows_the_apps_errors_then_closes(pool: Pg
     let (status, body) = send(
         &s.app,
         "POST",
-        &format!("/api/workspaces/{}/hooks", s.ws_id),
+        &format!("/api/v1/workspaces/{}/hooks", s.ws_id),
         Some(&s.owner_token),
         Some(json!({
             "hook_type": "slash_command",
@@ -612,7 +612,7 @@ async fn a_command_opens_a_modal_that_shows_the_apps_errors_then_closes(pool: Pg
 
     let (status, body) = s
         .as_member(
-            &format!("/api/channels/{}/commands", s.ch_id),
+            &format!("/api/v1/channels/{}/commands", s.ch_id),
             json!({ "command": "request" }),
         )
         .await;
@@ -621,7 +621,7 @@ async fn a_command_opens_a_modal_that_shows_the_apps_errors_then_closes(pool: Pg
     assert_eq!(command["command"], "request");
     let (status, view) = s
         .as_bot(
-            "/api/views/open",
+            "/api/v1/views/open",
             json!({ "trigger_id": command["trigger_id"], "view": request_view("Request") }),
         )
         .await;
@@ -726,7 +726,7 @@ async fn an_answer_can_update_push_and_clear_the_stack(pool: PgPool) {
 
     let (status, body) = s
         .as_member(
-            &format!("/api/views/{}/close", top.as_str().expect("id")),
+            &format!("/api/v1/views/{}/close", top.as_str().expect("id")),
             json!({ "all": false }),
         )
         .await;
@@ -749,7 +749,7 @@ async fn a_push_needs_a_trigger_from_the_view_and_an_update_its_hash(pool: PgPoo
     let from_message = fake.last()["trigger_id"].clone();
     let (status, body) = s
         .as_bot(
-            "/api/views/push",
+            "/api/v1/views/push",
             json!({ "trigger_id": from_message, "view": request_view("Pushed") }),
         )
         .await;
@@ -758,7 +758,7 @@ async fn a_push_needs_a_trigger_from_the_view_and_an_update_its_hash(pool: PgPoo
     let root = s.open_view(&fake, "Request").await;
     let (status, body) = s
         .as_member(
-            &format!("/api/views/{}/actions", root["id"].as_str().expect("id")),
+            &format!("/api/v1/views/{}/actions", root["id"].as_str().expect("id")),
             json!({
                 "block_id": "more",
                 "action_id": "details",
@@ -775,7 +775,7 @@ async fn a_push_needs_a_trigger_from_the_view_and_an_update_its_hash(pool: PgPoo
     );
     let (status, pushed) = s
         .as_bot(
-            "/api/views/push",
+            "/api/v1/views/push",
             json!({ "trigger_id": pressed["trigger_id"], "view": request_view("Details") }),
         )
         .await;
@@ -785,14 +785,14 @@ async fn a_push_needs_a_trigger_from_the_view_and_an_update_its_hash(pool: PgPoo
 
     let (status, body) = s
         .as_bot(
-            "/api/views/update",
+            "/api/v1/views/update",
             json!({ "view_id": root["id"], "hash": "stale", "view": request_view("Changed") }),
         )
         .await;
     assert_eq!(status, StatusCode::CONFLICT, "{body:?}");
     let (status, updated) = s
         .as_bot(
-            "/api/views/update",
+            "/api/v1/views/update",
             json!({ "view_id": root["id"], "hash": root["hash"], "view": request_view("Changed") }),
         )
         .await;
@@ -800,7 +800,7 @@ async fn a_push_needs_a_trigger_from_the_view_and_an_update_its_hash(pool: PgPoo
     assert_eq!(updated["title"]["text"], "Changed");
     let (status, updated) = s
         .as_bot(
-            "/api/views/update",
+            "/api/v1/views/update",
             json!({ "external_id": "request-1", "view": request_view("By external id") }),
         )
         .await;
@@ -880,7 +880,7 @@ async fn a_socket_mode_app_answers_in_its_acknowledgement(pool: PgPool) {
     .expect("trigger");
     let (status, view) = s
         .as_bot(
-            "/api/views/open",
+            "/api/v1/views/open",
             json!({ "trigger_id": trigger_id, "view": request_view("Request") }),
         )
         .await;

@@ -11,7 +11,7 @@ async fn conversation(app: &axum::Router, token: &str, ws_id: Uuid, with: &[Uuid
     let (status, body) = send(
         app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(token),
         Some(json!({ "participant_ids": with })),
     )
@@ -30,7 +30,7 @@ async fn command(
     send(
         app,
         "POST",
-        &format!("/api/channels/{ch}/commands"),
+        &format!("/api/v1/channels/{ch}/commands"),
         Some(token),
         Some(json!({ "command": command, "text": text })),
     )
@@ -46,7 +46,7 @@ async fn patch(
     send(
         app,
         "PATCH",
-        &format!("/api/channels/{ch}"),
+        &format!("/api/v1/channels/{ch}"),
         Some(token),
         Some(body),
     )
@@ -57,7 +57,7 @@ async fn join(app: &axum::Router, token: &str, ch: Uuid) {
     let (status, body) = send(
         app,
         "POST",
-        &format!("/api/channels/{ch}/join"),
+        &format!("/api/v1/channels/{ch}/join"),
         Some(token),
         None,
     )
@@ -150,34 +150,34 @@ async fn a_conversation_keeps_the_people_and_settings_it_started_with(pool: PgPo
         let attempts = [
             (
                 "POST",
-                format!("/api/channels/{ch}/members"),
+                format!("/api/v1/channels/{ch}/members"),
                 Some(json!({ "user_id": erin_id })),
             ),
             (
                 "PATCH",
-                format!("/api/channels/{ch}/members/{carol_id}/role"),
+                format!("/api/v1/channels/{ch}/members/{carol_id}/role"),
                 Some(json!({ "role": "admin" })),
             ),
             (
                 "DELETE",
-                format!("/api/channels/{ch}/members/{carol_id}"),
+                format!("/api/v1/channels/{ch}/members/{carol_id}"),
                 None,
             ),
             (
                 "DELETE",
-                format!("/api/channels/{ch}/members/{bob_id}"),
+                format!("/api/v1/channels/{ch}/members/{bob_id}"),
                 None,
             ),
-            ("DELETE", format!("/api/channels/{ch}"), None),
-            ("POST", format!("/api/channels/{ch}/unarchive"), None),
+            ("DELETE", format!("/api/v1/channels/{ch}"), None),
+            ("POST", format!("/api/v1/channels/{ch}/unarchive"), None),
             (
                 "PATCH",
-                format!("/api/channels/{ch}"),
+                format!("/api/v1/channels/{ch}"),
                 Some(json!({ "topic": "ours now" })),
             ),
             (
                 "PATCH",
-                format!("/api/channels/{ch}"),
+                format!("/api/v1/channels/{ch}"),
                 Some(json!({ "name": "renamed" })),
             ),
         ];
@@ -188,8 +188,8 @@ async fn a_conversation_keeps_the_people_and_settings_it_started_with(pool: PgPo
             }
         }
         for (method, path) in [
-            ("DELETE", format!("/api/channels/{ch}")),
-            ("POST", format!("/api/channels/{ch}/unarchive")),
+            ("DELETE", format!("/api/v1/channels/{ch}")),
+            ("POST", format!("/api/v1/channels/{ch}/unarchive")),
         ] {
             let (_, answer) = send(&app, method, &path, Some(&bob), None).await;
             assert_eq!(
@@ -323,7 +323,7 @@ async fn the_topic_command_follows_the_same_rule(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/channels/{ch}"),
+        &format!("/api/v1/channels/{ch}"),
         Some(&owner),
         None,
     )
@@ -401,7 +401,7 @@ async fn invite_is_the_add_member_route_with_its_checks_and_its_audit(pool: PgPo
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/channels/{ch}"),
+        &format!("/api/v1/channels/{ch}"),
         Some(&owner),
         None,
     )
@@ -430,7 +430,7 @@ async fn a_command_answer_into_a_dm_with_someone_who_left_stays_private(pool: Pg
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{ws_id}/members/{bob_id}"),
+        &format!("/api/v1/workspaces/{ws_id}/members/{bob_id}"),
         Some(&owner),
         None,
     )
@@ -535,7 +535,7 @@ async fn the_channel_hears_what_changed_and_every_open_client_gets_the_channel(p
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/channels/{ch}"),
+        &format!("/api/v1/channels/{ch}"),
         Some(&owner),
         None,
     )
@@ -579,7 +579,7 @@ async fn adding_people_to_a_conversation_starts_a_group_or_finds_the_one_they_ha
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{ws_id}/members/{dave_id}"),
+        &format!("/api/v1/workspaces/{ws_id}/members/{dave_id}"),
         Some(&dave),
         None,
     )

@@ -11,7 +11,7 @@ async fn invite(app: &axum::Router, token: &str, ws: Uuid, body: Value) -> (Stat
     send(
         app,
         "POST",
-        &format!("/api/workspaces/{ws}/invites"),
+        &format!("/api/v1/workspaces/{ws}/invites"),
         Some(token),
         Some(body),
     )
@@ -24,7 +24,7 @@ async fn register(app: &axum::Router, created: &Value, name: &str) -> (Uuid, Str
     let (status, body) = send(
         app,
         "POST",
-        "/api/auth/complete-registration",
+        "/api/v1/auth/complete-registration",
         None,
         Some(json!({ "token": link, "password": "longenough123", "display_name": name })),
     )
@@ -44,7 +44,7 @@ async fn channel_names(app: &axum::Router, token: &str, ws: Uuid) -> Vec<String>
     let (status, body) = send(
         app,
         "GET",
-        &format!("/api/workspaces/{ws}/channels"),
+        &format!("/api/v1/workspaces/{ws}/channels"),
         Some(token),
         None,
     )
@@ -65,7 +65,7 @@ async fn add(app: &axum::Router, token: &str, ch: Uuid, user: Uuid) -> (StatusCo
     send(
         app,
         "POST",
-        &format!("/api/channels/{ch}/members"),
+        &format!("/api/v1/channels/{ch}/members"),
         Some(token),
         Some(json!({ "user_id": user })),
     )
@@ -82,7 +82,7 @@ async fn seat(
     send(
         app,
         "PATCH",
-        &format!("/api/workspaces/{ws}/members/{user}/guest"),
+        &format!("/api/v1/workspaces/{ws}/members/{user}/guest"),
         Some(token),
         Some(body),
     )
@@ -93,7 +93,7 @@ async fn convert(app: &axum::Router, token: &str, group: Uuid) -> (StatusCode, V
     send(
         app,
         "POST",
-        &format!("/api/conversations/{group}/convert"),
+        &format!("/api/v1/conversations/{group}/convert"),
         Some(token),
         Some(json!({ "name": "studio-crew" })),
     )
@@ -104,7 +104,7 @@ async fn member_row(app: &axum::Router, token: &str, ws: Uuid, user: Uuid) -> Op
     let (status, body) = send(
         app,
         "GET",
-        &format!("/api/workspaces/{ws}/members"),
+        &format!("/api/v1/workspaces/{ws}/members"),
         Some(token),
         None,
     )
@@ -309,7 +309,7 @@ async fn a_single_channel_guest_lands_in_that_channel_and_cannot_be_added_elsewh
     let (status, body) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{ws}/members/{vera_id}/role"),
+        &format!("/api/v1/workspaces/{ws}/members/{vera_id}/role"),
         Some(&owner),
         Some(json!({ "role": "member" })),
     )
@@ -363,7 +363,7 @@ async fn a_guest_invite_says_where_the_guest_goes_and_goes_to_one_address(pool: 
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/channels/{archived}"),
+        &format!("/api/v1/channels/{archived}"),
         Some(&owner),
         None,
     )
@@ -483,7 +483,7 @@ async fn a_group_dm_does_not_become_a_channel_while_a_single_channel_guest_in_it
     let (status, group) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/conversations"),
+        &format!("/api/v1/workspaces/{ws}/conversations"),
         Some(&owner),
         Some(json!({ "participant_ids": [ana_id, sid_id] })),
     )
@@ -572,7 +572,7 @@ async fn a_guest_whose_end_date_passes_leaves_the_workspace_on_the_next_run(pool
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws}/channels"),
+        &format!("/api/v1/workspaces/{ws}/channels"),
         Some(&gus),
         None,
     )
@@ -581,7 +581,7 @@ async fn a_guest_whose_end_date_passes_leaves_the_workspace_on_the_next_run(pool
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/channels/{vendor}/messages"),
+        &format!("/api/v1/channels/{vendor}/messages"),
         Some(&gus),
         None,
     )
@@ -591,7 +591,7 @@ async fn a_guest_whose_end_date_passes_leaves_the_workspace_on_the_next_run(pool
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{home}/channels"),
+        &format!("/api/v1/workspaces/{home}/channels"),
         Some(&gus),
         None,
     )
@@ -661,7 +661,7 @@ async fn the_admins_and_the_inviter_hear_three_days_ahead_once(pool: PgPool) {
     let (status, body) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{ws}/members/{ivy_id}/role"),
+        &format!("/api/v1/workspaces/{ws}/members/{ivy_id}/role"),
         Some(&owner),
         Some(json!({ "role": "member" })),
     )
@@ -797,7 +797,7 @@ async fn a_channel_opens_only_for_those_who_can_read_it(pool: PgPool) {
             send(
                 &app,
                 "GET",
-                &format!("/api/channels/{ch}"),
+                &format!("/api/v1/channels/{ch}"),
                 Some(&token),
                 None,
             )

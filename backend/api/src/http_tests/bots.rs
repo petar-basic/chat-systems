@@ -34,7 +34,7 @@ async fn make_app(
     let (status, body) = send(
         app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/bot-apps"),
+        &format!("/api/v1/workspaces/{ws_id}/bot-apps"),
         Some(admin_token),
         Some(json!({ "name": name, "description": "Says it back", "scopes": scopes })),
     )
@@ -55,7 +55,7 @@ async fn add_to_channel(app: &axum::Router, token: &str, ch_id: Uuid, user_id: U
     let (status, body) = send(
         app,
         "POST",
-        &format!("/api/channels/{ch_id}/members"),
+        &format!("/api/v1/channels/{ch_id}/members"),
         Some(token),
         Some(json!({ "user_id": user_id })),
     )
@@ -67,7 +67,7 @@ async fn post(app: &axum::Router, token: &str, ch_id: Uuid, body: Value) -> (Sta
     send(
         app,
         "POST",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(token),
         Some(body),
     )
@@ -78,7 +78,7 @@ async fn history(app: &axum::Router, token: &str, ch_id: Uuid) -> (StatusCode, V
     send(
         app,
         "GET",
-        &format!("/api/channels/{ch_id}/messages"),
+        &format!("/api/v1/channels/{ch_id}/messages"),
         Some(token),
         None,
     )
@@ -92,7 +92,7 @@ async fn upload(app: &axum::Router, token: &str, ws_id: Uuid) -> StatusCode {
     );
     let request = axum::http::Request::builder()
         .method("POST")
-        .uri(format!("/api/files/upload/{ws_id}?draft=true"))
+        .uri(format!("/api/v1/files/upload/{ws_id}?draft=true"))
         .header(axum::http::header::AUTHORIZATION, format!("Bearer {token}"))
         .header(
             axum::http::header::CONTENT_TYPE,
@@ -129,7 +129,7 @@ async fn an_admin_makes_an_app_whose_token_is_shown_once_and_stored_hashed(pool:
     let (status, shown) = send(
         &app,
         "GET",
-        &format!("/api/bot-apps/{}", bot.app_id),
+        &format!("/api/v1/bot-apps/{}", bot.app_id),
         Some(&token),
         None,
     )
@@ -141,7 +141,7 @@ async fn an_admin_makes_an_app_whose_token_is_shown_once_and_stored_hashed(pool:
     let (status, members) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/members"),
+        &format!("/api/v1/workspaces/{ws_id}/members"),
         Some(&token),
         None,
     )
@@ -166,7 +166,7 @@ async fn an_admin_makes_an_app_whose_token_is_shown_once_and_stored_hashed(pool:
     let (status, _) = send(
         &app,
         "POST",
-        "/api/auth/login",
+        "/api/v1/auth/login",
         None,
         Some(json!({ "email": email, "password": PASSWORD })),
     )
@@ -178,7 +178,7 @@ async fn an_admin_makes_an_app_whose_token_is_shown_once_and_stored_hashed(pool:
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/bot-apps"),
+        &format!("/api/v1/workspaces/{ws_id}/bot-apps"),
         Some(&member_token),
         Some(json!({ "name": "Mine", "scopes": [] })),
     )
@@ -193,26 +193,33 @@ async fn a_bot_token_works_only_on_the_routes_that_take_one(pool: PgPool) {
     let ws_id = seed_workspace(&state, owner, "Bot routes").await;
     let bot = make_app(&app, &token, ws_id, "Echo", &EVERY_SCOPE).await;
 
-    let (status, me) = send(&app, "GET", "/api/bot-apps/me", Some(&bot.token), None).await;
+    let (status, me) = send(&app, "GET", "/api/v1/bot-apps/me", Some(&bot.token), None).await;
     assert_eq!(status, StatusCode::OK, "{me:?}");
     assert_eq!(me["id"], bot.app_id.to_string());
     assert_eq!(me["bot_user_id"], bot.user_id.to_string());
 
-    let (status, body) = send(&app, "GET", "/api/users/me", Some(&bot.token), None).await;
+    let (status, body) = send(&app, "GET", "/api/v1/users/me", Some(&bot.token), None).await;
     assert_eq!(status, StatusCode::FORBIDDEN, "{body:?}");
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/bot-apps"),
+        &format!("/api/v1/workspaces/{ws_id}/bot-apps"),
         Some(&bot.token),
         Some(json!({ "name": "Child", "scopes": [] })),
     )
     .await;
     assert_eq!(status, StatusCode::FORBIDDEN, "a bot makes no apps");
 
-    let (status, _) = send(&app, "GET", "/api/bot-apps/me", Some("cbot-forged"), None).await;
+    let (status, _) = send(
+        &app,
+        "GET",
+        "/api/v1/bot-apps/me",
+        Some("cbot-forged"),
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
-    let (status, _) = send(&app, "GET", "/api/bot-apps/me", Some(&token), None).await;
+    let (status, _) = send(&app, "GET", "/api/v1/bot-apps/me", Some(&token), None).await;
     assert_eq!(status, StatusCode::FORBIDDEN, "a person has no app");
 }
 
@@ -233,7 +240,7 @@ async fn each_scope_opens_its_routes_and_nothing_else(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/messages/{msg_id}/reactions"),
+        &format!("/api/v1/messages/{msg_id}/reactions"),
         Some(&bot.token),
         Some(json!({ "emoji": "👍" })),
     )
@@ -246,7 +253,7 @@ async fn each_scope_opens_its_routes_and_nothing_else(pool: PgPool) {
     let (status, body) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/members"),
+        &format!("/api/v1/workspaces/{ws_id}/members"),
         Some(&bot.token),
         None,
     )
@@ -256,7 +263,7 @@ async fn each_scope_opens_its_routes_and_nothing_else(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/channels"),
+        &format!("/api/v1/workspaces/{ws_id}/channels"),
         Some(&bot.token),
         None,
     )
@@ -267,7 +274,7 @@ async fn each_scope_opens_its_routes_and_nothing_else(pool: PgPool) {
     let (status, body) = send(
         &app,
         "PATCH",
-        &format!("/api/bot-apps/{}", bot.app_id),
+        &format!("/api/v1/bot-apps/{}", bot.app_id),
         Some(&token),
         Some(json!({ "scopes": EVERY_SCOPE })),
     )
@@ -277,7 +284,7 @@ async fn each_scope_opens_its_routes_and_nothing_else(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/messages/{msg_id}/reactions"),
+        &format!("/api/v1/messages/{msg_id}/reactions"),
         Some(&bot.token),
         Some(json!({ "emoji": "👍" })),
     )
@@ -295,7 +302,7 @@ async fn each_scope_opens_its_routes_and_nothing_else(pool: PgPool) {
     let (status, thread) = send(
         &app,
         "GET",
-        &format!("/api/messages/{msg_id}/thread"),
+        &format!("/api/v1/messages/{msg_id}/thread"),
         Some(&bot.token),
         None,
     )
@@ -311,7 +318,7 @@ async fn each_scope_opens_its_routes_and_nothing_else(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/members"),
+        &format!("/api/v1/workspaces/{ws_id}/members"),
         Some(&bot.token),
         None,
     )
@@ -320,7 +327,7 @@ async fn each_scope_opens_its_routes_and_nothing_else(pool: PgPool) {
     let (status, channels) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/channels"),
+        &format!("/api/v1/workspaces/{ws_id}/channels"),
         Some(&bot.token),
         None,
     )
@@ -331,7 +338,7 @@ async fn each_scope_opens_its_routes_and_nothing_else(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/messages/{msg_id}"),
+        &format!("/api/v1/messages/{msg_id}"),
         Some(&bot.token),
         Some(json!({ "content": "hello again" })),
     )
@@ -369,7 +376,7 @@ async fn a_bot_reads_and_writes_only_where_it_was_added(pool: PgPool) {
     send(
         &app,
         "PATCH",
-        &format!("/api/bot-apps/{}", bot.app_id),
+        &format!("/api/v1/bot-apps/{}", bot.app_id),
         Some(&token),
         Some(json!({ "scopes": ["chat:write", "chat:write.public", "channels:history", "groups:history"] })),
     )
@@ -421,7 +428,7 @@ async fn a_bot_talks_to_a_guest_in_a_dm(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&bot.token),
         Some(json!({ "participant_ids": [guest] })),
     )
@@ -432,7 +439,7 @@ async fn a_bot_talks_to_a_guest_in_a_dm(pool: PgPool) {
     send(
         &app,
         "PATCH",
-        &format!("/api/bot-apps/{}", bot.app_id),
+        &format!("/api/v1/bot-apps/{}", bot.app_id),
         Some(&token),
         Some(json!({ "scopes": ["chat:write", "groups:history", "im:write"] })),
     )
@@ -440,7 +447,7 @@ async fn a_bot_talks_to_a_guest_in_a_dm(pool: PgPool) {
     let (status, dm) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&bot.token),
         Some(json!({ "participant_ids": [guest] })),
     )
@@ -485,7 +492,7 @@ async fn removing_an_app_revokes_its_token_and_its_commands(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/hooks"),
+        &format!("/api/v1/workspaces/{ws_id}/hooks"),
         Some(&token),
         Some(command("deploy")),
     )
@@ -496,7 +503,7 @@ async fn removing_an_app_revokes_its_token_and_its_commands(pool: PgPool) {
     send(
         &app,
         "PATCH",
-        &format!("/api/bot-apps/{}", bot.app_id),
+        &format!("/api/v1/bot-apps/{}", bot.app_id),
         Some(&token),
         Some(json!({ "scopes": ["chat:write", "commands"] })),
     )
@@ -504,7 +511,7 @@ async fn removing_an_app_revokes_its_token_and_its_commands(pool: PgPool) {
     let (status, hook) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/hooks"),
+        &format!("/api/v1/workspaces/{ws_id}/hooks"),
         Some(&token),
         Some(command("deploy")),
     )
@@ -516,38 +523,38 @@ async fn removing_an_app_revokes_its_token_and_its_commands(pool: PgPool) {
     let (status, rotated) = send(
         &app,
         "POST",
-        &format!("/api/bot-apps/{}/rotate", bot.app_id),
+        &format!("/api/v1/bot-apps/{}/rotate", bot.app_id),
         Some(&token),
         None,
     )
     .await;
     assert_eq!(status, StatusCode::OK);
     let fresh = rotated["token"].as_str().expect("token").to_string();
-    let (status, _) = send(&app, "GET", "/api/bot-apps/me", Some(&bot.token), None).await;
+    let (status, _) = send(&app, "GET", "/api/v1/bot-apps/me", Some(&bot.token), None).await;
     assert_eq!(
         status,
         StatusCode::UNAUTHORIZED,
         "the old token stops at once"
     );
-    let (status, _) = send(&app, "GET", "/api/bot-apps/me", Some(&fresh), None).await;
+    let (status, _) = send(&app, "GET", "/api/v1/bot-apps/me", Some(&fresh), None).await;
     assert_eq!(status, StatusCode::OK);
 
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/bot-apps/{}", bot.app_id),
+        &format!("/api/v1/bot-apps/{}", bot.app_id),
         Some(&token),
         None,
     )
     .await;
     assert_eq!(status, StatusCode::OK);
 
-    let (status, _) = send(&app, "GET", "/api/bot-apps/me", Some(&fresh), None).await;
+    let (status, _) = send(&app, "GET", "/api/v1/bot-apps/me", Some(&fresh), None).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/hooks/{hook_id}"),
+        &format!("/api/v1/hooks/{hook_id}"),
         Some(&token),
         None,
     )
@@ -556,7 +563,7 @@ async fn removing_an_app_revokes_its_token_and_its_commands(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/commands"),
+        &format!("/api/v1/channels/{ch_id}/commands"),
         Some(&token),
         Some(json!({ "command": "deploy", "text": "" })),
     )
@@ -690,7 +697,7 @@ async fn a_bot_posts_blocks_and_edits_its_text_or_its_blocks(pool: PgPool) {
     let edit = |body: Value| {
         let app = app.clone();
         let token = bot.token.clone();
-        let path = format!("/api/messages/{msg_id}");
+        let path = format!("/api/v1/messages/{msg_id}");
         async move { send(&app, "PATCH", &path, Some(&token), Some(body)).await }
     };
 

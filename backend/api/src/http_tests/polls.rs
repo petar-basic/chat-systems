@@ -14,7 +14,7 @@ async fn create(
     send(
         app,
         "POST",
-        &format!("/api/channels/{channel}/polls"),
+        &format!("/api/v1/channels/{channel}/polls"),
         Some(token),
         Some(body),
     )
@@ -65,7 +65,7 @@ async fn vote(
     send(
         app,
         "PUT",
-        &format!("/api/polls/{poll_id}/vote"),
+        &format!("/api/v1/polls/{poll_id}/vote"),
         Some(token),
         Some(json!({ "option_ids": options })),
     )
@@ -147,7 +147,7 @@ async fn a_poll_is_a_message_carrying_its_counts(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/messages/{}", msg["id"].as_str().unwrap()),
+        &format!("/api/v1/messages/{}", msg["id"].as_str().unwrap()),
         Some(&owner),
         Some(json!({ "content": "Dinner?" })),
     )
@@ -199,7 +199,7 @@ async fn single_choice_keeps_one_answer_and_it_can_change_or_go(pool: PgPool) {
     let (_, mine) = send(
         &app,
         "GET",
-        &format!("/api/polls/{poll_id}/vote"),
+        &format!("/api/v1/polls/{poll_id}/vote"),
         Some(&owner),
         None,
     )
@@ -276,7 +276,7 @@ async fn multiple_choice_keeps_any_subset(pool: PgPool) {
     let (status, voters) = send(
         &app,
         "GET",
-        &format!("/api/polls/{poll_id}/votes"),
+        &format!("/api/v1/polls/{poll_id}/votes"),
         Some(&member),
         None,
     )
@@ -402,7 +402,7 @@ async fn who_may_create_vote_and_read_a_poll(pool: PgPool) {
             let (status, _) = send(
                 &app,
                 "GET",
-                &format!("/api/polls/{poll_id}/{path}"),
+                &format!("/api/v1/polls/{poll_id}/{path}"),
                 Some(token),
                 None,
             )
@@ -417,7 +417,7 @@ async fn who_may_create_vote_and_read_a_poll(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/messages/{}", open["id"].as_str().unwrap()),
+        &format!("/api/v1/messages/{}", open["id"].as_str().unwrap()),
         Some(&owner),
         None,
     )
@@ -444,7 +444,12 @@ async fn only_the_creator_or_a_moderator_closes_and_a_closed_poll_refuses_votes(
 
     let first = lunch(&app, &author, ch, json!({})).await;
     let second = lunch(&app, &author, ch, json!({})).await;
-    let close = |msg: &Value| format!("/api/polls/{}/close", poll_of(msg)["id"].as_str().unwrap());
+    let close = |msg: &Value| {
+        format!(
+            "/api/v1/polls/{}/close",
+            poll_of(msg)["id"].as_str().unwrap()
+        )
+    };
 
     let (status, _) = send(&app, "POST", &close(&first), Some(&member), None).await;
     assert_eq!(status, StatusCode::FORBIDDEN, "another member");
@@ -542,7 +547,7 @@ async fn nobody_learns_who_voted_on_an_anonymous_poll(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/polls/{secret_id}/votes"),
+        &format!("/api/v1/polls/{secret_id}/votes"),
         Some(&owner),
         None,
     )
@@ -555,7 +560,7 @@ async fn nobody_learns_who_voted_on_an_anonymous_poll(pool: PgPool) {
     let (_, mine) = send(
         &app,
         "GET",
-        &format!("/api/polls/{secret_id}/vote"),
+        &format!("/api/v1/polls/{secret_id}/vote"),
         Some(&member),
         None,
     )
@@ -574,7 +579,7 @@ async fn nobody_learns_who_voted_on_an_anonymous_poll(pool: PgPool) {
     send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/exports"),
+        &format!("/api/v1/workspaces/{ws}/exports"),
         Some(&owner),
         Some(json!({})),
     )
@@ -616,7 +621,7 @@ async fn polls_work_in_threads_and_direct_messages(pool: PgPool) {
     let (_, root) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch}/messages"),
+        &format!("/api/v1/channels/{ch}/messages"),
         Some(&owner),
         Some(json!({ "content": "Planning lunch" })),
     )
@@ -627,7 +632,7 @@ async fn polls_work_in_threads_and_direct_messages(pool: PgPool) {
     let (status, conv) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws}/conversations"),
+        &format!("/api/v1/workspaces/{ws}/conversations"),
         Some(&owner),
         Some(json!({ "participant_ids": [peer_id] })),
     )

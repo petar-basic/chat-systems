@@ -8,7 +8,7 @@ const file = (id: string, filename: string, mime_type: string) => ({
   filename,
   mime_type,
   size_bytes: 2048,
-  url: `https://chat.test/api/files/download/ws/${id}/${filename}`,
+  url: `https://chat.test/api/v1/files/download/ws/${id}/${filename}`,
   message_id: `m-${id}`,
   user_id: 'u-1',
   created_at: '2026-10-22T10:00:00Z',

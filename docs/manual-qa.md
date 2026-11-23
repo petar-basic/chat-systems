@@ -91,11 +91,11 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - **Expected:** new password works; **all existing sessions are revoked** (other tabs get logged out on next action).
 - 🔴 **Edge — single-use:** click the SAME reset link a second time → must fail ("already used or expired"). (Reset tokens are now one-time.)
 - 🔴 **Edge — enumeration:** request reset for an email that does NOT exist → the UI shows the same "email sent" success (no leak that the account doesn't exist); MailHog shows no mail.
-- 🔴 **Edge — token confusion:** copy the reset-link token and try to use it as a normal session (e.g. paste as `Authorization: Bearer <token>` to `/api/users/me`) → **401** (a reset token must not authenticate).
+- 🔴 **Edge — token confusion:** copy the reset-link token and try to use it as a normal session (e.g. paste as `Authorization: Bearer <token>` to `/api/v1/users/me`) → **401** (a reset token must not authenticate).
 - 🟡 **Short link:** the reset link is the server's address plus `/reset-password?token=` and 43 characters, and an invite link the address plus `/invite/` and 43 characters; neither shows an address.
 
 ### 1.4 🟢 Change password (logged in)
-- **Reach:** Settings panel → Change password (or `PATCH /api/users/me/password`).
+- **Reach:** Settings panel → Change password (or `PATCH /api/v1/users/me/password`).
 - **Steps:** enter current + new password → submit.
 - **Expected:** 200; logging in with the old password fails, new password works; other sessions revoked.
 - 🟠 **Edge:** wrong current password → 401/error, password unchanged.
@@ -108,14 +108,14 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - **Reach:** log in as the instance admin → admin area (InstanceAdminPage / `/admin`).
 - **Steps:** view users list + instance stats (user/workspace/message/file counts).
 - **Expected:** counts render; user list paginates.
-- 🔴 **Edge — non-admin:** log in as a normal user and navigate to the admin URL directly → blocked (403 / redirected). Hit `/api/admin/users` without admin → 403.
+- 🔴 **Edge — non-admin:** log in as a normal user and navigate to the admin URL directly → blocked (403 / redirected). Hit `/api/v1/admin/users` without admin → 403.
 
 ### 2.2 🟠 Suspend user → session revocation
-- **Reach:** admin area → user row → Suspend (or `POST /api/admin/users/<user_id>/suspend`).
+- **Reach:** admin area → user row → Suspend (or `POST /api/v1/admin/users/<user_id>/suspend`).
 - **Steps:** with the target user logged in and on a live socket, suspend them.
 - **Expected:** their existing **access token is rejected (401 "Session revoked")** on the next `/api/...` call — not just on next login — and their **live WebSocket drops** (driven by a `user.suspended` event); fresh login fails too ("Account is not active"). Their refresh tokens are deleted, so silent refresh can't resurrect the session.
 - 🔴 **Edge — what they set up stops too:** before suspending, have them schedule a message, own an on workflow and an incoming webhook. After the suspend the scheduled message fails, the workflow is *Off* with a notification to the admins, and *Integrations* shows the webhook *Disabled — its creator's account is suspended*. Activating them again leaves both off. As a workspace admin open the workflow → *Take over* → it is yours and *Off*; *Turn on* works.
-- 🟠 **Edge — activate restores:** `POST /api/admin/users/<user_id>/activate` clears the Redis revocation flag → the user can log in again and act. (Revocation is a Redis `revoked:<uid>` key TTL'd to the access-token lifetime; if Redis is unavailable the access token is *not* treated as revoked — fail-open.)
+- 🟠 **Edge — activate restores:** `POST /api/v1/admin/users/<user_id>/activate` clears the Redis revocation flag → the user can log in again and act. (Revocation is a Redis `revoked:<uid>` key TTL'd to the access-token lifetime; if Redis is unavailable the access token is *not* treated as revoked — fail-open.)
 
 ---
 
@@ -139,24 +139,24 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - **Steps:** as Admin (owner and instance admin): in *Data retention* choose *For a number of days* for messages and type 30, wait, then *Save retention*; set it back to *Forever* and save. In *Exports* tick nothing and *Export workspace*, wait for *complete*, *Download*. In *Members* use the export icon on Bob's row, then the erase icon on a throwaway account's row. In *SCIM provisioning* create a token, *I have stored it*, rotate it, revoke it.
 - **Expected:** the retention form says *About N messages and M files would be removed now* before anything is saved, and *Saved* after. The export row goes pending → running → complete (the worker polls every 10 s); the archive downloads once, after which the row says *Downloaded*, and the link opened again answers 404. Bob's export shows up under *Exports* with his name. Erase names what goes and stays disabled until the person's name is typed exactly; afterwards the row reads *Deleted user*. A token is visible only until it is put away; rotate shows the replacement the same way, and the revoked one is struck through with no buttons.
 - 🔴 **Edge — what an export holds:** post a file in a DM, then *Export workspace* without DMs: `files.jsonl` in the tar lists no file from the DM. With *since* set, `message_edits.jsonl`, `reactions.jsonl`, `polls.jsonl` and `poll_votes.jsonl` hold only those of messages in the range. With two workspaces on a retention period, each one's *Retention purge* row in the audit log counts only its own messages.
-- 🔴 **Edge — who:** Alice (admin) sees *Exports* but no *Export workspace* button, no *Download* on the owner's exports, and no export/erase icons; `GET /api/workspaces/<id>/retention/preview` answers her 403.
+- 🔴 **Edge — who:** Alice (admin) sees *Exports* but no *Export workspace* button, no *Download* on the owner's exports, and no export/erase icons; `GET /api/v1/workspaces/<id>/retention/preview` answers her 403.
 
 ### 3.1d 🔴 Retention per channel
 - **Reach:** *Workspace settings → Data retention*; a channel's ⋯ → *Channel details → Settings*.
 - **Steps:** as Admin (owner), tick *Let channels keep messages for their own period* and save. In #random open *Channel details → Settings*, set *Message retention* to *A number of days*, 3650, *Save*; then *Keep forever*; then *Workspace default*. As Bob open #random's settings if he can (he cannot moderate). Untick the workspace option and reopen #random's settings.
-- **Expected:** each change posts a line in #random from Admin (*set this channel to keep messages for 3650 days*, *…forever*, *…follow the workspace's message retention*) and an *Audit log* row. With the option off, *Settings* says *Messages here follow the workspace…* and has no control; `PUT /api/channels/<id>/retention` answers 409.
-- 🔴 **Edge — who:** as Bob, `PUT /api/channels/<random id>/retention` with `{"message_days": 1}` answers 403.
+- **Expected:** each change posts a line in #random from Admin (*set this channel to keep messages for 3650 days*, *…forever*, *…follow the workspace's message retention*) and an *Audit log* row. With the option off, *Settings* says *Messages here follow the workspace…* and has no control; `PUT /api/v1/channels/<id>/retention` answers 409.
+- 🔴 **Edge — who:** as Bob, `PUT /api/v1/channels/<random id>/retention` with `{"message_days": 1}` answers 403.
 
 ### 3.2 🟢 Members: list / change role / remove
 - **Reach:** workspace menu → *Workspace settings* → *Members* (an admin also has *Invite people*, which opens it with the invite form).
 - **Steps:** as Owner/Admin, change a member's role from the row dropdown, then remove a member (Remove → confirm).
 - **Expected:** UI updates live; removed member loses access. Rows you may not manage (yourself, the Owner, anyone at or above your level) show a read-only role label instead of controls.
 - 🔴 **Edge — privilege:** as a plain Member or Guest there are no role controls at all, and the API rejects the calls (403). As Admin you cannot promote yourself or anyone to Owner, demote the Owner, or remove the Owner.
-- 🔴 **Edge — deleting the workspace:** `DELETE /api/workspaces/<id>` is Owner-only (or instance admin); a workspace Admin gets 403.
+- 🔴 **Edge — deleting the workspace:** `DELETE /api/v1/workspaces/<id>` is Owner-only (or instance admin); a workspace Admin gets 403.
 
 ### 3.2b 🔴 Guest scope
 - **Reach:** log in as a Guest (`diana@dev.local` in the seed).
-- **Expected:** the Guest sees only the channels they were explicitly added to — public channels are **not** implicitly readable (`GET /api/channels/<public_id>/messages` → 403) — and `POST /api/workspaces/<ws>/channels` → 403.
+- **Expected:** the Guest sees only the channels they were explicitly added to — public channels are **not** implicitly readable (`GET /api/v1/channels/<public_id>/messages` → 403) — and `POST /api/v1/workspaces/<ws>/channels` → 403.
 - 🟢 **Sanity:** after an Admin adds the Guest to a channel, reading/posting there works.
 
 ### 3.3 🟢 Invites: create (email + shareable link), accept, revoke
@@ -167,7 +167,7 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 ### 3.4 🟠 Soft-delete + restore
 - **Steps:** delete a workspace → it disappears for members; as Owner/Admin you see it in a "deleted" view → restore it.
 - **Expected:** delete broadcasts to connected members live; restore brings it back. Members (non-admin) are moved out on delete.
-- 🟠 **Edge — instance-admin delete is also soft + reversible:** `DELETE /api/admin/workspaces/<id>` no longer hard-deletes — it sets `is_active=false`/`deleted_at` and writes the audit row in the **same transaction** (so the audit can't silently drop), and broadcasts `workspace.deleted`. The workspace can still be restored.
+- 🟠 **Edge — instance-admin delete is also soft + reversible:** `DELETE /api/v1/admin/workspaces/<id>` no longer hard-deletes — it sets `is_active=false`/`deleted_at` and writes the audit row in the **same transaction** (so the audit can't silently drop), and broadcasts `workspace.deleted`. The workspace can still be restored.
 
 ---
 
@@ -177,8 +177,8 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - **Reach:** channel sidebar → "+".
 - **Steps:** create a public channel and a private channel; join/leave the public one.
 - **Expected:** public channels are visible/joinable by any workspace member; private channels only to invited channel members.
-- 🔴 **Edge — private access:** as a non-member, try to open a private channel / fetch its messages by id (`/api/channels/<id>/...` or `/api/messages/...`) → **403/404**, no message leakage.
-- 🔴 **Edge — who creates:** as Admin set *Workspace settings → General → Who can create public channels* to *Admins only*. Bob's *Create channel* offers only *Private*; set private to admins too and Bob has no *+* by *Channels* and no *Create channel* in *Browse channels*. `POST /api/workspaces/<id>/channels` as Bob answers **403** naming the kind. Put both back.
+- 🔴 **Edge — private access:** as a non-member, try to open a private channel / fetch its messages by id (`/api/v1/channels/<id>/...` or `/api/v1/messages/...`) → **403/404**, no message leakage.
+- 🔴 **Edge — who creates:** as Admin set *Workspace settings → General → Who can create public channels* to *Admins only*. Bob's *Create channel* offers only *Private*; set private to admins too and Bob has no *+* by *Channels* and no *Create channel* in *Browse channels*. `POST /api/v1/workspaces/<id>/channels` as Bob answers **403** naming the kind. Put both back.
 
 ### 4.1b 🔴 Who may notify a whole channel
 - **Reach:** *Workspace settings → General → Permissions*; a channel's ⋯ → *Channel details → Settings*.
@@ -242,7 +242,7 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
   - **Expected:** rendered as inert text/markdown — **no alert fires**, no clickable `javascript:`/`data:` link, no raw HTML injected. (tiptap renders through a schema; raw HTML is stripped.)
 
 ### 5.7 🟢 Search
-- **Reach:** Search panel (`GET /api/search?workspace_id=<id>&q=…`, optional `channel_id`/`user_id`).
+- **Reach:** Search panel (`GET /api/v1/search?workspace_id=<id>&q=…`, optional `channel_id`/`user_id`).
 - **Steps:** search for a word present in messages; filter by channel/user if available.
 - **Expected:** full-text results ranked by relevance; deleted messages excluded. Results are **access-scoped**: you must be a member of the queried workspace (else 403), and matches only come from **public channels + the private/DM channels you actually belong to**.
 - 🔴 **Edge — private leakage:** as a user who is NOT a member of a private channel, search for a term you know is only in that private channel → **no results** from it. Search a workspace you're not in → **403**.
@@ -260,19 +260,19 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - 🟢 **Request count (CS-072):** in the browser's network tab, switch to a channel not opened before → two `/api` requests, `channels/<id>/context` and `channels/<id>/messages?…&mark_read=true`; switch back within half a minute → only the messages.
 
 ### 5.9 🟢 Polls
-- **Reach:** the poll button next to the paperclip, or `/poll` in any message box (`POST /api/channels/<id>/polls`).
+- **Reach:** the poll button next to the paperclip, or `/poll` in any message box (`POST /api/v1/channels/<id>/polls`).
 - **Steps:** create a poll from the dialog with three options, reorder one by dragging and one with Alt + ↑; send `/poll "Lunch?" "Thursday" "Friday"` in a DM and in a thread. In tab A vote, in tab B (another user) vote for something else; press your chosen option again; switch a single-choice vote; on a multiple-choice poll pick two.
 - **Expected:** each poll appears where it was made; counts and bars move at once in your tab and arrive live in the other; your choice has a check; avatars of who voted show on each option; pressing a chosen option takes the vote back. Focus the poll message and press 2: the second option is voted. The footer reads "N votes", "· closes …" when a closing time was set.
-- 🔴 **Edge — anonymous:** on an anonymous poll no avatars show, and `GET /api/polls/<id>/votes` answers 403 even for its creator.
+- 🔴 **Edge — anonymous:** on an anonymous poll no avatars show, and `GET /api/v1/polls/<id>/votes` answers 403 even for its creator.
 - 🟠 **Edge — closing:** *Close poll* shows for the creator only; once closed the rows are disabled and the footer reads "Closed". A poll with a closing time a minute away closes itself (worker reminder loop) and refuses a vote with 409. A poll message has no *Edit*.
 
 ### 5.10 🟢 Lists, the table
-- **Reach:** *Lists* at the start of the channel's bookmark bar → *New list* (`POST /api/workspaces/<id>/lists`); a list lives at `/app/<workspace>/lists/<list>`.
+- **Reach:** *Lists* at the start of the channel's bookmark bar → *New list* (`POST /api/v1/workspaces/<id>/lists`); a list lives at `/app/<workspace>/lists/<list>`.
 - **Steps:** create a *Project tracker*. *New item*, type a task, Enter. Without the mouse: arrows to *Status*, Enter, pick *In progress*; type `b` on *Owner* and pick a person; Enter on *Due* and pick a date; Tab across a row; Escape out of an edit; Delete a cell; Alt + ↓ a row; Shift + Enter to open it. In tab B (another member) open the same list and edit a different cell of the same row.
 - **Expected:** every edit shows at once and arrives live in the other tab; both people's edits to one row stay. The item panel shows every field and edits them; ↑ from the first row lands on the headers and Enter opens the column menu.
 - 🟠 **Edge — columns:** add a *Select* column with three choices; rename one; change a filled *Number* column to *Date* → the dialog says how many cells it clears and saves only on the second press. Hide a column → *1 hidden* in the header shows it again; the item panel still lists it. Move a column left and right; delete one.
 - 🟠 **Edge — size:** with 10,000 items (`INSERT … generate_series` as in `http_tests/lists.rs`) the table scrolls smoothly and Ctrl + End reaches the last row; *New item* is disabled at the limit.
-- 🔴 **Edge — read-only:** in an announcement channel a member who cannot post sees the list but no *New item*, no editors and no column menu; `PATCH /api/list-items/<id>` answers 403.
+- 🔴 **Edge — read-only:** in an announcement channel a member who cannot post sees the list but no *New item*, no editors and no column menu; `PATCH /api/v1/list-items/<id>` answers 403.
 - 🟠 **Edge — drag:** drag a row by its grip above another; the line shows where it lands; reload and the order holds.
 
 ### 5.11 🟢 Lists, views
@@ -281,7 +281,7 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - **Expected:** tab B has the same tabs, the board shows the same lanes and moves arrive live; the filter count shows on *Filter*, and *Only mine* shows each person their own items. The header says *N of M items* while a filter hides some.
 - 🟠 **Edge — columns go:** filter a board by a choice, then delete that choice, then delete the *Status* column → the filter goes, then the board asks for a column to group by; no error.
 - 🟠 **Edge — sorted table:** sort a table → no row grips, Alt + ↓ does nothing; *New item* adds a row that stays visible even if the filter would hide it, until reload.
-- 🔴 **Edge — read-only:** in an announcement channel a member who cannot post sees the views and their rules but cannot change them or drag cards; `POST /api/lists/<id>/views` answers 403. Deleting the last view is refused (422).
+- 🔴 **Edge — read-only:** in an announcement channel a member who cannot post sees the views and their rules but cannot change them or drag cards; `POST /api/v1/lists/<id>/views` answers 403. Deleting the last view is refused (422).
 
 ### 5.12 🟢 Lists, comments, assignment and due dates
 - **Reach:** open an item (Shift + Enter, or the row's open button); *Comments* is under its fields. The *Due* column's menu → *Use as due date*.
@@ -289,7 +289,7 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - **Expected:** Bob's Activity has "Ana assigned you to *…*" and "Ana mentioned you on *…*"; clicking either opens the list with the item. Nothing for the item Ana assigned to herself. Bob sees the comment arrive in the open item and the row's comment count. Bob's Later has the item with the list's title, *Due tomorrow 9:00*; ticking it off checks the item's *Done* for everyone.
 - 🟠 **Edge — handed on:** reassign the item to Carol → it leaves Bob's Later and appears in Carol's; move its date a week out → it leaves Later until it is due tomorrow again (the reminder checker catches a day passing within ten minutes).
 - 🟠 **Edge — mentions:** mention someone who is not in the channel → no notification for them. Mark *Name* (text) as the due date → 422.
-- 🔴 **Edge — comments:** Bob cannot edit Ana's comment (`PATCH /api/list-comments/<id>` 403) nor delete it; a channel moderator can delete it; a member outside a private channel gets 403 on `GET /api/list-items/<id>/comments`.
+- 🔴 **Edge — comments:** Bob cannot edit Ana's comment (`PATCH /api/v1/list-comments/<id>` 403) nor delete it; a channel moderator can delete it; a member outside a private channel gets 403 on `GET /api/v1/list-items/<id>/comments`.
 
 ### 5.13 🟢 Workflows
 - **Reach:** workspace menu → *Workflows* → *New* → *Blank* (or a template) → *Continue*.
@@ -298,7 +298,7 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - 🟠 **Edge — retries:** send the same curl twice with `-H 'Idempotency-Key: x'` → one message. *Turn off* the workflow and call it → 409; *Turn on* → 202 again. There is no *Save draft*: a new workflow runs as soon as it is created. 31 calls in a minute → 429.
 - 🟠 **Edge — authority:** a step to a private channel, then remove Bob from it and call the webhook → *Failed*, "Step 1 (Send a message): Its creator can no longer post in that channel". Remove Bob from the workspace → his workflows turn off and the admins' Activity says so.
 - 🔴 **Edge — the link moves on:** open "Alert relay" → *New URL* → the old URL answers 401, the new one 202, and the audit log has *Workflow URL replaced*. Suspend Bob, *Take over* as Admin → the URL changes again and the one Bob knew answers 401.
-- 🔴 **Edge — who builds:** *Workspace settings → General* → *Who can build workflows* → *Admins only* → Bob's *New* is gone and `POST /api/workspaces/<id>/workflows` answers 403; a guest never sees *Workflows*.
+- 🔴 **Edge — who builds:** *Workspace settings → General* → *Who can build workflows* → *Admins only* → Bob's *New* is gone and `POST /api/v1/workspaces/<id>/workflows` answers 403; a guest never sees *Workflows*.
 - 🟢 **Event triggers:** as Bob, build "Welcome": *When someone joins a channel* → #random; step *Send a DM* to *The person who joined*, "Welcome {{trigger.user}} to {{trigger.channel}}". Build "Incident": *When a reaction is added* in #general, emoji 🚨; step *Send a message* to #random with "{{trigger.user}} flagged {{trigger.message_link}}". Create both. Ana joins #random, Ana adds 🚨 to a message in #general.
 - **Expected:** within seconds Ana has a DM from *Welcome*, tagged *Workflow*, mentioning her; #random gets the flag with a link that opens the message. Ana joining again, 👍 instead of 🚨, or 🚨 in another channel starts nothing. Bob joining #random himself is a succeeded run that sent no DM.
 - 🟠 **Edge — private channel:** a join trigger on a private channel Bob isn't in → "You can't see the channel it listens to". Add Bob, create it, remove Bob, add someone → the run fails with "Its creator can no longer see the channel it listens to".
@@ -317,7 +317,7 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - **Reach:** composer → attach (paperclip) or drag-drop.
 - **Steps:** upload an image and a PDF; download both; delete one (only the uploader can delete).
 - **Expected:** files attach to the workspace; download returns the right content.
-- 🔴 **Edge — only-own-delete:** try to delete someone else's file (via API `DELETE /api/files/<id>`) → 403.
+- 🔴 **Edge — only-own-delete:** try to delete someone else's file (via API `DELETE /api/v1/files/<id>`) → 403.
 - 🔴 **Edge — cross-tenant:** copy a file download URL and try it while logged in as a user NOT in that workspace → 403.
 - 🟠 **Edge — size limit:** upload a file >100 MB → rejected (413/400), not a crash/OOM. (nginx `client_max_body_size 100m` + per-file cap.)
 - 🔴 **Edge — content sniffing / stored XSS:** upload an `.html` file containing `<script>` and then open its download URL directly in the browser → it must download as an **attachment** (`Content-Disposition: attachment`, `X-Content-Type-Options: nosniff`), NOT render/execute.
@@ -339,10 +339,10 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 ### How to send a raw upload for the edge cases (curl)
 ```bash
 # get a token by logging in via the UI (devtools → copy access_token) or:
-TOKEN=$(curl -s -X POST localhost:3000/api/auth/login -H 'Content-Type: application/json' \
+TOKEN=$(curl -s -X POST localhost:3000/api/v1/auth/login -H 'Content-Type: application/json' \
   -d '{"email":"admin@dev.local","password":"<ADMIN_PASSWORD>"}' | jq -r .access_token)
 # traversal filename:
-curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorization: Bearer $TOKEN" \
+curl -s -X POST "localhost:3000/api/v1/files/upload/<WORKSPACE_ID>" -H "Authorization: Bearer $TOKEN" \
   -F 'file=@./payload.html;filename=../../evil.html;type=text/html' | jq
 ```
 
@@ -366,7 +366,7 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 - **Expected:** B sees a **persisted** notification ("You were mentioned") with a deep link; the unread count reflects it; marking read clears it (and it stays cleared after refresh — it's persisted in the DB, not just a live push).
 - 🟠 **Edge:** open the deep link → jumps to the message. From *Activity*, a desktop notification and a phone push alike: a DM opens the conversation, a reply opens its thread scrolled to it, and an old `/app/<ws>/<channel>/<message>` link to a DM or a reply lands the same way.
 - 🟠 **Edge — gone:** open the link of a message since deleted, or of a private channel you were removed from → *That message was deleted or you can no longer see it*, and the channel (or the workspace) opens instead.
-- 🔴 **Edge — workspace membership:** the workspace-scoped notifications routes now require membership. As a user NOT in workspace W, call `GET /api/workspaces/<W>/notifications` (also `.../notifications/unread-count`, `.../notifications/read-all`, `.../channels/<id>/notifications/read`) → **403** "Not a member of this workspace".
+- 🔴 **Edge — workspace membership:** the workspace-scoped notifications routes now require membership. As a user NOT in workspace W, call `GET /api/v1/workspaces/<W>/notifications` (also `.../notifications/unread-count`, `.../notifications/read-all`, `.../channels/<id>/notifications/read`) → **403** "Not a member of this workspace".
 
 ### 8.2 🟢 Notification levels
 - **Steps:** as B, open a channel's bell (header, or the sidebar row on hover) → *Nothing*. A @-mentions B there while B is in another channel.
@@ -374,7 +374,7 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 - 🟢 **All new messages:** set a channel to *All* → a plain message from A rings and reaches B's phone, but adds nothing to Activity. A thread reply does not ring unless B follows the thread.
 - 🟢 **Default:** *Preferences → Notifications → Notify me about* → *All* changes every channel left on *Default*; one with its own level keeps it.
 - 🟢 **DMs:** A sends B a DM without an `@` while B has no session open → B's phone gets it (title = A's name) and Activity has a DM row; with no push device it is in the next email digest as "a direct message". Under DND only the Activity row appears.
-- 🟠 **Edge:** a mention of somebody who is not in the channel notifies nobody. `PUT /api/channels/<id>/notify-level` as a non-member → **403**.
+- 🟠 **Edge:** a mention of somebody who is not in the channel notifies nobody. `PUT /api/v1/channels/<id>/notify-level` as a non-member → **403**.
 
 ### 8.3 🟢 Keyword notifications
 - **Steps:** as B, *Preferences → Notifications → My keywords* → type `deploy`, Enter (and `c++`, comma). A writes "Deploy!" in a channel B is in, while B is elsewhere or offline.
@@ -388,7 +388,7 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 - **Expected:** the mention lands in Activity, but no push, sound, desktop notification or email. The *You* menu and the Activity panel's moon say "Paused by your schedule until …"; A's hover card on B says "Notifications paused until …".
 - 🟢 **Resume:** *Resume notifications* during the pause → mentions notify again until the next window starts; after that window ends the schedule pauses again.
 - 🟢 **Night window:** *From* 22:00 *To* 07:00 — notifications on at 23:30 and 06:30, paused at noon.
-- 🟠 **Edge:** the hours follow the timezone in *Edit profile*; changing it moves the window. `PUT /api/workspaces/{id}/notifications/schedule` with start = end, day 0 or 8, or no days → **422**.
+- 🟠 **Edge:** the hours follow the timezone in *Edit profile*; changing it moves the window. `PUT /api/v1/workspaces/{id}/notifications/schedule` with start = end, day 0 or 8, or no days → **422**.
 
 ### 8.5 🟢 Notifications once (CS-083)
 - 🟢 **Email:** B has turned mention emails on (they are off for a new member), no app open. A @-mentions B → five minutes later (mailhog) one email, "You were mentioned", whose link opens the message. A @-mentions B again and B opens the channel within five minutes → no email. Redelivering the event (restart `worker` mid-batch) still gives one email.
@@ -434,8 +434,8 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 - 🔴 **Edge — kill Redis flips realtime to 503:** `docker stop redis` → `curl -i localhost:3004/readyz` returns **503** (`redis unavailable`); api `/readyz` also 503s. Restart Redis → both go back to 200. (Realtime `/readyz` checks DB + Redis PING + that the supervised event consumer's heartbeat is <60s old; the consumer auto-restarts with backoff, and `realtime_consumer_heartbeat_age_seconds` in `/metrics` should stay small while events flow.)
 
 ### 9.5 🔴 WS upgrade hardening (Origin + revocation)
-- 🔴 **Edge — Origin check:** open a WS to `/ws` from a page whose `Origin` is not in `CORS_ORIGINS` (e.g. via a script on another host) → upgrade **rejected** ("Origin not allowed"). Same-origin app connects fine.
-- 🔴 **Edge — revoked session can't connect:** suspend a user (§2.2), then try to open a fresh `/ws` with their (still-unexpired) access token → upgrade **rejected** ("Session revoked").
+- 🔴 **Edge — Origin check:** open a WS to `/ws/v1` from a page whose `Origin` is not in `CORS_ORIGINS` (e.g. via a script on another host) → upgrade **rejected** ("Origin not allowed"). Same-origin app connects fine.
+- 🔴 **Edge — revoked session can't connect:** suspend a user (§2.2), then try to open a fresh `/ws/v1` with their (still-unexpired) access token → upgrade **rejected** ("Session revoked").
 
 ### 9.6 🟠 A new version while a tab is open
 - **Steps:** open the app, then rebuild and restart `frontend` (`docker compose --profile frontend up -d --build frontend`) → within ten minutes, or at once after switching to another tab and back, *A new version is available* shows at the top → *Reload* opens the new build and the bar is gone.
@@ -466,31 +466,31 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 ## 10. Webhooks & reminders (admin integrations)
 
 ### 10.1 🟢 Outgoing webhook
-- **Reach:** workspace Admin → Integrations/Hooks (or `POST /api/workspaces/<id>/hooks`).
+- **Reach:** workspace Admin → Integrations/Hooks (or `POST /api/v1/workspaces/<id>/hooks`).
 - **Steps:** create an outgoing webhook pointing at a request-bin you control (e.g. `https://webhook.site/...`) → post a message in the workspace.
 - **Expected:** the bin receives the event with an `X-ChatSystems-Signature: sha256=…` HMAC header; the execution is logged.
 - 🔴 **Edge — SSRF:** create a webhook pointing at an internal address: `http://127.0.0.1:3000/...`, `http://169.254.169.254/latest/meta-data/` (cloud metadata), `http://10.0.0.5/`, or an IPv6 ULA → dispatch is **rejected/blocked**, the request is never made to the internal target.
-- 🔴 **Edge — authz:** as a non-admin, try to create/list/read/delete hooks (`/api/workspaces/<id>/hooks`) → 403; secret fields are redacted (`***`) on read.
+- 🔴 **Edge — authz:** as a non-admin, try to create/list/read/delete hooks (`/api/v1/workspaces/<id>/hooks`) → 403; secret fields are redacted (`***`) on read.
 - 🔴 **Edge — demoted creator:** a second admin creates the webhook, then the owner makes them a *Member* → the next message sends nothing, and *Integrations* shows it *Disabled — its creator is no longer allowed to make it*.
-- 🟢 **Turn on (CS-094):** on that disabled webhook the owner clicks *Turn on* → it is on again, the next message is delivered, and *Audit log* has *Integration turned back on*. The demoted member gets 403 from `PATCH /api/hooks/<id>`.
+- 🟢 **Turn on (CS-094):** on that disabled webhook the owner clicks *Turn on* → it is on again, the next message is delivered, and *Audit log* has *Integration turned back on*. The demoted member gets 403 from `PATCH /api/v1/hooks/<id>`.
 
 ### 10.2 🟢 Reminders
 - **Steps:** create a reminder for yourself → it fires around the due time (delivered as a notification).
 - 🔴 **Edge:** try to create a reminder targeting another user as a non-admin → 403.
 
 ### 10.3 🟢 Incoming webhook (token-authed, Slack-compatible)
-- **Reach:** workspace Admin → create a hook (`POST /api/workspaces/<id>/hooks`) with `hook_type: "incoming_webhook"` and `config: { "channel_id": "<channel in this workspace>" }`. The server **mints `config.token`** and binds the hook to that channel; the creator becomes the message author.
+- **Reach:** workspace Admin → create a hook (`POST /api/v1/workspaces/<id>/hooks`) with `hook_type: "incoming_webhook"` and `config: { "channel_id": "<channel in this workspace>" }`. The server **mints `config.token`** and binds the hook to that channel; the creator becomes the message author.
   ```bash
   # create (admin session/bearer required); copy config.token from the response
-  curl -s -X POST localhost:3000/api/workspaces/<WS_ID>/hooks -H "Authorization: Bearer $TOKEN" \
+  curl -s -X POST localhost:3000/api/v1/workspaces/<WS_ID>/hooks -H "Authorization: Bearer $TOKEN" \
     -H 'Content-Type: application/json' \
     -d '{"hook_type":"incoming_webhook","name":"ci","config":{"channel_id":"<CH_ID>"}}' | jq
   # post a message — NO auth header, just the token in the URL (Slack-style {"text":...})
-  curl -s -X POST localhost:3000/api/hooks/incoming/<TOKEN> -H 'Content-Type: application/json' \
+  curl -s -X POST localhost:3000/api/v1/hooks/incoming/<TOKEN> -H 'Content-Type: application/json' \
     -d '{"text":"deploy finished ✅"}' | jq
   ```
 - **Expected:** the unauthenticated POST returns `{"status":"ok","message_id":…}` and the message **appears live in the bound channel** (authored by the hook creator).
-- 🔴 **Edge — bad token:** POST to `/api/hooks/incoming/<garbage>` → **401** "Invalid webhook token" (and a suspended/inactive hook is rejected too).
+- 🔴 **Edge — bad token:** POST to `/api/v1/hooks/incoming/<garbage>` → **401** "Invalid webhook token" (and a suspended/inactive hook is rejected too).
 - 🔴 **Edge — config requires channel:** creating an `incoming_webhook` without `config.channel_id` (or with a channel from another workspace) → **400/validation error**, no hook created.
 - 🟠 **Edge — rate limit:** hammer the same token >60×/min → **429** (per-token limit), the channel isn't flooded.
 
@@ -498,7 +498,7 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 - **Reach:** a channel's ⋯ → *Channel details → Integrations*.
 - **Steps:** as Admin, make an incoming webhook for #random in *Workspace settings → Integrations*, an outgoing webhook that forwards #random, and a workflow whose trigger is a reaction in #random. Make Bob a channel admin of #random. As Bob open *Channel details → Integrations* in #random, *Add an incoming webhook* named *Bob's CI*, copy the URL and `curl` `{"text":"from Bob"}` to it. Make a new URL for it, then remove it. As Charlie (plain member) open the same tab.
 - **Expected:** Bob and Charlie both see the incoming webhook (with who added it), the outgoing webhook, the workflow (On/Off, who built it) and any command scoped to #random, never a URL or secret. Bob's URL shows once, under his webhook; the `curl` lands in #random; the old URL stops working after the new one is made. Charlie has no add, rotate or remove. A workflow row has *Open* for someone who may build workflows, which opens it in the *Workflows* panel. Every row has *Details*, which closes the dialog and opens its page in *Workspace settings → Apps*. Each of Bob's actions is a row in *Audit log*.
-- 🔴 **Edge — authz:** as Bob, `POST /api/workspaces/<id>/hooks` an incoming webhook for a channel he does not run, an outgoing webhook or a slash command → **403**.
+- 🔴 **Edge — authz:** as Bob, `POST /api/v1/workspaces/<id>/hooks` an incoming webhook for a channel he does not run, an outgoing webhook or a slash command → **403**.
 
 ### 10.5 🟢 A slash command that answers later
 - **Reach:** workspace Admin → *Integrations* → a slash command `/deploy` whose URL is a request-bin that answers `200` with an empty body (webhook.site: *Edit → Content* empty).
@@ -516,10 +516,10 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 - **Reach:** workspace Admin → *Workspace settings → Apps → Build an app → Build*.
 - **Steps:** create *Echo* with `chat:write`, `channels:read` and `channels:history`, agree to its scopes, copy the token, then *I have stored it*. In #general `/invite @Echo` and post `echo hello`. Run the example bot once:
   ```bash
-  CHAT_API_URL=http://localhost:3000/api CHAT_BOT_TOKEN=<TOKEN> node examples/echo-bot/echo-bot.mjs --once
+  CHAT_API_URL=http://localhost:3000/api/v1 CHAT_BOT_TOKEN=<TOKEN> node examples/echo-bot/echo-bot.mjs --once
   ```
 - **Expected:** the token is shown once and is gone after *I have stored it*; *Members* lists Echo with an *APP* label and no address. The bot answers *hello* in the thread, with *APP* next to its name. *Audit log* has *App created* and *App called the API*.
-- 🔴 **Edge — scopes:** `curl -s -X POST localhost:3000/api/messages/<MSG_ID>/reactions -H "Authorization: Bearer <TOKEN>" -H 'Content-Type: application/json' -d '{"emoji":"👍"}'` → **403** naming `reactions:write`; `GET /api/users/me` with the token → **403** *does not accept a bot token*.
+- 🔴 **Edge — scopes:** `curl -s -X POST localhost:3000/api/v1/messages/<MSG_ID>/reactions -H "Authorization: Bearer <TOKEN>" -H 'Content-Type: application/json' -d '{"emoji":"👍"}'` → **403** naming `reactions:write`; `GET /api/v1/users/me` with the token → **403** *does not accept a bot token*.
 - 🔴 **Edge — membership:** post as the bot to a channel it was not invited to → **403**, public or not.
 - 🔴 **Edge — removal:** on Echo's page in the directory, *Rotate token* → the old token gets **401** at once; *Remove* → the new one gets **401** too, the app's slash commands are gone, and its messages keep their author.
 
@@ -527,7 +527,7 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 - **Reach:** workspace Admin → *Workspace settings → Apps*, the app's row → its page.
 - **Steps:** make *Echo* with `chat:write` and `channels:history`, tick `app_mention` and *Socket mode*, *Save*, then *Make an app-level token* and copy it. `/invite @Echo` in #general and run:
   ```bash
-  CHAT_API_URL=http://localhost:3000/api CHAT_BOT_TOKEN=<TOKEN> CHAT_APP_TOKEN=<APP_TOKEN> node examples/echo-bot/echo-bot-socket.mjs
+  CHAT_API_URL=http://localhost:3000/api/v1 CHAT_BOT_TOKEN=<TOKEN> CHAT_APP_TOKEN=<APP_TOKEN> node examples/echo-bot/echo-bot-socket.mjs
   ```
   Post `@Echo ship it` in #general.
 - **Expected:** the bot prints *connected as app …* and the row says *1 socket open*. The mention is answered *ship it* in its thread within a second or two.
@@ -540,7 +540,7 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 - **Reach:** *Workspace settings → Apps*, as Admin and as Charlie (plain member).
 - **Steps:** as Admin, set up Jira, make *Echo* (10.6) and `/invite` it to #general, keep the webhooks and workflow from 10.4, make a private #secret with an incoming webhook and a workflow posting into #secret and #random. Turn an outgoing webhook off in *Integrations*. Open the directory, then a row. On Echo's page tick `users:read` and *Save scopes*; then untick it and save. Set up Confluence from *Available*. As Charlie, open the directory and an app's page, then *Ask for an app* `PagerDuty` with a reason.
 - **Expected:** *Installed* lists Jira, Echo, every webhook, command and workflow with who added it, its channels and a *Turned off* / *Failing* / *Off* tag when it is not working. A page shows what it can do in plain words, its channels, and *Reinstall* (a turned-off hook), *Rotate token*/*Rotate URL* and *Remove*. Adding `users:read` asks for consent naming only that scope; removing it does not ask. Confluence asks for consent before it is saved. Charlie sees no #secret webhook, the #secret/#random workflow as *#random, 1 private channel you are not in*, no *Build*, and a page that says only an admin can change it. Admin and the owner get a notification *… asked for an app* with *PagerDuty: <reason>*; Charlie gets none.
-- 🔴 **Edge — leaks:** as Charlie, `GET /api/workspaces/<id>/app-directory` → no `secret` channel name, no URL path, token or client secret anywhere in the body.
+- 🔴 **Edge — leaks:** as Charlie, `GET /api/v1/workspaces/<id>/app-directory` → no `secret` channel name, no URL path, token or client secret anywhere in the body.
 - 🟠 **Edge — rate:** an 11th request within an hour → **429**.
 
 ### 10.9 🟢 A Slack import that looks like Slack did
@@ -555,9 +555,9 @@ curl -s -X POST "localhost:3000/api/files/upload/<WORKSPACE_ID>" -H "Authorizati
 
 | # | Case | How to reach | Expected |
 |---|---|---|---|
-| 11.1 🔴 | Cross-tenant read | log in as B, hit `GET /api/workspaces/<A's id>/...` (members, channels, hooks, files) | **403** everywhere |
-| 11.2 🔴 | Login brute-force (per-email) | POST `/api/auth/login` wrong pw >10× for one email within 15 min | **429 Too Many Requests** |
-| 11.2b 🔴 | Login brute-force (per-IP) | POST `/api/auth/login` >30× within 15 min from one IP, varying the email each time | **429** (secondary per-IP limit, keyed on `X-Forwarded-For`/`X-Real-IP`, so spraying many accounts from one host is also throttled) |
+| 11.1 🔴 | Cross-tenant read | log in as B, hit `GET /api/v1/workspaces/<A's id>/...` (members, channels, hooks, files) | **403** everywhere |
+| 11.2 🔴 | Login brute-force (per-email) | POST `/api/v1/auth/login` wrong pw >10× for one email within 15 min | **429 Too Many Requests** |
+| 11.2b 🔴 | Login brute-force (per-IP) | POST `/api/v1/auth/login` >30× within 15 min from one IP, varying the email each time | **429** (secondary per-IP limit, keyed on `X-Forwarded-For`/`X-Real-IP`, so spraying many accounts from one host is also throttled) |
 | 11.3 🟠 | Redis down (fail-open) | stop the `redis` container, then log in with correct creds | login still **succeeds** (rate-limit fails open, doesn't lock everyone out) |
 | 11.4 🔴 | Error leakage | trigger a 500 (e.g. stop Postgres mid-request) | response body is generic `{"error":"internal server error"}` — **no SQL/internal detail**; detail only in server logs |
 | 11.5 🟠 | Graceful shutdown | `docker stop` the api with an in-flight request | request drains (not abruptly cut); api `/readyz` flips to 503 when DB/Redis down. Realtime `/readyz` additionally 503s if the event consumer stalls (>60s since last heartbeat) — see §9.4. |

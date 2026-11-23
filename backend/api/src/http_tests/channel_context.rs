@@ -31,7 +31,7 @@ async fn say(app: &axum::Router, token: &str, channel: Uuid, content: &str) -> U
     let message = post(
         app,
         token,
-        &format!("/api/channels/{channel}/messages"),
+        &format!("/api/v1/channels/{channel}/messages"),
         json!({ "content": content }),
     )
     .await;
@@ -44,20 +44,20 @@ async fn context_and_routes(
     ws: Uuid,
     channel: Uuid,
 ) -> (Value, Value) {
-    let (status, context) = get(app, token, &format!("/api/channels/{channel}/context")).await;
+    let (status, context) = get(app, token, &format!("/api/v1/channels/{channel}/context")).await;
     assert_eq!(status, StatusCode::OK, "{context:?}");
     let mut routes = serde_json::Map::new();
     for (key, path) in [
-        ("members", format!("/api/channels/{channel}/members")),
-        ("pins", format!("/api/channels/{channel}/pins")),
-        ("bookmarks", format!("/api/channels/{channel}/bookmarks")),
+        ("members", format!("/api/v1/channels/{channel}/members")),
+        ("pins", format!("/api/v1/channels/{channel}/pins")),
+        ("bookmarks", format!("/api/v1/channels/{channel}/bookmarks")),
         (
             "lists",
-            format!("/api/workspaces/{ws}/lists?channel_id={channel}"),
+            format!("/api/v1/workspaces/{ws}/lists?channel_id={channel}"),
         ),
         (
             "workflow_shortcuts",
-            format!("/api/channels/{channel}/workflow-shortcuts"),
+            format!("/api/v1/channels/{channel}/workflow-shortcuts"),
         ),
     ] {
         let (status, body) = get(app, token, &path).await;
@@ -81,21 +81,21 @@ async fn the_context_is_what_each_route_returns(pool: PgPool) {
     post(
         &app,
         &owner,
-        &format!("/api/messages/{pinned}/pin"),
+        &format!("/api/v1/messages/{pinned}/pin"),
         json!({}),
     )
     .await;
     post(
         &app,
         &owner,
-        &format!("/api/channels/{channel}/bookmarks"),
+        &format!("/api/v1/channels/{channel}/bookmarks"),
         json!({ "label": "Runbook", "url": "https://example.test/runbook" }),
     )
     .await;
     post(
         &app,
         &owner,
-        &format!("/api/workspaces/{ws}/lists"),
+        &format!("/api/v1/workspaces/{ws}/lists"),
         json!({
             "title": "Launch plan",
             "channel_id": channel,
@@ -106,7 +106,7 @@ async fn the_context_is_what_each_route_returns(pool: PgPool) {
     post(
         &app,
         &owner,
-        &format!("/api/workspaces/{ws}/workflows"),
+        &format!("/api/v1/workspaces/{ws}/workflows"),
         json!({
             "name": "Ask",
             "definition": {
@@ -150,18 +150,23 @@ async fn the_context_refuses_what_the_routes_refuse(pool: PgPool) {
         (&member, secret, StatusCode::FORBIDDEN),
         (&member, Uuid::new_v4(), StatusCode::NOT_FOUND),
     ] {
-        let (status, _) = get(&app, token, &format!("/api/channels/{channel}/context")).await;
+        let (status, _) = get(&app, token, &format!("/api/v1/channels/{channel}/context")).await;
         assert_eq!(status, refused, "context of {channel}");
-        let (status, _) = get(&app, token, &format!("/api/channels/{channel}/bookmarks")).await;
+        let (status, _) = get(
+            &app,
+            token,
+            &format!("/api/v1/channels/{channel}/bookmarks"),
+        )
+        .await;
         assert_eq!(status, refused, "bookmarks of {channel}");
-        let (status, _) = get(&app, token, &format!("/api/channels/{channel}/pins")).await;
+        let (status, _) = get(&app, token, &format!("/api/v1/channels/{channel}/pins")).await;
         assert_eq!(status, refused, "pins of {channel}");
     }
 
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/channels/{open}/context"),
+        &format!("/api/v1/channels/{open}/context"),
         None,
         None,
     )
@@ -171,7 +176,7 @@ async fn the_context_refuses_what_the_routes_refuse(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/channels/{open}"),
+        &format!("/api/v1/channels/{open}"),
         Some(&owner),
         Some(json!({ "post_policy": "moderators" })),
     )
@@ -181,11 +186,11 @@ async fn the_context_refuses_what_the_routes_refuse(pool: PgPool) {
     let (status, _) = get(
         &app,
         &member,
-        &format!("/api/channels/{open}/workflow-shortcuts"),
+        &format!("/api/v1/channels/{open}/workflow-shortcuts"),
     )
     .await;
     assert_eq!(status, StatusCode::FORBIDDEN);
-    let (status, context) = get(&app, &member, &format!("/api/channels/{open}/context")).await;
+    let (status, context) = get(&app, &member, &format!("/api/v1/channels/{open}/context")).await;
     assert_eq!(status, StatusCode::OK, "{context:?}");
     assert_eq!(context["workflow_shortcuts"], json!([]));
 }
@@ -231,7 +236,7 @@ async fn the_first_page_carries_the_read_mark_when_asked(pool: PgPool) {
         .unwrap()
     };
 
-    let messages = format!("/api/channels/{channel}/messages");
+    let messages = format!("/api/v1/channels/{channel}/messages");
     let (status, page) = get(&app, &member, &messages).await;
     assert_eq!(status, StatusCode::OK);
     assert!(page.get("unread_notifications").is_none(), "{page:?}");
@@ -252,7 +257,7 @@ async fn the_first_page_carries_the_read_mark_when_asked(pool: PgPool) {
     let (_, count) = get(
         &app,
         &member,
-        &format!("/api/workspaces/{ws}/notifications/unread-count"),
+        &format!("/api/v1/workspaces/{ws}/notifications/unread-count"),
     )
     .await;
     assert_eq!(count["unread_count"], json!(1));

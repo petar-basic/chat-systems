@@ -48,7 +48,7 @@ async fn a_second_direct_conversation_reuses_the_first(pool: PgPool) {
     let (status, first) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&owner_token),
         Some(json!({ "participant_ids": [second_id] })),
     )
@@ -59,7 +59,7 @@ async fn a_second_direct_conversation_reuses_the_first(pool: PgPool) {
     let (status, again) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&owner_token),
         Some(json!({ "participant_ids": [second_id] })),
     )
@@ -70,7 +70,7 @@ async fn a_second_direct_conversation_reuses_the_first(pool: PgPool) {
     let (status, from_other_side) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&second_token),
         Some(json!({ "participant_ids": [_owner_id] })),
     )
@@ -90,7 +90,7 @@ async fn a_group_conversation_carries_every_participant(pool: PgPool) {
     let (status, group) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&owner_token),
         Some(json!({ "participant_ids": [second_id, third_id] })),
     )
@@ -102,7 +102,7 @@ async fn a_group_conversation_carries_every_participant(pool: PgPool) {
     let (status, listing) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&second_token),
         None,
     )
@@ -135,7 +135,7 @@ async fn conversations_reject_outsiders_and_oversized_groups(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&owner_token),
         Some(json!({ "participant_ids": [outsider_id] })),
     )
@@ -149,7 +149,7 @@ async fn conversations_reject_outsiders_and_oversized_groups(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&owner_token),
         Some(json!({ "participant_ids": [] })),
     )
@@ -165,7 +165,7 @@ async fn conversations_reject_outsiders_and_oversized_groups(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&owner_token),
         Some(json!({ "participant_ids": crowd })),
     )
@@ -179,7 +179,7 @@ async fn conversations_reject_outsiders_and_oversized_groups(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         None,
         Some(json!({ "participant_ids": [second_id] })),
     )
@@ -195,7 +195,7 @@ async fn messages_are_visible_to_participants_only(pool: PgPool) {
     let (_, conv) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&owner_token),
         Some(json!({ "participant_ids": [second_id] })),
     )
@@ -205,7 +205,7 @@ async fn messages_are_visible_to_participants_only(pool: PgPool) {
     let (status, sent) = send(
         &app,
         "POST",
-        &format!("/api/channels/{conv_id}/messages"),
+        &format!("/api/v1/channels/{conv_id}/messages"),
         Some(&owner_token),
         Some(json!({ "content": "just between us" })),
     )
@@ -215,7 +215,7 @@ async fn messages_are_visible_to_participants_only(pool: PgPool) {
     let (status, listing) = send(
         &app,
         "GET",
-        &format!("/api/channels/{conv_id}/messages"),
+        &format!("/api/v1/channels/{conv_id}/messages"),
         Some(&second_token),
         None,
     )
@@ -230,7 +230,7 @@ async fn messages_are_visible_to_participants_only(pool: PgPool) {
         let (status, _) = send(
             &app,
             "GET",
-            &format!("/api/channels/{conv_id}/messages"),
+            &format!("/api/v1/channels/{conv_id}/messages"),
             token.map(|t| t.as_str()),
             None,
         )
@@ -241,7 +241,7 @@ async fn messages_are_visible_to_participants_only(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{conv_id}/messages"),
+        &format!("/api/v1/channels/{conv_id}/messages"),
         Some(&third_token),
         Some(json!({ "content": "let me in" })),
     )
@@ -252,7 +252,7 @@ async fn messages_are_visible_to_participants_only(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/channels/{unknown}/messages"),
+        &format!("/api/v1/channels/{unknown}/messages"),
         Some(&owner_token),
         None,
     )
@@ -269,7 +269,7 @@ async fn sending_bumps_the_conversation_and_read_state_clears_it(pool: PgPool) {
     let (_, conv) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&owner_token),
         Some(json!({ "participant_ids": [second_id] })),
     )
@@ -279,7 +279,7 @@ async fn sending_bumps_the_conversation_and_read_state_clears_it(pool: PgPool) {
     let (_, ping) = send(
         &app,
         "POST",
-        &format!("/api/channels/{conv_id}/messages"),
+        &format!("/api/v1/channels/{conv_id}/messages"),
         Some(&owner_token),
         Some(json!({ "content": "ping" })),
     )
@@ -288,7 +288,7 @@ async fn sending_bumps_the_conversation_and_read_state_clears_it(pool: PgPool) {
     let (_, before) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&second_token),
         None,
     )
@@ -301,7 +301,7 @@ async fn sending_bumps_the_conversation_and_read_state_clears_it(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{conv_id}/read"),
+        &format!("/api/v1/channels/{conv_id}/read"),
         Some(&second_token),
         Some(json!({ "message_id": ping["id"] })),
     )
@@ -311,7 +311,7 @@ async fn sending_bumps_the_conversation_and_read_state_clears_it(pool: PgPool) {
     let (_, after) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&second_token),
         None,
     )
@@ -321,7 +321,7 @@ async fn sending_bumps_the_conversation_and_read_state_clears_it(pool: PgPool) {
     send(
         &app,
         "POST",
-        &format!("/api/channels/{conv_id}/messages"),
+        &format!("/api/v1/channels/{conv_id}/messages"),
         Some(&second_token),
         Some(json!({ "content": "my own" })),
     )
@@ -329,7 +329,7 @@ async fn sending_bumps_the_conversation_and_read_state_clears_it(pool: PgPool) {
     send(
         &app,
         "POST",
-        &format!("/api/channels/{conv_id}/messages"),
+        &format!("/api/v1/channels/{conv_id}/messages"),
         Some(&owner_token),
         Some(json!({ "content": "in a thread", "thread_parent_id": ping["id"] })),
     )
@@ -337,7 +337,7 @@ async fn sending_bumps_the_conversation_and_read_state_clears_it(pool: PgPool) {
     let (_, mine) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&second_token),
         None,
     )
@@ -350,7 +350,7 @@ async fn sending_bumps_the_conversation_and_read_state_clears_it(pool: PgPool) {
     send(
         &app,
         "POST",
-        &format!("/api/channels/{conv_id}/messages"),
+        &format!("/api/v1/channels/{conv_id}/messages"),
         Some(&owner_token),
         Some(json!({ "content": "pong" })),
     )
@@ -358,7 +358,7 @@ async fn sending_bumps_the_conversation_and_read_state_clears_it(pool: PgPool) {
     let (_, unread) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/channels/unread"),
+        &format!("/api/v1/workspaces/{ws_id}/channels/unread"),
         Some(&second_token),
         None,
     )
@@ -384,7 +384,7 @@ async fn edit_delete_and_reactions_follow_authorship(pool: PgPool) {
     let (_, conv) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&owner_token),
         Some(json!({ "participant_ids": [second_id] })),
     )
@@ -394,7 +394,7 @@ async fn edit_delete_and_reactions_follow_authorship(pool: PgPool) {
     let (_, sent) = send(
         &app,
         "POST",
-        &format!("/api/channels/{conv_id}/messages"),
+        &format!("/api/v1/channels/{conv_id}/messages"),
         Some(&owner_token),
         Some(json!({ "content": "typo here" })),
     )
@@ -404,7 +404,7 @@ async fn edit_delete_and_reactions_follow_authorship(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/messages/{msg_id}"),
+        &format!("/api/v1/messages/{msg_id}"),
         Some(&second_token),
         Some(json!({ "content": "not mine to edit" })),
     )
@@ -414,7 +414,7 @@ async fn edit_delete_and_reactions_follow_authorship(pool: PgPool) {
     let (status, edited) = send(
         &app,
         "PATCH",
-        &format!("/api/messages/{msg_id}"),
+        &format!("/api/v1/messages/{msg_id}"),
         Some(&owner_token),
         Some(json!({ "content": "typo fixed" })),
     )
@@ -426,7 +426,7 @@ async fn edit_delete_and_reactions_follow_authorship(pool: PgPool) {
     let (status, reaction) = send(
         &app,
         "POST",
-        &format!("/api/messages/{msg_id}/reactions"),
+        &format!("/api/v1/messages/{msg_id}/reactions"),
         Some(&second_token),
         Some(json!({ "emoji": "🎉" })),
     )
@@ -437,7 +437,7 @@ async fn edit_delete_and_reactions_follow_authorship(pool: PgPool) {
     let (_, listing) = send(
         &app,
         "GET",
-        &format!("/api/channels/{conv_id}/messages"),
+        &format!("/api/v1/channels/{conv_id}/messages"),
         Some(&owner_token),
         None,
     )
@@ -447,7 +447,7 @@ async fn edit_delete_and_reactions_follow_authorship(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/messages/{msg_id}/reactions/%F0%9F%8E%89"),
+        &format!("/api/v1/messages/{msg_id}/reactions/%F0%9F%8E%89"),
         Some(&second_token),
         None,
     )
@@ -457,7 +457,7 @@ async fn edit_delete_and_reactions_follow_authorship(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/messages/{msg_id}"),
+        &format!("/api/v1/messages/{msg_id}"),
         Some(&second_token),
         None,
     )
@@ -467,7 +467,7 @@ async fn edit_delete_and_reactions_follow_authorship(pool: PgPool) {
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/messages/{msg_id}"),
+        &format!("/api/v1/messages/{msg_id}"),
         Some(&owner_token),
         None,
     )
@@ -483,7 +483,7 @@ async fn message_ids_are_idempotent_across_retries(pool: PgPool) {
     let (_, conv) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&owner_token),
         Some(json!({ "participant_ids": [second_id] })),
     )
@@ -495,7 +495,7 @@ async fn message_ids_are_idempotent_across_retries(pool: PgPool) {
         let (status, body) = send(
             &app,
             "POST",
-            &format!("/api/channels/{conv_id}/messages"),
+            &format!("/api/v1/channels/{conv_id}/messages"),
             Some(&owner_token),
             Some(json!({ "content": "sent twice", "client_message_id": client_id })),
         )
@@ -511,7 +511,7 @@ async fn message_ids_are_idempotent_across_retries(pool: PgPool) {
     let (_, listing) = send(
         &app,
         "GET",
-        &format!("/api/channels/{conv_id}/messages"),
+        &format!("/api/v1/channels/{conv_id}/messages"),
         Some(&owner_token),
         None,
     )
@@ -536,7 +536,7 @@ async fn a_client_id_from_another_conversation_never_returns_its_message(pool: P
     let (_, first) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&alice),
         Some(json!({ "participant_ids": [bob_id] })),
     )
@@ -546,7 +546,7 @@ async fn a_client_id_from_another_conversation_never_returns_its_message(pool: P
     let (_, second) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&bob),
         Some(json!({ "participant_ids": [carol_id] })),
     )
@@ -557,7 +557,7 @@ async fn a_client_id_from_another_conversation_never_returns_its_message(pool: P
     let (status, sent) = send(
         &app,
         "POST",
-        &format!("/api/channels/{conv_a}/messages"),
+        &format!("/api/v1/channels/{conv_a}/messages"),
         Some(&alice),
         Some(json!({ "content": "a private thing", "client_message_id": shared_id })),
     )
@@ -572,7 +572,7 @@ async fn a_client_id_from_another_conversation_never_returns_its_message(pool: P
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{conv_b}/messages"),
+        &format!("/api/v1/channels/{conv_b}/messages"),
         Some(&carol),
         Some(json!({ "content": "unrelated", "client_message_id": shared_id })),
     )
@@ -599,7 +599,7 @@ async fn resending_with_the_same_client_id_is_idempotent(pool: PgPool) {
     let (_, conv) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&alice),
         Some(json!({ "participant_ids": [bob_id] })),
     )
@@ -612,7 +612,7 @@ async fn resending_with_the_same_client_id_is_idempotent(pool: PgPool) {
     let (first_status, first) = send(
         &app,
         "POST",
-        &format!("/api/channels/{conv_id}/messages"),
+        &format!("/api/v1/channels/{conv_id}/messages"),
         Some(&alice),
         Some(body.clone()),
     )
@@ -622,7 +622,7 @@ async fn resending_with_the_same_client_id_is_idempotent(pool: PgPool) {
     let (retry_status, retry) = send(
         &app,
         "POST",
-        &format!("/api/channels/{conv_id}/messages"),
+        &format!("/api/v1/channels/{conv_id}/messages"),
         Some(&alice),
         Some(body),
     )
@@ -650,7 +650,7 @@ async fn a_nil_or_non_random_client_id_is_refused(pool: PgPool) {
     let (_, conv) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&alice),
         Some(json!({ "participant_ids": [bob_id] })),
     )
@@ -664,7 +664,7 @@ async fn a_nil_or_non_random_client_id_is_refused(pool: PgPool) {
         let (status, _) = send(
             &app,
             "POST",
-            &format!("/api/channels/{conv_id}/messages"),
+            &format!("/api/v1/channels/{conv_id}/messages"),
             Some(&alice),
             Some(json!({ "content": "hello", "client_message_id": bad })),
         )
@@ -688,7 +688,7 @@ async fn an_over_long_conversation_reaction_is_a_400_not_a_500(pool: PgPool) {
     let (_, conv) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&alice),
         Some(json!({ "participant_ids": [bob_id] })),
     )
@@ -698,7 +698,7 @@ async fn an_over_long_conversation_reaction_is_a_400_not_a_500(pool: PgPool) {
     let (_, msg) = send(
         &app,
         "POST",
-        &format!("/api/channels/{conv_id}/messages"),
+        &format!("/api/v1/channels/{conv_id}/messages"),
         Some(&alice),
         Some(json!({ "content": "react to me" })),
     )
@@ -708,7 +708,7 @@ async fn an_over_long_conversation_reaction_is_a_400_not_a_500(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/messages/{msg_id}/reactions"),
+        &format!("/api/v1/messages/{msg_id}/reactions"),
         Some(&alice),
         Some(json!({ "emoji": "x".repeat(60) })),
     )
@@ -724,7 +724,7 @@ async fn a_dm_reply_hangs_off_its_parent_and_stays_out_of_the_feed(pool: PgPool)
     let (_, conversation) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&owner_token),
         Some(json!({ "participant_ids": [second_id] })),
     )
@@ -734,7 +734,7 @@ async fn a_dm_reply_hangs_off_its_parent_and_stays_out_of_the_feed(pool: PgPool)
     let (_, parent) = send(
         &app,
         "POST",
-        &format!("/api/channels/{conv_id}/messages"),
+        &format!("/api/v1/channels/{conv_id}/messages"),
         Some(&owner_token),
         Some(json!({ "content": "can you look at the deploy?" })),
     )
@@ -744,7 +744,7 @@ async fn a_dm_reply_hangs_off_its_parent_and_stays_out_of_the_feed(pool: PgPool)
     let (status, reply) = send(
         &app,
         "POST",
-        &format!("/api/channels/{conv_id}/messages"),
+        &format!("/api/v1/channels/{conv_id}/messages"),
         Some(&second_token),
         Some(json!({ "content": "on it", "thread_parent_id": parent_id })),
     )
@@ -755,7 +755,7 @@ async fn a_dm_reply_hangs_off_its_parent_and_stays_out_of_the_feed(pool: PgPool)
     let (status, thread) = send(
         &app,
         "GET",
-        &format!("/api/messages/{parent_id}/thread"),
+        &format!("/api/v1/messages/{parent_id}/thread"),
         Some(&owner_token),
         None,
     )
@@ -768,7 +768,7 @@ async fn a_dm_reply_hangs_off_its_parent_and_stays_out_of_the_feed(pool: PgPool)
     let (_, feed) = send(
         &app,
         "GET",
-        &format!("/api/channels/{conv_id}/messages"),
+        &format!("/api/v1/channels/{conv_id}/messages"),
         Some(&owner_token),
         None,
     )
@@ -791,7 +791,7 @@ async fn a_dm_thread_is_one_level_deep(pool: PgPool) {
     let (_, conversation) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&owner_token),
         Some(json!({ "participant_ids": [second_id] })),
     )
@@ -801,7 +801,7 @@ async fn a_dm_thread_is_one_level_deep(pool: PgPool) {
     let (_, parent) = send(
         &app,
         "POST",
-        &format!("/api/channels/{conv_id}/messages"),
+        &format!("/api/v1/channels/{conv_id}/messages"),
         Some(&owner_token),
         Some(json!({ "content": "root" })),
     )
@@ -811,7 +811,7 @@ async fn a_dm_thread_is_one_level_deep(pool: PgPool) {
     let (_, reply) = send(
         &app,
         "POST",
-        &format!("/api/channels/{conv_id}/messages"),
+        &format!("/api/v1/channels/{conv_id}/messages"),
         Some(&owner_token),
         Some(json!({ "content": "first", "thread_parent_id": parent_id })),
     )
@@ -821,7 +821,7 @@ async fn a_dm_thread_is_one_level_deep(pool: PgPool) {
     let (_, nested) = send(
         &app,
         "POST",
-        &format!("/api/channels/{conv_id}/messages"),
+        &format!("/api/v1/channels/{conv_id}/messages"),
         Some(&owner_token),
         Some(json!({ "content": "second", "thread_parent_id": reply_id })),
     )
@@ -849,7 +849,7 @@ async fn a_thread_belongs_to_its_own_conversation(pool: PgPool) {
     let (_, first) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&owner_token),
         Some(json!({ "participant_ids": [second_id] })),
     )
@@ -859,7 +859,7 @@ async fn a_thread_belongs_to_its_own_conversation(pool: PgPool) {
     let (_, other) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&owner_token),
         Some(json!({ "participant_ids": [third_id] })),
     )
@@ -869,7 +869,7 @@ async fn a_thread_belongs_to_its_own_conversation(pool: PgPool) {
     let (_, parent) = send(
         &app,
         "POST",
-        &format!("/api/channels/{first_id}/messages"),
+        &format!("/api/v1/channels/{first_id}/messages"),
         Some(&owner_token),
         Some(json!({ "content": "private" })),
     )
@@ -879,7 +879,7 @@ async fn a_thread_belongs_to_its_own_conversation(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{other_id}/messages"),
+        &format!("/api/v1/channels/{other_id}/messages"),
         Some(&owner_token),
         Some(json!({ "content": "wrong room", "thread_parent_id": parent_id })),
     )
@@ -889,7 +889,7 @@ async fn a_thread_belongs_to_its_own_conversation(pool: PgPool) {
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/messages/{parent_id}/thread"),
+        &format!("/api/v1/messages/{parent_id}/thread"),
         Some(&third_token),
         None,
     )
@@ -937,7 +937,7 @@ async fn a_guest_can_only_open_a_conversation_with_somebody_they_share_a_channel
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&guest_token),
         Some(json!({ "participant_ids": [mate_id] })),
     )
@@ -951,7 +951,7 @@ async fn a_guest_can_only_open_a_conversation_with_somebody_they_share_a_channel
     let (status, refused) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&guest_token),
         Some(json!({ "participant_ids": [stranger_id] })),
     )
@@ -961,7 +961,7 @@ async fn a_guest_can_only_open_a_conversation_with_somebody_they_share_a_channel
     let (status, unknown) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&guest_token),
         Some(json!({ "participant_ids": [Uuid::new_v4()] })),
     )
@@ -987,7 +987,7 @@ async fn a_member_still_opens_a_conversation_with_anyone_in_the_workspace(pool: 
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&one_token),
         Some(json!({ "participant_ids": [two_id] })),
     )
@@ -1028,7 +1028,7 @@ async fn an_existing_conversation_survives_the_guest_leaving_the_shared_channel(
     let (status, conversation) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&guest_token),
         Some(json!({ "participant_ids": [mate_id] })),
     )
@@ -1046,7 +1046,7 @@ async fn an_existing_conversation_survives_the_guest_leaving_the_shared_channel(
     let (status, _) = send(
         &app,
         "GET",
-        &format!("/api/channels/{conversation_id}/messages"),
+        &format!("/api/v1/channels/{conversation_id}/messages"),
         Some(&guest_token),
         None,
     )
@@ -1067,7 +1067,7 @@ async fn conversation_in(
     let (status, list) = send(
         app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(token),
         None,
     )
@@ -1086,7 +1086,7 @@ async fn post_in(app: &axum::Router, token: &str, conversation: &str, content: &
     send(
         app,
         "POST",
-        &format!("/api/channels/{conversation}/messages"),
+        &format!("/api/v1/channels/{conversation}/messages"),
         Some(token),
         Some(json!({ "content": content })),
     )
@@ -1102,7 +1102,7 @@ async fn a_conversation_outlives_a_departure_and_carries_on_when_they_come_back(
     let (_, direct) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&owner_token),
         Some(json!({ "participant_ids": [bob_id] })),
     )
@@ -1111,7 +1111,7 @@ async fn a_conversation_outlives_a_departure_and_carries_on_when_they_come_back(
     let (_, group) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&owner_token),
         Some(json!({ "participant_ids": [bob_id, carol_id] })),
     )
@@ -1125,7 +1125,7 @@ async fn a_conversation_outlives_a_departure_and_carries_on_when_they_come_back(
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{ws_id}/members/{bob_id}"),
+        &format!("/api/v1/workspaces/{ws_id}/members/{bob_id}"),
         Some(&bob_token),
         None,
     )
@@ -1174,7 +1174,7 @@ async fn a_conversation_outlives_a_departure_and_carries_on_when_they_come_back(
     let (status, again) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&owner_token),
         Some(json!({ "participant_ids": [bob_id] })),
     )
@@ -1202,7 +1202,7 @@ async fn a_conversation_outlives_a_departure_and_carries_on_when_they_come_back(
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{ws_id}/members/{carol_id}"),
+        &format!("/api/v1/workspaces/{ws_id}/members/{carol_id}"),
         Some(&owner_token),
         None,
     )
@@ -1224,7 +1224,7 @@ async fn a_dm_with_someone_who_left_uses_the_name_they_had_in_the_workspace(pool
     let (status, body) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{ws_id}/profile"),
+        &format!("/api/v1/workspaces/{ws_id}/profile"),
         Some(&bob_token),
         Some(json!({ "display_name": "Bob in Ops" })),
     )
@@ -1233,7 +1233,7 @@ async fn a_dm_with_someone_who_left_uses_the_name_they_had_in_the_workspace(pool
     let (_, direct) = send(
         &app,
         "POST",
-        &format!("/api/workspaces/{ws_id}/conversations"),
+        &format!("/api/v1/workspaces/{ws_id}/conversations"),
         Some(&owner_token),
         Some(json!({ "participant_ids": [bob_id] })),
     )
@@ -1242,7 +1242,7 @@ async fn a_dm_with_someone_who_left_uses_the_name_they_had_in_the_workspace(pool
     let (status, _) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{ws_id}/members/{bob_id}"),
+        &format!("/api/v1/workspaces/{ws_id}/members/{bob_id}"),
         Some(&bob_token),
         None,
     )
@@ -1257,7 +1257,7 @@ async fn a_dm_with_someone_who_left_uses_the_name_they_had_in_the_workspace(pool
     let (status, refused) = send(
         &app,
         "POST",
-        &format!("/api/channels/{direct}/messages"),
+        &format!("/api/v1/channels/{direct}/messages"),
         Some(&owner_token),
         Some(json!({ "content": "still there?" })),
     )

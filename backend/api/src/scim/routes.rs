@@ -126,7 +126,7 @@ fn user_resource(user: &User, public_url: &str) -> serde_json::Value {
             "resourceType": "User",
             "created": user.created_at,
             "lastModified": user.updated_at,
-            "location": format!("{public_url}/api/scim/v2/Users/{}", user.id),
+            "location": shared_common::paths::api_url(public_url, &format!("/scim/v2/Users/{}", user.id)),
         },
     })
 }

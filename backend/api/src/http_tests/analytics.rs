@@ -71,7 +71,7 @@ async fn post(app: &Router, token: &str, channel: Uuid, content: &str) -> Uuid {
     let (status, body) = send(
         app,
         "POST",
-        &format!("/api/channels/{channel}/messages"),
+        &format!("/api/v1/channels/{channel}/messages"),
         Some(token),
         Some(json!({ "content": content })),
     )
@@ -84,7 +84,7 @@ async fn react(app: &Router, token: &str, message: Uuid) {
     let (status, body) = send(
         app,
         "POST",
-        &format!("/api/messages/{message}/reactions"),
+        &format!("/api/v1/messages/{message}/reactions"),
         Some(token),
         Some(json!({ "emoji": "👍" })),
     )
@@ -96,7 +96,7 @@ async fn read(app: &Router, token: &str, channel: Uuid, message: Uuid) {
     let (status, body) = send(
         app,
         "POST",
-        &format!("/api/channels/{channel}/read"),
+        &format!("/api/v1/channels/{channel}/read"),
         Some(token),
         Some(json!({ "message_id": message })),
     )
@@ -127,7 +127,7 @@ async fn analytics(team: &Team, token: &str, query: &str) -> (StatusCode, Value)
     send(
         &team.app,
         "GET",
-        &format!("/api/workspaces/{}/analytics?{query}", team.ws_id),
+        &format!("/api/v1/workspaces/{}/analytics?{query}", team.ws_id),
         Some(token),
         None,
     )
@@ -138,7 +138,10 @@ async fn members(team: &Team, token: &str, query: &str) -> (StatusCode, Value) {
     send(
         &team.app,
         "GET",
-        &format!("/api/workspaces/{}/analytics/members?{query}", team.ws_id),
+        &format!(
+            "/api/v1/workspaces/{}/analytics/members?{query}",
+            team.ws_id
+        ),
         Some(token),
         None,
     )
@@ -188,7 +191,7 @@ async fn the_rollup_counts_each_event_once_and_agrees_with_the_database(pool: Pg
     let (status, dm) = send(
         &team.app,
         "POST",
-        &format!("/api/workspaces/{}/conversations", team.ws_id),
+        &format!("/api/v1/workspaces/{}/conversations", team.ws_id),
         Some(owner_token),
         Some(json!({ "participant_ids": [member] })),
     )
@@ -369,7 +372,7 @@ async fn quiet(team: &Team, token: &str, days: i32) -> (StatusCode, Value) {
         &team.app,
         "GET",
         &format!(
-            "/api/workspaces/{}/analytics/quiet-channels?days={days}",
+            "/api/v1/workspaces/{}/analytics/quiet-channels?days={days}",
             team.ws_id
         ),
         Some(token),
@@ -383,7 +386,7 @@ async fn archive(team: &Team, token: &str, channels: &[Uuid]) -> (StatusCode, Va
         &team.app,
         "POST",
         &format!(
-            "/api/workspaces/{}/analytics/quiet-channels/archive",
+            "/api/v1/workspaces/{}/analytics/quiet-channels/archive",
             team.ws_id
         ),
         Some(token),
@@ -421,7 +424,10 @@ async fn each_channel_counts_its_posters_and_viewers_and_adds_up_to_the_workspac
     let (status, channels) = send(
         &team.app,
         "GET",
-        &format!("/api/workspaces/{}/analytics/channels?days=7", team.ws_id),
+        &format!(
+            "/api/v1/workspaces/{}/analytics/channels?days=7",
+            team.ws_id
+        ),
         Some(owner_token),
         None,
     )
@@ -461,7 +467,7 @@ async fn each_channel_counts_its_posters_and_viewers_and_adds_up_to_the_workspac
         &team.app,
         "GET",
         &format!(
-            "/api/workspaces/{}/analytics/channels?days=7&guests=false",
+            "/api/v1/workspaces/{}/analytics/channels?days=7&guests=false",
             team.ws_id
         ),
         Some(owner_token),
@@ -592,7 +598,7 @@ async fn a_channel_admin_sees_their_own_channel_and_no_other(pool: PgPool) {
     let (status, mine) = send(
         &team.app,
         "GET",
-        &format!("/api/channels/{}/analytics", team.public),
+        &format!("/api/v1/channels/{}/analytics", team.public),
         Some(&member.1),
         None,
     )
@@ -609,7 +615,7 @@ async fn a_channel_admin_sees_their_own_channel_and_no_other(pool: PgPool) {
         let (status, _) = send(
             &team.app,
             "GET",
-            &format!("/api/channels/{channel}/analytics"),
+            &format!("/api/v1/channels/{channel}/analytics"),
             Some(token),
             None,
         )
@@ -619,7 +625,10 @@ async fn a_channel_admin_sees_their_own_channel_and_no_other(pool: PgPool) {
     let (status, _) = send(
         &team.app,
         "GET",
-        &format!("/api/workspaces/{}/analytics/channels?days=30", team.ws_id),
+        &format!(
+            "/api/v1/workspaces/{}/analytics/channels?days=30",
+            team.ws_id
+        ),
         Some(&member.1),
         None,
     )

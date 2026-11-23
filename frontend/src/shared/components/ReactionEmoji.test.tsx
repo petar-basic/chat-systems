@@ -9,7 +9,7 @@ describe('ReactionEmoji', () => {
       {
         id: 'e1',
         name: 'shipit',
-        url: '/api/files/download/emoji/shipit.png',
+        url: '/api/v1/files/download/emoji/shipit.png',
         created_by: 'u1',
         created_at: '2024-01-01T00:00:00Z',
       },
@@ -24,7 +24,7 @@ describe('ReactionEmoji', () => {
   it('renders an imported shortcode as the image it stands for', () => {
     render(<ReactionEmoji emoji=":shipit:" />);
     const img = screen.getByRole('img', { name: ':shipit:' });
-    expect(img).toHaveAttribute('src', '/api/files/download/emoji/shipit.png');
+    expect(img).toHaveAttribute('src', '/api/v1/files/download/emoji/shipit.png');
   });
 
   it('leaves a shortcode nobody uploaded as text', () => {

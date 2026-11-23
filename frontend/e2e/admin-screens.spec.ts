@@ -61,7 +61,7 @@ test('the owner starts a workspace export and downloads it once', async ({ page 
     const link = newest.locator('[data-qa="export-download"]');
     await expect(link).toBeVisible();
     const href = await link.getAttribute('href');
-    expect(href).toContain('/api/exports/download/');
+    expect(href).toContain('/api/v1/exports/download/');
 
     const archive = await owner.get(href!);
     expect(archive.status()).toBe(200);

@@ -20,7 +20,7 @@ impl Setup {
         send(
             &self.app,
             "PUT",
-            &format!("/api/bot-apps/{}/shortcuts", self.app_id),
+            &format!("/api/v1/bot-apps/{}/shortcuts", self.app_id),
             Some(token),
             Some(body),
         )
@@ -31,7 +31,7 @@ impl Setup {
         let (status, body) = send(
             &self.app,
             "GET",
-            &format!("/api/workspaces/{}/active-apps", self.ws_id),
+            &format!("/api/v1/workspaces/{}/active-apps", self.ws_id),
             Some(token),
             None,
         )
@@ -44,7 +44,7 @@ impl Setup {
         let (status, body) = send(
             &self.app,
             "GET",
-            &format!("/api/channels/{channel_id}/context"),
+            &format!("/api/v1/channels/{channel_id}/context"),
             Some(token),
             None,
         )
@@ -60,7 +60,7 @@ impl Setup {
         let (status, body) = send(
             &self.app,
             "POST",
-            &format!("/api/channels/{channel_id}/messages"),
+            &format!("/api/v1/channels/{channel_id}/messages"),
             Some(token),
             Some(json!({ "content": text })),
         )
@@ -74,7 +74,7 @@ impl Setup {
             &self.app,
             "POST",
             &format!(
-                "/api/app-shortcuts/{}/run",
+                "/api/v1/app-shortcuts/{}/run",
                 shortcut_id.as_str().expect("id")
             ),
             Some(token),
@@ -172,7 +172,7 @@ async fn a_global_shortcut_reaches_the_app_and_opens_its_modal(pool: PgPool) {
 
     let (status, view) = s
         .as_bot(
-            "/api/views/open",
+            "/api/v1/views/open",
             json!({ "trigger_id": payload["trigger_id"], "view": {
                 "type": "modal", "callback_id": "request",
                 "title": { "type": "plain_text", "text": "New request" },
@@ -261,7 +261,7 @@ async fn a_message_shortcut_carries_the_message_only_where_the_app_is(pool: PgPo
     let (status, body) = send(
         &s.app,
         "POST",
-        &format!("/api/channels/{elsewhere}/members"),
+        &format!("/api/v1/channels/{elsewhere}/members"),
         Some(&s.owner_token),
         Some(json!({ "user_id": s.member_id })),
     )
@@ -305,7 +305,7 @@ async fn guests_and_a_turned_off_app_have_no_shortcuts(pool: PgPool) {
         let (status, body) = send(
             &s.app,
             "GET",
-            &format!("/api/channels/{}/message-shortcuts", s.ch_id),
+            &format!("/api/v1/channels/{}/message-shortcuts", s.ch_id),
             Some(token),
             None,
         )

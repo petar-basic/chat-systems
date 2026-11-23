@@ -57,7 +57,7 @@ describe('useDesktopRail', () => {
     const { shell } = fakeShell();
     renderHook(() =>
       useDesktopRail(shell, {
-        workspaces: [{ ...workspace('a1'), icon_url: '/api/files/download/icons/a1.png' }],
+        workspaces: [{ ...workspace('a1'), icon_url: '/api/v1/files/download/icons/a1.png' }],
         deletedWorkspaces: [],
         unreadByWorkspace: {},
         currentWorkspaceId: 'a1',
@@ -68,7 +68,7 @@ describe('useDesktopRail', () => {
       }),
     );
 
-    expect(railIcon).toHaveBeenCalledWith('/api/files/download/icons/a1.png');
+    expect(railIcon).toHaveBeenCalledWith('/api/v1/files/download/icons/a1.png');
     await waitFor(() =>
       expect(shell.reportWorkspaces).toHaveBeenLastCalledWith(
         [

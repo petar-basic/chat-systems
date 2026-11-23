@@ -69,7 +69,7 @@ describe('AccountPanel', () => {
   it('puts a new photo on the account itself, not in the open workspace', async () => {
     upload.mockResolvedValue({
       display_name: 'Alice',
-      avatar_url: 'http://localhost:3000/api/files/download/avatars/user-1/a.png',
+      avatar_url: 'http://localhost:3000/api/v1/files/download/avatars/user-1/a.png',
     });
     renderPanel();
 
@@ -80,7 +80,7 @@ describe('AccountPanel', () => {
       expect(updateInstanceUser).toHaveBeenCalledWith(
         'http://localhost:3000',
         expect.objectContaining({
-          avatar_url: 'http://localhost:3000/api/files/download/avatars/user-1/a.png',
+          avatar_url: 'http://localhost:3000/api/v1/files/download/avatars/user-1/a.png',
         }),
       ),
     );

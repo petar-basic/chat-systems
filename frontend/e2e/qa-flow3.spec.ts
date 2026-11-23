@@ -30,14 +30,16 @@ test('H. owner can change a member role and remove a member from the panel', asy
   await page.screenshot({ path: `${SHOTS}/H2-workspace-members.png`, fullPage: true });
 
   const auth = await authHeaders(request, 'admin@dev.local');
-  const listed = await (await request.get('http://localhost:3000/api/workspaces', { headers: auth })).json();
+  const listed = await (
+    await request.get('http://localhost:3000/api/v1/workspaces', { headers: auth })
+  ).json();
   const ws = listed.data.find((w: { name: string }) => w.name === 'Dev Team');
   await expect
     .poll(
       async () => {
         const members = (
           await (
-            await request.get(`http://localhost:3000/api/workspaces/${ws.id}/members`, { headers: auth })
+            await request.get(`http://localhost:3000/api/v1/workspaces/${ws.id}/members`, { headers: auth })
           ).json()
         ).data;
         return members.find((m: { email: string }) => m.email === 'alice@dev.local').role;
@@ -52,7 +54,7 @@ test('H. owner can change a member role and remove a member from the panel', asy
       async () => {
         const members = (
           await (
-            await request.get(`http://localhost:3000/api/workspaces/${ws.id}/members`, { headers: auth })
+            await request.get(`http://localhost:3000/api/v1/workspaces/${ws.id}/members`, { headers: auth })
           ).json()
         ).data;
         return members.find((m: { email: string }) => m.email === 'alice@dev.local').role;
@@ -79,13 +81,13 @@ test('I. notification badge + mark-all-read while viewing another channel', asyn
   const ws = await devWorkspace(request, 'admin@dev.local');
   const chans = (
     await (
-      await request.get(`http://localhost:3000/api/workspaces/${ws.id}/channels`, { headers: auth })
+      await request.get(`http://localhost:3000/api/v1/workspaces/${ws.id}/channels`, { headers: auth })
     ).json()
   ).data;
   const general = chans.find((c: { name: string }) => c.name === 'general').id;
   const members = (
     await (
-      await request.get(`http://localhost:3000/api/workspaces/${ws.id}/members`, { headers: auth })
+      await request.get(`http://localhost:3000/api/v1/workspaces/${ws.id}/members`, { headers: auth })
     ).json()
   ).data;
   const bobId = members.find((m: { email: string }) => m.email === 'bob@dev.local').user_id;
@@ -93,7 +95,7 @@ test('I. notification badge + mark-all-read while viewing another channel', asyn
   const random = chans.find((c: { name: string }) => c.name === 'random');
   // Bob's membership of #random is this test's own setup. It used to arrive as
   // a side effect of whichever spec ran before it.
-  await request.post(`http://localhost:3000/api/channels/${random.id}/members`, {
+  await request.post(`http://localhost:3000/api/v1/channels/${random.id}/members`, {
     headers: auth,
     data: { user_id: bobId },
   });
@@ -108,7 +110,7 @@ test('I. notification badge + mark-all-read while viewing another channel', asyn
   // to has to be on screen before it is sent.
   await expect(page.locator('[data-qa="channel-header-name"]')).toHaveText('random');
 
-  await request.post(`http://localhost:3000/api/channels/${general}/messages`, {
+  await request.post(`http://localhost:3000/api/v1/channels/${general}/messages`, {
     headers: auth,
     data: { content: `@[Bob Smith](${bobId}) badge probe` },
   });

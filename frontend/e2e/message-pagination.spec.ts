@@ -101,7 +101,7 @@ test('loading an older page does not move the viewport', async ({ page }) => {
     // it the prepend can land before the "before" reading is taken, and the test
     // would be timing the network rather than the anchor.
     let holdBack = false;
-    await page.route(`**/api/channels/${channelId}/messages*`, async (route) => {
+    await page.route(`**/api/v1/channels/${channelId}/messages*`, async (route) => {
       if (holdBack) await new Promise((resolve) => setTimeout(resolve, 1500));
       await route.continue();
     });

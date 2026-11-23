@@ -9,7 +9,7 @@ async fn member(app: &axum::Router, token: &str, ws_id: Uuid, user_id: Uuid) -> 
     let (status, members) = send(
         app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/members"),
+        &format!("/api/v1/workspaces/{ws_id}/members"),
         Some(token),
         None,
     )
@@ -33,7 +33,7 @@ async fn set_status(
     send(
         app,
         "PUT",
-        &format!("/api/workspaces/{ws_id}/profile/status"),
+        &format!("/api/v1/workspaces/{ws_id}/profile/status"),
         Some(token),
         Some(body),
     )
@@ -82,7 +82,7 @@ async fn a_status_belongs_to_the_workspace_it_was_set_in(pool: PgPool) {
     let (status, cleared) = send(
         &app,
         "DELETE",
-        &format!("/api/workspaces/{work}/profile/status"),
+        &format!("/api/v1/workspaces/{work}/profile/status"),
         Some(&token),
         None,
     )
@@ -94,7 +94,7 @@ async fn a_status_belongs_to_the_workspace_it_was_set_in(pool: PgPool) {
         "practising"
     );
 
-    let (_, me) = send(&app, "GET", "/api/users/me", Some(&token), None).await;
+    let (_, me) = send(&app, "GET", "/api/v1/users/me", Some(&token), None).await;
     assert!(
         me.get("status_text").is_none(),
         "the account has no status: {me:?}"
@@ -131,7 +131,7 @@ async fn an_expired_status_stops_being_shown(pool: PgPool) {
     let (_, profile) = send(
         &app,
         "GET",
-        &format!("/api/workspaces/{ws_id}/profile"),
+        &format!("/api/v1/workspaces/{ws_id}/profile"),
         Some(&token),
         None,
     )
@@ -203,7 +203,7 @@ async fn a_name_photo_and_bio_of_its_own_and_the_accounts_otherwise(pool: PgPool
     let (status, account) = send(
         &app,
         "PATCH",
-        "/api/users/me",
+        "/api/v1/users/me",
         Some(&owner),
         Some(json!({ "display_name": "Alice Account", "bio": "everywhere" })),
     )
@@ -213,9 +213,9 @@ async fn a_name_photo_and_bio_of_its_own_and_the_accounts_otherwise(pool: PgPool
     let (status, profile) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{work}/profile"),
+        &format!("/api/v1/workspaces/{work}/profile"),
         Some(&owner),
-        Some(json!({ "display_name": "Alice at Work", "avatar_url": "/api/files/download/a.png", "bio": "ships things" })),
+        Some(json!({ "display_name": "Alice at Work", "avatar_url": "/api/v1/files/download/a.png", "bio": "ships things" })),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{profile:?}");
@@ -223,7 +223,7 @@ async fn a_name_photo_and_bio_of_its_own_and_the_accounts_otherwise(pool: PgPool
 
     let at_work = member(&app, &owner, work, owner_id).await;
     assert_eq!(at_work["display_name"], "Alice at Work");
-    assert_eq!(at_work["avatar_url"], "/api/files/download/a.png");
+    assert_eq!(at_work["avatar_url"], "/api/v1/files/download/a.png");
     assert_eq!(at_work["bio"], "ships things");
     assert_eq!(
         member(&app, &guest, work, owner_id).await["display_name"],
@@ -237,7 +237,7 @@ async fn a_name_photo_and_bio_of_its_own_and_the_accounts_otherwise(pool: PgPool
     let (status, profile) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{work}/profile"),
+        &format!("/api/v1/workspaces/{work}/profile"),
         Some(&owner),
         Some(json!({ "display_name": "" })),
     )
@@ -253,7 +253,7 @@ async fn a_name_photo_and_bio_of_its_own_and_the_accounts_otherwise(pool: PgPool
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{work}/profile"),
+        &format!("/api/v1/workspaces/{work}/profile"),
         Some(&owner),
         Some(json!({ "bio": "x".repeat(501) })),
     )
@@ -264,7 +264,7 @@ async fn a_name_photo_and_bio_of_its_own_and_the_accounts_otherwise(pool: PgPool
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{work}/profile"),
+        &format!("/api/v1/workspaces/{work}/profile"),
         Some(&outsider),
         Some(json!({ "display_name": "Intruder" })),
     )
@@ -283,7 +283,7 @@ async fn a_title_and_pronouns_of_its_own_and_the_accounts_otherwise(pool: PgPool
     let (status, account) = send(
         &app,
         "PATCH",
-        "/api/users/me",
+        "/api/v1/users/me",
         Some(&owner),
         Some(json!({ "title": "Engineer", "pronouns": "she/her" })),
     )
@@ -295,7 +295,7 @@ async fn a_title_and_pronouns_of_its_own_and_the_accounts_otherwise(pool: PgPool
     let (status, profile) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{work}/profile"),
+        &format!("/api/v1/workspaces/{work}/profile"),
         Some(&owner),
         Some(json!({ "title": "  Head of Finance  ", "pronouns": "they/them" })),
     )
@@ -306,7 +306,7 @@ async fn a_title_and_pronouns_of_its_own_and_the_accounts_otherwise(pool: PgPool
     let (status, _) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{hobby}/profile"),
+        &format!("/api/v1/workspaces/{hobby}/profile"),
         Some(&owner),
         Some(json!({ "title": "Goalkeeper" })),
     )
@@ -328,7 +328,7 @@ async fn a_title_and_pronouns_of_its_own_and_the_accounts_otherwise(pool: PgPool
     let (status, profile) = send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{work}/profile"),
+        &format!("/api/v1/workspaces/{work}/profile"),
         Some(&owner),
         Some(json!({ "title": " " })),
     )
@@ -344,7 +344,7 @@ async fn a_title_and_pronouns_of_its_own_and_the_accounts_otherwise(pool: PgPool
     let (status, account) = send(
         &app,
         "PATCH",
-        "/api/users/me",
+        "/api/v1/users/me",
         Some(&owner),
         Some(json!({ "pronouns": "" })),
     )
@@ -355,23 +355,23 @@ async fn a_title_and_pronouns_of_its_own_and_the_accounts_otherwise(pool: PgPool
 
     for (path, body) in [
         (
-            format!("/api/workspaces/{work}/profile"),
+            format!("/api/v1/workspaces/{work}/profile"),
             json!({ "title": "x".repeat(101) }),
         ),
         (
-            format!("/api/workspaces/{work}/profile"),
+            format!("/api/v1/workspaces/{work}/profile"),
             json!({ "pronouns": "x".repeat(31) }),
         ),
         (
-            "/api/users/me".to_string(),
+            "/api/v1/users/me".to_string(),
             json!({ "title": "x".repeat(101) }),
         ),
         (
-            "/api/users/me".to_string(),
+            "/api/v1/users/me".to_string(),
             json!({ "pronouns": "x".repeat(31) }),
         ),
         (
-            "/api/users/me".to_string(),
+            "/api/v1/users/me".to_string(),
             json!({ "title": "line\nbreak" }),
         ),
     ] {
@@ -381,7 +381,7 @@ async fn a_title_and_pronouns_of_its_own_and_the_accounts_otherwise(pool: PgPool
     let (status, _) = send(
         &app,
         "PATCH",
-        "/api/users/me",
+        "/api/v1/users/me",
         Some(&owner),
         Some(json!({ "title": "é".repeat(100), "pronouns": "ž".repeat(30) })),
     )
@@ -401,7 +401,7 @@ async fn erasing_a_person_clears_their_profile_in_every_workspace(pool: PgPool) 
     send(
         &app,
         "PATCH",
-        &format!("/api/workspaces/{ws_id}/profile"),
+        &format!("/api/v1/workspaces/{ws_id}/profile"),
         Some(&subject),
         Some(json!({ "display_name": "Findable", "bio": "about me", "title": "Findable title" })),
     )
@@ -412,7 +412,7 @@ async fn erasing_a_person_clears_their_profile_in_every_workspace(pool: PgPool) 
     let (status, body) = send(
         &app,
         "DELETE",
-        &format!("/api/admin/users/{subject_id}/data"),
+        &format!("/api/v1/admin/users/{subject_id}/data"),
         Some(&instance_admin),
         Some(json!({ "hard_delete": false })),
     )
@@ -483,7 +483,7 @@ async fn setting_yourself_away_is_kept_and_tells_the_gateway(pool: PgPool) {
     let (status, body) = send(
         &app,
         "PUT",
-        "/api/users/me/presence",
+        "/api/v1/users/me/presence",
         Some(&token),
         Some(json!({ "away": true })),
     )
@@ -503,7 +503,7 @@ async fn setting_yourself_away_is_kept_and_tells_the_gateway(pool: PgPool) {
     let (status, body) = send(
         &app,
         "PUT",
-        "/api/users/me/presence",
+        "/api/v1/users/me/presence",
         Some(&token),
         Some(json!({ "away": false })),
     )
@@ -522,7 +522,7 @@ async fn the_away_command_switches_between_away_and_active(pool: PgPool) {
     let (status, body) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/commands"),
+        &format!("/api/v1/channels/{ch_id}/commands"),
         Some(&token),
         Some(json!({ "command": "/away", "text": "" })),
     )
@@ -534,7 +534,7 @@ async fn the_away_command_switches_between_away_and_active(pool: PgPool) {
     let (status, _) = send(
         &app,
         "POST",
-        &format!("/api/channels/{ch_id}/commands"),
+        &format!("/api/v1/channels/{ch_id}/commands"),
         Some(&token),
         Some(json!({ "command": "away", "text": "" })),
     )
@@ -547,7 +547,7 @@ async fn the_away_command_switches_between_away_and_active(pool: PgPool) {
 }
 
 async fn themes(app: &axum::Router, token: &str) -> Value {
-    let (status, body) = send(app, "GET", "/api/users/me/themes", Some(token), None).await;
+    let (status, body) = send(app, "GET", "/api/v1/users/me/themes", Some(token), None).await;
     assert_eq!(status, StatusCode::OK, "themes: {body:?}");
     body["data"].clone()
 }
@@ -570,7 +570,7 @@ async fn a_theme_belongs_to_one_member_of_one_workspace(pool: PgPool) {
     let (status, body) = send(
         &app,
         "PUT",
-        &format!("/api/workspaces/{first}/profile/theme"),
+        &format!("/api/v1/workspaces/{first}/profile/theme"),
         Some(&owner),
         Some(json!({ "theme": aubergine })),
     )
@@ -603,7 +603,7 @@ async fn a_theme_belongs_to_one_member_of_one_workspace(pool: PgPool) {
     let (status, _) = send(
         &app,
         "PUT",
-        &format!("/api/workspaces/{first}/profile/theme"),
+        &format!("/api/v1/workspaces/{first}/profile/theme"),
         Some(&owner),
         Some(json!({ "theme": null })),
     )
@@ -622,7 +622,7 @@ async fn a_theme_is_four_hex_colours_in_a_workspace_you_are_in(pool: PgPool) {
     let (owner_id, _, owner) = seed_and_login(&app, &state, "theme-strict-owner", false).await;
     let (_, _, outsider) = seed_and_login(&app, &state, "theme-strict-out", false).await;
     let ws = seed_workspace(&state, owner_id, "Theme Strict").await;
-    let path = format!("/api/workspaces/{ws}/profile/theme");
+    let path = format!("/api/v1/workspaces/{ws}/profile/theme");
 
     let (status, _) = send(
         &app,
@@ -677,7 +677,14 @@ async fn preferences_start_at_their_defaults_and_keep_what_is_set(pool: PgPool) 
     let (_, _, token) = seed_and_login(&app, &state, "prefs-keep", false).await;
     let (_, _, other) = seed_and_login(&app, &state, "prefs-other", false).await;
 
-    let (status, prefs) = send(&app, "GET", "/api/users/me/preferences", Some(&token), None).await;
+    let (status, prefs) = send(
+        &app,
+        "GET",
+        "/api/v1/users/me/preferences",
+        Some(&token),
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK, "{prefs:?}");
     assert_eq!(
         prefs,
@@ -697,7 +704,7 @@ async fn preferences_start_at_their_defaults_and_keep_what_is_set(pool: PgPool) 
     let (status, prefs) = send(
         &app,
         "PATCH",
-        "/api/users/me/preferences",
+        "/api/v1/users/me/preferences",
         Some(&token),
         Some(json!({ "density": "compact" })),
     )
@@ -709,7 +716,7 @@ async fn preferences_start_at_their_defaults_and_keep_what_is_set(pool: PgPool) 
     let (status, prefs) = send(
         &app,
         "PATCH",
-        "/api/users/me/preferences",
+        "/api/v1/users/me/preferences",
         Some(&token),
         Some(json!({ "colour_mode": "dark", "previews": "collapsed" })),
     )
@@ -722,7 +729,7 @@ async fn preferences_start_at_their_defaults_and_keep_what_is_set(pool: PgPool) 
     let (status, prefs) = send(
         &app,
         "PATCH",
-        "/api/users/me/preferences",
+        "/api/v1/users/me/preferences",
         Some(&token),
         Some(json!({ "enter_key": "newline", "open_channel_at": "newest" })),
     )
@@ -746,7 +753,7 @@ async fn preferences_start_at_their_defaults_and_keep_what_is_set(pool: PgPool) 
     let (status, prefs) = send(
         &app,
         "PATCH",
-        "/api/users/me/preferences",
+        "/api/v1/users/me/preferences",
         Some(&token),
         Some(json!({ "text_size": "125", "typeface": "open_dyslexic" })),
     )
@@ -755,10 +762,24 @@ async fn preferences_start_at_their_defaults_and_keep_what_is_set(pool: PgPool) 
     assert_eq!(prefs["text_size"], "125");
     assert_eq!(prefs["typeface"], "open_dyslexic");
 
-    let (_, prefs) = send(&app, "GET", "/api/users/me/preferences", Some(&token), None).await;
+    let (_, prefs) = send(
+        &app,
+        "GET",
+        "/api/v1/users/me/preferences",
+        Some(&token),
+        None,
+    )
+    .await;
     assert_eq!(prefs["colour_mode"], "dark", "kept on the server");
 
-    let (_, theirs) = send(&app, "GET", "/api/users/me/preferences", Some(&other), None).await;
+    let (_, theirs) = send(
+        &app,
+        "GET",
+        "/api/v1/users/me/preferences",
+        Some(&other),
+        None,
+    )
+    .await;
     assert_eq!(
         theirs,
         json!({
@@ -795,7 +816,7 @@ async fn an_unknown_preference_or_value_is_refused(pool: PgPool) {
         let (status, _) = send(
             &app,
             "PATCH",
-            "/api/users/me/preferences",
+            "/api/v1/users/me/preferences",
             Some(&token),
             Some(body.clone()),
         )
@@ -803,7 +824,14 @@ async fn an_unknown_preference_or_value_is_refused(pool: PgPool) {
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
     }
 
-    let (_, prefs) = send(&app, "GET", "/api/users/me/preferences", Some(&token), None).await;
+    let (_, prefs) = send(
+        &app,
+        "GET",
+        "/api/v1/users/me/preferences",
+        Some(&token),
+        None,
+    )
+    .await;
     assert_eq!(prefs["density"], "clean", "nothing refused was saved");
 }
 
@@ -815,7 +843,7 @@ async fn the_language_is_one_the_app_has_or_the_browser(pool: PgPool) {
         send(
             &app,
             "PATCH",
-            "/api/users/me/preferences",
+            "/api/v1/users/me/preferences",
             Some(&token),
             Some(body),
         )
@@ -845,7 +873,14 @@ async fn the_language_is_one_the_app_has_or_the_browser(pool: PgPool) {
         );
     }
 
-    let (_, prefs) = send(&app, "GET", "/api/users/me/preferences", Some(&token), None).await;
+    let (_, prefs) = send(
+        &app,
+        "GET",
+        "/api/v1/users/me/preferences",
+        Some(&token),
+        None,
+    )
+    .await;
     assert_eq!(prefs["language"], "ja", "nothing refused was saved");
 
     let (status, prefs) = patch(json!({ "language": "browser" })).await;
