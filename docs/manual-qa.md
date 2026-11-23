@@ -516,7 +516,7 @@ curl -s -X POST "localhost:3000/api/v1/files/upload/<WORKSPACE_ID>" -H "Authoriz
 - **Reach:** workspace Admin → *Workspace settings → Apps → Build an app → Build*.
 - **Steps:** create *Echo* with `chat:write`, `channels:read` and `channels:history`, agree to its scopes, copy the token, then *I have stored it*. In #general `/invite @Echo` and post `echo hello`. Run the example bot once:
   ```bash
-  CHAT_API_URL=http://localhost:3000/api CHAT_BOT_TOKEN=<TOKEN> node examples/echo-bot/echo-bot.mjs --once
+  CHAT_API_URL=http://localhost:3000/api/v1 CHAT_BOT_TOKEN=<TOKEN> node examples/echo-bot/echo-bot.mjs --once
   ```
 - **Expected:** the token is shown once and is gone after *I have stored it*; *Members* lists Echo with an *APP* label and no address. The bot answers *hello* in the thread, with *APP* next to its name. *Audit log* has *App created* and *App called the API*.
 - 🔴 **Edge — scopes:** `curl -s -X POST localhost:3000/api/v1/messages/<MSG_ID>/reactions -H "Authorization: Bearer <TOKEN>" -H 'Content-Type: application/json' -d '{"emoji":"👍"}'` → **403** naming `reactions:write`; `GET /api/v1/users/me` with the token → **403** *does not accept a bot token*.
@@ -527,7 +527,7 @@ curl -s -X POST "localhost:3000/api/v1/files/upload/<WORKSPACE_ID>" -H "Authoriz
 - **Reach:** workspace Admin → *Workspace settings → Apps*, the app's row → its page.
 - **Steps:** make *Echo* with `chat:write` and `channels:history`, tick `app_mention` and *Socket mode*, *Save*, then *Make an app-level token* and copy it. `/invite @Echo` in #general and run:
   ```bash
-  CHAT_API_URL=http://localhost:3000/api CHAT_BOT_TOKEN=<TOKEN> CHAT_APP_TOKEN=<APP_TOKEN> node examples/echo-bot/echo-bot-socket.mjs
+  CHAT_API_URL=http://localhost:3000/api/v1 CHAT_BOT_TOKEN=<TOKEN> CHAT_APP_TOKEN=<APP_TOKEN> node examples/echo-bot/echo-bot-socket.mjs
   ```
   Post `@Echo ship it` in #general.
 - **Expected:** the bot prints *connected as app …* and the row says *1 socket open*. The mention is answered *ship it* in its thread within a second or two.

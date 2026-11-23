@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, icon_url AS \"icon_url!\" FROM workspaces\n             WHERE icon_url LIKE '%/api/v1/files/download/%'\n               AND icon_url NOT LIKE '%/api/v1/files/download/icons/%'\n            ",
+  "query": "\n            SELECT id, icon_url AS \"icon_url!\" FROM workspaces\n             WHERE strpos(icon_url, $1) > 0\n               AND strpos(icon_url, $1 || 'icons/') = 0\n            ",
   "describe": {
     "columns": [
       {
@@ -27,12 +27,14 @@
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Text"
+      ]
     },
     "nullable": [
       false,
       true
     ]
   },
-  "hash": "6f9c8b1a7edb4b830ca5d341f11723127cff75332fe7bf052efbaadb873e1ede"
+  "hash": "e2a48df70c9c88e1b2ccc809f1dbd0949e2f0abbf6e1c1f8af29e34a42970613"
 }

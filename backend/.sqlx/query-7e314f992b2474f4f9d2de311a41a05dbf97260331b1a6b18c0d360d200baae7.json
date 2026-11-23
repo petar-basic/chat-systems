@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, avatar_url AS \"avatar_url!\" FROM users\n             WHERE avatar_url LIKE '%/api/v1/files/download/%'\n               AND avatar_url NOT LIKE '%/api/v1/files/download/avatars/%'\n            ",
+  "query": "\n            SELECT id, avatar_url AS \"avatar_url!\" FROM users\n             WHERE strpos(avatar_url, $1) > 0\n               AND strpos(avatar_url, $1 || 'avatars/') = 0\n            ",
   "describe": {
     "columns": [
       {
@@ -27,12 +27,14 @@
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Text"
+      ]
     },
     "nullable": [
       false,
       true
     ]
   },
-  "hash": "d8c492d65fa9cdbfba52a1f35386eb4a23241641083e369712dc2ab55347e1cd"
+  "hash": "7e314f992b2474f4f9d2de311a41a05dbf97260331b1a6b18c0d360d200baae7"
 }

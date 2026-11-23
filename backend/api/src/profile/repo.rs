@@ -248,9 +248,10 @@ impl ProfileRepo {
         let rows = sqlx::query!(
             r#"
             SELECT id, avatar_url AS "avatar_url!" FROM users
-             WHERE avatar_url LIKE '%/api/v1/files/download/%'
-               AND avatar_url NOT LIKE '%/api/v1/files/download/avatars/%'
-            "#
+             WHERE strpos(avatar_url, $1) > 0
+               AND strpos(avatar_url, $1 || 'avatars/') = 0
+            "#,
+            shared_common::paths::download_prefix()
         )
         .fetch_all(&self.pool)
         .await?;
@@ -266,9 +267,10 @@ impl ProfileRepo {
         let rows = sqlx::query!(
             r#"
             SELECT workspace_id, user_id, avatar_url AS "avatar_url!" FROM workspace_members
-             WHERE avatar_url LIKE '%/api/v1/files/download/%'
-               AND avatar_url NOT LIKE '%/api/v1/files/download/avatars/%'
-            "#
+             WHERE strpos(avatar_url, $1) > 0
+               AND strpos(avatar_url, $1 || 'avatars/') = 0
+            "#,
+            shared_common::paths::download_prefix()
         )
         .fetch_all(&self.pool)
         .await?;

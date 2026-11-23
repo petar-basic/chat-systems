@@ -263,7 +263,7 @@ pub fn build_app(state: Arc<AppState>) -> Router {
         ));
 
     Router::new()
-        .nest("/api/v1", api)
+        .nest(shared_common::paths::API_V1, api)
         .merge(health::router(state.clone()))
         .merge(openapi::router())
         .layer(axum::middleware::from_fn(metrics::track_metrics))

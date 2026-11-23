@@ -83,7 +83,9 @@ pub fn budget_for(method: &Method, path: &str) -> Option<Budget> {
     // path here is `/workspaces` while a caller sees `/api/v1/workspaces`. Both
     // forms are matched: a classification that silently misses falls through to
     // the default budget, which is the loosest one there is.
-    let path = path.strip_prefix("/api/v1").unwrap_or(path);
+    let path = path
+        .strip_prefix(shared_common::paths::API_V1)
+        .unwrap_or(path);
 
     let budget = if path.contains("/reactions") {
         REACTION

@@ -8,7 +8,6 @@ use axum::{
 use semver::Version;
 use serde::Serialize;
 
-pub const API_VERSION: u32 = 1;
 pub const MIN_CLIENT_VERSION: Version = Version::new(5, 0, 0);
 pub const HEADER: &str = "x-client-version";
 

@@ -1,4 +1,5 @@
 import { globalEventBus, type ServerEvent } from './globalEventBus';
+import { WS_PATH } from './apiVersion';
 import { logger } from './logger';
 import { isActive, watchActivity } from './activity';
 
@@ -84,13 +85,13 @@ export class WebSocketClient {
     const seq = this.connectSeq;
     let url: string;
     if (this.wsUrl) {
-      const base = this.wsUrl.replace(/\/$/, '').replace(/\/ws(\/v1)?$/, '');
-      url = `${base}/ws/v1`;
+      const base = this.wsUrl.replace(/\/$/, '').replace(/\/ws(\/v\d+)?$/, '');
+      url = `${base}${WS_PATH}`;
     } else if (this.instanceUrl && this.instanceUrl !== window.location.origin) {
-      url = this.instanceUrl.replace(/^http/, 'ws') + '/ws/v1';
+      url = this.instanceUrl.replace(/^http/, 'ws') + WS_PATH;
     } else {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      url = `${protocol}//${window.location.host}/ws/v1`;
+      url = `${protocol}//${window.location.host}${WS_PATH}`;
     }
 
     this.onStatusChange?.('connecting');

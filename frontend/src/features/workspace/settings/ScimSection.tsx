@@ -7,6 +7,7 @@ import { Button } from '@/shared/components/Button/Button';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { CopyField } from '@/shared/components/CopyField/CopyField';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog/ConfirmDialog';
+import { API_PATH } from '@/lib/apiVersion';
 import { toUserMessage } from '@/lib/errors';
 import { formatDateTime } from '@/lib/datetime';
 import {
@@ -121,6 +122,7 @@ export function ScimSection({ instanceUrl }: Props) {
           <Trans
             t={t}
             i18nKey="settings.scim.intro"
+            values={{ path: `${API_PATH}/scim/v2` }}
             components={{ code: <code className="text-fg-soft" /> }}
           />
         </p>

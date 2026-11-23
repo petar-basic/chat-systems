@@ -44,10 +44,12 @@ pub fn token_for(keyring: &Keyring, user_id: Uuid, workspace_id: Uuid) -> String
 }
 
 pub fn url_for(public_url: &str, keyring: &Keyring, user_id: Uuid, workspace_id: Uuid) -> String {
-    format!(
-        "{}/api/v1/email/unsubscribe/{}",
+    shared_common::paths::api_url(
         public_url.trim_end_matches('/'),
-        token_for(keyring, user_id, workspace_id)
+        &format!(
+            "/email/unsubscribe/{}",
+            token_for(keyring, user_id, workspace_id)
+        ),
     )
 }
 

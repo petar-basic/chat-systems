@@ -1205,6 +1205,8 @@ An `openapi-fetch` client typed by `src/api/schema.d.ts`. All requests include
 `Authorization: Bearer <access>` from the in-memory token; same-origin relies on the cookie.
 - Same-origin: routes through `/api/v1` (Vite proxy)
 - Cross-origin: routes to `{instanceUrl}/api/v1`
+- The version is `API_VERSION` in `lib/apiVersion.ts`; the API base, the socket path, the SSO
+  start and the two hand-built `fetch`es read it from there
 - `typed((c) => c.GET('/channels/{ch_id}/messages', { params }))` — the only way to call a JSON route; paths, params, bodies and responses come from the schema
 - `upload<T>(path, formData)` — the one multipart path (files, avatars, Slack archives)
 - Regenerate with `npm run api:types` after `cargo run --bin chat-openapi > src/api/openapi.json`

@@ -55,14 +55,16 @@ pub async fn interactive_app(state: &AppState, app_id: Uuid) -> AppResult<BotApp
 }
 
 pub fn response_url(state: &AppState, id: Uuid) -> String {
-    format!(
-        "{}/api/v1/interactions/responses/{}",
+    shared_common::paths::api_url(
         state.config.public_url.trim_end_matches('/'),
-        sealed::sign_id(
-            &state.config.secrets_keys,
-            sealed::INTERACTION_RESPONSES,
-            id
-        )
+        &format!(
+            "/interactions/responses/{}",
+            sealed::sign_id(
+                &state.config.secrets_keys,
+                sealed::INTERACTION_RESPONSES,
+                id
+            )
+        ),
     )
 }
 

@@ -9,7 +9,6 @@ use crate::state::AppState;
 
 pub const MAX_AVATAR_BYTES: usize = 10 * 1024 * 1024;
 const PREFIX: &str = "avatars/";
-const DOWNLOAD_PATH: &str = "/api/v1/files/download/";
 
 pub fn key(user_id: Uuid, workspace_id: Option<Uuid>, extension: &str) -> String {
     let name = Uuid::new_v4();
@@ -35,8 +34,9 @@ pub fn workspace_of(key: &str) -> Option<Uuid> {
 }
 
 pub fn key_of(url: &str) -> Option<&str> {
-    url.find(DOWNLOAD_PATH)
-        .map(|at| &url[at + DOWNLOAD_PATH.len()..])
+    let prefix = shared_common::paths::download_prefix();
+    url.find(&prefix)
+        .map(|at| &url[at + prefix.len()..])
         .filter(|key| !key.is_empty())
 }
 

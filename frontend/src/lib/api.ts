@@ -1,6 +1,7 @@
 import createClient, { type Client } from 'openapi-fetch';
 import type { components, paths } from '@/api/schema';
 import { useServerSupportStore } from '@/stores/serverSupport';
+import { API_PATH } from './apiVersion';
 import { clientVersion } from './appVersion';
 import { ApiError, retryAfterSeconds } from './errors';
 import i18n from './i18n';
@@ -65,11 +66,11 @@ export class ApiClient {
 
   constructor(instanceUrl?: string) {
     if (!instanceUrl || instanceUrl === window.location.origin) {
-      this.baseUrl = '/api/v1';
+      this.baseUrl = API_PATH;
       this.isCrossOrigin = false;
       this.instanceUrl = window.location.origin;
     } else {
-      this.baseUrl = `${instanceUrl}/api/v1`;
+      this.baseUrl = `${instanceUrl}${API_PATH}`;
       this.isCrossOrigin = true;
       this.instanceUrl = instanceUrl;
     }

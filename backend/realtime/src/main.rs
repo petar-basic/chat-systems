@@ -156,8 +156,11 @@ async fn main() -> anyhow::Result<()> {
 
 pub(crate) fn build_app(state: AppState) -> Router {
     Router::new()
-        .route("/ws/v1", get(ws_upgrade))
-        .route("/ws/v1/apps", get(app_socket_upgrade))
+        .route(shared_common::paths::WS_V1, get(ws_upgrade))
+        .route(
+            &format!("{}/apps", shared_common::paths::WS_V1),
+            get(app_socket_upgrade),
+        )
         .route("/livez", get(livez))
         .route("/readyz", get(readyz))
         .with_state(state)

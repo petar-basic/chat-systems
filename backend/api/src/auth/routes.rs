@@ -404,7 +404,7 @@ async fn instance_info(State(state): State<Arc<AppState>>) -> AppResult<Json<Ins
             .workspace_creation_restricted()
             .await?,
         other_servers_allowed: state.instance_settings_repo.other_servers_allowed().await?,
-        api_version: crate::client_version::API_VERSION,
+        api_version: shared_common::paths::API_VERSION,
         min_client_version: crate::client_version::MIN_CLIENT_VERSION.to_string(),
     }))
 }
@@ -494,7 +494,7 @@ pub(crate) fn set_auth_cookies(jar: CookieJar, tokens: &AuthTokens, secure: bool
     let refresh = Cookie::build(("refresh_token", tokens.refresh_token.clone()))
         .http_only(true)
         .same_site(SameSite::Lax)
-        .path("/api/v1/auth")
+        .path(format!("{}/auth", shared_common::paths::API_V1))
         .secure(secure)
         .max_age(time::Duration::days(7))
         .build();
@@ -513,7 +513,7 @@ fn clear_auth_cookies(jar: CookieJar) -> CookieJar {
     let refresh = Cookie::build(("refresh_token", ""))
         .http_only(true)
         .same_site(SameSite::Lax)
-        .path("/api/v1/auth")
+        .path(format!("{}/auth", shared_common::paths::API_V1))
         .max_age(time::Duration::seconds(0))
         .build();
 

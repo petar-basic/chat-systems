@@ -199,9 +199,9 @@ fn detail(state: &AppState, auth: &AuthUser, job: ExportJob) -> ExportDetail {
                 .is_some_and(|at| at > chrono::Utc::now())
         })
         .map(|token| {
-            format!(
-                "{}/api/v1/exports/download/{}",
-                state.config.public_url, token
+            shared_common::paths::api_url(
+                &state.config.public_url,
+                &format!("/exports/download/{token}"),
             )
         });
     ExportDetail {

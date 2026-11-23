@@ -10,6 +10,7 @@ import {
   useSetGroupMember,
 } from '@/features/workspace/hooks/useUserGroups';
 import type { WorkspaceMember } from '@/stores/workspace';
+import { API_PATH } from '@/lib/apiVersion';
 import { toUserMessage } from '@/lib/errors';
 import { toast } from '@/shared/components/Toast';
 import { displayNameOf } from '@/lib/userHelpers';
@@ -55,7 +56,7 @@ export function UserGroupsSection({ workspaceId, instanceUrl, members, isAdmin }
     if (groupMembers[groupId]) return;
     try {
       const res = await fetch(
-        `${instanceUrl ?? window.location.origin}/api/v1/workspaces/${workspaceId}/groups/${groupId}/members`,
+        `${instanceUrl ?? window.location.origin}${API_PATH}/workspaces/${workspaceId}/groups/${groupId}/members`,
         { credentials: 'include' },
       );
       const body = await res.json();

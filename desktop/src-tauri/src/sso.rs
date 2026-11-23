@@ -5,6 +5,7 @@ use url::Url;
 
 pub const SCHEME: &str = "chat-systems";
 const LONGEST_SIGN_IN: Duration = Duration::from_secs(600);
+const API_PATH: &str = "/api/v1";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Finished {
@@ -55,7 +56,7 @@ impl Pending {
 }
 
 pub fn start_url(server: &Url, nonce: &str, invite: Option<&str>) -> Option<Url> {
-    let mut url = server.join("/api/v1/auth/oidc/start").ok()?;
+    let mut url = server.join(&format!("{API_PATH}/auth/oidc/start")).ok()?;
     {
         let mut query = url.query_pairs_mut();
         query

@@ -4336,6 +4336,12 @@ empty 404, or for another origin fails the preflight because it does not allow t
 client then asks the old `/api/instance/info` once, and if that answers it says the server is
 too old for this app. The rule for what may change within `v1` is in `docs/backend.md`.
 
+**One place per side.** Asked in review for a version that changes in one line, the paths
+live in `shared_common::paths` on the server, `lib/apiVersion.ts` in the web client and one
+constant in the desktop app. On a client that is the whole switch. On the server it is not:
+`v2` has to be served beside `v1` for old phones, so it is another router mounted next to
+the first, and the server's own links say which version they point at through `api_url`.
+
 **QA** on the Docker stack, built from the branch and started on the 4.8.1 database, ran a
 script against nginx on port 8080 and checked the database:
 - Migration 128 ran. No avatar, member avatar, workspace icon or message attachment kept an

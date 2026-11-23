@@ -189,6 +189,15 @@ so bots, scripts and development builds are never refused. The web client sends 
 release version and nothing in development; a client that finds no `/api/v1` but an
 answer at the old `/api/instance/info` says the server is too old for it.
 
+**Where the version lives.** The server names its paths once, in `shared_common::paths`:
+`API_VERSION`, `API_V1`, `WS_V1`, and `api_url(public_url, path)`, which every URL the server
+hands out goes through (webhooks, `response_url`s, SCIM, the SSO redirect, downloads, email
+links). `lib.rs` mounts one router per version it serves, so `v2` is one more
+`.nest(API_V2, …)` beside `v1`, never a rename of it. The web client speaks one version,
+`API_VERSION` in `frontend/src/lib/apiVersion.ts`, and the desktop app's SSO start has its own
+`API_PATH`; moving a client to `v2` is that one line and regenerated types. Tests keep the
+literal `/api/v1` paths: they hold `v1` to its contract.
+
 On success, login / complete-registration / refresh all return the same `AuthSession`
 shape: `{ user: UserPublic, expires_in, access_token, refresh_token }`. They also set
 the `access_token` / `refresh_token` cookies (see Cross-cutting concerns).

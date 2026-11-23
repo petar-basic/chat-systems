@@ -346,9 +346,9 @@ fn secrets_response(state: &AppState, hook: &Hook) -> HookSecrets {
         .get("token")
         .and_then(|v| v.as_str())
         .map(|token| {
-            format!(
-                "{}/api/v1/hooks/incoming/{}",
-                state.config.public_url, token
+            shared_common::paths::api_url(
+                &state.config.public_url,
+                &format!("/hooks/incoming/{token}"),
             )
         });
     HookSecrets {
