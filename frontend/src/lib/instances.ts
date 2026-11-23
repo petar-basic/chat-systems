@@ -34,6 +34,7 @@ class InstanceManager {
     const clients = this.clients.get(key);
     if (clients) {
       clients.ws.disconnect();
+      clients.api.stopMediaLinks();
       this.clients.delete(key);
     }
     this.wsUrls.delete(key);

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { autoUpdate, flip, offset, shift, useFloating } from '@floating-ui/react-dom';
 import { useEscapeToClose } from '@/shared/hooks/useEscapeToClose';
 import { useThemeStore } from '@/stores/theme';
-import { useCustomEmojiStore } from '@/stores/customEmoji';
+import { useLinkedCustomEmoji } from '@/shared/hooks/useMediaUrl';
 import { pickedEmojiText, pickerCategories, scopePickerData } from '@/lib/customEmoji';
 
 interface Props {
@@ -30,7 +30,7 @@ const CATEGORIES = [
 export default function EmojiPicker({ anchorRef, onSelect, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const theme = useThemeStore((s) => s.resolved);
-  const custom = useCustomEmojiStore((s) => s.byName);
+  const custom = useLinkedCustomEmoji();
   const onSelectRef = useRef(onSelect);
   const onCloseRef = useRef(onClose);
   useEffect(() => {

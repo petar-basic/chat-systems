@@ -1,11 +1,11 @@
-import { useCustomEmojiStore } from '@/stores/customEmoji';
+import { useLinkedCustomEmoji } from '@/shared/hooks/useMediaUrl';
 import { splitCustomEmoji } from '@/lib/customEmoji';
 
 // A reaction is usually one unicode character, but an imported one can be a
 // custom shortcode — Slack lets people react with those, and reading `:shipit:`
 // as text is not what anybody meant by it.
 export function ReactionEmoji({ emoji }: { emoji: string }) {
-  const byName = useCustomEmojiStore((s) => s.byName);
+  const byName = useLinkedCustomEmoji();
   const spans = splitCustomEmoji(emoji, byName);
 
   if (spans.length === 1 && spans[0].emoji === null) return <span>{emoji}</span>;

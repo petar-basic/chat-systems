@@ -15,6 +15,7 @@ const useWorkspaceThemes = (instanceUrl: string | undefined) =>
     queryKey: QUERY_KEYS.workspaceThemes(instanceUrl ?? ''),
     queryFn: async (): Promise<WorkspaceTheme[]> =>
       (await getApiForInstance(instanceUrl).typed((c) => c.GET('/users/me/themes'))).data,
+    enabled: instanceUrl !== undefined,
   });
 
 export const useThemePreview = create<{ theme: Theme | null; preview: (theme: Theme | null) => void }>(

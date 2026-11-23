@@ -54,6 +54,26 @@ async fn ws_upgrade_allowed_origin_and_token_passes_auth_gates(pool: PgPool) {
     );
 }
 
+#[test_macros::db_test(migrations = "../migrations")]
+async fn ws_upgrade_accepts_the_bundled_app(pool: PgPool) {
+    let app = app(manager(pool.clone()).await);
+    let user = seed_user(&pool).await;
+    let token = mint_token(user, "access");
+    for origin in shared_common::cors::APP_ORIGINS.split(',') {
+        let status = ws_upgrade_status_with_origin(&app, Some(&token), Some(origin)).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{origin} clears the gates");
+    }
+}
+
+#[test_macros::db_test(migrations = "../migrations")]
+async fn ws_upgrade_refuses_a_media_token(pool: PgPool) {
+    let app = app(manager(pool.clone()).await);
+    let user = seed_user(&pool).await;
+    let token = mint_token(user, "media");
+    let status = ws_upgrade_status(&app, Some(&token)).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+}
+
 #[test]
 fn ws_auth_rejects_missing_cookie() {
     assert!(authenticate_ws(&HeaderMap::new(), &gateway_keys()).is_err());

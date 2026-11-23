@@ -108,6 +108,12 @@ pub struct AuthSession {
     pub refresh_token: String,
 }
 
+#[derive(Debug, Serialize, ToSchema)]
+pub struct MediaToken {
+    pub token: String,
+    pub expires_in: i64,
+}
+
 impl From<AuthTokens> for AuthSession {
     fn from(t: AuthTokens) -> Self {
         Self {
@@ -143,6 +149,7 @@ pub struct SsoExchangeRequest {
 #[derive(Debug, Serialize, ToSchema)]
 pub struct SsoExchanged {
     pub landing: String,
+    pub session: AuthSession,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]

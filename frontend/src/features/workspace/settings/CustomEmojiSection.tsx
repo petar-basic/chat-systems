@@ -7,7 +7,7 @@ import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { useQueryClient } from '@tanstack/react-query';
 import { Trash2, Upload } from 'lucide-react';
 import { useCustomEmoji, customEmojiKey } from '@/features/workspace/hooks/useCustomEmoji';
-import { API_PATH } from '@/lib/apiVersion';
+import { useMediaLinks } from '@/shared/hooks/useMediaUrl';
 import { toUserMessage } from '@/lib/errors';
 import { toast } from '@/shared/components/Toast';
 import { TextInput } from '@/shared/components/Form/TextInput';
@@ -28,6 +28,7 @@ export function CustomEmojiSection({ workspaceId, instanceUrl }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const client = getApiForInstance(instanceUrl);
+  const mediaLink = useMediaLinks();
   const refresh = () => queryClient.invalidateQueries({ queryKey: customEmojiKey(workspaceId) });
 
   const handleUpload = async (e: FormEvent) => {
@@ -40,21 +41,7 @@ export function CustomEmojiSection({ workspaceId, instanceUrl }: Props) {
       const form = new FormData();
       form.append('name', name.trim());
       form.append('image', file);
-      // Multipart, so this goes through fetch rather than the JSON client.
-      const token = await client.getValidToken();
-      const res = await fetch(
-        `${instanceUrl ?? window.location.origin}${API_PATH}/workspaces/${workspaceId}/emojis`,
-        {
-          method: 'POST',
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-          credentials: 'include',
-          body: form,
-        },
-      );
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({ error: res.statusText }));
-        throw new Error(body.error || res.statusText);
-      }
+      await client.upload(`/workspaces/${workspaceId}/emojis`, form);
       setName('');
       setFile(null);
       if (fileRef.current) fileRef.current.value = '';
@@ -126,7 +113,7 @@ export function CustomEmojiSection({ workspaceId, instanceUrl }: Props) {
                 data-qa="emoji-row"
                 className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-raised/30"
               >
-                <img src={emoji.url} alt={emoji.name} className="w-6 h-6" />
+                <img src={mediaLink(emoji.url)} alt={emoji.name} className="w-6 h-6" />
                 <span className="flex-1 text-sm text-fg-soft truncate">:{emoji.name}:</span>
                 <button
                   type="button"

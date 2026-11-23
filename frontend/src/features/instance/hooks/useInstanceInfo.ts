@@ -8,6 +8,6 @@ export function useInstanceInfo(instanceUrl: string | undefined) {
 }
 
 export function useOtherServersAllowed() {
-  const { data } = useInstanceInfo(window.location.origin);
-  return data?.other_servers_allowed === true;
+  const { data, isError } = useInstanceInfo(window.location.origin);
+  return isError || data?.other_servers_allowed === true;
 }

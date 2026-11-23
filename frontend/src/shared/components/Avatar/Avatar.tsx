@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { avatarColorFor, initialOf } from '@/lib/userHelpers';
+import { useMediaUrl } from '@/shared/hooks/useMediaUrl';
 
 export type AvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
 
@@ -22,15 +23,16 @@ const SIZES: Record<AvatarSize, string> = {
 
 export function Avatar({ userId, name, avatarUrl, size = 'md', className = '' }: AvatarProps) {
   const [brokenUrl, setBrokenUrl] = useState<string | null>(null);
+  const src = useMediaUrl(avatarUrl);
   const shape = `${SIZES[size]} rounded-full shrink-0 ${className}`;
 
-  if (avatarUrl && avatarUrl !== brokenUrl) {
+  if (src && src !== brokenUrl) {
     return (
       <img
-        src={avatarUrl}
+        src={src}
         alt={name}
         data-qa="avatar-image"
-        onError={() => setBrokenUrl(avatarUrl)}
+        onError={() => setBrokenUrl(src)}
         className={`${shape} object-cover bg-raised`}
       />
     );

@@ -11,9 +11,13 @@ const store = vi.hoisted(() => ({
   addInstanceWithPasskey: vi.fn(),
 }));
 const server = vi.hoisted(() => ({ emailCode: true }));
+const asked = vi.hoisted(() => ({ servers: [] as (string | undefined)[] }));
 
-vi.mock('@/lib/api', () => ({
-  api: { typed: (...args: unknown[]) => typed(...args) },
+vi.mock('@/shared/hooks/useCurrentApi', () => ({
+  getApiForInstance: (instanceUrl?: string) => {
+    asked.servers.push(instanceUrl);
+    return { typed: (...args: unknown[]) => typed(...args) };
+  },
 }));
 
 vi.mock('@/stores/instances', () => ({
@@ -30,9 +34,11 @@ vi.mock('@/features/instance/hooks/useInstanceInfo', () => ({
   useInstanceInfo: () => ({ data: { name: 'Northwind', email_code_sign_in: server.emailCode } }),
 }));
 
-function renderPage(email = 'ana@example.com') {
+function renderPage(email = 'ana@example.com', other?: string) {
   render(
-    <MemoryRouter initialEntries={[{ pathname: '/sign-in/code', state: { email } }]}>
+    <MemoryRouter
+      initialEntries={[{ pathname: '/sign-in/code', state: { email, ...(other ? { server: other } : {}) } }]}
+    >
       <EmailCodePage />
     </MemoryRouter>,
   );
@@ -50,6 +56,7 @@ describe('EmailCodePage', () => {
   afterEach(async () => {
     vi.unstubAllGlobals();
     typed.mockReset();
+    asked.servers = [];
     store.addInstanceWithEmailCode.mockReset();
     store.addInstanceWithPasskey.mockReset();
     server.emailCode = true;
@@ -66,6 +73,26 @@ describe('EmailCodePage', () => {
     await waitFor(() =>
       expect(store.addInstanceWithEmailCode).toHaveBeenCalledWith(
         window.location.origin,
+        'ana@example.com',
+        '123456',
+        undefined,
+      ),
+    );
+  });
+
+  it('asks the server the sign-in page named for the code, and signs in there', async () => {
+    store.addInstanceWithEmailCode.mockResolvedValue(undefined);
+    typed.mockResolvedValue({ status: 'sent' });
+    renderPage('ana@example.com', 'https://chat.example/');
+    fireEvent.click(screen.getByRole('button', { name: 'Email me a code' }));
+    await screen.findByRole('heading', { name: 'Check your email' });
+    expect(asked.servers).toEqual(['https://chat.example']);
+
+    fireEvent.change(screen.getByLabelText('Sign-in code'), { target: { value: '123456' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    await waitFor(() =>
+      expect(store.addInstanceWithEmailCode).toHaveBeenCalledWith(
+        'https://chat.example',
         'ana@example.com',
         '123456',
         undefined,

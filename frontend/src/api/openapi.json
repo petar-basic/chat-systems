@@ -1122,6 +1122,26 @@
         ]
       }
     },
+    "/auth/media-token": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "A token for file and image links, for a client that holds its session as a\nbearer token and so cannot send a cookie with an `<img>`. Append it to a\ndownload link as `?media=`. It downloads files and nothing else, lasts an\nhour, and dies with the session when sessions are revoked.",
+        "operationId": "media_token",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaToken"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/oidc/exchange": {
       "post": {
         "tags": [
@@ -22087,6 +22107,22 @@
           }
         }
       },
+      "MediaToken": {
+        "type": "object",
+        "required": [
+          "token",
+          "expires_in"
+        ],
+        "properties": {
+          "expires_in": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "token": {
+            "type": "string"
+          }
+        }
+      },
       "MemberActivity": {
         "type": "object",
         "required": [
@@ -25003,11 +25039,15 @@
       "SsoExchanged": {
         "type": "object",
         "required": [
-          "landing"
+          "landing",
+          "session"
         ],
         "properties": {
           "landing": {
             "type": "string"
+          },
+          "session": {
+            "$ref": "#/components/schemas/AuthSession"
           }
         }
       },

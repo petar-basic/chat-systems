@@ -11,6 +11,7 @@ pub struct RealtimeConfig {
     pub jwt_public_keys: VerifyingKeys,
     pub port: u16,
     pub cors_origins: String,
+    pub app_origins: String,
     pub pg_pool_max: u32,
     pub huddle_sfu: Option<HuddleSfu>,
 }
@@ -26,6 +27,7 @@ impl RealtimeConfig {
             jwt_public_keys: jwt_public_keys_from_env(),
             port: parse_env("PORT", 3004),
             cors_origins: env_or("CORS_ORIGINS", "http://localhost:3001"),
+            app_origins: env_or("APP_ORIGINS", shared_common::cors::APP_ORIGINS),
             pg_pool_max: parse_env("PG_POOL_MAX", 5),
             huddle_sfu: huddle_sfu_from_env(),
         };
@@ -128,12 +130,14 @@ mod tests {
             ),
             set_saved("REDIS_URL", "redis://127.0.0.1:6379"),
             unset_saved("CORS_ORIGINS"),
+            unset_saved("APP_ORIGINS"),
             set_saved("PORT", "9090"),
         ];
 
         let config = RealtimeConfig::from_env();
 
         assert_eq!(config.cors_origins, "http://localhost:3001");
+        assert_eq!(config.app_origins, shared_common::cors::APP_ORIGINS);
         assert_eq!(config.port, 9090u16);
         assert_eq!(config.jwt_public_keys.ids(), vec!["k1", "k0"]);
 

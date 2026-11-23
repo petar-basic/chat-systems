@@ -6,7 +6,7 @@ import { splitCustomEmoji } from '@/lib/customEmoji';
 import { splitEmojiText, isJumboEmoji } from '@/lib/emoji';
 import { useCurrentUser } from '@/features/instance';
 import type { CustomEmoji } from '@/features/workspace';
-import { useCustomEmojiStore } from '@/stores/customEmoji';
+import { useLinkedCustomEmoji } from '@/shared/hooks/useMediaUrl';
 import { useUserGroupStore } from '@/stores/userGroups';
 import { useKeywordStore } from '@/stores/keywords';
 
@@ -154,7 +154,7 @@ function MessageContent({ content, className, trailing }: Props) {
   const { data: user } = useCurrentUser();
   const selfId = user?.id;
 
-  const emoji = useCustomEmojiStore((s) => s.byName);
+  const emoji = useLinkedCustomEmoji();
   const selfGroupIds = useUserGroupStore((s) => s.selfGroupIds);
   const keywords = useKeywordStore((s) => s.folded);
 

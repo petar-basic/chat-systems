@@ -16,6 +16,7 @@ import { displayNameOf } from '@/lib/userHelpers';
 import { formatBytes } from '@/lib/fileSize';
 import { ImageGallery } from '@/features/messaging';
 import { fileKind, isRenderableImage } from '@/lib/fileKinds';
+import { useMediaLinks, useMediaUrl } from '@/shared/hooks/useMediaUrl';
 
 const TABS: (FileKindFilter | null)[] = [null, 'image', 'video', 'audio', 'document'];
 
@@ -39,6 +40,7 @@ function shortDate(value: string) {
 
 export default function ChannelFilesPanel({ channelId, onClose, onNavigate }: Props) {
   const { t } = useTranslation('channel');
+  const mediaLink = useMediaLinks();
   const [kind, setKind] = useState<FileKindFilter | null>(null);
   const { data, isLoading, isError, hasNextPage, fetchNextPage, isFetchingNextPage } = useChannelFiles(
     channelId,
@@ -121,7 +123,7 @@ export default function ChannelFilesPanel({ channelId, onClose, onNavigate }: Pr
                 className="aspect-square overflow-hidden rounded-md border border-line/60 bg-raised/40"
               >
                 <img
-                  src={image.thumbnail_url ?? image.url}
+                  src={mediaLink(image.thumbnail_url ?? image.url)}
                   alt={image.filename}
                   loading="lazy"
                   className="h-full w-full object-cover"
@@ -166,6 +168,7 @@ export default function ChannelFilesPanel({ channelId, onClose, onNavigate }: Pr
 function FileRow({ file, onNavigate }: { file: ChannelFile; onNavigate: (messageId: string) => void }) {
   const { t } = useTranslation('channel');
   const { getUser } = useUserCache();
+  const href = useMediaUrl(file.url);
   const kind = fileKind(file.mime_type, file.filename);
   const Icon = kind.icon;
   return (
@@ -189,7 +192,7 @@ function FileRow({ file, onNavigate }: { file: ChannelFile; onNavigate: (message
         </span>
       </button>
       <a
-        href={file.url}
+        href={href}
         download={file.filename}
         aria-label={t('files.download', { name: file.filename })}
         className="shrink-0 rounded p-1 text-muted hover:bg-raised hover:text-fg-dim"

@@ -11,7 +11,8 @@ import { acceptsPasskey, isPasskeyRequired, isTotpRequired, toUserMessage } from
 import { passkeysSupported } from '@/lib/webauthn';
 import { desktopShell } from '@/lib/desktopShell';
 import { afterSignIn, SECOND_FACTOR_ANSWERS } from '@/lib/signIn';
-import { api } from '@/lib/api';
+import { instanceManager } from '@/lib/instances';
+import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { ROUTES } from '@/shared/constants';
 
 const CARD = 'bg-surface/50 backdrop-blur-xl border border-line rounded-2xl p-8 shadow-2xl';
@@ -20,6 +21,12 @@ function emailFrom(state: unknown): string {
   if (state && typeof state === 'object' && 'email' in state && typeof state.email === 'string')
     return state.email;
   return '';
+}
+
+function serverFrom(state: unknown): string {
+  if (state && typeof state === 'object' && 'server' in state && typeof state.server === 'string')
+    return instanceManager.normalize(state.server.trim()) || window.location.origin;
+  return window.location.origin;
 }
 
 function Shell({ title, subtitle, children }: { title: string; subtitle?: ReactNode; children: ReactNode }) {
@@ -71,7 +78,9 @@ export default function EmailCodePage() {
   const { t } = useTranslation('auth');
   const location = useLocation();
   const navigate = useNavigate();
-  const { data: instance } = useInstanceInfo(window.location.origin);
+  const [server] = useState(() => serverFrom(location.state));
+  const sameOrigin = server === window.location.origin;
+  const { data: instance } = useInstanceInfo(server);
   const { addInstanceWithEmailCode, addInstanceWithPasskey, loading, error, clearError } = useInstanceStore();
 
   const [email, setEmail] = useState(() => emailFrom(location.state));
@@ -86,7 +95,7 @@ export default function EmailCodePage() {
 
   const inDesktop = desktopShell() !== null;
   const startPasskeyInDesktop = desktopShell()?.startPasskey;
-  const offerPasskey = (passkeyAccepted || needsPasskey) && !inDesktop && passkeysSupported();
+  const offerPasskey = (passkeyAccepted || needsPasskey) && sameOrigin && !inDesktop && passkeysSupported();
 
   const ask = async (e?: FormEvent) => {
     e?.preventDefault();
@@ -95,9 +104,10 @@ export default function EmailCodePage() {
     setAskError(null);
     clearError();
     try {
-      await api.typed((c) => c.POST('/auth/email-code', { body: { email: email.trim() } }), {
-        anonymous: true,
-      });
+      await getApiForInstance(sameOrigin ? undefined : server).typed(
+        (c) => c.POST('/auth/email-code', { body: { email: email.trim() } }),
+        { anonymous: true },
+      );
       setSent(true);
       setCode('');
     } catch (err) {
@@ -110,12 +120,7 @@ export default function EmailCodePage() {
     e.preventDefault();
     clearError();
     try {
-      await addInstanceWithEmailCode(
-        window.location.origin,
-        email.trim(),
-        code.trim(),
-        totpCode.trim() || undefined,
-      );
+      await addInstanceWithEmailCode(server, email.trim(), code.trim(), totpCode.trim() || undefined);
       navigate(afterSignIn(), { replace: true });
     } catch (err) {
       if (isTotpRequired(err)) setNeedsTotp(true);
