@@ -17,10 +17,19 @@ instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
 
 ## [Unreleased]
 
+## [4.8.1] — 2026-11-23
+
 ### Upgrading from 4.8.0
 
-- The `api` runs migration 127 on start. It adds one instance setting, on by default, so
-  nothing changes until an admin turns it off.
+- Set `VERSION=4.8.1`, pull the app images and restart `api`, `realtime`, `worker` and
+  `frontend` together. The `api` runs migration 127 on start; Postgres stays as it is. The
+  migration adds one instance setting, on by default, so nothing changes until an admin turns
+  it off.
+- The `api` and the `worker` no longer start with an `SMTP_FROM_ADDRESS` that is not a bare
+  email address such as `noreply@example.com`, and they name the value. Every email failed
+  with such a value anyway (see *Fixed*).
+- The desktop app updates itself. Until it is on 4.8.1, it still offers *Add Server…* while
+  this server has *Let people connect to other servers* turned off.
 
 ### Added
 
@@ -30,6 +39,8 @@ instead of building from source (see [Upgrade](docs/RUNBOOK.md#upgrade)).
   are dropped, with their sessions, the next time the app loads. The desktop app hides *Add
   Server…* while this server is in it. The switch is live and audited as
   `instance.settings_changed` (#445).
+- More of the app is in Japanese, from cyberlib: the time zone prompt and the getting-started
+  checklist (#443, #448).
 
 ### Fixed
 
