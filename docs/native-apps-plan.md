@@ -72,13 +72,47 @@ CS-108:
 
 The banner and the badge are exactly what CS-108 bridges, so nothing changes in the plan.
 
+## What the spike found on phones (CS-142)
+
+The app was a throwaway Tauri 2.12 app (wry 0.57.1), tested on 2026-11-23. It had a local test page and a small plugin, in Kotlin and Swift, with one Rust command. The plugin asked for permissions, registered for push, rang a huddle through CallKit or ConnectionService, and on Android ran a foreground service for the microphone. It ran on:
+- an Android 16 emulator;
+- an iOS 27.2 simulator;
+- an iPhone 13 Pro on iOS 27.2.1, signed with a free Apple ID.
+
+There was no Android phone and no paid Apple Developer account. The audio test sent the microphone, and a beep every 5 s, through a WebRTC connection inside the page, and counted the packets and the sound level each second.
+
+| Check | Result |
+|---|---|
+| Microphone, camera, WebRTC and Web Audio in the webview | present on both |
+| `getDisplayMedia` (sharing the screen) | iOS has it; the Android WebView does not |
+| `Notification`, `PushManager` | missing on both |
+| Android, screen off for 2 min or in the background for 60 s, with or without a foreground service | timers, microphone packets and audio kept going (emulator; its microphone is silent) |
+| iOS simulator, screen locked | WebKit ended the microphone track at once and suspended the page about 30 s later; after unlocking, the track stayed ended |
+| iPhone, screen locked | a minute after locking, the page still ran and microphone packets still flowed; the test was stopped there |
+| Android ring: self-managed ConnectionService with a full-screen call notification | rang with the app in the background; *Answer* brought the app forward |
+| iOS ring through CallKit | the plugin's call was accepted; the simulator ends it at once because it has no call screen |
+| iOS push registration | fails without the `aps-environment` entitlement, which needs the paid account. A push simulated with `simctl push` showed with the app closed |
+| Android push registration (FCM) | not tried end to end: there was no Firebase project or phone. Without `google-services.json`, it fails cleanly |
+
+**Keep Tauri.** Capacitor wraps the same two webviews, so every limit above would be the same there. Both reach Swift and Kotlin through plugins, and this plugin reached the call and push APIs that CS-144 and CS-145 need. Tauri also keeps one project for the desktop and the phones.
+
+The simulator and the phone disagree about a locked screen. The question was handed to the app itself: CS-144 runs a real huddle with the screen locked for ten minutes on both phones. Whatever fails there is written down as a known limitation, not a reason to change frameworks. If iOS does cut the microphone, the way around it is the huddle's media in native code (LiveKit's Swift SDK) with the UI still in the webview.
+
+What the phone apps must handle because of this:
+- **Notifications go through the plugin, not the Web Notifications API**, as on desktop (CS-108).
+- **No screen sharing from Android.** Watching someone else's screen works.
+- **Android 16 draws under the status bar** (edge to edge). The test page pads with `env(safe-area-inset-top)` and was still covered, so the app has to pass the insets in.
+- **A ring needs a push.** iOS freezes a locked app within about 30 s, so a timer in the app cannot ring later; on iOS a huddle rings from a VoIP push (PushKit). Tauri has no hook for the push callbacks on the app delegate, so the plugin adds them to Tauri's `AppDelegate` at run time.
+- **A free Apple ID can sign the app**, for seven days at a time. `tauri ios build` builds for a generic device, so Xcode never registers the phone with the team. One `xcodebuild -destination id=<phone> -allowProvisioningUpdates` creates the profile; after that, the Tauri build signs.
+
 ## Mobile, later
 
 Ticketed on 2026-11-04 as Wave 33 (then CS-122 – CS-126), for 5.0.0, and renumbered on
 2026-11-13 as Wave 37 (CS-141 – CS-145), after the Slack gaps of 4.8.0. Decided on 2026-11-04 to build
 the phone apps on Tauri 2 too, as iOS and Android targets of the desktop project, if the
 spike (CS-142) finds that a huddle holds in the phone's webview and that a Tauri plugin can
-receive a push; Capacitor around the same React client is the way around it if not. What
+receive a push; Capacitor around the same React client is the way around it if not. The
+spike kept Tauri (above). What
 mobile needs that desktop does not:
 
 - **A bundled frontend.** A store app that only loads a remote page is likely to be rejected

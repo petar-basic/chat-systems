@@ -21,6 +21,10 @@ learns of a message only while it is open.
   app notifies only while it is open.
 - The relay rate-limits per server, drops tokens APNs or FCM report as dead and keeps no
   log of payloads.
+- A huddle rings through the same relay: on iOS with a VoIP push (PushKit) that the app
+  answers with CallKit, on Android with a high-priority FCM message and ConnectionService.
+  CS-142 found that a ring cannot wait in the app, since iOS freezes a locked app in
+  about 30 s.
 - The decision this waits on: whether the project runs a relay, and where. It is written
   down in [native-apps-plan.md](../native-apps-plan.md) under *Open decisions*.
 
