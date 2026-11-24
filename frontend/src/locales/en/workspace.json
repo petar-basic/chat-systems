@@ -67,6 +67,14 @@
     "endingSoon": "Only guests whose access ends in the next 30 days",
     "noneEnding": "No guest's access ends in the next 30 days."
   },
+  "leave": {
+    "title": "Leave {{name}}?",
+    "body": "You leave every channel and stop getting its messages. To come back, somebody has to invite you again.",
+    "bodyOwner": "You leave every channel and stop getting its messages. To come back, somebody has to invite you again. The other owners keep running {{name}}.",
+    "onlyOwner": "You're the only owner of {{name}}. Make someone else an owner in Members first, then you can leave.",
+    "confirm": "Leave workspace",
+    "failed": "Could not leave the workspace. Try again."
+  },
   "inviteRequest": {
     "explain": "Only admins invite people to this workspace. Send them a request and they decide.",
     "emails": "Email addresses",

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog/ConfirmDialog';
 import { toUserMessage } from '@/lib/errors';
 import { useInstanceStore } from '@/stores/instances';
@@ -9,10 +10,8 @@ interface Props {
   onClose: () => void;
 }
 
-const LEAVING =
-  'You leave every channel and stop getting its messages. To come back, somebody has to invite you again.';
-
 export function LeaveWorkspaceDialog({ workspace, onClose }: Props) {
+  const { t } = useTranslation('workspace');
   const userId = useInstanceStore((s) => s.instances.find((i) => i.url === workspace.instanceUrl)?.user.id);
   const { data: members } = useWorkspaceMembers(workspace.id, workspace.instanceUrl);
   const role = members?.find((m) => m.user_id === userId)?.role;
@@ -23,7 +22,7 @@ export function LeaveWorkspaceDialog({ workspace, onClose }: Props) {
     try {
       await leave.mutateAsync({ workspace, userId });
     } catch (err) {
-      throw new Error(toUserMessage(err, 'Could not leave the workspace. Try again.'), { cause: err });
+      throw new Error(toUserMessage(err, t('leave.failed')), { cause: err });
     }
   };
 
@@ -32,15 +31,15 @@ export function LeaveWorkspaceDialog({ workspace, onClose }: Props) {
 
   return (
     <ConfirmDialog
-      title={`Leave ${workspace.name}?`}
+      title={t('leave.title', { name: workspace.name })}
       description={
         onlyOwner
-          ? `You're the only owner of ${workspace.name}. Make someone else an owner in Members first, then you can leave.`
+          ? t('leave.onlyOwner', { name: workspace.name })
           : owner
-            ? `${LEAVING} The other owners keep running ${workspace.name}.`
-            : LEAVING
+            ? t('leave.bodyOwner', { name: workspace.name })
+            : t('leave.body')
       }
-      confirmLabel="Leave workspace"
+      confirmLabel={t('leave.confirm')}
       confirmDisabled={!role || onlyOwner}
       onConfirm={confirm}
       onClose={onClose}
