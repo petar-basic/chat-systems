@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
 import { Button } from '@/shared/components/Button/Button';
 import { TextInput } from '@/shared/components/Form/TextInput';
@@ -11,10 +12,12 @@ import { instanceManager } from '@/lib/instances';
 import { QUERY_KEYS, PENDING_INVITE_KEY } from '@/shared/constants';
 import { SsoInviteButton } from '@/features/instance/SsoInviteButton';
 import type { components } from '@/api/schema';
+import { Trans } from '@/shared/components/Trans/Trans';
 
 type InviteInfo = components['schemas']['InvitePreview'];
 
 export default function CompleteRegistrationPage() {
+  const { t } = useTranslation('auth');
   const { token: pathToken } = useParams<{ token: string }>();
   const [searchParams] = useSearchParams();
   const token = pathToken || searchParams.get('token') || undefined;
@@ -34,7 +37,7 @@ export default function CompleteRegistrationPage() {
   );
 
   const [inviteInfo, setInviteInfo] = useState<InviteInfo | null>(null);
-  const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [verifyFailed, setVerifyFailed] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
   const [password, setPassword] = useState('');
@@ -55,7 +58,7 @@ export default function CompleteRegistrationPage() {
         anonymous: true,
       })
       .then(setInviteInfo)
-      .catch(() => setVerifyError('This invite link is invalid or has expired.'));
+      .catch(() => setVerifyFailed(true));
   }, [token, originUrl]);
 
   const handleJoin = async () => {
@@ -70,7 +73,7 @@ export default function CompleteRegistrationPage() {
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workspaces() });
       navigate(`/app/${res.workspace_id}`, { replace: true });
     } catch (e) {
-      setJoinError(e instanceof Error ? e.message : 'Could not join this workspace.');
+      setJoinError(e instanceof Error ? e.message : t('completeRegistration.joinFailed'));
       setJoining(false);
     }
   };
@@ -108,14 +111,14 @@ export default function CompleteRegistrationPage() {
     });
   };
 
-  if (verifyError) {
+  if (verifyFailed) {
     return (
       <Shell>
         <div className="bg-surface/50 backdrop-blur-xl border border-line rounded-2xl p-8 shadow-2xl max-w-md text-center">
-          <div className="text-danger text-lg font-medium mb-2">Invalid invite</div>
-          <p className="text-muted">{verifyError}</p>
+          <div className="text-danger text-lg font-medium mb-2">{t('completeRegistration.invalidTitle')}</div>
+          <p className="text-muted">{t('completeRegistration.invalidBody')}</p>
           <Button variant="primary" className="mt-6" onClick={() => navigate('/add-instance')}>
-            Go to Login
+            {t('completeRegistration.goToSignIn')}
           </Button>
         </div>
       </Shell>
@@ -130,7 +133,7 @@ export default function CompleteRegistrationPage() {
     );
   }
 
-  const workspaceLabel = inviteInfo.workspace_name || 'the workspace';
+  const workspaceLabel = inviteInfo.workspace_name || t('completeRegistration.workspaceFallback');
 
   if (inviteInfo.already_registered) {
     const signedInAs = localInstance?.user.email ?? null;
@@ -157,27 +160,32 @@ export default function CompleteRegistrationPage() {
                 loading={joining}
                 icon={<UserPlus className="h-4 w-4" />}
               >
-                Join {workspaceLabel}
+                {t('completeRegistration.join', { name: workspaceLabel })}
               </Button>
             ) : signedInAs ? (
               <>
                 <p className="text-muted text-sm mb-6">
-                  You're signed in as <span className="text-fg font-medium">{signedInAs}</span>, but this
-                  invite was sent to <span className="text-fg font-medium">{inviteInfo.email}</span>.
+                  <Trans
+                    t={t}
+                    i18nKey="completeRegistration.wrongAccount"
+                    values={{ signedInAs, email: inviteInfo.email }}
+                    components={{
+                      account: <span className="text-fg font-medium" />,
+                      email: <span className="text-fg font-medium" />,
+                    }}
+                  />
                 </p>
                 <Button variant="primary" fullWidth onClick={handleSwitchAccount}>
                   <LogIn className="w-4 h-4" />
-                  Switch account
+                  {t('completeRegistration.switchAccount')}
                 </Button>
               </>
             ) : (
               <>
-                <p className="text-muted text-sm mb-6">
-                  This email already has an account here. Sign in to accept the invite.
-                </p>
+                <p className="text-muted text-sm mb-6">{t('completeRegistration.hasAccount')}</p>
                 <Button variant="primary" fullWidth onClick={handleSignInToJoin}>
                   <LogIn className="w-4 h-4" />
-                  Sign in to join
+                  {t('completeRegistration.signInToJoin')}
                 </Button>
                 {token && <SsoInviteButton token={token} />}
               </>
@@ -195,9 +203,14 @@ export default function CompleteRegistrationPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-600 rounded-2xl mb-4">
             <MessageSquare className="w-8 h-8 text-fg" />
           </div>
-          <h1 className="text-3xl font-bold text-fg">Complete registration</h1>
+          <h1 className="text-3xl font-bold text-fg">{t('completeRegistration.title')}</h1>
           <p className="text-muted mt-2">
-            You've been invited to <span className="text-accent font-medium">{workspaceLabel}</span>
+            <Trans
+              t={t}
+              i18nKey="completeRegistration.invitedTo"
+              values={{ name: workspaceLabel }}
+              components={{ workspace: <span className="text-accent font-medium" /> }}
+            />
           </p>
         </div>
 
@@ -209,39 +222,39 @@ export default function CompleteRegistrationPage() {
             <div className="bg-red-500/10 border border-red-500/30 text-danger px-4 py-3 rounded-lg mb-6 text-sm">
               {completeRegistration.error instanceof Error
                 ? completeRegistration.error.message
-                : 'Registration failed'}
+                : t('completeRegistration.failed')}
             </div>
           )}
 
           <div className="space-y-4 mb-6">
-            <TextInput label="Email" type="email" value={inviteInfo.email} disabled readOnly />
+            <TextInput label={t('signIn.email')} type="email" value={inviteInfo.email} disabled readOnly />
             <TextInput
-              label="Display name"
+              label={t('completeRegistration.displayName')}
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="John Doe"
+              placeholder={t('completeRegistration.displayNamePlaceholder')}
               autoComplete="name"
               required
             />
             <TextInput
-              label="Password"
+              label={t('signIn.password')}
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Min 8 characters"
+              placeholder={t('completeRegistration.passwordPlaceholder')}
               autoComplete="new-password"
               minLength={8}
               required
             />
             <TextInput
-              label="Confirm password"
+              label={t('completeRegistration.confirmPassword')}
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Confirm your password"
+              placeholder={t('completeRegistration.confirmPlaceholder')}
               autoComplete="new-password"
               minLength={8}
-              error={confirmPassword && password !== confirmPassword ? 'Passwords do not match' : null}
+              error={confirmPassword && password !== confirmPassword ? t('resetPassword.mismatch') : null}
               required
             />
           </div>
@@ -254,7 +267,7 @@ export default function CompleteRegistrationPage() {
             loading={completeRegistration.isPending}
             icon={<UserPlus className="h-4 w-4" />}
           >
-            Create account
+            {t('completeRegistration.submit')}
           </Button>
           {token && <SsoInviteButton token={token} />}
         </form>
@@ -272,14 +285,22 @@ function Shell({ children }: { children: React.ReactNode }) {
 }
 
 function InviteHeader({ workspaceLabel, email }: { workspaceLabel: string; email: string }) {
+  const { t } = useTranslation('auth');
   return (
     <div className="text-center mb-8">
       <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-600 rounded-2xl mb-4">
         <MessageSquare className="w-8 h-8 text-fg" />
       </div>
-      <h1 className="text-3xl font-bold text-fg">Join {workspaceLabel}</h1>
+      <h1 className="text-3xl font-bold text-fg">
+        {t('completeRegistration.join', { name: workspaceLabel })}
+      </h1>
       <p className="text-muted mt-2">
-        Invitation for <span className="text-accent font-medium">{email}</span>
+        <Trans
+          t={t}
+          i18nKey="completeRegistration.invitationFor"
+          values={{ email }}
+          components={{ email: <span className="text-accent font-medium" /> }}
+        />
       </p>
     </div>
   );
