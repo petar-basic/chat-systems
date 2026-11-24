@@ -9,14 +9,17 @@ import { CustomEmojiSection } from './CustomEmojiSection';
 
 const hostile = '<img src=x onerror="alert(1)"> {{name}}';
 
-const state = vi.hoisted(() => ({ emojis: [] as CustomEmoji[] }));
+const state = vi.hoisted(() => ({
+  emojis: [] as CustomEmoji[],
+  upload: vi.fn<(path: string, form: FormData) => Promise<object>>(async () => ({})),
+}));
 
 vi.mock('@/features/workspace/hooks/useCustomEmoji', async (original) => ({
   ...(await original<typeof import('@/features/workspace/hooks/useCustomEmoji')>()),
   useCustomEmoji: () => ({ data: state.emojis, isLoading: false }),
 }));
 vi.mock('@/shared/hooks/useCurrentApi', () => ({
-  getApiForInstance: () => ({ getValidToken: async () => 'token', typed: vi.fn() }),
+  getApiForInstance: () => ({ typed: vi.fn(), upload: state.upload }),
 }));
 
 const emoji = (over: Partial<CustomEmoji>): CustomEmoji => ({
@@ -38,7 +41,7 @@ describe('CustomEmojiSection', () => {
   });
 
   afterEach(async () => {
-    vi.unstubAllGlobals();
+    state.upload.mockClear();
     vi.restoreAllMocks();
     await i18n.changeLanguage('en');
   });
@@ -82,10 +85,6 @@ describe('CustomEmojiSection', () => {
 
   it('says in Japanese that an emoji was added', async () => {
     const success = vi.spyOn(toast, 'success');
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => new Response('{}', { status: 200 })),
-    );
     await i18n.changeLanguage('ja');
     render(<CustomEmojiSection workspaceId="w1" />, { wrapper });
 
@@ -96,5 +95,8 @@ describe('CustomEmojiSection', () => {
     fireEvent.click(screen.getByRole('button', { name: '絵文字を追加' }));
 
     await waitFor(() => expect(success).toHaveBeenCalledWith('絵文字を追加しました。'));
+    const [path, form] = state.upload.mock.calls[0];
+    expect(path).toBe('/workspaces/w1/emojis');
+    expect(form.get('name')).toBe('party');
   });
 });
