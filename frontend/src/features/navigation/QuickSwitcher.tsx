@@ -53,8 +53,8 @@ export function QuickSwitcher({
       .filter((c) => (c.name || '').toLowerCase().includes(q))
       .map((c) => ({
         key: `ch-${c.id}`,
-        label: c.name || 'channel',
-        sub: 'Channel',
+        label: c.name || t('quickSwitcher.unnamed'),
+        sub: t('quickSwitcher.channel'),
         icon:
           c.channel_type === 'private' ? (
             <Lock className="w-4 h-4 text-muted" />
@@ -69,7 +69,7 @@ export function QuickSwitcher({
       .map((m) => ({
         key: `dm-${m.user_id}`,
         label: displayNameOf(m.display_name),
-        sub: m.title || 'Direct message',
+        sub: m.title || t('quickSwitcher.directMessage'),
         icon: <MessageSquare className="w-4 h-4 text-accent" />,
         run: () => onSelectDm(m.user_id),
       }));
@@ -121,24 +121,24 @@ export function QuickSwitcher({
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-label="Quick switcher"
+        aria-label={t('quickSwitcher.title')}
         data-qa="quick-switcher"
       >
         <div className="px-3 py-3 border-b border-line">
           <TextInput
-            label="Search channels and people"
+            label={t('quickSwitcher.search')}
             labelHidden
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Jump to a channel or person…"
+            placeholder={t('quickSwitcher.placeholder')}
             leading={<Search className="w-4 h-4" />}
           />
         </div>
         <div className="max-h-80 overflow-y-auto py-1">
           {items.length === 0 ? (
-            <div className="px-4 py-6 text-center text-sm text-muted">No matches</div>
+            <div className="px-4 py-6 text-center text-sm text-muted">{t('quickSwitcher.none')}</div>
           ) : (
             items.map((item, i) => (
               <button
