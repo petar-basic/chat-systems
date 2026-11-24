@@ -161,6 +161,13 @@
 @media (hover: none) {
   [data-message-id] {
     -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  [data-message-id] :is(input, textarea, [contenteditable='true']) {
+    -webkit-user-select: text;
+    user-select: text;
   }
 }
 

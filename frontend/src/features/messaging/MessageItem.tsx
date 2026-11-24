@@ -33,6 +33,9 @@ import { MessageReactions } from './MessageReactions';
 import { ReactionEmoji } from '@/shared/components/ReactionEmoji';
 import { TIME, formatClock } from '@/lib/datetime';
 import { hasBlocks } from './blocks/layout';
+import { messageText } from '@/lib/messageText';
+import { toast } from '@/shared/components/Toast';
+import { logger } from '@/lib/logger';
 
 interface MessageItemProps {
   message: Message;
@@ -128,6 +131,14 @@ function MessageItem({
     onThread: onThreadOpen ? () => onThreadOpen(message) : undefined,
     onToggleSave: toggleSave,
     onRemind: onSave ? (at) => later.save.mutate({ messageId: message.id, remindAt: at }) : undefined,
+    onCopyText: message.content.trim()
+      ? () => {
+          navigator.clipboard
+            ?.writeText(messageText(message.content))
+            .then(() => toast.success(t('toasts.textCopied')))
+            .catch((e) => logger.error('MessageItem', 'copyText', e));
+        }
+      : undefined,
     onCopyLink: onCopyLink ? () => onCopyLink(message.id) : undefined,
     onMarkUnread: onMarkUnread ? () => onMarkUnread(message.id) : undefined,
     onForward: onForward ? () => onForward(message) : undefined,

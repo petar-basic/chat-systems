@@ -40,6 +40,7 @@
     "unpin": "Unpin",
     "markUnread": "Mark unread",
     "copyLink": "Copy link",
+    "copyText": "Copy text",
     "remind": "Remind me about this",
     "forward": "Forward",
     "edit": "Edit",
@@ -110,6 +111,7 @@
     "pinFailed": "Couldn't update the pin",
     "reactionFailed": "Couldn't update the reaction",
     "linkCopied": "Link copied to clipboard",
+    "textCopied": "Text copied to clipboard",
     "saved": "Saved for later"
   },
   "composer": {

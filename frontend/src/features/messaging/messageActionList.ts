@@ -1,6 +1,7 @@
 import {
   AlarmClock,
   Bookmark,
+  Copy,
   Forward,
   Link2,
   MailOpen,
@@ -26,6 +27,7 @@ export interface MessageActionHandlers {
   onThread?: () => void;
   onToggleSave?: () => void;
   onRemind?: (at: Date) => void;
+  onCopyText?: () => void;
   onCopyLink?: () => void;
   onMarkUnread?: () => void;
   onForward?: () => void;
@@ -58,6 +60,9 @@ export function sheetActionsFor(
             onSelect: () => a.onRemind?.(new Date(Date.now() + 60 * 60 * 1000)),
           },
         ]
+      : []),
+    ...(a.onCopyText
+      ? [{ key: 'copy-text', label: t('actions.copyText'), Icon: Copy, onSelect: a.onCopyText }]
       : []),
     ...(a.onCopyLink
       ? [{ key: 'copy-link', label: t('actions.copyLink'), Icon: Link2, onSelect: a.onCopyLink }]
