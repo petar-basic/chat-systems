@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/shared/components/Button/Button';
 import { toUserMessage } from '@/lib/errors';
 import { formatDateTime } from '@/lib/datetime';
-import { Extension } from '@tiptap/core';
+import { Extension, type Editor } from '@tiptap/core';
+import { Selection } from '@tiptap/pm/state';
 import { useEditor, EditorContent } from '@tiptap/react';
 import { editLastOwnMessage } from './messageKeys';
 import { enterOutcome } from './enterKey';
@@ -71,6 +72,12 @@ const MentionNode = Mention.extend({
     };
   },
 });
+
+function focusEnd(editor: Editor) {
+  if (editor.isDestroyed) return;
+  editor.view.dispatch(editor.state.tr.setSelection(Selection.atEnd(editor.state.doc)).scrollIntoView());
+  editor.view.focus();
+}
 
 interface Props {
   channelName?: string;
@@ -453,12 +460,11 @@ export default function MessageInput({
   }, [handleSend]);
 
   useEffect(() => {
-    if (editing && editor) editor.commands.focus('end');
+    if (editing && editor) focusEnd(editor);
   }, [editing, editor]);
 
   useEffect(() => {
-    if (autoFocus && editor && !window.matchMedia?.('(pointer: coarse)')?.matches)
-      editor.commands.focus('end');
+    if (autoFocus && editor && !window.matchMedia?.('(pointer: coarse)')?.matches) focusEnd(editor);
   }, [autoFocus, editor]);
 
   useEffect(() => {
