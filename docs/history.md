@@ -4404,3 +4404,34 @@ server.
 
 Keeping the refresh token in the Keychain or Keystore, deep links, and bringing SSO, a passkey
 and the emailed code back into the app moved to CS-144, which builds the app they live in.
+
+### [CS-144a] The phone apps: the targets, signing in, the system bars ✅ shipped
+The desktop Tauri project builds an iOS and an Android app as well. They carry their own build
+of the web client and reach a server across origins with tokens, as CS-143 made possible. The
+desktop code moved to `src/desktop/`, and `src/phone.rs` is the whole phone app: one window with
+the client, and links that leave it open in the system browser. The Xcode and Android Studio
+projects are committed, as `tauri ios init` and `tauri android init` made them, with a phone
+icon. Release builds for TestFlight and Play moved to CS-146, which waits on the signing
+accounts.
+
+Checked on an iOS 27.2 simulator and an Android 16 emulator against the local stack: adding the
+server, signing in by password and by emailed code, staying signed in after a restart, reading,
+sending, a photo from the system picker, a link opening in the browser.
+
+Four things did not work at first:
+- **The page asked its own origin for instance info.** It did that before it asked for a
+  server, so the sign-in page showed the same-origin form for about seven seconds while the
+  request retried. The client now knows it runs in the app (`lib/phoneApp`), asks for the server
+  at once and never asks its own origin.
+- **Both phones drew the page under the status bar.** Android 15 and later draw an app edge to
+  edge, so `MainActivity` pads the web view by the bars, the cutout and the keyboard. On iOS the
+  page uses `viewport-fit=cover` for the composer and pads only the bottom, so the app pins the
+  web view below the status bar and leaves the bottom to the page.
+- **A tap on a link did nothing.** The opener plugin catches a link's click and opens it
+  through a command that no capability allowed. `capabilities/phone.json` now allows it on a
+  phone, for web, mail and phone links only.
+- **Copy link copied the app's address.** It copied `tauri://localhost/...` instead of the
+  server's. It now uses the workspace's server.
+
+One bug was not specific to the phones: on any phone, *Add instance* in the drawer opened its
+form under the drawer. Opening it now closes the drawer.

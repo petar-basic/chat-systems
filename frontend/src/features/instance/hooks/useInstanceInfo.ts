@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { instanceInfoQuery } from '@/lib/instanceInfo';
+import { inPhoneApp } from '@/lib/phoneApp';
 
 export { instanceInfoQuery };
 
@@ -9,5 +10,5 @@ export function useInstanceInfo(instanceUrl: string | undefined) {
 
 export function useOtherServersAllowed() {
   const { data, isError } = useInstanceInfo(window.location.origin);
-  return isError || data?.other_servers_allowed === true;
+  return inPhoneApp || isError || data?.other_servers_allowed === true;
 }

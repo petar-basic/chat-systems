@@ -637,6 +637,26 @@ HTTPS deployment rather than `http://192.168.x.x`.
 - [ ] **Huddle.** Joining is audio-only and says so; the call survives the screen
       locking.
 
+### 12a. In the phone apps
+
+The iOS and Android apps carry their own build of the web client and talk to the server
+across origins (CS-143). Build and install them as in [desktop/README.md](../desktop/README.md#phones),
+on the iOS simulator or an iPhone, and on the Android emulator or a phone. The iOS simulator
+reaches the Mac's `localhost`; the Android emulator needs `adb reverse tcp:8080 tcp:8080`.
+
+- [ ] **Add a server.** The first page asks for the server at once, with no passkey or SSO
+      button. Enter `http://localhost:8080` and sign in by password, and once by *Email me a
+      sign-in code*.
+- [ ] **Stays signed in.** Close the app and open it again: the workspace opens.
+- [ ] **System bars.** The channel header is below the status bar and the notch, the composer
+      above the home indicator or the navigation bar, and above the keyboard while typing.
+- [ ] **Messages.** Read, send, and see a message from another account arrive live.
+- [ ] **Photo.** The paperclip opens the system picker; a photo uploads and shows.
+- [ ] **Links.** A link in a message opens in the system browser, and the app stays as it was.
+      *Copy link* on a message copies the server's address, not `tauri://localhost`.
+- [ ] **Another server.** From the drawer, *Add instance* shows its form over the page, and
+      the drawer closes.
+
 ---
 
 ## 13. Dialogs, in light, dark and at a phone width

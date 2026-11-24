@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::workspaces;
+use super::workspaces;
 
 const LONGEST_TITLE: usize = 120;
 const LONGEST_BODY: usize = 400;

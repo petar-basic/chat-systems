@@ -172,3 +172,15 @@ test('the getting-started checklist starts folded on a phone', async ({ page, pl
     await admin.dispose();
   }
 });
+
+test('adding a server from the drawer shows its form above the drawer', async ({ page }) => {
+  await login(page, 'bob@dev.local');
+  await page.getByRole('button', { name: 'Open navigation' }).first().click();
+  await expect(page.getByTestId('workspace-chrome')).toBeInViewport();
+
+  await page.getByRole('button', { name: 'Add instance' }).click();
+
+  await expect(page.getByTestId('workspace-chrome')).not.toBeInViewport();
+  await page.getByLabel('Server URL').click();
+  await expect(page.getByLabel('Server URL')).toBeFocused();
+});

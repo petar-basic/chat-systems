@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>NSCameraUsageDescription</key>
+  <string>Take a photo to send, or show your camera in a huddle.</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Talk in huddles and record clips.</string>
+</dict>
+</plist>

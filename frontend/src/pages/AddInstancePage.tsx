@@ -11,6 +11,7 @@ import { passkeysSupported } from '@/lib/webauthn';
 import { PENDING_INVITE_KEY, ROUTES } from '@/shared/constants';
 import { ssoStartUrl, startSsoInDesktop } from '@/features/instance/ssoStart';
 import { desktopShell } from '@/lib/desktopShell';
+import { inPhoneApp } from '@/lib/phoneApp';
 import { afterSignIn, SECOND_FACTOR_ANSWERS } from '@/lib/signIn';
 
 export default function AddInstancePage() {
@@ -19,7 +20,8 @@ export default function AddInstancePage() {
   const { addInstance, addInstanceWithPasskey, instances, hydrated, loading, error, clearError } =
     useInstanceStore();
 
-  const { data: instance, isError: noServerHere } = useInstanceInfo(window.location.origin);
+  const { data: instance, isError } = useInstanceInfo(window.location.origin);
+  const noServerHere = inPhoneApp || isError;
   const [typedUrl, setUrl] = useState<string | null>(null);
   const url = typedUrl ?? (noServerHere ? '' : window.location.origin);
   const [wsUrl, setWsUrl] = useState('');

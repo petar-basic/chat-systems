@@ -23,22 +23,37 @@ vi.mock('@/stores/instances', () => ({
   }),
 }));
 
-const server = vi.hoisted(() => ({ name: 'Northwind', emailCode: false, othersAllowed: true, none: false }));
+const server = vi.hoisted(() => ({
+  name: 'Northwind',
+  emailCode: false,
+  othersAllowed: true,
+  none: false,
+  pending: false,
+}));
+const phone = vi.hoisted(() => ({ app: false }));
+
+vi.mock('@/lib/phoneApp', () => ({
+  get inPhoneApp() {
+    return phone.app;
+  },
+}));
 
 vi.mock('@/features/instance/hooks/useInstanceInfo', () => ({
   useInstanceInfo: () =>
-    server.none
-      ? { data: undefined, isError: true }
-      : {
-          data: {
-            name: server.name,
-            sso_enabled: true,
-            email_code_sign_in: server.emailCode,
-            setup_required: false,
-            other_servers_allowed: server.othersAllowed,
+    server.pending
+      ? { data: undefined, isError: false }
+      : server.none
+        ? { data: undefined, isError: true }
+        : {
+            data: {
+              name: server.name,
+              sso_enabled: true,
+              email_code_sign_in: server.emailCode,
+              setup_required: false,
+              other_servers_allowed: server.othersAllowed,
+            },
+            isError: false,
           },
-          isError: false,
-        },
 }));
 
 function openInDesktop() {
@@ -68,6 +83,8 @@ describe('AddInstancePage', () => {
     server.emailCode = false;
     server.othersAllowed = true;
     server.none = false;
+    server.pending = false;
+    phone.app = false;
     await i18n.changeLanguage('en');
   });
 
@@ -145,6 +162,17 @@ describe('AddInstancePage', () => {
       undefined,
       undefined,
     );
+  });
+
+  it('in the phone app asks which server at once, since nothing serves the app', () => {
+    phone.app = true;
+    server.pending = true;
+    vi.stubGlobal('PublicKeyCredential', function PublicKeyCredential() {});
+    renderPage();
+
+    expect(screen.getByLabelText('Server URL')).toHaveValue('');
+    expect(screen.queryByRole('button', { name: 'Sign in with a passkey' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Forgot password?' })).not.toBeInTheDocument();
   });
 
   it('offers an emailed code only where the server sends them', () => {

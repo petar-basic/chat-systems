@@ -55,7 +55,7 @@ pub fn open<R: Runtime>(
     height: u32,
 ) -> Result<(), String> {
     close(app);
-    let main = app.get_window(crate::MAIN);
+    let main = app.get_window(super::MAIN);
     let monitor = pick_monitor(
         app.available_monitors().map_err(|e| e.to_string())?,
         width,

@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "phone",
+  "description": "On a phone the app's own copy of the web client may open a link in the browser, the mail app or the phone app, and nothing else.",
+  "platforms": ["iOS", "android"],
+  "windows": ["main"],
+  "permissions": ["opener:allow-open-url", "opener:allow-default-urls"]
+}
