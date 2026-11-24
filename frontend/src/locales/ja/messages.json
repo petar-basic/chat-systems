@@ -346,5 +346,22 @@
       "seek": "再生位置",
       "expand": "{{name}} をギャラリーで開く"
     }
+  },
+  "unreads": {
+    "new": "新着 {{count}}件",
+    "loading": "読み込み中…",
+    "failed": "未読のメッセージを読み込めませんでした。",
+    "empty": "すべて既読です",
+    "emptyHint": "チャンネルにもダイレクトメッセージにも、新着メッセージはありません。",
+    "groupLabel": "{{title}}、未読 {{count}}件",
+    "directMessage": "ダイレクトメッセージ",
+    "channel": "チャンネル",
+    "markRead": "既読にする",
+    "earlier": "それより前の未読 {{count}}件は",
+    "openEarlier": "開いて見る",
+    "showMore": "さらに表示",
+    "markReadFailed": "既読にできませんでした",
+    "markAllReadFailed": "すべてを既読にできませんでした",
+    "markedAllRead": "すべて既読にしました"
   }
 }

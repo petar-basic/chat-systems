@@ -1,5 +1,6 @@
 import { CheckCheck, Hash, Lock, Menu, BellOff, MessageCircle } from 'lucide-react';
 import type { KeyboardEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { RichTextDisplay } from '@/features/messaging';
 import { Avatar } from '@/shared/components/Avatar/Avatar';
 import { useUserCache } from '@/stores/users';
@@ -27,6 +28,7 @@ export function AllUnreadsView({
   onOpenConversation,
   onOpenNav,
 }: Props) {
+  const { t } = useTranslation(['messages', 'sidebar', 'channel']);
   const unreads = useUnreads(workspaceId);
   const markRead = useMarkGroupRead(workspaceId);
   const { getUser } = useUserCache();
@@ -38,9 +40,9 @@ export function AllUnreadsView({
       const conversation = conversations.find((c) => c.id === group.channel_id);
       return conversation
         ? conversationTitle(conversation, currentUserId, (id) => getUser(id)?.display_name)
-        : 'Direct message';
+        : t('unreads.directMessage');
     }
-    return group.channel_name ?? 'channel';
+    return group.channel_name ?? t('unreads.channel');
   };
 
   const open = (group: UnreadGroup) =>
@@ -56,33 +58,33 @@ export function AllUnreadsView({
   };
 
   return (
-    <main className="flex-1 flex flex-col min-w-0" aria-label="All unreads" data-qa="all-unreads">
+    <main className="flex-1 flex flex-col min-w-0" aria-label={t('sidebar:allUnreads')} data-qa="all-unreads">
       <div className="h-14 px-4 flex items-center gap-2 border-b border-line/50 bg-surface/30 shrink-0">
         {onOpenNav && (
           <button
             onClick={onOpenNav}
-            aria-label="Open navigation"
-            data-tooltip="Open navigation"
+            aria-label={t('channel:header.openNavigation')}
+            data-tooltip={t('channel:header.openNavigation')}
             className="lg:hidden p-1.5 -ml-1 rounded-lg text-muted hover:text-fg hover:bg-raised/50"
           >
             <Menu className="w-5 h-5" />
           </button>
         )}
-        <h1 className="font-semibold text-fg">All unreads</h1>
-        {total > 0 && <span className="text-sm text-muted">{total} new</span>}
+        <h1 className="font-semibold text-fg">{t('sidebar:allUnreads')}</h1>
+        {total > 0 && <span className="text-sm text-muted">{t('unreads.new', { count: total })}</span>}
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-        {unreads.isLoading && <p className="text-sm text-muted">Loading…</p>}
-        {unreads.isError && <p className="text-sm text-danger">Couldn't load your unread messages.</p>}
+        {unreads.isLoading && <p className="text-sm text-muted">{t('unreads.loading')}</p>}
+        {unreads.isError && <p className="text-sm text-danger">{t('unreads.failed')}</p>}
         {unreads.isSuccess && groups.length === 0 && (
           <div
             className="flex flex-col items-center justify-center py-16 text-center"
             data-qa="all-unreads-empty"
           >
             <CheckCheck className="w-10 h-10 text-muted mb-3" />
-            <p className="text-fg-soft font-medium">You're all caught up</p>
-            <p className="text-sm text-muted">Nothing new in your channels or direct messages.</p>
+            <p className="text-fg-soft font-medium">{t('unreads.empty')}</p>
+            <p className="text-sm text-muted">{t('unreads.emptyHint')}</p>
           </div>
         )}
 
@@ -91,7 +93,7 @@ export function AllUnreadsView({
             key={group.channel_id}
             tabIndex={0}
             onKeyDown={(event) => onGroupKey(event, group)}
-            aria-label={`${titleOf(group)}, ${group.unread_count} unread`}
+            aria-label={t('unreads.groupLabel', { title: titleOf(group), count: group.unread_count })}
             data-qa="all-unreads-group"
             className="rounded-lg border border-line/60 bg-surface/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
           >
@@ -104,8 +106,12 @@ export function AllUnreadsView({
               >
                 {titleOf(group)}
               </button>
-              {group.muted && <BellOff className="w-3.5 h-3.5 text-muted shrink-0" aria-label="Muted" />}
-              <span className="text-xs text-muted shrink-0">{group.unread_count} new</span>
+              {group.muted && (
+                <BellOff className="w-3.5 h-3.5 text-muted shrink-0" aria-label={t('sidebar:row.muted')} />
+              )}
+              <span className="text-xs text-muted shrink-0">
+                {t('unreads.new', { count: group.unread_count })}
+              </span>
               <button
                 type="button"
                 onClick={() => markRead.mutate(group)}
@@ -113,15 +119,15 @@ export function AllUnreadsView({
                 data-qa="all-unreads-mark-read"
                 className="ml-auto text-xs px-2 py-1 rounded-md text-fg-dim hover:bg-raised hover:text-fg transition disabled:opacity-50"
               >
-                Mark as read
+                {t('unreads.markRead')}
               </button>
             </header>
             <ol className="px-3 py-2 space-y-3">
               {group.unread_count > group.messages.length && (
                 <li className="text-xs text-muted">
-                  {group.unread_count - group.messages.length} earlier{' '}
+                  {t('unreads.earlier', { count: group.unread_count - group.messages.length })}{' '}
                   <button type="button" onClick={() => open(group)} className="text-accent hover:underline">
-                    in the channel
+                    {t('unreads.openEarlier')}
                   </button>
                 </li>
               )}
@@ -163,7 +169,7 @@ export function AllUnreadsView({
             disabled={unreads.isFetchingNextPage}
             className="w-full py-2 text-sm text-accent hover:bg-raised/40 rounded-lg transition disabled:opacity-50"
           >
-            {unreads.isFetchingNextPage ? 'Loading…' : 'Show more channels'}
+            {unreads.isFetchingNextPage ? t('unreads.loading') : t('unreads.showMore')}
           </button>
         )}
       </div>
