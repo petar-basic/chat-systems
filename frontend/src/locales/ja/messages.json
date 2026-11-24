@@ -51,6 +51,35 @@
     "tomorrow": "明日 9:00",
     "nextWeek": "来週月曜 9:00"
   },
+  "later": {
+    "close": "「後で」を閉じる",
+    "tabs": {
+      "in_progress": "進行中",
+      "archived": "アーカイブ",
+      "completed": "完了"
+    },
+    "empty": {
+      "in_progress": "メッセージを保存するかリマインダーを設定すると、完了になるまでここに表示されます。",
+      "archived": "アーカイブしたものはありません。",
+      "completed": "完了したものはまだありません。"
+    },
+    "newReminder": "新しいリマインダー",
+    "newPlaceholder": "リマインドする内容…",
+    "pickWhen": "日時を選ぶ",
+    "due": "{{time}} にリマインド",
+    "overdue": "期限切れ · {{time}}",
+    "markDone": "完了にする",
+    "markNotDone": "未完了に戻す",
+    "from": "{{name}} から",
+    "archive": "アーカイブ",
+    "unarchive": "進行中に戻す",
+    "remove": "「後で」から外す",
+    "remindMe": "リマインド",
+    "customTime": "リマインドする日時",
+    "setCustom": "この日時に設定",
+    "clearReminder": "リマインダーを解除",
+    "failed": "「後で」を更新できませんでした"
+  },
   "sheet": {
     "title": "メッセージの操作",
     "moreReactions": "ほかのリアクション",
