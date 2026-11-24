@@ -47,6 +47,7 @@ pub fn test_config() -> AppConfig {
         legacy_jwt_secret: Some(LEGACY_JWT_SECRET.into()),
         public_url: "http://localhost".into(),
         cors_origins: "http://localhost".into(),
+        app_origins: shared_common::cors::APP_ORIGINS.into(),
         local_storage_path: std::env::temp_dir()
             .join(format!("chatsys-test-{}", Uuid::new_v4()))
             .to_string_lossy()

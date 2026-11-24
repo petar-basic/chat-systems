@@ -23,18 +23,22 @@ vi.mock('@/stores/instances', () => ({
   }),
 }));
 
-const server = vi.hoisted(() => ({ name: 'Northwind', emailCode: false, othersAllowed: true }));
+const server = vi.hoisted(() => ({ name: 'Northwind', emailCode: false, othersAllowed: true, none: false }));
 
 vi.mock('@/features/instance/hooks/useInstanceInfo', () => ({
-  useInstanceInfo: () => ({
-    data: {
-      name: server.name,
-      sso_enabled: true,
-      email_code_sign_in: server.emailCode,
-      setup_required: false,
-      other_servers_allowed: server.othersAllowed,
-    },
-  }),
+  useInstanceInfo: () =>
+    server.none
+      ? { data: undefined, isError: true }
+      : {
+          data: {
+            name: server.name,
+            sso_enabled: true,
+            email_code_sign_in: server.emailCode,
+            setup_required: false,
+            other_servers_allowed: server.othersAllowed,
+          },
+          isError: false,
+        },
 }));
 
 function openInDesktop() {
@@ -63,6 +67,7 @@ describe('AddInstancePage', () => {
     server.name = 'Northwind';
     server.emailCode = false;
     server.othersAllowed = true;
+    server.none = false;
     await i18n.changeLanguage('en');
   });
 
@@ -111,6 +116,30 @@ describe('AddInstancePage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
     expect(store.addInstance).toHaveBeenCalledWith(
       window.location.origin,
+      'ana@chat.example',
+      'secret',
+      undefined,
+      undefined,
+    );
+  });
+
+  it('on a page no server serves, asks which server and offers it an emailed code', () => {
+    server.none = true;
+    renderPage();
+
+    expect(screen.getByLabelText('Server URL')).toHaveValue('');
+    expect(screen.queryByRole('link', { name: 'Email me a sign-in code' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Sign in with SSO')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Server URL'), { target: { value: 'https://chat.example' } });
+    expect(screen.getByRole('link', { name: 'Email me a sign-in code' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Forgot password?' })).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ana@chat.example' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
+    expect(store.addInstance).toHaveBeenCalledWith(
+      'https://chat.example',
       'ana@chat.example',
       'secret',
       undefined,

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiClient } from './api';
 import { ApiError } from './errors';
+import { useMediaTokenStore } from '@/stores/mediaTokens';
 import { useServerSupportStore } from '@/stores/serverSupport';
 
 function deferred<T>() {
@@ -240,5 +241,84 @@ describe('ApiClient and the server version', () => {
     await expect(client.typed((c) => c.GET('/users/me'))).rejects.toMatchObject({
       message: 'This server runs an older Chat Systems. This app needs 5.0 or later there.',
     });
+  });
+});
+
+function credentialsOf(call: unknown[]): RequestCredentials | undefined {
+  const [input, init] = call as [string | URL | Request, RequestInit | undefined];
+  return init?.credentials ?? (input instanceof Request ? input.credentials : undefined);
+}
+
+function authorizationOf(call: unknown[]): string | null {
+  const [input, init] = call as [string | URL | Request, RequestInit | undefined];
+  if (input instanceof Request) return input.headers.get('Authorization');
+  return new Headers(init?.headers).get('Authorization');
+}
+
+describe('ApiClient for a server on another origin', () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    useMediaTokenStore.setState({ tokens: {} });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  it('sends no cookies, only its token', async () => {
+    const client = new ApiClient('http://api.test');
+    client.setTokens('access-1', 'refresh-1');
+    fetchMock.mockResolvedValue(makeResponse(200, { id: 'a' }));
+
+    await client.typed((c) => c.GET('/users/me'));
+
+    expect(credentialsOf(fetchMock.mock.calls[0])).toBe('omit');
+    expect(authorizationOf(fetchMock.mock.calls[0])).toBe('Bearer access-1');
+  });
+
+  it('signs out with the refresh token', async () => {
+    const client = new ApiClient('http://api.test');
+    client.setTokens('access-1', 'refresh-1');
+    fetchMock.mockResolvedValue(makeResponse(200, { status: 'logged_out' }));
+
+    await client.signOut();
+
+    expect(urlOf(fetchMock.mock.calls[0])).toBe('http://api.test/api/v1/auth/logout');
+    expect(authorizationOf(fetchMock.mock.calls[0])).toBe('Bearer refresh-1');
+    expect(credentialsOf(fetchMock.mock.calls[0])).toBe('omit');
+  });
+
+  it('keeps a media token for its links and forgets it when it stops', async () => {
+    vi.useFakeTimers();
+    const client = new ApiClient('http://api.test');
+    client.setTokens('access-1', 'refresh-1');
+    fetchMock
+      .mockResolvedValueOnce(makeResponse(200, { token: 'media-1', expires_in: 3600 }))
+      .mockResolvedValueOnce(makeResponse(200, { token: 'media-2', expires_in: 3600 }));
+
+    await client.keepMediaLinks();
+    expect(useMediaTokenStore.getState().tokens).toEqual({ 'http://api.test': 'media-1' });
+
+    await vi.advanceTimersByTimeAsync(3300 * 1000);
+    expect(useMediaTokenStore.getState().tokens).toEqual({ 'http://api.test': 'media-2' });
+
+    client.stopMediaLinks();
+    expect(useMediaTokenStore.getState().tokens).toEqual({});
+    await vi.advanceTimersByTimeAsync(3600 * 1000);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('asks for no media token on its own origin', async () => {
+    const client = new ApiClient();
+
+    await client.keepMediaLinks();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(useMediaTokenStore.getState().tokens).toEqual({});
   });
 });

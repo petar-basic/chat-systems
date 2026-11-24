@@ -24,6 +24,7 @@ pub fn router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(get_me, update_me))
         .routes(routes!(change_password))
         .routes(routes!(accept_invite))
+        .routes(routes!(media_token))
 }
 
 pub fn public_router() -> OpenApiRouter<Arc<AppState>> {
@@ -329,12 +330,31 @@ async fn refresh(
 async fn logout(
     State(state): State<Arc<AppState>>,
     jar: CookieJar,
+    headers: HeaderMap,
 ) -> AppResult<(CookieJar, Json<StatusResponse>)> {
-    if let Some(cookie) = jar.get("refresh_token") {
-        let _ = state.auth_service.logout(cookie.value()).await;
+    let refresh_token = jar
+        .get("refresh_token")
+        .map(|c| c.value().to_string())
+        .or_else(|| bearer_token(&headers));
+    if let Some(token) = refresh_token {
+        let _ = state.auth_service.logout(&token).await;
     }
     let jar = clear_auth_cookies(jar);
     Ok((jar, Json(StatusResponse::new("logged_out"))))
+}
+
+/// A token for file and image links, for a client that holds its session as a
+/// bearer token and so cannot send a cookie with an `<img>`. Append it to a
+/// download link as `?media=`. It downloads files and nothing else, lasts an
+/// hour, and dies with the session when sessions are revoked.
+#[utoipa::path(post, path = "/auth/media-token", tag = "auth", responses((status = 200, body = MediaToken)))]
+async fn media_token(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+) -> AppResult<Json<MediaToken>> {
+    Ok(Json(
+        state.auth_service.media_token(auth.user_id, auth.jti)?,
+    ))
 }
 
 #[utoipa::path(post, path = "/auth/forgot-password", tag = "auth", request_body = ForgotPasswordRequest, responses((status = 200, body = StatusResponse)), security(()))]

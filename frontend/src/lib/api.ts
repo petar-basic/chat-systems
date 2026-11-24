@@ -1,5 +1,6 @@
 import createClient, { type Client } from 'openapi-fetch';
 import type { components, paths } from '@/api/schema';
+import { useMediaTokenStore } from '@/stores/mediaTokens';
 import { useServerSupportStore } from '@/stores/serverSupport';
 import { API_PATH } from './apiVersion';
 import { clientVersion } from './appVersion';
@@ -42,6 +43,9 @@ function isTokenExpiring(token: string): boolean {
   }
 }
 
+const MEDIA_RENEW_BEFORE_SECONDS = 300;
+const MEDIA_RETRY_MS = 30_000;
+
 const VERSION_HEADER: Record<string, string> = clientVersion ? { 'X-Client-Version': clientVersion } : {};
 
 function minClientVersion(error: unknown): string {
@@ -61,6 +65,9 @@ export class ApiClient {
   private refreshPromise: Promise<RefreshData | null> | null = null;
   private typedClient: Client<paths> | null = null;
 
+  private mediaRun = 0;
+  private mediaTimer: ReturnType<typeof setTimeout> | null = null;
+
   onSessionExpired: (() => void) | null = null;
   onTokensChanged: ((access: string | null, refresh: string | null) => void) | null = null;
 
@@ -74,6 +81,10 @@ export class ApiClient {
       this.isCrossOrigin = true;
       this.instanceUrl = instanceUrl;
     }
+  }
+
+  private get credentials(): RequestCredentials {
+    return this.isCrossOrigin ? 'omit' : 'include';
   }
 
   private refused(error: unknown): ApiError {
@@ -134,7 +145,7 @@ export class ApiClient {
 
   private get client(): Client<paths> {
     if (!this.typedClient) {
-      const client = createClient<paths>({ baseUrl: this.baseUrl, credentials: 'include' });
+      const client = createClient<paths>({ baseUrl: this.baseUrl, credentials: this.credentials });
       client.use({
         onRequest: ({ request }) => {
           for (const [name, value] of Object.entries(this.headers())) {
@@ -205,7 +216,7 @@ export class ApiClient {
     try {
       const res = await fetch(`${this.baseUrl}/auth/refresh`, {
         method: 'POST',
-        credentials: 'include',
+        credentials: this.credentials,
         headers: {
           ...VERSION_HEADER,
           ...(this.isCrossOrigin && this.refreshToken
@@ -229,11 +240,45 @@ export class ApiClient {
     }
   }
 
+  async signOut(): Promise<void> {
+    this.stopMediaLinks();
+    const refresh = this.isCrossOrigin ? this.refreshToken : null;
+    if (this.isCrossOrigin && !refresh) return;
+    await fetch(`${this.baseUrl}/auth/logout`, {
+      method: 'POST',
+      credentials: this.credentials,
+      headers: { ...VERSION_HEADER, ...(refresh ? { Authorization: `Bearer ${refresh}` } : {}) },
+    }).catch(() => undefined);
+  }
+
+  async keepMediaLinks(): Promise<void> {
+    if (!this.isCrossOrigin) return;
+    const run = ++this.mediaRun;
+    if (this.mediaTimer) clearTimeout(this.mediaTimer);
+    let renewIn = MEDIA_RETRY_MS;
+    try {
+      const { token, expires_in } = await this.typed((c) => c.POST('/auth/media-token'));
+      if (run !== this.mediaRun) return;
+      useMediaTokenStore.getState().put(this.instanceUrl, token);
+      renewIn = Math.max(expires_in - MEDIA_RENEW_BEFORE_SECONDS, 60) * 1000;
+    } catch {
+      if (run !== this.mediaRun) return;
+    }
+    this.mediaTimer = setTimeout(() => void this.keepMediaLinks(), renewIn);
+  }
+
+  stopMediaLinks(): void {
+    this.mediaRun++;
+    if (this.mediaTimer) clearTimeout(this.mediaTimer);
+    this.mediaTimer = null;
+    useMediaTokenStore.getState().drop(this.instanceUrl);
+  }
+
   async upload<T>(path: string, formData: FormData, isRetry = false): Promise<T> {
     const res = await fetch(`${this.baseUrl}${path}`, {
       method: 'POST',
       headers: this.headers(),
-      credentials: 'include',
+      credentials: this.credentials,
       body: formData,
     }).catch(async (cause: unknown) => {
       throw await this.unreachable(cause);
@@ -263,7 +308,7 @@ export class ApiClient {
     const { status, body } = await new Promise<{ status: number; body: unknown }>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', `${this.baseUrl}${path}`);
-      xhr.withCredentials = true;
+      xhr.withCredentials = !this.isCrossOrigin;
       xhr.responseType = 'json';
       for (const [name, value] of Object.entries(this.headers())) xhr.setRequestHeader(name, value);
       xhr.upload.onprogress = (event) => {

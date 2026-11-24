@@ -1,5 +1,6 @@
 import { forwardRef, useImperativeHandle, useState } from 'react';
 import type { EmojiSuggestionItem } from '@/lib/emojiData';
+import { useMediaLinks } from '@/shared/hooks/useMediaUrl';
 
 interface Props {
   items: EmojiSuggestionItem[];
@@ -12,6 +13,7 @@ export interface EmojiSuggestionHandle {
 
 export const EmojiSuggestionDropdown = forwardRef<EmojiSuggestionHandle, Props>(({ items, command }, ref) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const mediaLink = useMediaLinks();
 
   const [prevItems, setPrevItems] = useState(items);
   if (items !== prevItems) {
@@ -57,7 +59,7 @@ export const EmojiSuggestionDropdown = forwardRef<EmojiSuggestionHandle, Props>(
         >
           {item.src ? (
             <img
-              src={item.src}
+              src={mediaLink(item.src)}
               alt=""
               data-qa="custom-emoji"
               className="inline-block w-5 h-5 object-contain"

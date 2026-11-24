@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useMediaUrl } from '@/shared/hooks/useMediaUrl';
 import type { Workspace } from '@/stores/workspace';
 import { workspaceInitials } from '../workspaceTile';
 
@@ -10,18 +11,19 @@ interface WorkspaceIconProps {
 
 export function WorkspaceIcon({ workspace, className, initialsClassName }: WorkspaceIconProps) {
   const [brokenUrl, setBrokenUrl] = useState<string | null>(null);
-  const url = workspace.icon_url && workspace.icon_url !== brokenUrl ? workspace.icon_url : null;
+  const linked = useMediaUrl(workspace.icon_url);
+  const src = linked && linked !== brokenUrl ? linked : null;
 
   return (
     <span
-      className={`${className} overflow-hidden flex items-center justify-center ${url ? 'bg-raised' : initialsClassName}`}
+      className={`${className} overflow-hidden flex items-center justify-center ${src ? 'bg-raised' : initialsClassName}`}
     >
-      {url ? (
+      {src ? (
         <img
-          src={url}
+          src={src}
           alt=""
           data-qa="workspace-icon-image"
-          onError={() => setBrokenUrl(url)}
+          onError={() => setBrokenUrl(src)}
           className="w-full h-full object-cover"
         />
       ) : (

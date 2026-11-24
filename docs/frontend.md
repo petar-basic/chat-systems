@@ -140,10 +140,13 @@ is persisted depends on origin:
 | Cross-origin web | in memory | `localStorage` (`chat_tokens`, per-URL) | `Authorization: Bearer` header + WS `bearer` subprotocol |
 
 **Consequences for the frontend:**
-- All `fetch` calls use `credentials: 'include'`; cross-origin/desktop also attach `Authorization: Bearer <access>`
+- Same-origin calls use `credentials: 'include'`; cross-origin calls use `credentials: 'omit'` and `Authorization: Bearer <access>` only, so a server that does not serve the page never sees a cookie from it (it refuses one from its `APP_ORIGINS`)
 - `WebSocketClient` resolves a valid token (`api.getValidToken()`) and opens the socket with `['bearer', token]` as the WS subprotocol; if no token is available it connects without one (relying on the cookie)
 - On 401, `ApiClient` refreshes once (single-flight) then retries; same-origin refresh is a cookie-only `POST /auth/refresh`, cross-origin sends the stored refresh token as a bearer header. If refresh fails, `onSessionExpired` removes the instance.
-- The backend requires `CORS_ORIGINS` (comma-separated allowed origins) and validates the WS upgrade `Origin` against it; wildcard `*` is not allowed when credentials are enabled
+- The backend requires `CORS_ORIGINS` (comma-separated allowed origins) and validates the WS upgrade `Origin` against it; wildcard `*` is not allowed when credentials are enabled. A page on an app origin (`APP_ORIGINS`, the Tauri ones by default) is allowed without credentials
+- A page whose own origin answers no `/instance/info` (the bundled phone app, or a static copy of the build) is no server: the sign-in page asks for the server, empty, offers other servers (`useOtherServersAllowed` is true), and offers an emailed code for the server typed in, which `EmailCodePage` asks and signs in to (`state.server`). SSO, passkeys and password reset stay with the page's own server
+- Signing out of a cross-origin server (`removeInstance` → `ApiClient.signOut()`) posts `/auth/logout` with the refresh token as the bearer, which is what ends the session there
+- **Media links.** A cross-origin server's files, photos and emoji need `?media=<token>`, since an `<img>` sends no header. `ApiClient.keepMediaLinks()` asks `/auth/media-token` when the server is signed in or restored (awaited, so the first token is there before anything renders), keeps it in `useMediaTokenStore` under the instance URL, and renews it five minutes before its hour is up. `mediaUrl()` adds the token to a URL under `/api/v1/files/download/` whose origin has one and leaves every other URL as it is. Components use `useMediaUrl(src)` / `useMediaLinks()` (live, for `<img>` and download links), `useMediaSource(src)` for `<video>`/`<audio>` (the link stays while it plays and is replaced on an error), and `useLinkedCustomEmoji()` for custom emoji. `Avatar`, `WorkspaceIcon` and `CachedImage` do it themselves; a new raw `<img>` of a server file has to go through one of these
 - `localStorage` (`chat_instances`) stores only `{ url, wsUrl?, user }` per instance — no tokens for same-origin; cross-origin tokens live in the separate `chat_tokens` map
 
 ---

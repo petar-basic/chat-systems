@@ -9,7 +9,7 @@ use super::common::*;
 
 const BOUNDARY: &str = "----avatartest";
 
-const PNG: &[u8] = &[
+pub(super) const PNG: &[u8] = &[
     0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
     0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4,
     0x89, 0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
@@ -17,7 +17,11 @@ const PNG: &[u8] = &[
     0x42, 0x60, 0x82,
 ];
 
-async fn upload_photo(app: &axum::Router, token: &str, bytes: &[u8]) -> (StatusCode, Value) {
+pub(super) async fn upload_photo(
+    app: &axum::Router,
+    token: &str,
+    bytes: &[u8],
+) -> (StatusCode, Value) {
     upload_photo_to(app, token, "/api/v1/users/me/avatar", bytes).await
 }
 
@@ -54,7 +58,7 @@ async fn upload_photo_to(
     )
 }
 
-fn download_path(url: &str) -> String {
+pub(super) fn download_path(url: &str) -> String {
     url[url.find("/api/v1/files/download/").expect("download url")..].to_string()
 }
 

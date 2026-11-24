@@ -61,8 +61,67 @@ pub struct AuthUser {
     pub bot: Option<BotToken>,
 }
 
+pub const MEDIA_TOKEN: &str = "media";
+
 pub async fn auth_middleware(request: Request, next: Next) -> Result<Response, AppError> {
     let (mut parts, body) = request.into_parts();
+    let token = request_token(&parts.headers)
+        .ok_or_else(|| AppError::Unauthorized("Missing authentication".into()))?;
+    let auth_user = authenticate(&parts, &token, "access").await?;
+    parts.extensions.insert(auth_user);
+    Ok(next.run(Request::from_parts(parts, body)).await)
+}
+
+#[derive(Deserialize)]
+struct MediaQuery {
+    media: Option<String>,
+}
+
+pub async fn media_or_session(request: Request, next: Next) -> Result<Response, AppError> {
+    let (mut parts, body) = request.into_parts();
+    let media = axum::extract::Query::<MediaQuery>::try_from_uri(&parts.uri)
+        .ok()
+        .and_then(|query| query.0.media);
+    let auth_user = match media {
+        Some(token) => authenticate(&parts, &token, MEDIA_TOKEN).await?,
+        None => {
+            let token = request_token(&parts.headers)
+                .ok_or_else(|| AppError::Unauthorized("Missing authentication".into()))?;
+            authenticate(&parts, &token, "access").await?
+        }
+    };
+    parts.extensions.insert(auth_user);
+    Ok(next.run(Request::from_parts(parts, body)).await)
+}
+
+fn request_token(headers: &axum::http::HeaderMap) -> Option<String> {
+    extract_cookie_token(headers).or_else(|| {
+        headers
+            .get(AUTHORIZATION)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.strip_prefix("Bearer "))
+            .map(std::string::ToString::to_string)
+    })
+}
+
+async fn authenticate(parts: &Parts, token: &str, token_type: &str) -> Result<AuthUser, AppError> {
+    if token_type == "access" && token.starts_with(crate::bots::TOKEN_PREFIX) {
+        let bots = parts
+            .extensions
+            .get::<BotRepo>()
+            .ok_or_else(|| AppError::Internal("Bot tokens not configured".into()))?
+            .clone();
+        let (bot_user_id, bot) = bots
+            .authenticate(&crate::bots::hash_token(token))
+            .await?
+            .ok_or_else(|| AppError::Unauthorized("Invalid bot token".into()))?;
+        return Ok(AuthUser {
+            user_id: bot_user_id,
+            is_instance_admin: false,
+            jti: None,
+            bot: Some(bot),
+        });
+    }
 
     let verifier = parts
         .extensions
@@ -70,42 +129,11 @@ pub async fn auth_middleware(request: Request, next: Next) -> Result<Response, A
         .ok_or_else(|| AppError::Internal("Session keys not configured".into()))?
         .0
         .clone();
-
-    let token = extract_cookie_token(&parts.headers)
-        .or_else(|| {
-            parts
-                .headers
-                .get(AUTHORIZATION)
-                .and_then(|v| v.to_str().ok())
-                .and_then(|v| v.strip_prefix("Bearer "))
-                .map(std::string::ToString::to_string)
-        })
-        .ok_or_else(|| AppError::Unauthorized("Missing authentication".into()))?;
-
-    if token.starts_with(crate::bots::TOKEN_PREFIX) {
-        let bots = parts
-            .extensions
-            .get::<BotRepo>()
-            .ok_or_else(|| AppError::Internal("Bot tokens not configured".into()))?
-            .clone();
-        let (bot_user_id, bot) = bots
-            .authenticate(&crate::bots::hash_token(&token))
-            .await?
-            .ok_or_else(|| AppError::Unauthorized("Invalid bot token".into()))?;
-        parts.extensions.insert(AuthUser {
-            user_id: bot_user_id,
-            is_instance_admin: false,
-            jti: None,
-            bot: Some(bot),
-        });
-        return Ok(next.run(Request::from_parts(parts, body)).await);
-    }
-
     let claims = verifier
-        .decode::<Claims>(&token)
+        .decode::<Claims>(token)
         .map_err(|_| AppError::Unauthorized("Invalid or expired token".into()))?;
 
-    if claims.token_type != "access" {
+    if claims.token_type != token_type {
         return Err(AppError::Unauthorized("Invalid or expired token".into()));
     }
 
@@ -134,17 +162,12 @@ pub async fn auth_middleware(request: Request, next: Next) -> Result<Response, A
             .is_instance_admin(claims.sub)
             .await?;
 
-    let auth_user = AuthUser {
+    Ok(AuthUser {
         user_id: claims.sub,
         is_instance_admin,
         jti: claims.jti,
         bot: None,
-    };
-
-    parts.extensions.insert(auth_user);
-
-    let request = Request::from_parts(parts, body);
-    Ok(next.run(request).await)
+    })
 }
 
 pub async fn admin_middleware(request: Request, next: Next) -> Result<Response, AppError> {

@@ -378,6 +378,8 @@ async fn a_desktop_sign_in_code_signs_in_once(pool: sqlx::PgPool) {
     let (status, cookies, body) = exchange(&app, &code).await;
     assert_eq!(status, StatusCode::OK, "{body:?}");
     assert_eq!(body["landing"], "/app/somewhere");
+    assert!(body["session"]["access_token"].is_string(), "{body:?}");
+    assert!(body["session"]["refresh_token"].is_string(), "{body:?}");
     assert!(cookies.iter().any(|c| c == "access_token"));
     assert!(cookies.iter().any(|c| c == "refresh_token"));
 

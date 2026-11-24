@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { components } from '@/api/schema';
-import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
+import { getApiForInstance, useCurrentApi } from '@/shared/hooks/useCurrentApi';
 import { QUERY_KEYS } from '@/shared/constants';
 
 export type Hook = components['schemas']['Hook'];
@@ -27,11 +27,13 @@ export const useHooks = (workspaceId: string | null, instanceUrl?: string) => {
  * not just admins: the point is that people can see it before they type.
  */
 export const useHookedChannels = (workspaceId: string | null, instanceUrl?: string) => {
+  const current = useCurrentApi();
+  const client = instanceUrl ? getApiForInstance(instanceUrl) : current;
   return useQuery({
     queryKey: QUERY_KEYS.hookedChannels(workspaceId ?? ''),
     queryFn: async () => {
       if (!workspaceId) throw new Error('No workspace selected');
-      const res = await getApiForInstance(instanceUrl).typed((c) =>
+      const res = await client.typed((c) =>
         c.GET('/workspaces/{ws_id}/hooks/channels', { params: { path: { ws_id: workspaceId } } }),
       );
       return new Set(res.channel_ids);

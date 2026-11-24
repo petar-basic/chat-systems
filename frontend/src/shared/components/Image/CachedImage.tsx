@@ -1,4 +1,5 @@
 import type { ImgHTMLAttributes } from 'react';
+import { useMediaUrl } from '@/shared/hooks/useMediaUrl';
 
 const KEEP = 200;
 const kept = new Map<string, HTMLImageElement>();
@@ -25,7 +26,8 @@ type Props = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src' | 'alt' | 'loading'
   alt: string;
 };
 
-export function CachedImage({ src, alt, onLoad, ...rest }: Props) {
+export function CachedImage({ src: url, alt, onLoad, ...rest }: Props) {
+  const src = useMediaUrl(url);
   const seen = kept.has(src);
   return (
     <img

@@ -4,9 +4,9 @@ use uuid::Uuid;
 use shared_common::errors::{AppError, AppResult};
 
 use super::AuthService;
-use crate::auth::models::{AuthTokens, RegistrationInvite, User, UserStatus};
+use crate::auth::models::{AuthTokens, MediaToken, RegistrationInvite, User, UserStatus};
 use crate::auth::repo::UserRepo;
-use crate::middleware::Claims;
+use crate::middleware::{Claims, MEDIA_TOKEN};
 use crate::scim::repo::hash_token;
 
 impl AuthService {
@@ -142,6 +142,28 @@ impl AuthService {
         })
     }
 
+    pub fn media_token(&self, user_id: Uuid, session: Option<Uuid>) -> AppResult<MediaToken> {
+        let now = Utc::now();
+        let claims = Claims {
+            sub: user_id,
+            email: String::new(),
+            is_instance_admin: false,
+            iat: now.timestamp(),
+            exp: (now + Duration::seconds(MEDIA_TOKEN_SECONDS)).timestamp(),
+            jti: session,
+            token_type: MEDIA_TOKEN.to_string(),
+        };
+        let token = self
+            .config
+            .jwt_keys
+            .encode(&claims)
+            .map_err(|e| AppError::Internal(format!("Token generation failed: {e}")))?;
+        Ok(MediaToken {
+            token,
+            expires_in: MEDIA_TOKEN_SECONDS,
+        })
+    }
+
     pub fn verify_token(&self, token: &str) -> AppResult<Claims> {
         self.config
             .jwt_keys
@@ -181,6 +203,7 @@ impl AuthService {
 }
 
 const RESET_LINK_SECONDS: i64 = 3600;
+const MEDIA_TOKEN_SECONDS: i64 = 3600;
 
 fn link_token() -> String {
     use base64::Engine;

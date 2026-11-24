@@ -100,6 +100,28 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - **Expected:** 200; logging in with the old password fails, new password works; other sessions revoked.
 - 🟠 **Edge:** wrong current password → 401/error, password unchanged.
 
+### 1.5 🔴 Signing in from a page the server does not serve
+- **Reach:** the built web client on an origin with no server behind it, standing in for the
+  phone app: `cd frontend && npm run build && python3 -m http.server 4173 --directory dist`
+  (not `vite preview`, which proxies `/api` and so is a server), with the stack started with
+  `APP_ORIGINS=tauri://localhost,http://tauri.localhost,https://tauri.localhost,http://localhost:4173`
+  so the api and the gateway accept it. Open `http://localhost:4173/`; the static server has no
+  fallback, so a reload on a deeper path is a 404.
+- **Steps:** the sign-in page asks for the server, empty, and offers no SSO or passkey. Enter
+  `http://localhost:8080` and an address, sign in by password, then sign out and in again by
+  *Email me a sign-in code* (the code from MailHog on `:8025`). Reload.
+- **Expected:** the workspace opens, and after the reload is still signed in; photos, workspace
+  icons, custom emoji, image previews, the gallery, a clip and a file download all load; an
+  upload works; a message from another account arrives live. In devtools every API request has an `Authorization` header and no
+  cookie, every file request ends in `?media=`, and no response sets a cookie.
+- 🔴 **Edge — sign-out:** *Sign out* → `POST /auth/logout` carries the refresh token; a
+  `POST /auth/refresh` with that token afterwards is a 401.
+- 🔴 **Edge — revoked:** revoke the account's sessions from the instance admin → the page signs
+  out at its next request, and a file link it held answers 401.
+- 🟠 **Edge — machine routes:** `curl -si -X OPTIONS -H 'Origin: http://localhost:4173' -H 'Access-Control-Request-Method: GET' localhost:8080/api/v1/scim/v2/Users` → no `Access-Control-Allow-Origin`.
+- 🟢 **The web client is unchanged:** `http://localhost:8080` still signs in with cookies and
+  its file links carry no token.
+
 ---
 
 ## 2. Instance admin

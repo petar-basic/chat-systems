@@ -7,6 +7,7 @@ import { useUserCache } from '@/stores/users';
 import { displayNameOf } from '@/lib/userHelpers';
 import { formatDateTime } from '@/lib/datetime';
 import type { GalleryItem } from './galleryContext';
+import { useMediaLinks } from '@/shared/hooks/useMediaUrl';
 
 const SWIPE_DISTANCE = 60;
 
@@ -21,6 +22,7 @@ export function ImageGallery({ items, index, onIndexChange, onClose }: Props) {
   const { t } = useTranslation('messages');
   const item = items[index];
   const { getUser } = useUserCache();
+  const mediaLink = useMediaLinks();
   const [zoomedId, setZoomedId] = useState<string | null>(null);
   const swipeStart = useRef<number | null>(null);
   const zoomed = zoomedId === item?.attachment.id;
@@ -80,7 +82,7 @@ export function ImageGallery({ items, index, onIndexChange, onClose }: Props) {
           </span>
         )}
         <a
-          href={attachment.url}
+          href={mediaLink(attachment.url)}
           target="_blank"
           rel="noopener noreferrer"
           aria-label={t('gallery.openOriginal')}
@@ -90,7 +92,7 @@ export function ImageGallery({ items, index, onIndexChange, onClose }: Props) {
           <ExternalLink className="w-4 h-4" />
         </a>
         <a
-          href={attachment.url}
+          href={mediaLink(attachment.url)}
           download={attachment.filename}
           data-qa="lightbox-download"
           aria-label={t('attachments.download', { name: attachment.filename })}
@@ -128,8 +130,8 @@ export function ImageGallery({ items, index, onIndexChange, onClose }: Props) {
         {attachment.clip ? (
           <video
             key={attachment.id}
-            src={attachment.url}
-            poster={attachment.thumbnail_url ?? undefined}
+            src={mediaLink(attachment.url)}
+            poster={attachment.thumbnail_url ? mediaLink(attachment.thumbnail_url) : undefined}
             controls
             autoPlay
             playsInline
@@ -139,7 +141,7 @@ export function ImageGallery({ items, index, onIndexChange, onClose }: Props) {
         ) : (
           <img
             key={attachment.id}
-            src={attachment.url}
+            src={mediaLink(attachment.url)}
             alt={attachment.filename}
             data-qa="gallery-image"
             onClick={() => setZoomedId(zoomed ? null : attachment.id)}

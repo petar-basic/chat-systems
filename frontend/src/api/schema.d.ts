@@ -532,6 +532,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/media-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A token for file and image links, for a client that holds its session as a
+         *     bearer token and so cannot send a cookie with an `<img>`. Append it to a
+         *     download link as `?media=`. It downloads files and nothing else, lasts an
+         *     hour, and dies with the session when sessions are revoked.
+         */
+        post: operations["media_token"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/oidc/exchange": {
         parameters: {
             query?: never;
@@ -6929,6 +6951,11 @@ export interface components {
             /** Format: uuid */
             message_id: string;
         };
+        MediaToken: {
+            /** Format: int64 */
+            expires_in: number;
+            token: string;
+        };
         MemberActivity: {
             /** Format: int64 */
             days_active: number;
@@ -7735,6 +7762,7 @@ export interface components {
         };
         SsoExchanged: {
             landing: string;
+            session: components["schemas"]["AuthSession"];
         };
         StartHuddleRequest: {
             /** Format: uuid */
@@ -9270,6 +9298,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    media_token: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaToken"];
                 };
             };
         };

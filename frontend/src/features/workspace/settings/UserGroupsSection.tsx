@@ -10,7 +10,7 @@ import {
   useSetGroupMember,
 } from '@/features/workspace/hooks/useUserGroups';
 import type { WorkspaceMember } from '@/stores/workspace';
-import { API_PATH } from '@/lib/apiVersion';
+import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { toUserMessage } from '@/lib/errors';
 import { toast } from '@/shared/components/Toast';
 import { displayNameOf } from '@/lib/userHelpers';
@@ -55,12 +55,12 @@ export function UserGroupsSection({ workspaceId, instanceUrl, members, isAdmin }
     setExpanded(groupId);
     if (groupMembers[groupId]) return;
     try {
-      const res = await fetch(
-        `${instanceUrl ?? window.location.origin}${API_PATH}/workspaces/${workspaceId}/groups/${groupId}/members`,
-        { credentials: 'include' },
+      const body = await getApiForInstance(instanceUrl).typed((c) =>
+        c.GET('/workspaces/{ws_id}/groups/{group_id}/members', {
+          params: { path: { ws_id: workspaceId, group_id: groupId } },
+        }),
       );
-      const body = await res.json();
-      setGroupMembers((current) => ({ ...current, [groupId]: body.data ?? [] }));
+      setGroupMembers((current) => ({ ...current, [groupId]: body.data }));
     } catch {
       setGroupMembers((current) => ({ ...current, [groupId]: [] }));
     }

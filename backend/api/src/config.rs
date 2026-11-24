@@ -36,6 +36,7 @@ pub struct AppConfig {
     pub instance_icon_url: Option<String>,
 
     pub cors_origins: String,
+    pub app_origins: String,
 
     pub storage_backend: StorageBackend,
     pub local_storage_path: String,
@@ -161,6 +162,7 @@ impl AppConfig {
             instance_name: env_or("INSTANCE_NAME", "Chat Systems"),
             instance_icon_url: std::env::var("INSTANCE_ICON_URL").ok(),
             cors_origins: env_or("CORS_ORIGINS", "http://localhost:3001"),
+            app_origins: env_or("APP_ORIGINS", shared_common::cors::APP_ORIGINS),
             storage_backend,
             local_storage_path: env_or("LOCAL_STORAGE_PATH", "./data/files"),
             s3_endpoint: env_or("S3_ENDPOINT", "http://localhost:9000"),
@@ -359,6 +361,7 @@ impl AppConfig {
             instance_name: "Test".to_string(),
             instance_icon_url: None,
             cors_origins: String::new(),
+            app_origins: String::new(),
             storage_backend: StorageBackend::Local,
             local_storage_path: "./data/files".to_string(),
             s3_endpoint: String::new(),

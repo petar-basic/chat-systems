@@ -229,13 +229,14 @@ Handles user identity — login, registration, JWT, and profile.
 | POST | `/auth/invites/:token/accept` | JWT | `{ workspace_id, workspace_name }` — an email invite for an account that already exists; same checks, claims a use |
 | POST | `/auth/complete-registration` | `{ token, password, display_name }` | `AuthSession` — joins the invite's workspace with the invite's role and claims a use; 401 for a revoked, expired or used-up invite |
 | POST | `/auth/refresh` | `{ refresh_token }` (or refresh cookie / Bearer) | `AuthSession` |
-| POST | `/auth/logout` | refresh cookie | `{ status: "logged_out" }` |
+| POST | `/auth/logout` | refresh cookie, or the refresh token as a Bearer | `{ status: "logged_out" }` — only a refresh token ends the session; an access or media token sent here is ignored, so a leaked file link cannot sign anyone out |
+| POST | `/auth/media-token` | JWT | `{ token, expires_in }` — for a client signed in with tokens, which cannot send a cookie with an `<img>`. A JWT of type `media` for the caller and the session, lasting an hour; bots are refused |
 | POST | `/auth/forgot-password` | `{ email }` | `{ status: "sent" }` whoever asks; a password account gets a reset link, an account still waiting on its invite gets that invite again, and an SSO account is told to sign in with SSO |
 | POST | `/auth/email-code` | `{ email }` | `{ status: "sent" }` whoever asks, as forgot-password: a password account gets a six-digit code (audited `email_code.sent`) unless it is past the day's ceiling, an account still waiting on its invite gets the invite again, or an email saying it expired and to ask the workspace's admins when none is live, and an SSO account is told to sign in with SSO. Five a quarter-hour per address; 400 while the option is off |
 | POST | `/auth/email-code/verify` | `{ email, code, totp_code? }` | `AuthSession` and the auth cookies, audited `email_code.used`. The 409 answers of `/auth/login` follow it for an account with a second factor. A wrong, expired, used or replaced code is a 401; the fifth wrong try is audited `email_code.exhausted` and the code takes no more |
 | POST | `/auth/reset-password` | `{ token, password }` | `{ status: "reset" }` — the password is checked before the link is spent, so a too-short one leaves it usable |
 | GET | `/auth/oidc/start` | Query: `invite?` | Redirect to the provider. With `invite` (an email invite's link token), the callback redeems it for the account that signed in, activates it if it was waiting on the invite, and lands on `/app/:ws_id`; a link for another address lands back on `/invite/:token`. With `client=desktop&nonce=` (16–128 URL-safe characters) the callback sets no cookies: it stores a single-use code for a minute and sends the browser to `/sso/desktop?code=…&nonce=…`, which hands both to the desktop app |
-| POST | `/auth/oidc/exchange` | `{ code }` | `{ landing }` and the auth cookies, for the desktop app's own window. The code works once, within its minute, on the server that issued it; anything else is a 401 |
+| POST | `/auth/oidc/exchange` | `{ code }` | `{ landing, session: AuthSession }` and the auth cookies, for the desktop app's own window; an app that signs in with tokens takes the session and gets no cookies. The code works once, within its minute, on the server that issued it; anything else is a 401 |
 | GET | `/instance/info` | — | `{ name, icon_url, sso_enabled, email_code_sign_in, max_upload_bytes, setup_required, workspace_creation_restricted, other_servers_allowed }` — `email_code_sign_in` is the admin's switch and an instance that can send email; `workspace_creation_restricted` says only workspace creators and instance admins may create workspaces; `other_servers_allowed` false tells the clients to offer no other server |
 | POST | `/setup` | `{ token, display_name, email, password, workspace_name }` | `{ session: AuthSession, workspace_id }` and the auth cookies; 403 for a wrong token, 409 once an instance admin exists |
 | GET | `/users/me` | JWT | `UserPublic` — `instance_role` is `member`, `workspace_creator` or `admin`; `timezone` is `null` until the person or their browser sets one; the notification schedule and `/remind` read `null` as UTC |
@@ -252,6 +253,29 @@ Handles user identity — login, registration, JWT, and profile.
 | GET | `/users/me/themes` | — | `{ data: WorkspaceTheme[] }` — the caller's theme in every active workspace that has one, so switching workspaces needs no request |
 | GET | `/users/me/preferences` | — | `Preferences` — `{ colour_mode, density, previews, enter_key, open_channel_at, language, clock, text_size, typeface }` from `users.preferences`, every key at its default until set: `colour_mode` is `null` until the person picks one, `density` `clean`, `previews` `shown`, `enter_key` `send` (or `newline`), `open_channel_at` `where_left` (or `newest`), `language` `browser` (or `en`, `ja`), `clock` `h24` (or `h12`), `text_size` `"100"` (or `"90"`, `"112"`, `"125"`), `typeface` `system` (or `inter`, `atkinson_hyperlegible`, `open_dyslexic`) |
 | PATCH | `/users/me/preferences` | `{ colour_mode?, density?, previews?, enter_key?, open_channel_at?, language?, clock?, text_size?, typeface? }` | `Preferences` — merged into what is kept, so a key left out stays as it was; an unknown key or value is a 422 and nothing is saved |
+
+#### Clients the server does not serve
+
+The web client signs in with cookies on the server's own origin. A client bundled into an app
+(the phone apps, CS-144) runs on the app's origin and signs in with tokens: `AuthSession` from
+any sign-in route, the refresh token as a Bearer for `/auth/refresh` and `/auth/logout`, and the
+access token as a Bearer everywhere else.
+
+- `APP_ORIGINS` lists those origins, by default the Tauri ones (`tauri://localhost`,
+  `http://tauri.localhost`, `https://tauri.localhost`). CORS lets them reach `/api/v1/*`
+  without credentials, except the routes machines call: SCIM, incoming hooks, workflow
+  webhooks and the command and interaction response URLs. `CORS_ORIGINS` stays the list of web
+  origins allowed credentials.
+- A request from an app origin that carries a cookie is a 400, and a response to one has its
+  `Set-Cookie` removed, so a cookie and a token are never mixed in one client
+  (`app_origin::tokens_not_cookies`).
+- Files, photos and emoji are links an `<img>` opens with no header, so such a client asks
+  `/auth/media-token` for a token and appends it as `?media=`. The token downloads files and
+  nothing else (`middleware::media_or_session`), is checked against the session revocation
+  record like an access token, and lasts an hour. Signing out of one session leaves a link
+  already handed out working until it expires, as an access token does; revoking the
+  sessions ends it at once.
+- The gateway accepts the same origins on `/ws/v1`.
 
 ---
 
@@ -735,7 +759,7 @@ a clip as the file it is; the poster goes wherever the file goes, as a thumbnail
 | POST | `/files/upload/:ws_id` | Query: `draft?`; multipart form (files) | `FileUploadResponse[]` |
 | POST | `/files/clip/:ws_id` | Query: `draft?`; multipart `clip`, `poster` (video only), `media`, in that order | `FileUploadResponse` with `clip` |
 | GET | `/files/:file_id` | — | `{ file: FileRecord, url: string }` |
-| GET | `/files/download/*key` | Header: `Range?` | The file, streamed from storage — a single `bytes=` range answers `206` with `Content-Range`, an unsatisfiable one `416`, several ranges the whole file; always `Accept-Ranges: bytes`. A custom emoji's image is served here too, to anyone in its workspace, an account photo (`avatars/{user_id}/…`) to its owner and anyone who shares a workspace with them, and a workspace photo (`avatars/{user_id}/{ws_id}/…`) to its owner and that workspace's members; anyone else gets `403` |
+| GET | `/files/download/*key` | Header: `Range?`; Query: `media?` | The file, streamed from storage, to a session or to a `?media=` token from `/auth/media-token`, which opens this route and no other — a single `bytes=` range answers `206` with `Content-Range`, an unsatisfiable one `416`, several ranges the whole file; always `Accept-Ranges: bytes`. A custom emoji's image is served here too, to anyone in its workspace, an account photo (`avatars/{user_id}/…`) to its owner and anyone who shares a workspace with them, and a workspace photo (`avatars/{user_id}/{ws_id}/…`) to its owner and that workspace's members; anyone else gets `403` |
 | DELETE | `/files/:file_id` | — | `{ status: "deleted" }` |
 | GET | `/files/workspace/:ws_id` | Query: `limit=50, offset=0` | `{ data: FileRecord[] }` |
 | GET | `/channels/:ch_id/files` | Query: `kind?` (`image`, `video`, `audio`, `document`), `cursor?` (a file id), `limit=50` | `{ data: ChannelFile[] }` — the files of the channel's live messages, newest first, to whoever can read the channel |

@@ -19,7 +19,9 @@ export default function AddInstancePage() {
   const { addInstance, addInstanceWithPasskey, instances, hydrated, loading, error, clearError } =
     useInstanceStore();
 
-  const [url, setUrl] = useState(window.location.origin);
+  const { data: instance, isError: noServerHere } = useInstanceInfo(window.location.origin);
+  const [typedUrl, setUrl] = useState<string | null>(null);
+  const url = typedUrl ?? (noServerHere ? '' : window.location.origin);
   const [wsUrl, setWsUrl] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [email, setEmail] = useState('');
@@ -29,9 +31,8 @@ export default function AddInstancePage() {
   const [passkeyAccepted, setPasskeyAccepted] = useState(false);
   const [needsPasskey, setNeedsPasskey] = useState(false);
 
-  const { data: instance } = useInstanceInfo(window.location.origin);
   const inDesktop = desktopShell() !== null;
-  const othersAllowed = instance?.other_servers_allowed === true;
+  const othersAllowed = noServerHere || instance?.other_servers_allowed === true;
 
   const sameOrigin = url.trim().replace(/\/$/, '') === window.location.origin;
   const offerPasskeys = sameOrigin && !inDesktop && passkeysSupported();
@@ -42,10 +43,10 @@ export default function AddInstancePage() {
   }, [instance?.setup_required, navigate]);
 
   useEffect(() => {
-    if (hydrated && instances.length > 0 && !url && !email && !password) {
+    if (hydrated && instances.length > 0 && typedUrl === '' && !email && !password) {
       navigate(afterSignIn(), { replace: true });
     }
-  }, [hydrated, instances.length, navigate, url, email, password]);
+  }, [hydrated, instances.length, navigate, typedUrl, email, password]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -182,26 +183,28 @@ export default function AddInstancePage() {
               required
             />
 
-            {sameOrigin && (
+            {(sameOrigin || url.trim()) && (
               <div className="-mt-2 flex items-center justify-end gap-4">
-                {instance?.email_code_sign_in && (
+                {(!sameOrigin || instance?.email_code_sign_in) && (
                   <Link
                     to={ROUTES.emailCode}
-                    state={{ email: email.trim() }}
+                    state={{ email: email.trim(), ...(sameOrigin ? {} : { server: url.trim() }) }}
                     data-qa="email-code"
                     className="mr-auto text-sm text-accent hover:text-accent-soft"
                   >
                     {t('signIn.emailCode')}
                   </Link>
                 )}
-                <Link
-                  to={ROUTES.forgotPassword}
-                  state={{ email: email.trim() }}
-                  data-qa="forgot-password"
-                  className="text-sm text-accent hover:text-accent-soft"
-                >
-                  {t('signIn.forgotPassword')}
-                </Link>
+                {sameOrigin && (
+                  <Link
+                    to={ROUTES.forgotPassword}
+                    state={{ email: email.trim() }}
+                    data-qa="forgot-password"
+                    className="text-sm text-accent hover:text-accent-soft"
+                  >
+                    {t('signIn.forgotPassword')}
+                  </Link>
+                )}
               </div>
             )}
 

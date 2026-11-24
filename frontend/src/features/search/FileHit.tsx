@@ -8,6 +8,7 @@ import { formatBytes } from '@/lib/fileSize';
 import { formatDateTime } from '@/lib/datetime';
 import { wordRanges } from '@/lib/fold';
 import { FILE_KINDS, isRenderableImage } from '@/lib/fileKinds';
+import { useMediaLinks } from '@/shared/hooks/useMediaUrl';
 
 export type FileSearchHit = components['schemas']['FileSearchHit'];
 type SnippetPart = components['schemas']['SnippetPart'];
@@ -55,6 +56,7 @@ function Snippet({ parts }: { parts: SnippetPart[] }) {
 
 export function FileHit({ hit, query, context, onOpen }: Props) {
   const { t } = useTranslation('search');
+  const mediaLink = useMediaLinks();
   const { getUser } = useUserCache();
   const kind = FILE_KINDS[hit.kind];
   const Icon = kind.icon;
@@ -77,7 +79,7 @@ export function FileHit({ hit, query, context, onOpen }: Props) {
       >
         {preview ? (
           <img
-            src={preview}
+            src={mediaLink(preview)}
             alt=""
             loading="lazy"
             className="h-9 w-9 shrink-0 rounded-md border border-line/60 object-cover"
@@ -99,7 +101,7 @@ export function FileHit({ hit, query, context, onOpen }: Props) {
         </span>
       </button>
       <a
-        href={hit.url}
+        href={mediaLink(hit.url)}
         download={hit.filename}
         aria-label={t('panel.download', { name: hit.filename })}
         className="absolute right-2 rounded p-1 text-muted opacity-0 transition hover:bg-raised hover:text-fg-dim focus:opacity-100 group-hover:opacity-100"

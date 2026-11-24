@@ -265,6 +265,7 @@ async fn exchange(
         jar,
         Json(SsoExchanged {
             landing: sign_in.landing,
+            session: tokens.into(),
         }),
     ))
 }

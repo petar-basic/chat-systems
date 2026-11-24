@@ -3,6 +3,7 @@ pub mod analytics;
 pub mod app_directory;
 pub mod app_events;
 pub mod app_home;
+pub mod app_origin;
 pub mod app_shortcuts;
 pub mod app_unfurls;
 pub mod app_workflow_steps;
@@ -244,6 +245,7 @@ pub async fn build_state(pool: PgPool, config: AppConfig) -> anyhow::Result<Arc<
 pub fn build_app(state: Arc<AppState>) -> Router {
     let verifier = state.config.jwt_keys.verifying().clone();
     let cors_origins = state.config.cors_origins.clone();
+    let app_origins = state.config.app_origins.clone();
     let revocation = RevocationStore(state.redis.clone());
 
     let (typed_routes, _) = openapi::typed_routes().split_for_parts();
@@ -251,10 +253,12 @@ pub fn build_app(state: Arc<AppState>) -> Router {
 
     let api = Router::new()
         .merge(public_routes.with_state(state.clone()))
-        .merge(protected(
-            state.clone(),
-            typed_routes.merge(files::routes::download_router()),
-        ))
+        .merge(protected(state.clone(), typed_routes))
+        .merge(
+            files::routes::download_router()
+                .layer(axum::middleware::from_fn(middleware::media_or_session))
+                .with_state(state.clone()),
+        )
         .merge(export::routes::download_router().with_state(state.clone()))
         .merge(auth::oidc_routes::router(state.clone()))
         .merge(scim::routes::router(state.clone()))
@@ -271,7 +275,15 @@ pub fn build_app(state: Arc<AppState>) -> Router {
         .layer(Extension(state.bot_repo.clone()))
         .layer(Extension(state.auth_service.repo().clone()))
         .layer(Extension(SessionVerifier(verifier)))
-        .layer(shared_common::cors::cors_layer(&cors_origins))
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            app_origin::tokens_not_cookies,
+        ))
+        .layer(shared_common::cors::cors_layer(
+            &cors_origins,
+            &app_origins,
+            app_origin::app_may_call,
+        ))
         .layer(CompressionLayer::new())
         .layer(DefaultBodyLimit::max(1024 * 1024))
         .layer(TimeoutLayer::with_status_code(

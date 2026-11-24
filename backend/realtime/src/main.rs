@@ -38,6 +38,7 @@ struct AppState {
     jwt_public_keys: VerifyingKeys,
     consumer_heartbeat: Arc<AtomicI64>,
     cors_origins: String,
+    app_origins: String,
 }
 
 const CONSUMER_STALE_SECS: i64 = 60;
@@ -137,11 +138,17 @@ async fn main() -> anyhow::Result<()> {
         jwt_public_keys: config.jwt_public_keys.clone(),
         consumer_heartbeat,
         cors_origins: config.cors_origins.clone(),
+        app_origins: config.app_origins.clone(),
     };
 
-    let app = build_app(state)
-        .merge(metrics_router(prometheus))
-        .layer(shared_common::cors::cors_layer(&config.cors_origins));
+    let app =
+        build_app(state)
+            .merge(metrics_router(prometheus))
+            .layer(shared_common::cors::cors_layer(
+                &config.cors_origins,
+                &config.app_origins,
+                the_user_socket,
+            ));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     info!("chat-realtime listening on {}", addr);
@@ -225,6 +232,10 @@ pub(crate) fn authenticate_ws(
     Ok(claims)
 }
 
+fn the_user_socket(path: &str) -> bool {
+    path == shared_common::paths::WS_V1
+}
+
 fn origin_allowed(headers: &axum::http::HeaderMap, allowed: &str) -> bool {
     let Some(origin) = headers
         .get(axum::http::header::ORIGIN)
@@ -247,7 +258,9 @@ async fn ws_upgrade(
     headers: axum::http::HeaderMap,
     request: axum::extract::Request,
 ) -> Result<Response, AppError> {
-    if !origin_allowed(&headers, &state.cors_origins) {
+    if !origin_allowed(&headers, &state.cors_origins)
+        && !origin_allowed(&headers, &state.app_origins)
+    {
         return Err(AppError::Unauthorized("Origin not allowed".into()));
     }
     let claims = authenticate_ws(&headers, &state.jwt_public_keys)?;

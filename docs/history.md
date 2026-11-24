@@ -4375,3 +4375,32 @@ ten-minute locked huddle on both phones is checked in the app itself (CS-144), a
 fails there becomes a written limitation. Push end to end waits for CS-145 and its accounts,
 which also carry the ring, since iOS freezes a locked app in about 30 s and a ring has to
 arrive as a VoIP push. The findings are in `docs/native-apps-plan.md`.
+
+### [CS-143] Signing in from a client the server does not serve ✅ shipped
+A phone app's client is bundled into the app and runs on the app's origin, where the server's
+cookies are never sent, so the server now takes clients that sign in with tokens alone.
+`APP_ORIGINS` (by default the Tauri origins) lets those pages call the API and open the socket
+without credentials, but not reach SCIM, incoming hooks, workflow webhooks or the command and
+interaction response URLs. A request from one of them that carries a cookie is refused, and
+its responses never set one. `/auth/logout` takes the refresh token as a bearer, and only a
+refresh token ends a session there. `/auth/oidc/exchange` returns the session as well as the
+landing.
+
+The bundled client could not show a single image: downloads needed the cookie, an `<img>`
+sends no header, and both phone webviews block cross-site cookies. A client signed in with
+tokens now asks `/auth/media-token` for an hour-long token that opens file downloads and
+nothing else, checked against session revocation like an access token, and puts it on file
+links as `?media=`. The web client, talking to a server on another origin, sends no cookies,
+signs out with the refresh token, keeps that media token and renews it, and puts it on the
+links of its photos, workspace icons, custom emoji, attachments, clips and downloads.
+Same-origin, nothing changed.
+
+Run from a static copy of the build on another port, the sign-in page offered no field for
+the server, since it only showed one when its own origin said other servers were allowed. A
+page whose origin answers no instance info now asks for the server and can sign in to it by
+password or by emailed code. Two lookups that went to the page's own origin instead of the
+workspace's server, the channels with outgoing hooks and the sidebar themes, now go to the
+server.
+
+Keeping the refresh token in the Keychain or Keystore, deep links, and bringing SSO, a passkey
+and the emailed code back into the app moved to CS-144, which builds the app they live in.

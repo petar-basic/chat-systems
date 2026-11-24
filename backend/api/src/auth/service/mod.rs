@@ -194,7 +194,7 @@ impl AuthService {
 
     pub async fn logout(&self, refresh_token: &str) -> AppResult<()> {
         if let Ok(claims) = self.verify_token(refresh_token) {
-            if let Some(jti) = claims.jti {
+            if let (Some(jti), "refresh") = (claims.jti, claims.token_type.as_str()) {
                 let _ = self.repo.delete_refresh_token(&jti.to_string()).await;
             }
         }

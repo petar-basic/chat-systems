@@ -466,6 +466,8 @@ async fn a_passkey_used_in_the_system_browser_signs_the_desktop_app_in(pool: PgP
     .await;
     assert_eq!(status, StatusCode::OK, "{exchanged:?}");
     assert_eq!(exchanged["landing"], "/app");
+    assert!(exchanged["session"]["access_token"].is_string());
+    assert!(exchanged["session"]["refresh_token"].is_string());
 
     let (status, _) = send(
         &app,

@@ -9,6 +9,7 @@ import { fileKind, isRenderableImage, kindOf, playableMedia } from '@/lib/fileKi
 import { CollapsedPreview } from './CollapsedPreview';
 import { CachedImage } from '@/shared/components/Image/CachedImage';
 import { ClipPlayer } from '@/features/clips';
+import { useMediaSource, useMediaUrl } from '@/shared/hooks/useMediaUrl';
 
 type Attachment = components['schemas']['Attachment'];
 
@@ -170,6 +171,8 @@ function ImageGrid({ images, onOpen }: { images: Attachment[]; onOpen: (image: A
 
 function MediaPlayer({ attachment, kind }: { attachment: Attachment; kind: 'video' | 'audio' }) {
   const { t } = useTranslation('messages');
+  const url = useMediaUrl(attachment.url);
+  const source = useMediaSource(attachment.url);
   const caption = (
     <div className="flex items-center gap-2 text-xs text-muted">
       <span className="truncate text-fg-dim" data-tooltip={attachment.filename}>
@@ -177,7 +180,7 @@ function MediaPlayer({ attachment, kind }: { attachment: Attachment; kind: 'vide
       </span>
       <span className="shrink-0">· {formatBytes(attachment.size_bytes)}</span>
       <a
-        href={attachment.url}
+        href={url}
         download={attachment.filename}
         aria-label={t('attachments.download', { name: attachment.filename })}
         className="ml-auto shrink-0 rounded p-0.5 hover:bg-raised hover:text-fg-dim"
@@ -190,7 +193,8 @@ function MediaPlayer({ attachment, kind }: { attachment: Attachment; kind: 'vide
     return (
       <div className="flex w-full max-w-120 flex-col gap-1" data-qa="attachment-video">
         <video
-          src={attachment.url}
+          src={source.src}
+          onError={source.onError}
           controls
           preload="metadata"
           playsInline
@@ -206,13 +210,14 @@ function MediaPlayer({ attachment, kind }: { attachment: Attachment; kind: 'vide
       data-qa="attachment-audio"
     >
       {caption}
-      <audio src={attachment.url} controls preload="metadata" className="w-full" />
+      <audio src={source.src} onError={source.onError} controls preload="metadata" className="w-full" />
     </div>
   );
 }
 
 function FileCard({ attachment, onRemove }: { attachment: Attachment; onRemove?: () => void }) {
   const { t } = useTranslation(['messages', 'common']);
+  const url = useMediaUrl(attachment.url);
   const kind = fileKind(attachment.mime_type, attachment.filename);
   const kindName = kindOf(attachment.mime_type, attachment.filename);
   const Icon = kind.icon;
@@ -250,7 +255,7 @@ function FileCard({ attachment, onRemove }: { attachment: Attachment; onRemove?:
   }
   return (
     <a
-      href={attachment.url}
+      href={url}
       target="_blank"
       rel="noopener noreferrer"
       download={attachment.filename}

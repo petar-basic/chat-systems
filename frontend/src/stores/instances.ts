@@ -209,6 +209,7 @@ async function signInTo(
       clients.api.onTokensChanged = (access, refresh) => saveTokens(normalized, access, refresh);
     }
     clients.api.setTokens(res.access_token, res.refresh_token);
+    await clients.api.keepMediaLinks();
     clients.ws.connect();
 
     const config: InstanceConfig = {
@@ -283,6 +284,7 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
               instanceManager.remove(config.url);
               continue;
             }
+            await clients.api.keepMediaLinks();
             valid.push({
               url: config.url,
               ...(config.wsUrl ? { wsUrl: config.wsUrl } : {}),
@@ -370,10 +372,7 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
 
   removeInstance: (url) => {
     const normalized = instanceManager.normalize(url);
-    instanceManager
-      .get(normalized)
-      .api.typed((c) => c.POST('/auth/logout'))
-      .catch(() => {});
+    void instanceManager.get(normalized).api.signOut();
     instanceManager.remove(normalized);
     saveTokens(normalized, null, null);
     const instances = get().instances.filter((i) => i.url !== normalized);

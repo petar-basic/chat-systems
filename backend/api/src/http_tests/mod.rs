@@ -22,6 +22,7 @@ mod analytics;
 mod app_directory;
 mod app_events;
 mod app_home;
+mod app_origins;
 mod app_shortcuts;
 mod app_unfurls;
 mod app_workflow_steps;

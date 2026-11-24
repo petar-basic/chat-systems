@@ -61,6 +61,7 @@ pub fn app(cm: Arc<ConnectionManager>) -> Router {
         jwt_public_keys: gateway_keys(),
         consumer_heartbeat: Arc::new(std::sync::atomic::AtomicI64::new(crate::now_unix())),
         cors_origins: "http://localhost".to_string(),
+        app_origins: shared_common::cors::APP_ORIGINS.to_string(),
     })
 }
 

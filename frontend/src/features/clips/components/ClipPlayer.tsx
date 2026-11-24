@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from
 import { useTranslation } from 'react-i18next';
 import { Download, Expand, Pause, Play } from 'lucide-react';
 import type { components } from '@/api/schema';
+import { useMediaSource, useMediaUrl } from '@/shared/hooks/useMediaUrl';
 import { clipClock } from '../lib/format';
 
 type Clip = components['schemas']['Clip'];
@@ -28,6 +29,9 @@ export function ClipPlayer({ url, clip, filename, posterUrl, width, height, onEx
   const [playing, setPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const durationS = clip.duration_ms / 1000;
+  const source = useMediaSource(url);
+  const href = useMediaUrl(url);
+  const poster = useMediaUrl(posterUrl);
 
   useEffect(() => {
     const element = media.current;
@@ -41,6 +45,7 @@ export function ClipPlayer({ url, clip, filename, posterUrl, width, height, onEx
     onPlay: () => setPlaying(true),
     onPause: () => setPlaying(false),
     onEnded: () => setPlaying(false),
+    onError: source.onError,
     onTimeUpdate: (event: { currentTarget: HTMLMediaElement }) =>
       setPosition(event.currentTarget.currentTime),
   };
@@ -77,7 +82,7 @@ export function ClipPlayer({ url, clip, filename, posterUrl, width, height, onEx
         </button>
       )}
       <a
-        href={url}
+        href={href}
         download={filename}
         aria-label={t('attachments.download', { name: filename })}
         className="shrink-0 rounded p-0.5 hover:bg-raised hover:text-fg-dim"
@@ -101,8 +106,8 @@ export function ClipPlayer({ url, clip, filename, posterUrl, width, height, onEx
           ref={(element) => {
             media.current = element;
           }}
-          src={url}
-          poster={posterUrl ?? undefined}
+          src={source.src}
+          poster={poster ?? undefined}
           controls
           preload="metadata"
           playsInline
@@ -186,7 +191,7 @@ export function ClipPlayer({ url, clip, filename, posterUrl, width, height, onEx
         ref={(element) => {
           media.current = element;
         }}
-        src={url}
+        src={source.src}
         preload="metadata"
         className="hidden"
         {...events}
