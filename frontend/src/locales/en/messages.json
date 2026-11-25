@@ -289,6 +289,9 @@
     "heading": "Shortcuts",
     "failed": "Couldn't use “{{name}}”"
   },
+  "commandAnswer": {
+    "dismiss": "Dismiss"
+  },
   "blocks": {
     "notInteractive": "This app has not set up interactivity",
     "more": "More options",

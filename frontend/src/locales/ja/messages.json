@@ -285,6 +285,9 @@
     "heading": "ショートカット",
     "failed": "「{{name}}」を使えませんでした"
   },
+  "commandAnswer": {
+    "dismiss": "閉じる"
+  },
   "blocks": {
     "notInteractive": "このアプリにはインタラクティブ機能が設定されていません",
     "more": "その他のオプション",

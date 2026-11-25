@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 interface Props {
   text: string | null;
   pending: boolean;
@@ -5,6 +7,7 @@ interface Props {
 }
 
 export function CommandAnswer({ text, pending, onDismiss }: Props) {
+  const { t } = useTranslation('messages');
   if (!text) return null;
   return (
     <div
@@ -17,8 +20,8 @@ export function CommandAnswer({ text, pending, onDismiss }: Props) {
       <button
         type="button"
         onClick={onDismiss}
-        aria-label="Dismiss"
-        data-tooltip="Dismiss"
+        aria-label={t('commandAnswer.dismiss')}
+        data-tooltip={t('commandAnswer.dismiss')}
         className="text-subtle hover:text-fg transition cursor-pointer"
       >
         ×
