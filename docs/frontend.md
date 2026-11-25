@@ -138,6 +138,7 @@ is persisted depends on origin:
 |---------|-------------|---------------|---------|
 | Same-origin web | in memory | server cookie (`/api/v1/auth`) | cookie (`credentials: 'include'`) |
 | Cross-origin web | in memory | `localStorage` (`chat_tokens`, per-URL) | `Authorization: Bearer` header + WS `bearer` subprotocol |
+| Phone app | in memory | iOS Keychain / Android Keystore, per URL, through the app's `load_session` / `save_session` / `forget_session` | `Authorization: Bearer` header + WS `bearer` subprotocol |
 
 **Consequences for the frontend:**
 - Same-origin calls use `credentials: 'include'`; cross-origin calls use `credentials: 'omit'` and `Authorization: Bearer <access>` only, so a server that does not serve the page never sees a cookie from it (it refuses one from its `APP_ORIGINS`)
@@ -148,6 +149,7 @@ is persisted depends on origin:
 - Signing out of a cross-origin server (`removeInstance` → `ApiClient.signOut()`) posts `/auth/logout` with the refresh token as the bearer, which is what ends the session there
 - **Media links.** A cross-origin server's files, photos and emoji need `?media=<token>`, since an `<img>` sends no header. `ApiClient.keepMediaLinks()` asks `/auth/media-token` when the server is signed in or restored (awaited, so the first token is there before anything renders), keeps it in `useMediaTokenStore` under the instance URL, and renews it five minutes before its hour is up. `mediaUrl()` adds the token to a URL under `/api/v1/files/download/` whose origin has one and leaves every other URL as it is. Components use `useMediaUrl(src)` / `useMediaLinks()` (live, for `<img>` and download links), `useMediaSource(src)` for `<video>`/`<audio>` (the link stays while it plays and is replaced on an error), and `useLinkedCustomEmoji()` for custom emoji. `Avatar`, `WorkspaceIcon` and `CachedImage` do it themselves; a new raw `<img>` of a server file has to go through one of these
 - `localStorage` (`chat_instances`) stores only `{ url, wsUrl?, user }` per instance — no tokens for same-origin; cross-origin tokens live in the separate `chat_tokens` map
+- `lib/sessionVault.ts` is the one place a cross-origin session is kept: `loadSession(url)` gives the refresh token to restore from, `keepSession` follows `onTokensChanged`, `forgetSession` runs on sign-out, on an expired or revoked session and for a server the page may no longer use. In the phone app (`inPhoneApp`) it keeps only the refresh token, in the Keychain or the Keystore, writes in order and skips a token it already holds, so nothing about the session is in the page's storage; elsewhere it is the `chat_tokens` map. A restore sets the refresh token alone and refreshes, so the access token is only ever in memory
 
 ---
 
@@ -1024,8 +1026,9 @@ Key methods:
 
 ### `useInstanceStore`
 Manages all connected instances and the active one. `{ url, wsUrl?, user }` per instance is
-persisted to `localStorage` (`chat_instances`). For cross-origin instances, tokens are kept in a
-separate `chat_tokens` map; same-origin uses cookies
+persisted to `localStorage` (`chat_instances`). For cross-origin instances, tokens are kept by
+`lib/sessionVault.ts` (the `chat_tokens` map, or the Keychain / Keystore in the phone app);
+same-origin uses cookies
 storage (see Authentication Model).
 
 | State | Description |
@@ -1224,7 +1227,7 @@ An `openapi-fetch` client typed by `src/api/schema.d.ts`. All requests include
 - `upload<T>(path, formData)` — the one multipart path (files, avatars, Slack archives)
 - Regenerate with `npm run api:types` after `cargo run --bin chat-openapi > src/api/openapi.json`
 - On 401: single-flight refresh once, then retry via `POST /auth/refresh`; if refresh fails, fires `onSessionExpired`
-- `onTokensChanged` lets the store persist rotated tokens (cross-origin `chat_tokens`)
+- `onTokensChanged` lets the store persist rotated tokens (cross-origin, through `lib/sessionVault.ts`)
 - Singleton `api` for default instance; `instanceManager.get(url).api` for others
 
 ### `ws.ts` — `WebSocketClient`
@@ -1349,6 +1352,6 @@ typing, and `notification` events are handled separately — by `usePresenceStor
 | Thread messages | React Query | API |
 | Conversations | React Query | API + WS `conversation.created`; their messages are the message list keyed by the conversation id |
 | Instance config (url + wsUrl? + user) | Zustand + localStorage (`chat_instances`) | Login response `{ user }` |
-| Auth tokens | Access in memory (`ApiClient`); refresh in cookie (same-origin) / `chat_tokens` localStorage (cross-origin) | `/auth/login`, `/auth/refresh` |
+| Auth tokens | Access in memory (`ApiClient`); refresh in cookie (same-origin) / `chat_tokens` localStorage (cross-origin) / Keychain or Keystore (phone app) | `/auth/login`, `/auth/refresh` |
 | Current user | Zustand (from instance) | Login response |
 | User display cache | Zustand | Populated from members list |

@@ -648,6 +648,15 @@ reaches the Mac's `localhost`; the Android emulator needs `adb reverse tcp:8080 
       button. Enter `http://localhost:8080` and sign in by password, and once by *Email me a
       sign-in code*.
 - [ ] **Stays signed in.** Close the app and open it again: the workspace opens.
+- [ ] **Nothing in the page's storage.** In Safari's or Chrome's inspector for the app's web
+      view, local storage has `chat_instances` and no `chat_tokens`, and no key or value holds
+      a token.
+- [ ] **Signing out forgets the session.** Sign out from the menu, close the app and open it
+      again: it asks for the server.
+- [ ] **Revoked.** Sign in again, then suspend that account as an admin from a browser (and
+      activate it afterwards). Use an account with no hooks, workflows or apps: suspending
+      turns them off and activating does not turn them back on. The app shows the session
+      ended and asks for the server, and it still does after a restart.
 - [ ] **System bars.** The channel header is below the status bar and the notch, the composer
       above the home indicator or the navigation bar, and above the keyboard while typing.
 - [ ] **Messages.** Read, send, and see a message from another account arrive live.

@@ -22,6 +22,9 @@ fn main() {
             "open_draw_overlay",
             "draw_on_overlay",
             "close_draw_overlay",
+            "load_session",
+            "save_session",
+            "forget_session",
         ]),
     ))
     .expect("tauri build script");
