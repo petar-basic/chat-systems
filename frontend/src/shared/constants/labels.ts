@@ -1,6 +1,4 @@
 export const ErrorLabels = {
-  MarkReadFailed: "Couldn't mark the channel read",
-  MarkAllReadFailed: "Couldn't mark everything read",
   SidebarSaveFailed: "Couldn't save your sidebar",
   AppSaveFailed: "Couldn't save the app",
   CalendarSaveFailed: "Couldn't save the calendar settings",
@@ -26,6 +24,5 @@ export const EmptyLabels = {
 
 export const ActionLabels = {
   Cancel: 'Cancel',
-  MarkedAllRead: 'Everything is marked read',
   CreateChannel: 'Create channel',
 } as const;

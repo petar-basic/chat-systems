@@ -350,5 +350,22 @@
       "seek": "Seek",
       "expand": "Open {{name}} in the gallery"
     }
+  },
+  "unreads": {
+    "new": "{{count}} new",
+    "loading": "Loading…",
+    "failed": "Couldn't load your unread messages.",
+    "empty": "You're all caught up",
+    "emptyHint": "Nothing new in your channels or direct messages.",
+    "groupLabel": "{{title}}, {{count}} unread",
+    "directMessage": "Direct message",
+    "channel": "channel",
+    "markRead": "Mark as read",
+    "earlier": "{{count}} earlier",
+    "openEarlier": "in the channel",
+    "showMore": "Show more channels",
+    "markReadFailed": "Couldn't mark the channel read",
+    "markAllReadFailed": "Couldn't mark everything read",
+    "markedAllRead": "Everything is marked read"
   }
 }

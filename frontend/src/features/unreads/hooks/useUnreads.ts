@@ -2,7 +2,8 @@ import { useInfiniteQuery, useMutation, useQueryClient, type InfiniteData } from
 import type { components } from '@/api/schema';
 import { useCurrentApi } from '@/shared/hooks/useCurrentApi';
 import { applyReadState } from '@/lib/readState';
-import { QUERY_KEYS, ErrorLabels, ActionLabels } from '@/shared/constants';
+import { QUERY_KEYS } from '@/shared/constants';
+import i18n from '@/lib/i18n';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { toast } from '@/shared/components/Toast';
 import { logger } from '@/lib/logger';
@@ -61,7 +62,7 @@ export function useMarkGroupRead(workspaceId: string | undefined) {
     },
     onError: (err) => {
       logger.error('useMarkGroupRead', 'mutationFn', err);
-      toast.error(ErrorLabels.MarkReadFailed);
+      toast.error(i18n.t('messages:unreads.markReadFailed'));
     },
   });
 }
@@ -79,11 +80,11 @@ export function useMarkWorkspaceRead(workspaceId: string | undefined) {
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.unreads(workspaceId ?? '') });
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.channelsUnread(workspaceId ?? '') });
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.conversations(workspaceId ?? '') });
-      toast.success(ActionLabels.MarkedAllRead);
+      toast.success(i18n.t('messages:unreads.markedAllRead'));
     },
     onError: (err) => {
       logger.error('useMarkWorkspaceRead', 'mutationFn', err);
-      toast.error(ErrorLabels.MarkAllReadFailed);
+      toast.error(i18n.t('messages:unreads.markAllReadFailed'));
     },
   });
 }
