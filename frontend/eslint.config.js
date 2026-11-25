@@ -114,10 +114,10 @@ export default defineConfig([
     },
   },
   {
-    // The tiptap editor is configured once and kept, so the mention lookup has
-    // to reach the current list through a ref. React Compiler cannot see that
-    // the callback only runs while somebody is typing, and rebuilding the
-    // extension on every members change would drop the editor's state.
+    // The tiptap editor is configured once and kept, so the mention lookup and
+    // the placeholder reach the current list and name through refs. React
+    // Compiler cannot see that those callbacks only run inside the editor, and
+    // rebuilding the extensions on every change would drop the editor's state.
     files: ['src/features/messaging/MessageInput.tsx'],
     rules: {
       'react-hooks/refs': 'warn',

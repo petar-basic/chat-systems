@@ -313,6 +313,10 @@ Text input with file attachment button and send button.
 **Reads:** channel name
 **Emits:** `onSend(content)`, `onFileUpload(file)`, `onTyping()` on each keystroke
 
+The editor is built once, so its placeholder reads the current *Message #channel* or
+*Message name* through a ref and redraws when that changes: a DM opened before its members load
+says *Message Unknown user* only until the name arrives.
+
 Given a `pollTarget` (the channel, DM or thread it writes to), it has a poll button next to the
 paperclip and reads `/poll` before sending: `/poll` alone opens `PollDialog`,
 `/poll "Q" "A" "B"` creates the poll straight away (`parsePollCommand` in

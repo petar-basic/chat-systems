@@ -175,6 +175,13 @@ export default function MessageInput({
     mentionItemsRef.current = mentionItems;
   }, [mentionItems]);
 
+  const placeholderText =
+    placeholder ??
+    (isDm
+      ? t('composer.placeholderDm', { name: channelName })
+      : t('composer.placeholder', { name: channelName }));
+  const placeholderRef = useRef(placeholderText);
+
   useSlashCommands(workspace?.id, workspace?.instanceUrl, slashCommands);
   const queryClient = useQueryClient();
   const [commandExtension] = useState(() =>
@@ -264,13 +271,7 @@ export default function MessageInput({
     },
     extensions: [
       ...createEditorExtensions(),
-      Placeholder.configure({
-        placeholder:
-          placeholder ??
-          (isDm
-            ? t('composer.placeholderDm', { name: channelName })
-            : t('composer.placeholder', { name: channelName })),
-      }),
+      Placeholder.configure({ placeholder: () => placeholderRef.current }),
       submitExtension,
       ...(isDm ? [] : [mentionExtension]),
       ...(slashCommands ? [commandExtension] : []),
@@ -292,6 +293,12 @@ export default function MessageInput({
       }, DRAFT_SAVE_DEBOUNCE_MS);
     },
   });
+
+  useEffect(() => {
+    if (placeholderRef.current === placeholderText) return;
+    placeholderRef.current = placeholderText;
+    if (editor && !editor.isDestroyed) editor.view.dispatch(editor.state.tr);
+  }, [editor, placeholderText]);
 
   const [showSchedule, setShowSchedule] = useState(false);
   const [customSendAt, setCustomSendAt] = useState('');
