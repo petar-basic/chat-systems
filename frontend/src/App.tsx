@@ -18,6 +18,7 @@ import { applyLanguage } from '@/lib/i18n';
 import { useEmptyRailWhenSignedOut, useReportOtherServers } from '@/lib/desktopRail';
 import NewVersionBanner from '@/features/instance/NewVersionBanner';
 import ServerSupportBanner from '@/features/instance/ServerSupportBanner';
+import { AppLinks } from '@/features/instance/AppLinks';
 
 const Router = BrowserRouter;
 
@@ -110,6 +111,7 @@ function AppContent() {
     <Router>
       <NotificationStream />
       <HuddleController />
+      <AppLinks />
       <Suspense fallback={<SplashScreen />}>
         <Routes>
           <Route path="/add-instance" element={<AddInstancePage />} />

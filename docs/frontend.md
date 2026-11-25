@@ -145,7 +145,7 @@ is persisted depends on origin:
 - `WebSocketClient` resolves a valid token (`api.getValidToken()`) and opens the socket with `['bearer', token]` as the WS subprotocol; if no token is available it connects without one (relying on the cookie)
 - On 401, `ApiClient` refreshes once (single-flight) then retries; same-origin refresh is a cookie-only `POST /auth/refresh`, cross-origin sends the stored refresh token as a bearer header. If the server refuses the refresh (401), `onSessionExpired` removes the instance; a refresh that does not reach the server, times out after 15 s or gets another error keeps the session and fails only that request. The socket's token comes through the same refresh (`getValidToken`), so a session revoked while the app was offline ends as soon as the socket can ask.
 - The backend requires `CORS_ORIGINS` (comma-separated allowed origins) and validates the WS upgrade `Origin` against it; wildcard `*` is not allowed when credentials are enabled. A page on an app origin (`APP_ORIGINS`, the Tauri ones by default) is allowed without credentials
-- A page whose own origin answers no `/instance/info` (the bundled phone app, or a static copy of the build) is no server: the sign-in page asks for the server, empty, offers other servers (`useOtherServersAllowed` is true), and offers an emailed code for the server typed in, which `EmailCodePage` asks and signs in to (`state.server`). SSO, passkeys and password reset stay with the page's own server
+- A page whose own origin answers no `/instance/info` (the bundled phone app, or a static copy of the build) is no server: the sign-in page asks for the server, empty, offers other servers (`useOtherServersAllowed` is true), and offers an emailed code for the server typed in, which `EmailCodePage` asks and signs in to (`state.server`). In the phone app *Sign in with a passkey*, and *Sign in with SSO* when the typed server has it, run for that server in the sign-in sheet (`addInstanceInBrowser`); elsewhere SSO and passkeys stay with the page's own server, and password reset always does
 - Signing out of a cross-origin server (`removeInstance` → `ApiClient.signOut()`) posts `/auth/logout` with the refresh token as the bearer, which is what ends the session there
 - **Media links.** A cross-origin server's files, photos and emoji need `?media=<token>`, since an `<img>` sends no header. `ApiClient.keepMediaLinks()` asks `/auth/media-token` when the server is signed in or restored (awaited, so the first token is there before anything renders), keeps it in `useMediaTokenStore` under the instance URL, and renews it five minutes before its hour is up. `mediaUrl()` adds the token to a URL under `/api/v1/files/download/` whose origin has one and leaves every other URL as it is. Components use `useMediaUrl(src)` / `useMediaLinks()` (live, for `<img>` and download links), `useMediaSource(src)` for `<video>`/`<audio>` (the link stays while it plays and is replaced on an error), and `useLinkedCustomEmoji()` for custom emoji. `Avatar`, `WorkspaceIcon` and `CachedImage` do it themselves; a new raw `<img>` of a server file has to go through one of these
 - `localStorage` (`chat_instances`) stores only `{ url, wsUrl?, user }` per instance — no tokens for same-origin; cross-origin tokens live in the separate `chat_tokens` map
@@ -210,7 +210,10 @@ with `auth:signIn.otherServersOff`, and `restoreInstances` drops every other sav
 tokens before it reconnects any. If `/instance/info` cannot be read, both go on as before.
 In the phone apps (`lib/phoneApp.inPhoneApp`: the page is on `tauri://localhost` or
 `tauri.localhost`) nothing serves the page, so the page asks for the server at once, never asks
-its own origin for instance info, and always allows other servers.
+its own origin for instance info, and always allows other servers. Once the server field has
+been still for 400 ms it reads that server's instance info, and shows *Sign in with SSO* when it
+says `sso_enabled`. A `chat-systems://open` link to a server the app is not signed in to opens
+this page with `state.server`, which fills the field.
 
 **Reads:** form input (instance URL, email, password, optional WS URL)
 **Writes:** `useInstanceStore.addInstance()` → POST `/auth/login` → stores `{ url, wsUrl?, user }` in `chat_instances`; access token kept in memory, refresh token persisted per the table above
@@ -1043,6 +1046,7 @@ Key methods:
 | Method | Description |
 |--------|-------------|
 | `addInstance(url, email, pass, wsUrl?)` | POST `/auth/login`, wires `ApiClient`/WS, persists tokens per origin, saves `{ url, wsUrl?, user }`, connects WS |
+| `addInstanceInBrowser(url, way, invite?)` | Phone app: SSO or a passkey for `url` in the sign-in sheet. `lib/browserSignIn` opens `/auth/oidc/start?client=desktop` or `/passkey/desktop` with a nonce through `tauri-plugin-auth-session`, takes the code from the `chat-systems://sso` hand-back only for that nonce, and the store trades it at POST `/auth/oidc/exchange` and signs in as `addInstance` does. Closing the sheet is a cancel and shows no error |
 | `addValidatedInstance(config)` | Adds an already-authenticated instance (used after complete-registration) |
 | `removeInstance(url)` | POST `/auth/logout`, disconnect WS, clear stored tokens, remove from store + localStorage |
 | `setActiveInstance(url)` | Switch active instance |
@@ -1261,6 +1265,16 @@ Registry of `{ api: ApiClient, ws: WebSocketClient }` per instance URL.
 - `get(url)` — get or create client pair
 - `remove(url)` — disconnect WS + remove from registry
 - Used by all hooks/stores that need instance-aware requests
+
+### Links into the app — `lib/appLinks.ts`, `features/instance/AppLinks`
+`AppLinks`, mounted once inside the router, takes a plain left click on any `<a>` whose link is
+a page under `/app` on a server the client is signed in to (`placeOf`), switches to that server
+and navigates there instead of opening a tab or the browser, as Slack does with a message link.
+A click with a modifier key, a `download` link, a click a handler already took, and any other
+page of a server (an invite, a file) are left to the browser. In the phone app it also follows
+`chat-systems://open?url=<link>` (`linkInside`), the one that started the app (`getCurrent`) and
+those that arrive while it runs (`onOpenUrl`): a link on a signed-in server opens there, any
+other opens *Add a server* with that server filled in.
 
 ### `globalEventBus.ts` — `GlobalEventBus`
 Typed pub/sub bus over the `ServerFrame` union generated into `src/api/serverFrames.ts`

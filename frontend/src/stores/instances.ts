@@ -4,6 +4,7 @@ import { otherServersAllowed } from '../lib/instanceInfo';
 import { forgetSession, keepSession, loadSession } from '../lib/sessionVault';
 import i18n from '../lib/i18n';
 import { requestPasskey, wasCancelled } from '../lib/webauthn';
+import { signInInBrowser, type BrowserSignIn } from '../lib/browserSignIn';
 import { useWsStatusStore } from './wsStatus';
 import { backfillAfterReconnect, refetchAfterOfflineStart } from '../lib/realtimeBackfill';
 import { giveUpOnAnswers } from '../lib/commandAnswers';
@@ -88,6 +89,7 @@ interface InstancesState {
   ) => Promise<void>;
   addInstanceWithPasskey: (url: string, firstFactor?: PasskeySecondFactorStart) => Promise<void>;
   addInstanceWithEmailCode: (url: string, email: string, code: string, totpCode?: string) => Promise<void>;
+  addInstanceInBrowser: (url: string, way: BrowserSignIn, invite?: string | null) => Promise<void>;
   addValidatedInstance: (config: InstanceConfig) => void;
   removeInstance: (url: string) => void;
   setActiveInstance: (url: string) => void;
@@ -348,6 +350,16 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
         { anonymous: true },
       ),
     );
+  },
+
+  addInstanceInBrowser: async (url, way, invite?) => {
+    await signInTo(set, get, url, undefined, async (api) => {
+      const code = await signInInBrowser(instanceManager.normalize(url), way, invite);
+      const { session } = await api.typed((c) => c.POST('/auth/oidc/exchange', { body: { code } }), {
+        anonymous: true,
+      });
+      return session;
+    });
   },
 
   addValidatedInstance: (config) => {

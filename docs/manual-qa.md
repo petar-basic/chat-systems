@@ -262,6 +262,7 @@ cd frontend && npm install && npm run dev    # http://localhost:3001
 - **Expected:** formatting renders in the message and round-trips on edit.
 - 🔴 **Edge — XSS:** send a message containing `<img src=x onerror=alert(1)>`, `<script>alert(1)</script>`, and a `[click](javascript:alert(1))` markdown link.
   - **Expected:** rendered as inert text/markdown — **no alert fires**, no clickable `javascript:`/`data:` link, no raw HTML injected. (tiptap renders through a schema; raw HTML is stripped.)
+- 🟢 **Message link:** *Copy link* on a message and send it in another channel, then click it → the message opens in this tab, not a new one. ⌘-click opens a new tab. A link to the server's `/invite/…` or to a file still opens a new tab.
 
 ### 5.7 🟢 Search
 - **Reach:** Search panel (`GET /api/v1/search?workspace_id=<id>&q=…`, optional `channel_id`/`user_id`).
@@ -645,8 +646,19 @@ on the iOS simulator or an iPhone, and on the Android emulator or a phone. The i
 reaches the Mac's `localhost`; the Android emulator needs `adb reverse tcp:8080 tcp:8080`.
 
 - [ ] **Add a server.** The first page asks for the server at once, with no passkey or SSO
-      button. Enter `http://localhost:8080` and sign in by password, and once by *Email me a
-      sign-in code*.
+      button until a server is typed in. Enter `http://localhost:8080` and sign in by password,
+      and once by *Email me a sign-in code*.
+- [ ] **SSO.** With SSO set up (the local stack's mock provider), *Sign in with SSO* shows once
+      the server is typed in and opens a sheet over the app, not the system browser. Signing in
+      there closes the sheet and opens the workspace. On Android no dialog asks which app should
+      open the link. The local provider is `http://oidc:8090`: in the iOS simulator the sheet
+      first tries it over HTTPS and sits on a blank page for about a minute before it loads. The
+      Android emulator cannot resolve `oidc`; before the step run
+      `adb shell "echo \"_ --host-resolver-rules='MAP oidc 127.0.0.1'\" > /data/local/tmp/chrome-command-line"`,
+      `adb reverse tcp:8090 tcp:8090` and `adb shell am force-stop com.android.chrome`, and
+      afterwards remove the file and the reverse.
+- [ ] **Passkey.** *Sign in with a passkey* opens the server's passkey page in the same sheet.
+      Closing the sheet (*Cancel* on iOS, the X on Android) leaves the sign-in page with no error.
 - [ ] **No zoom on a field.** On iOS, tapping the server, email or code field does not zoom
       the page, and once signed in the channel header is in view. The composer does not zoom
       in landscape either.
@@ -668,8 +680,16 @@ reaches the Mac's `localhost`; the Android emulator needs `adb reverse tcp:8080 
       above the home indicator or the navigation bar, and above the keyboard while typing.
 - [ ] **Messages.** Read, send, and see a message from another account arrive live.
 - [ ] **Photo.** The paperclip opens the system picker; a photo uploads and shows.
-- [ ] **Links.** A link in a message opens in the system browser, and the app stays as it was.
-      *Copy link* on a message copies the server's address, not `tauri://localhost`.
+- [ ] **Links.** *Copy link* on a message copies the server's address, not `tauri://localhost`.
+      That link sent in a message opens the message in the app, on the other server when it is
+      one. Any other link in a message opens in the system browser, and the app stays as it was.
+- [ ] **App link.** With the app closed, and again with it open, open
+      `chat-systems://open?url=` and a message link, URL-encoded (`xcrun simctl openurl booted '…'`,
+      or `adb shell am start -a android.intent.action.VIEW -d '…'`): the app opens that message.
+      A link to a server the app is not signed in to opens *Add a server* with it filled in.
+      Known gap: on iOS a link that starts a closed app only opens it where it was left, because
+      tao 0.37 drops the URL a scene is launched with (fixed in tao 0.38, which Tauri 2.12
+      does not take yet; CS-146 moves to it). Open in the background, the app follows it.
 - [ ] **Another server.** From the drawer, *Add instance* shows its form over the page, and
       the drawer closes.
 
