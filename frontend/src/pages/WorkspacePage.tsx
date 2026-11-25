@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Hash, LayoutGrid, Megaphone } from 'lucide-react';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
-import { ROUTES, EmptyLabels } from '@/shared/constants';
+import { ROUTES } from '@/shared/constants';
 import { ConnectionBanner } from '@/shared/components/ConnectionBanner/ConnectionBanner';
 import InstallAppBanner from '@/features/instance/InstallAppBanner';
 import { QuickSwitcher, KeyboardShortcutsDialog } from '@/features/navigation';
@@ -252,13 +252,15 @@ export default function WorkspacePage() {
             disabled={!currentChannel || currentChannel.is_archived || c.previewing || !canPost}
             onFiles={c.attachments.add}
           >
-            <main className="flex-1 flex flex-col min-w-0" aria-label="Conversation" data-message-pane>
+            <main
+              className="flex-1 flex flex-col min-w-0"
+              aria-label={t('page.conversation')}
+              data-message-pane
+            >
               <ConnectionBanner instanceUrl={currentWorkspace?.instanceUrl} />
               {currentWorkspace?.deleted_at && (
                 <div className="bg-yellow-500/10 border-b border-yellow-500/30 px-4 py-2 flex items-center justify-between shrink-0">
-                  <p className="text-sm text-warning">
-                    This workspace has been soft-deleted and is not visible to regular members.
-                  </p>
+                  <p className="text-sm text-warning">{t('page.deleted.notice')}</p>
                   {canDeleteWorkspace(viewer) && (
                     <button
                       onClick={() => {
@@ -271,7 +273,7 @@ export default function WorkspacePage() {
                       disabled={c.restoreWorkspace.isPending}
                       className="ml-4 px-3 py-1 text-xs bg-yellow-500/20 hover:bg-yellow-500/40 border border-yellow-500/40 text-warning rounded-lg transition cursor-pointer disabled:opacity-50 shrink-0"
                     >
-                      {c.restoreWorkspace.isPending ? 'Restoring…' : 'Restore workspace'}
+                      {c.restoreWorkspace.isPending ? t('page.deleted.restoring') : t('page.deleted.restore')}
                     </button>
                   )}
                 </div>
@@ -363,7 +365,7 @@ export default function WorkspacePage() {
                   className="mx-4 mb-4 px-4 py-3 rounded-lg bg-surface/60 border border-line text-sm text-muted flex items-center gap-2"
                 >
                   <Megaphone className="w-4 h-4 shrink-0 text-warning" />
-                  Only admins can post in this channel.
+                  {t('page.readOnly')}
                 </div>
               )}
 
@@ -410,8 +412,8 @@ export default function WorkspacePage() {
                   ) : !c.channelsPending && c.channels.length === 0 ? (
                     <>
                       <Hash className="w-12 h-12 text-faint" />
-                      <p className="text-lg font-medium">{EmptyLabels.NoChannels}</p>
-                      <p className="text-sm">{EmptyLabels.NoChannelsHint}</p>
+                      <p className="text-lg font-medium">{t('page.noChannels.title')}</p>
+                      <p className="text-sm">{t('page.noChannels.hint')}</p>
                     </>
                   ) : (
                     <Spinner className="text-accent" />
