@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useWorkspaceStore, type Workspace } from '@/stores/workspace';
 import { useMessageActions } from './useMessageActions';
 
-const mutation = () => ({ mutate: vi.fn(), mutateAsync: vi.fn() });
+const mutation = vi.hoisted(() => () => ({ mutate: vi.fn(), mutateAsync: vi.fn() }));
 
 vi.mock('@/features/messaging/hooks/useMessages', () => ({
   useEditMessage: mutation,
