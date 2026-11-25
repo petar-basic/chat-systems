@@ -647,6 +647,9 @@ reaches the Mac's `localhost`; the Android emulator needs `adb reverse tcp:8080 
 - [ ] **Add a server.** The first page asks for the server at once, with no passkey or SSO
       button. Enter `http://localhost:8080` and sign in by password, and once by *Email me a
       sign-in code*.
+- [ ] **No zoom on a field.** On iOS, tapping the server, email or code field does not zoom
+      the page, and once signed in the channel header is in view. The composer does not zoom
+      in landscape either.
 - [ ] **Stays signed in.** Close the app and open it again: the workspace opens.
 - [ ] **System bars.** The channel header is below the status bar and the notch, the composer
       above the home indicator or the navigation bar, and above the keyboard while typing.
