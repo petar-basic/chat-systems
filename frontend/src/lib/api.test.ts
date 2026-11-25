@@ -160,6 +160,62 @@ describe('ApiClient single-flight refresh', () => {
     expect(onExpired).not.toHaveBeenCalled();
     expect(fetchMock.mock.calls.filter(isRefreshCall)).toHaveLength(0);
   });
+
+  it('keeps the session when the refresh never reaches the server', async () => {
+    const client = new ApiClient('http://api.test');
+    const onExpired = vi.fn();
+    client.onSessionExpired = onExpired;
+
+    fetchMock.mockImplementation((input: string | URL | Request, init?: RequestInit) => {
+      const { url, method } = requested(input, init);
+      if (url.endsWith('/auth/refresh') && method === 'POST') {
+        return Promise.reject(new TypeError('Load failed'));
+      }
+      return Promise.resolve(makeResponse(401));
+    });
+
+    await expect(client.typed((c) => c.GET('/users/me'))).rejects.toBeInstanceOf(TypeError);
+    expect(onExpired).not.toHaveBeenCalled();
+  });
+
+  it('keeps the session when the server fails the refresh', async () => {
+    const client = new ApiClient('http://api.test');
+    const onExpired = vi.fn();
+    client.onSessionExpired = onExpired;
+
+    fetchMock.mockImplementation((input: string | URL | Request, init?: RequestInit) => {
+      const { url, method } = requested(input, init);
+      if (url.endsWith('/auth/refresh') && method === 'POST') {
+        return Promise.resolve(makeResponse(503, { error: 'Down for maintenance' }));
+      }
+      return Promise.resolve(makeResponse(401));
+    });
+
+    await expect(client.typed((c) => c.GET('/users/me'))).rejects.toMatchObject({ status: 503 });
+    expect(onExpired).not.toHaveBeenCalled();
+  });
+
+  it("ends the session when the socket's refresh is refused", async () => {
+    const client = new ApiClient('http://api.test');
+    const onExpired = vi.fn();
+    client.onSessionExpired = onExpired;
+    client.setTokens(null, 'refresh-1');
+    fetchMock.mockResolvedValue(makeResponse(401));
+
+    await expect(client.getValidToken()).resolves.toBeNull();
+    expect(onExpired).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the session when the socket's refresh never reaches the server", async () => {
+    const client = new ApiClient('http://api.test');
+    const onExpired = vi.fn();
+    client.onSessionExpired = onExpired;
+    client.setTokens(null, 'refresh-1');
+    fetchMock.mockRejectedValue(new TypeError('Load failed'));
+
+    await expect(client.getValidToken()).rejects.toBeInstanceOf(TypeError);
+    expect(onExpired).not.toHaveBeenCalled();
+  });
 });
 
 describe('ApiClient and the server version', () => {

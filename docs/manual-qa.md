@@ -660,6 +660,10 @@ reaches the Mac's `localhost`; the Android emulator needs `adb reverse tcp:8080 
       activate it afterwards). Use an account with no hooks, workflows or apps: suspending
       turns them off and activating does not turn them back on. The app shows the session
       ended and asks for the server, and it still does after a restart.
+- [ ] **Offline at start.** Signed in, stop the server (`docker compose -p chat-systems stop
+      frontend`), close the app and open it: it opens with the connection banner, not the server
+      page and not *You're not in a workspace yet*, and the session is still in the Keychain or
+      the Keystore. Start the server again: the app connects and loads without a restart.
 - [ ] **System bars.** The channel header is below the status bar and the notch, the composer
       above the home indicator or the navigation bar, and above the keyboard while typing.
 - [ ] **Messages.** Read, send, and see a message from another account arrive live.

@@ -143,7 +143,7 @@ is persisted depends on origin:
 **Consequences for the frontend:**
 - Same-origin calls use `credentials: 'include'`; cross-origin calls use `credentials: 'omit'` and `Authorization: Bearer <access>` only, so a server that does not serve the page never sees a cookie from it (it refuses one from its `APP_ORIGINS`)
 - `WebSocketClient` resolves a valid token (`api.getValidToken()`) and opens the socket with `['bearer', token]` as the WS subprotocol; if no token is available it connects without one (relying on the cookie)
-- On 401, `ApiClient` refreshes once (single-flight) then retries; same-origin refresh is a cookie-only `POST /auth/refresh`, cross-origin sends the stored refresh token as a bearer header. If refresh fails, `onSessionExpired` removes the instance.
+- On 401, `ApiClient` refreshes once (single-flight) then retries; same-origin refresh is a cookie-only `POST /auth/refresh`, cross-origin sends the stored refresh token as a bearer header. If the server refuses the refresh (401), `onSessionExpired` removes the instance; a refresh that does not reach the server, times out after 15 s or gets another error keeps the session and fails only that request. The socket's token comes through the same refresh (`getValidToken`), so a session revoked while the app was offline ends as soon as the socket can ask.
 - The backend requires `CORS_ORIGINS` (comma-separated allowed origins) and validates the WS upgrade `Origin` against it; wildcard `*` is not allowed when credentials are enabled. A page on an app origin (`APP_ORIGINS`, the Tauri ones by default) is allowed without credentials
 - A page whose own origin answers no `/instance/info` (the bundled phone app, or a static copy of the build) is no server: the sign-in page asks for the server, empty, offers other servers (`useOtherServersAllowed` is true), and offers an emailed code for the server typed in, which `EmailCodePage` asks and signs in to (`state.server`). SSO, passkeys and password reset stay with the page's own server
 - Signing out of a cross-origin server (`removeInstance` → `ApiClient.signOut()`) posts `/auth/logout` with the refresh token as the bearer, which is what ends the session there
@@ -192,7 +192,8 @@ and description. On *Home* the message list, typing indicator and composer are n
   commands through `useSlashCommand`, uploads, typing) and `useMessageActions` (save, forward). `noWorkspaces` is
   true once both workspace lists have loaded empty: routing then moves a workspace url to
   `/app`, and the page says *You're not in a workspace yet* instead of waiting on channels
-  that will never load.
+  that will never load. A list no server answered is an error, not an empty list, so an app
+  started offline waits with the connection banner instead.
 - **`features/workspace/hooks/useRightPanel`** — open-panel state (members / settings /
   thread / search / pins / channel members / notifications), Esc-to-close, reset on
   conversation change.
@@ -1047,7 +1048,7 @@ Key methods:
 | `setActiveInstance(url)` | Switch active instance |
 | `updateInstanceUser(url, user)` | Replace the cached user for an instance |
 | `refreshInstanceUser(url)` | Refresh the session (sharing a refresh already in flight, since refresh tokens rotate) and replace the cached user with the one it returns, or with `GET /users/me` |
-| `restoreInstances()` | Re-hydrate instances; refresh the session (same-origin GET `/users/me`, cross-origin token refresh); a failed refresh removes the stale instance, then reconnect WS |
+| `restoreInstances()` | Re-hydrate instances; refresh the session (same-origin GET `/users/me`, cross-origin token refresh). A server that refuses it (401) is removed with its stored token; one that cannot be reached is kept with the user it had, and when its socket first connects the client refetches every query, starts the media links and reloads that user. Then reconnect WS |
 
 ---
 
@@ -1078,7 +1079,7 @@ Token refresh is **not** a hook — `ApiClient` refreshes automatically on 401 /
 ### Workspaces
 | Hook | Call | Description |
 |------|------|-------------|
-| `useWorkspaces()` | GET `/workspaces` (all instances, parallel) | All workspaces across all instances |
+| `useWorkspaces()` | GET `/workspaces` (all instances, parallel) | All workspaces across all instances; a server that cannot be reached is left out, and the query fails only when none answered |
 | `useWorkspace(wsId)` | GET `/workspaces/{id}` | Single workspace |
 | `useWorkspaceMembers(wsId, instanceUrl)` | GET `/workspaces/{id}/members` | Workspace members |
 | `useFormerMembers(wsId, instanceUrl)` | GET `/workspaces/{id}/former-members` | People who left, with the name and photo they had; only feeds `useUserCache` |
@@ -1226,7 +1227,7 @@ An `openapi-fetch` client typed by `src/api/schema.d.ts`. All requests include
 - `typed((c) => c.GET('/channels/{ch_id}/messages', { params }))` — the only way to call a JSON route; paths, params, bodies and responses come from the schema
 - `upload<T>(path, formData)` — the one multipart path (files, avatars, Slack archives)
 - Regenerate with `npm run api:types` after `cargo run --bin chat-openapi > src/api/openapi.json`
-- On 401: single-flight refresh once, then retry via `POST /auth/refresh`; if refresh fails, fires `onSessionExpired`
+- On 401: single-flight refresh once, then retry via `POST /auth/refresh`; if the server refuses the refresh (401), fires `onSessionExpired`, and any other failure is thrown as the request's error
 - `onTokensChanged` lets the store persist rotated tokens (cross-origin, through `lib/sessionVault.ts`)
 - Singleton `api` for default instance; `instanceManager.get(url).api` for others
 

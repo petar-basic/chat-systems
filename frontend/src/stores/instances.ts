@@ -5,8 +5,10 @@ import { forgetSession, keepSession, loadSession } from '../lib/sessionVault';
 import i18n from '../lib/i18n';
 import { requestPasskey, wasCancelled } from '../lib/webauthn';
 import { useWsStatusStore } from './wsStatus';
-import { backfillAfterReconnect } from '../lib/realtimeBackfill';
+import { backfillAfterReconnect, refetchAfterOfflineStart } from '../lib/realtimeBackfill';
 import { giveUpOnAnswers } from '../lib/commandAnswers';
+import { ApiError } from '../lib/errors';
+import { logger } from '../lib/logger';
 import { toast } from '@/shared/components/Toast';
 import { ErrorLabels } from '@/shared/constants';
 import type { components } from '@/api/schema';
@@ -212,6 +214,7 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
     restorePromise = (async () => {
       const saved = loadFromStorage();
       const valid: InstanceConfig[] = [];
+      const sockets: InstanceClients['ws'][] = [];
       const origin = instanceManager.normalize(window.location.origin);
       const elsewhere = (config: InstanceConfig) => instanceManager.normalize(config.url) !== origin;
       const othersAllowed = saved.some(elsewhere) ? await otherServersAllowed() : true;
@@ -225,12 +228,22 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
           instanceManager.setWsUrl(config.url, config.wsUrl);
         }
         const clients = instanceManager.get(config.url);
+        const normalized = instanceManager.normalize(config.url);
+        const server = { url: config.url, ...(config.wsUrl ? { wsUrl: config.wsUrl } : {}) };
+        let unchecked = false;
         clients.api.onSessionExpired = () => {
           toast.error(ErrorLabels.SessionExpired);
           get().removeInstance(config.url);
         };
         clients.ws.onStatusChange = (status) => {
           useWsStatusStore.getState().setStatus(config.url, status);
+          if (status !== 'connected' || !unchecked) return;
+          unchecked = false;
+          refetchAfterOfflineStart();
+          void clients.api.keepMediaLinks();
+          get()
+            .refreshInstanceUser(config.url)
+            .catch((err: unknown) => logger.error('instances', 'refreshInstanceUser', err));
         };
         clients.ws.onSessionRevoked = () => {
           toast.error(ErrorLabels.SessionRevoked);
@@ -240,7 +253,6 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
         clients.ws.addReconnectListener(giveUpOnAnswers);
 
         try {
-          const normalized = instanceManager.normalize(config.url);
           if (normalized !== window.location.origin) {
             const refresh = await loadSession(normalized);
             if (!refresh) {
@@ -249,26 +261,29 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
             }
             clients.api.setTokens(null, refresh);
             clients.api.onTokensChanged = (access, next) => void keepSession(normalized, access, next);
-            const refreshed = await clients.api.refreshSession().catch(() => null);
+            const refreshed = await clients.api.refreshSession();
             if (!refreshed?.user) {
               void forgetSession(normalized);
               instanceManager.remove(config.url);
               continue;
             }
             await clients.api.keepMediaLinks();
-            valid.push({
-              url: config.url,
-              ...(config.wsUrl ? { wsUrl: config.wsUrl } : {}),
-              user: toInstanceUser(refreshed.user),
-            });
+            valid.push({ ...server, user: toInstanceUser(refreshed.user) });
           } else {
-            const user = toInstanceUser(await clients.api.typed((c) => c.GET('/users/me')));
-            valid.push({ url: config.url, ...(config.wsUrl ? { wsUrl: config.wsUrl } : {}), user });
+            valid.push({
+              ...server,
+              user: toInstanceUser(await clients.api.typed((c) => c.GET('/users/me'))),
+            });
           }
-          clients.ws.connect();
-        } catch {
-          instanceManager.remove(config.url);
+        } catch (err) {
+          if (err instanceof ApiError && err.status === 401) {
+            instanceManager.remove(config.url);
+            continue;
+          }
+          unchecked = true;
+          valid.push({ ...server, user: config.user });
         }
+        sockets.push(clients.ws);
       }
 
       const adopted = await adoptSsoSession(valid, get());
@@ -276,6 +291,7 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
 
       saveToStorage(valid);
       set({ instances: valid, activeInstanceUrl: valid[0]?.url ?? null, hydrated: true });
+      for (const ws of sockets) ws.connect();
     })();
     return restorePromise;
   },

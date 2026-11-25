@@ -4454,5 +4454,9 @@ token the first refresh had rotated), the page's storage holding only the server
 out emptying the Keychain, and an account suspended by an admin signing the app out at once,
 emptying the store, and still asking for the server after a restart.
 
-A phone that is offline when the app starts cannot refresh, so the app forgets the server and
-asks for it again, as the web client on another origin already did.
+A phone that was offline when the app started could not refresh, so the app forgot the server
+and asked for it again, as the web client on another origin already did. A fix on `feat/mobile`
+keeps the server, its stored token and the user it had when the refresh cannot reach the server,
+and forgets them only when the server refuses the session. The workspace list no longer reads a
+server it cannot reach as one with no workspaces, so the app waits with the connection banner
+instead of saying the person is not in a workspace.

@@ -36,3 +36,12 @@ export function refetchAfterGap() {
   logger.info('realtimeBackfill', 'refetchAfterGap', 'invalidating everything a missed event could change');
   invalidate([...OPEN_VIEWS, ...COUNTED_BY_EVENTS]);
 }
+
+export function refetchAfterOfflineStart() {
+  logger.info(
+    'realtimeBackfill',
+    'refetchAfterOfflineStart',
+    'invalidating everything the start could not load',
+  );
+  void queryClient.invalidateQueries();
+}
