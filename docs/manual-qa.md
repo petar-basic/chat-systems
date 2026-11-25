@@ -692,6 +692,24 @@ reaches the Mac's `localhost`; the Android emulator needs `adb reverse tcp:8080 
       does not take yet; CS-146 moves to it). Open in the background, the app follows it.
 - [ ] **Another server.** From the drawer, *Add instance* shows its form over the page, and
       the drawer closes.
+- [ ] **Notifications.** Opening a workspace the first time, the phone asks to allow
+      notifications. With the app in the background, a direct message from another account
+      shows as a system notification, on Android as a banner in the *Messages* channel with the
+      app's speech-bubble icon. Tapping it opens the message on iOS; on Android it only brings
+      the app forward (tauri-apps/plugins-workspace#3550). *Preferences → Notifications*
+      says *Notifications while the app is open*, and says they are off in the phone's settings
+      when they are. With the app closed nothing arrives until the push relay (CS-145).
+- [ ] **Huddle.** Join a huddle with someone on another device. The phone asks for the
+      microphone once. On Android an ongoing *In a huddle* notification with a headset icon
+      stays while in it, tapping it returns to the app, and it goes when the huddle is left.
+      There is no *Share screen* on Android.
+- [ ] **Locked for ten minutes.** In that huddle, with someone on the other device talking now
+      and then, lock the phone for ten minutes: the other side still hears it and it still
+      hears them, and unlocked it is still in the huddle. Then lock the other phone instead.
+      Known gap: on Android, after about five minutes in which nothing is heard, the web view
+      freezes the page, and the phone leaves the huddle when its sign-in token next runs out;
+      turned on, it rejoins within seconds. The iOS simulator has no microphone and does not
+      suspend the app, so the iOS side of this needs an iPhone.
 
 ---
 

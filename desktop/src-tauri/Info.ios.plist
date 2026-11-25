@@ -6,5 +6,9 @@
   <string>Take a photo to send, or show your camera in a huddle.</string>
   <key>NSMicrophoneUsageDescription</key>
   <string>Talk in huddles and record clips.</string>
+  <key>UIBackgroundModes</key>
+  <array>
+    <string>audio</string>
+  </array>
 </dict>
 </plist>

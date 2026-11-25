@@ -70,6 +70,11 @@
     "others_one": "{{count}} other",
     "others_other": "{{count}} others"
   },
+  "phone": {
+    "channel": "Huddles in progress",
+    "title": "In a huddle",
+    "text": "Tap to go back to it."
+  },
   "errors": {
     "micBlocked": "Your browser blocked the microphone. Allow it for this site and try again.",
     "micMissing": "No microphone found. Plug one in, or pick another input in settings.",

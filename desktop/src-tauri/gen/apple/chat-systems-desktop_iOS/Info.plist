@@ -55,5 +55,9 @@
 			<string>$(PRODUCT_BUNDLE_IDENTIFIER).chat-systems</string>
 		</dict>
 	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
 </dict>
 </plist>

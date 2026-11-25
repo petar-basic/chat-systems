@@ -4,6 +4,9 @@ import { AppWindow } from 'lucide-react';
 import { Button } from '@/shared/components/Button/Button';
 import { useNotificationPrefs } from '@/stores/notificationPrefs';
 import { notificationPermission, requestNotificationPermission } from '@/lib/notifications';
+import { inPhoneApp } from '@/lib/phoneApp';
+
+const copy = inPhoneApp ? 'phone' : 'desktop';
 
 export default function DesktopNotificationsPanel() {
   const { t } = useTranslation('notifications');
@@ -30,10 +33,10 @@ export default function DesktopNotificationsPanel() {
       <div>
         <h3 className="text-sm font-medium text-fg flex items-center gap-2">
           <AppWindow className="w-4 h-4 text-accent" />
-          {t('desktop.title')}
+          {t(`${copy}.title`)}
         </h3>
         <p className="text-xs text-muted mt-1">
-          {blocked ? t('blocked') : on ? t('desktop.on') : t('desktop.off')}
+          {blocked ? t(inPhoneApp ? 'phone.blocked' : 'blocked') : on ? t(`${copy}.on`) : t(`${copy}.off`)}
         </p>
       </div>
       <Button onClick={() => void toggle()} disabled={blocked} data-qa="desktop-notifications-toggle">

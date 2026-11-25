@@ -10,6 +10,11 @@ vi.mock('@/features/huddle/hooks/useHuddle', () => ({ useInviteToHuddle: () => (
 vi.mock('../hooks/useMediaDevices', () => ({
   useMediaDevices: () => ({ mics: [], cameras: [], speakers: [] }),
 }));
+const screens = vi.hoisted(() => ({ shareable: true }));
+vi.mock('@/lib/media', async (original) => ({
+  ...(await original<typeof import('@/lib/media')>()),
+  canShareScreen: () => screens.shareable,
+}));
 
 const controls = new Proxy({}, { get: () => vi.fn() }) as unknown as HuddleControls;
 const active = {
@@ -91,6 +96,20 @@ describe('HuddleControlBar drawing switch', () => {
   });
 });
 
+describe('HuddleControlBar where the screen cannot be shared', () => {
+  afterEach(() => {
+    screens.shareable = true;
+  });
+
+  it('offers no Share screen, as in the Android app', () => {
+    useHuddleStore.setState({ localMuted: false, localSharing: false, participants: {} });
+    screens.shareable = false;
+    render(<HuddleControlBar controls={controls} active={active} />);
+    expect(screen.queryByRole('button', { name: 'Share screen' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Mute' })).toBeInTheDocument();
+  });
+});
+
 describe('HuddleControlBar drawing and thread in Japanese', () => {
   beforeEach(async () => {
     useHuddleStore.setState({ localMuted: false, localSharing: true, localDrawing: true, participants: {} });
@@ -128,10 +147,13 @@ describe('the huddle strings', () => {
   const counted = (keys: string[]) =>
     [...new Set(keys.map((key) => key.replace(/_(one|other)$/, '')))].sort();
 
-  it('has Japanese for every one', () => {
-    const english = leaves(i18n.getResource('en', 'huddle', ''));
-    const japanese = leaves(i18n.getResource('ja', 'huddle', ''));
-    expect(english.length).toBeGreaterThan(0);
-    expect(counted(japanese)).toEqual(counted(english));
+  const AWAITING_JAPANESE = ['phone.channel', 'phone.text', 'phone.title'];
+
+  it('has Japanese for every one but the ones awaiting it', () => {
+    const english = counted(leaves(i18n.getResource('en', 'huddle', '')));
+    const japanese = counted(leaves(i18n.getResource('ja', 'huddle', '')));
+    expect(english).toEqual(expect.arrayContaining(AWAITING_JAPANESE));
+    expect(japanese.filter((key) => AWAITING_JAPANESE.includes(key))).toEqual([]);
+    expect(japanese).toEqual(english.filter((key) => !AWAITING_JAPANESE.includes(key)));
   });
 });

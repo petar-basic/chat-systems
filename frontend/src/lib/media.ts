@@ -32,6 +32,10 @@ export async function acquireCamera(deviceId?: string | null): Promise<MediaStre
   });
 }
 
+export function canShareScreen(): boolean {
+  return typeof navigator !== 'undefined' && typeof navigator.mediaDevices?.getDisplayMedia === 'function';
+}
+
 export async function acquireScreen(): Promise<MediaStream> {
   return navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
 }

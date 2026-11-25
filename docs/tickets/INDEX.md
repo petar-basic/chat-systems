@@ -535,7 +535,7 @@ CS-143 on, each PR merges into `feat/mobile`, which goes into `main` once, befor
 | CS-144a ✅ | Phone apps: the iOS and Android targets, carrying the web client | mobile · frontend |
 | CS-144b ✅ | Phone apps: the session in the Keychain and the Keystore | mobile · frontend |
 | CS-144c ✅ | Phone apps: deep links for SSO, passkeys and messages | mobile · frontend |
-| CS-144d | Phone apps: notifications and huddles | mobile · frontend |
+| CS-144d ✅ | Phone apps: notifications and huddles | mobile · frontend |
 | CS-145 | A push relay for phones | backend · mobile · ops |
 | CS-146 | Phone release builds for TestFlight and Play | mobile · ops |
 
@@ -590,7 +590,7 @@ Tickets that touch the same files, and the order that avoids rework:
 | worker rollups and *Workspace settings → Analytics* | CS-120 → CS-121 |
 | route prefixes, nginx, Caddy and the E2E helpers | CS-141 ✅ |
 | `/auth/oidc/exchange` and the deep link | CS-109 ✅ → CS-118 → CS-143 ✅ → CS-144c ✅ |
-| the Tauri project's mobile targets | CS-142 ✅ → CS-144a ✅ → CS-144b ✅ → CS-144c ✅ → CS-144d → CS-145 → CS-146 |
+| the Tauri project's mobile targets | CS-142 ✅ → CS-144a ✅ → CS-144b ✅ → CS-144c ✅ → CS-144d ✅ → CS-145 → CS-146 |
 | `MessageInput.tsx` key handling | CS-114 |
 | `membership::detach`, `remove_member_in` and the conversation list | CS-117a ✅ → CS-121c |
 | `membership::add_to_channel` and the channel member routes in `workspace/routes.rs` | CS-121a |

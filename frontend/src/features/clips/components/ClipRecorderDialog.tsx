@@ -6,6 +6,7 @@ import { Button } from '@/shared/components/Button/Button';
 import { RadioCards } from '@/shared/components/Form/RadioCards';
 import { Checkbox } from '@/shared/components/Form/Checkbox';
 import { Spinner } from '@/shared/components/Spinner/Spinner';
+import { canShareScreen } from '@/lib/media';
 import { CLIP_COUNTDOWN_MS, CLIP_MAX_MS, clipClock, type ClipMode } from '../lib/format';
 import type { RecordedClip } from '../lib/finish';
 import { useClipRecorder } from '../hooks/useClipRecorder';
@@ -14,10 +15,6 @@ import { ClipPlayer } from './ClipPlayer';
 interface Props {
   onClip: (clip: RecordedClip) => void;
   onClose: () => void;
-}
-
-function canShareScreen(): boolean {
-  return typeof navigator !== 'undefined' && typeof navigator.mediaDevices?.getDisplayMedia === 'function';
 }
 
 function LivePreview({ stream }: { stream: MediaStream }) {

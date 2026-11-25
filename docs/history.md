@@ -4496,3 +4496,46 @@ QA found one bug in the change itself: following a link re-ran whenever the rout
 because React Router hands out a new `navigate` per path, so the app went back to the last link
 it had been opened with after every navigation. The link handlers now hold `navigate` in a ref
 and run once.
+
+### [CS-144d] The phone apps: notifications and huddles ✅ shipped
+The phone apps' web views have no `Notification`, so the app takes `tauri-plugin-notification`,
+which puts one in the page. The page asks for permission as in a browser, and
+`showNotification` sends a message through the plugin with a number for an id, keeping the
+click handler under that id until `onAction` reports the notification tapped. On Android the
+message goes to a *Messages* channel of high importance, so it shows as a banner, with a
+speech-bubble icon drawn for the status bar. A page now counts as away when it is hidden as
+well as when it has no focus: a phone app in the background keeps its focus. Preferences calls
+the switch *Notifications while the app is open* on a phone.
+
+A huddle keeps going with the screen locked. Android stops a background app's microphone
+unless a foreground service of the microphone type holds it, so the app has a plugin of its
+own, `tauri-plugin-huddle` (`desktop/src-tauri/plugins/huddle`), whose `begin` starts that
+service with an ongoing *In a huddle* notification and whose `end` stops it;
+`useHuddleInBackground` calls them while the microphone is open. The iOS app has the `audio`
+background mode. The Android manifest now declares the microphone, the camera and the audio
+settings, without which the web view never asks for them. The Android web view cannot share
+the screen, so the control bar leaves *Share screen* out wherever `getDisplayMedia` is missing.
+
+QA found two faults in the change itself. On Android the first notification came at the
+default importance, with no banner, and with the system's info icon, so messages got the
+*Messages* channel and an icon of their own. On an iPhone-width screen the huddle's control bar
+pushed its first and last buttons off the screen, so the bar now wraps onto a second row.
+
+Checked on the iOS 27.2 simulator and the Android 16 emulator against the local stack: the
+permission prompt on both; a direct message sent while the app was in the background showing as
+a banner, and tapping it on iOS opening the message; on Android, the microphone prompt, the
+*In a huddle* notification with its headset icon, the service running as a microphone
+foreground service, and no *Share screen*. In a huddle with the iOS app and a desktop browser
+sending sound, the Android screen stayed off for twenty minutes: the phone kept sending and
+receiving, and when its sign-in token ran out it reconnected within two seconds with the screen
+still off. The iOS simulator, locked for the same twenty minutes, stayed connected and
+reconnected the same way. It sends no sound, though: it has no microphone on this Mac, and it
+does not suspend a backgrounded app the way an iPhone does. The iPhone side stays unchecked
+until the release QA in CS-146.
+
+Two limitations stay. On Android, tapping a notification brings the app forward but does not
+open the message: the plugin's Android side drops the notification's data, so the tap arrives
+without its id (tauri-apps/plugins-workspace#3550). And the Android web view freezes a page
+that has been hidden for about five minutes with nothing playing. If nobody in the huddle makes
+a sound for that long, the frozen page cannot reconnect when its sign-in token runs out, so the
+phone drops out of the huddle until the screen comes on, and then it rejoins within seconds.

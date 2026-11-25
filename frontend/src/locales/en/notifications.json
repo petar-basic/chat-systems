@@ -106,6 +106,13 @@
     "on": "On. A message that notifies you shows on the desktop while this window is not in front.",
     "off": "Off. An open window only plays a sound and updates Notifications."
   },
+  "phone": {
+    "title": "Notifications while the app is open",
+    "channel": "Messages",
+    "on": "On. A message that notifies you shows on the phone while the app is in the background.",
+    "off": "Off. The open app only plays a sound and updates Notifications.",
+    "blocked": "Notifications are off for Chat Systems in the phone's settings. Turn them on there first."
+  },
   "email": {
     "title": "Email me what I missed",
     "on": "On. A mention or direct message still unread five minutes later is emailed once, with a link to it.",

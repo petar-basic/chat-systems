@@ -847,8 +847,14 @@ push, *Desktop notifications while the app is open* (`DesktopNotificationsPanel`
 mention emails. An in-tab desktop notification is tagged with its channel, as the push is, so
 one replaces the other instead of showing twice. It carries the instance whose socket sent it,
 and a click locates the message through that instance's API, so a notification from a second
-server opens its message there. Both open from the *You*
-menu; the sidebar avatar opens *Edit profile*.
+server opens its message there. The phone apps' web views have no `Notification`;
+`tauri-plugin-notification` puts one in the page, so the switch asks the phone, and
+`showNotification` sends through the plugin with a number for an id and runs the click handler
+when `onAction` reports that id tapped (on iOS; the plugin's Android side reports a tap without
+the id, so there the tap only brings the app forward). There the panel is *Notifications
+while the app is open*. A page counts as away when it is hidden as well as when it has no
+focus, since a phone app in the background keeps its focus. Both open from the *You* menu; the
+sidebar avatar opens *Edit profile*.
 
 The account's preferences live on the server (`usePreferences`, `useUpdatePreferences`).
 `usePreferencesSync`, called by `WorkspacePage`, copies them where they are read:
@@ -1181,6 +1187,16 @@ loaded only when it is used. Mute, camera, screen share, raised hand and reactio
 over the gateway on both, so nothing else cares which one carries the media. Who is speaking
 comes from `useSpeaking` on the mesh and from LiveKit on the SFU (`useHuddleStore.transport`
 says which).
+
+A locked phone keeps the huddle. In the Android app `useHuddleInBackground` (in
+`HuddleController`) starts the app's `huddle` plugin while the microphone is open: a foreground
+service of the microphone type, shown as an ongoing *In a huddle* notification, without which
+Android stops the microphone once the screen locks. The iOS app has the `audio` background mode
+for the same. The Android web view still freezes a page hidden for about five minutes with
+nothing playing, and a frozen page cannot reconnect when its token runs out, so a silent huddle
+loses a locked Android phone until its screen comes on. Where the screen cannot be shared (`lib/media.canShareScreen`: no
+`getDisplayMedia`, as in the Android web view) the control bar has no *Share screen*. On a
+narrow screen the bar wraps onto a second row instead of pushing its ends out of reach.
 
 Every huddle starts on the mesh. When the gateway moves it (`huddle.transport`, or `transport:
 "sfu"` in the `huddle.members` snapshot a late joiner gets), the controller swaps in a
