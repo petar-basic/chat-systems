@@ -4435,3 +4435,24 @@ Four things did not work at first:
 
 One bug was not specific to the phones: on any phone, *Add instance* in the drawer opened its
 form under the drawer. Opening it now closes the drawer.
+
+### [CS-144b] The phone apps: the session in the Keychain and the Keystore ✅ shipped
+On a phone the client keeps a server's refresh token in the iOS Keychain or in shared
+preferences encrypted with an Android Keystore key, and the access token only in memory. The
+page's own storage holds the list of servers and nothing about the session. `src/phone/session.rs`
+gives the page three commands, `load_session`, `save_session` and `forget_session`, keyed by the
+server's URL, through `keyring-core` and its Apple and Android stores; on iOS the item is in the
+data-protection keychain, readable while the phone is unlocked. `lib/sessionVault` is the one
+place the client keeps a session: in a browser it is still `chat_tokens` in local storage, for a
+server on another origin, and on a phone it is the device's store. The server rotates the
+refresh token on every refresh, so each refresh writes the new one; signing out, removing the
+server, a refresh the server refuses and a revoked session all delete it.
+
+Checked on the iOS 27.2 simulator and the Android 16 emulator against the local stack: signing
+in by emailed code, staying signed in across restarts (on iOS three, so the second ran on the
+token the first refresh had rotated), the page's storage holding only the server list, signing
+out emptying the Keychain, and an account suspended by an admin signing the app out at once,
+emptying the store, and still asking for the server after a restart.
+
+A phone that is offline when the app starts cannot refresh, so the app forgets the server and
+asks for it again, as the web client on another origin already did.

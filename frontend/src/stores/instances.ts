@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { instanceManager, type InstanceClients } from '../lib/instances';
 import { otherServersAllowed } from '../lib/instanceInfo';
+import { forgetSession, keepSession, loadSession } from '../lib/sessionVault';
 import i18n from '../lib/i18n';
 import { requestPasskey, wasCancelled } from '../lib/webauthn';
 import { useWsStatusStore } from './wsStatus';
@@ -57,36 +58,6 @@ function loadFromStorage(): InstanceConfig[] {
 
 function saveToStorage(instances: InstanceConfig[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(instances));
-}
-
-const TOKENS_KEY = 'chat_tokens';
-
-interface StoredTokens {
-  access: string;
-  refresh: string;
-}
-
-function loadTokens(url: string): StoredTokens | null {
-  try {
-    const raw = localStorage.getItem(TOKENS_KEY);
-    if (!raw) return null;
-    const map = JSON.parse(raw) as Record<string, StoredTokens>;
-    return map[url] ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function saveTokens(url: string, access: string | null, refresh: string | null) {
-  try {
-    const raw = localStorage.getItem(TOKENS_KEY);
-    const map = raw ? (JSON.parse(raw) as Record<string, StoredTokens>) : {};
-    if (access && refresh) map[url] = { access, refresh };
-    else delete map[url];
-    localStorage.setItem(TOKENS_KEY, JSON.stringify(map));
-  } catch {
-    return;
-  }
 }
 
 export function currentUserOf(
@@ -206,7 +177,7 @@ async function signInTo(
     const res = await signIn(clients.api);
 
     if (normalized !== window.location.origin) {
-      clients.api.onTokensChanged = (access, refresh) => saveTokens(normalized, access, refresh);
+      clients.api.onTokensChanged = (access, refresh) => void keepSession(normalized, access, refresh);
     }
     clients.api.setTokens(res.access_token, res.refresh_token);
     await clients.api.keepMediaLinks();
@@ -247,7 +218,7 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
 
       for (const config of saved) {
         if (!othersAllowed && elsewhere(config)) {
-          saveTokens(instanceManager.normalize(config.url), null, null);
+          void forgetSession(instanceManager.normalize(config.url));
           continue;
         }
         if (config.wsUrl) {
@@ -271,16 +242,16 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
         try {
           const normalized = instanceManager.normalize(config.url);
           if (normalized !== window.location.origin) {
-            const tokens = loadTokens(normalized);
-            if (!tokens) {
+            const refresh = await loadSession(normalized);
+            if (!refresh) {
               instanceManager.remove(config.url);
               continue;
             }
-            clients.api.onTokensChanged = (access, refresh) => saveTokens(normalized, access, refresh);
-            clients.api.setTokens(tokens.access, tokens.refresh);
+            clients.api.setTokens(null, refresh);
+            clients.api.onTokensChanged = (access, next) => void keepSession(normalized, access, next);
             const refreshed = await clients.api.refreshSession().catch(() => null);
             if (!refreshed?.user) {
-              saveTokens(normalized, null, null);
+              void forgetSession(normalized);
               instanceManager.remove(config.url);
               continue;
             }
@@ -374,7 +345,7 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
     const normalized = instanceManager.normalize(url);
     void instanceManager.get(normalized).api.signOut();
     instanceManager.remove(normalized);
-    saveTokens(normalized, null, null);
+    void forgetSession(normalized);
     const instances = get().instances.filter((i) => i.url !== normalized);
     saveToStorage(instances);
     set({ instances, activeInstanceUrl: instances[0]?.url ?? null });

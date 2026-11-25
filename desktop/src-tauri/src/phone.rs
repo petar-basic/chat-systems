@@ -6,12 +6,20 @@ use url::Url;
 #[cfg(target_os = "ios")]
 use objc2_ui_kit::{UIColor, UIView};
 
+mod session;
+
 const MAIN: &str = "main";
 
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .invoke_handler(tauri::generate_handler![
+            session::load_session,
+            session::save_session,
+            session::forget_session
+        ])
         .setup(|app| {
+            session::use_device_store()?;
             let handle = app.handle();
             #[cfg_attr(target_os = "android", allow(unused_variables))]
             let window = WebviewWindowBuilder::new(app, MAIN, WebviewUrl::default())
