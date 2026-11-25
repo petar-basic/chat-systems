@@ -3,7 +3,7 @@
 **Wave:** 37 — mobile apps (2026-11-04, renumbered from 33 on 2026-11-13), released as 5.0.0
 **Area:** mobile · frontend · ops
 **Blocked by:** CS-141 · CS-142 · CS-143
-**Blocks:** CS-145
+**Blocks:** CS-145, CS-146
 
 ## Problem
 
@@ -29,9 +29,21 @@ browser allows it, and on iOS a home-screen app that Safari decides how long to 
   desktop (CS-108).
 - What CS-142 found the app must handle: the Android WebView cannot share the screen, and
   Android 16 draws under the status bar unless the app passes the insets in.
-- The release workflow builds an `.ipa` for TestFlight and an `.aab` for Play's internal
-  track, signed with the project's accounts. Store listing is a separate step the
-  maintainer takes.
+- Release builds for TestFlight and Play moved to CS-146 on 2026-11-24: they wait for a
+  paid Apple Developer account and a Play upload key.
+
+## Parts
+
+Split on 2026-11-24, each part a PR into `feat/mobile`. There is no Android phone, so the
+Android side is checked on the emulator; what only a real phone can show is written down
+as unverified.
+
+| Part | What |
+|---|---|
+| CS-144a | The iOS and Android targets, carrying the web client, signing in by password and emailed code, the system bars kept clear |
+| CS-144b | The session in the Keychain and the Keystore, and nothing about it in the page's storage |
+| CS-144c | Deep links: SSO and passkeys handed back to the app, and a link that opens a message |
+| CS-144d | Notifications while the app is open, and huddles, with the ten minutes on a locked screen |
 
 ## Acceptance
 
@@ -45,7 +57,6 @@ browser allows it, and on iOS a home-screen app that Safari decides how long to 
   CS-142 left this open: the iOS simulator cut the microphone at the lock and the iPhone
   did not in its first minute. Whatever fails is written down as a known limitation.
 - [ ] A link to a message opens it in the app.
-- [ ] A tagged release produces both builds.
 
 ## Tests
 

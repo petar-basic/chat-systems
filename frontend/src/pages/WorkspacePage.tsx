@@ -128,7 +128,10 @@ export default function WorkspacePage() {
             onCreateWorkspace={c.handleCreateWorkspace}
             onLeaveWorkspace={setLeaving}
             onImportFromSlack={() => settings.open('slack-import')}
-            onAddInstance={() => c.setShowAddInstance(true)}
+            onAddInstance={() => {
+              c.setMobileNavOpen(false);
+              c.setShowAddInstance(true);
+            }}
           />
 
           <ChannelSidebar

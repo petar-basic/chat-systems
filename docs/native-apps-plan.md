@@ -130,7 +130,7 @@ mobile needs that desktop does not:
 ## Open decisions
 
 - **Code signing.** Who holds the Apple Developer account (99 $ a year, also needed for
-  iOS) and the Windows certificate (Azure Trusted Signing, around 10 $ a month), and when.
-  Nothing in Wave 29 waits on it.
+  iOS), the Windows certificate (Azure Trusted Signing, around 10 $ a month) and the Play
+  upload key, and when. Nothing in Wave 29 waits on it; the phone release builds (CS-146) do.
 - **The push relay** (CS-145). Whether the project runs one. Without it, mobile stays the PWA on
   iOS and an Android build that receives push through the instance itself.

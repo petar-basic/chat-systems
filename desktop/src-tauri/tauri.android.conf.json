@@ -1,0 +1,22 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "identifier": "com.chatsystems.mobile",
+  "build": {
+    "frontendDist": "../../frontend/dist",
+    "beforeBuildCommand": {
+      "script": "npm run build",
+      "cwd": "../../frontend"
+    }
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "security": {
+      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: http:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost https: http: wss: ws:; media-src 'self' blob: https: http:; worker-src 'self' blob:; frame-src https://www.youtube-nocookie.com https://player.vimeo.com https://www.loom.com; object-src 'none'; base-uri 'self'"
+    }
+  },
+  "bundle": {
+    "android": {
+      "minSdkVersion": 26
+    }
+  }
+}

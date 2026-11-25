@@ -205,6 +205,9 @@ and no *Advanced options* and signs in to this origin only. `useInstanceStore` h
 rule on its own (`lib/instanceInfo.otherServersAllowed`): a sign-in to another origin is refused
 with `auth:signIn.otherServersOff`, and `restoreInstances` drops every other saved server and its
 tokens before it reconnects any. If `/instance/info` cannot be read, both go on as before.
+In the phone apps (`lib/phoneApp.inPhoneApp`: the page is on `tauri://localhost` or
+`tauri.localhost`) nothing serves the page, so the page asks for the server at once, never asks
+its own origin for instance info, and always allows other servers.
 
 **Reads:** form input (instance URL, email, password, optional WS URL)
 **Writes:** `useInstanceStore.addInstance()` → POST `/auth/login` → stores `{ url, wsUrl?, user }` in `chat_instances`; access token kept in memory, refresh token persisted per the table above

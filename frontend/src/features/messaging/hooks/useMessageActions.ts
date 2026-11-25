@@ -75,7 +75,7 @@ export function useMessageActions(channelId: string, draftKey: string): MessageA
       copyLink: (messageId) => {
         const ws = useWorkspaceStore.getState().currentWorkspace;
         if (!ws) return;
-        const url = `${window.location.origin}${ROUTES.message(ws.id, channelId, messageId)}`;
+        const url = `${ws.instanceUrl}${ROUTES.message(ws.id, channelId, messageId)}`;
         navigator.clipboard
           ?.writeText(url)
           .then(() => toast.success(t('toasts.linkCopied')))
