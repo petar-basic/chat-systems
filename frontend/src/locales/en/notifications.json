@@ -148,5 +148,19 @@
     "inviteRequestFor": "For {{emails}}",
     "inviteRequestForWithNote": "For {{emails}}. Their note: {{note}}",
     "inviteRequestExpiredBody": "No admin answered it within 30 days. For {{emails}}"
+  },
+  "panel": {
+    "title": "Notifications",
+    "markAllRead": "Mark all read",
+    "filters": {
+      "all": "All",
+      "unread": "Unread",
+      "mention": "Mentions"
+    },
+    "empty": "No notifications",
+    "emptyHint": "You're all caught up!",
+    "pause": "Pause notifications",
+    "mute": "Mute notification sound",
+    "unmute": "Unmute notification sound"
   }
 }

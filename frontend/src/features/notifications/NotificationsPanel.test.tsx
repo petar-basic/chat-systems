@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 import i18n from '@/lib/i18n';
+import { useNotificationPrefs } from '@/stores/notificationPrefs';
 import NotificationsPanel from './NotificationsPanel';
 import type { AppNotification } from './hooks/useNotifications';
 
@@ -94,5 +95,70 @@ describe('NotificationsPanel in Japanese', () => {
     ]);
     expect(screen.getByText('誰かが通話を始めようとしています')).toBeInTheDocument();
     expect(document.querySelector('[onerror]')).toBeNull();
+  });
+});
+
+describe('NotificationsPanel header and filters', () => {
+  beforeEach(() => {
+    useNotificationPrefs.setState({ soundEnabled: true });
+  });
+
+  afterEach(async () => {
+    rows = english;
+    await i18n.changeLanguage('en');
+  });
+
+  it('names its header, its buttons and its filters', () => {
+    render(<NotificationsPanel workspaceId="ws-1" onClose={vi.fn()} />);
+    expect(screen.getByText('Notifications')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Close notifications' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mark all read' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Pause notifications' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Mute notification sound' }));
+    expect(screen.getByRole('button', { name: 'Unmute notification sound' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'All' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Unread' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Mentions' }));
+    expect(screen.getByText('No notifications')).toBeInTheDocument();
+    expect(screen.getByText("You're all caught up!")).toBeInTheDocument();
+  });
+
+  it('names them in Japanese', async () => {
+    await i18n.changeLanguage('ja');
+    render(<NotificationsPanel workspaceId="ws-1" onClose={vi.fn()} />);
+    expect(screen.getByText('通知')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '通知を閉じる' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'すべて既読にする' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '通知を一時停止' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '通知音をミュート' }));
+    expect(screen.getByRole('button', { name: '通知音のミュートを解除' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'すべて' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '未読' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'メンション' }));
+    expect(screen.getByText('通知はありません')).toBeInTheDocument();
+    expect(screen.getByText('すべて確認済みです')).toBeInTheDocument();
+  });
+
+  it('shows the heading as text', () => {
+    i18n.addResource('en', 'notifications', 'panel.title', hostile);
+    try {
+      render(<NotificationsPanel workspaceId="ws-1" onClose={vi.fn()} />);
+      expect(screen.getByText(hostile)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: `Close ${hostile.toLowerCase()}` })).toBeInTheDocument();
+      expect(document.querySelector('[onerror]')).toBeNull();
+    } finally {
+      i18n.addResource('en', 'notifications', 'panel.title', 'Notifications');
+    }
+  });
+
+  it('has Japanese for every one', () => {
+    const leaves = (o: object, at = ''): string[] =>
+      Object.entries(o).flatMap(([k, v]) =>
+        typeof v === 'object' && v ? leaves(v as object, `${at}${k}.`) : [`${at}${k}`],
+      );
+    const english = leaves(i18n.getResource('en', 'notifications', 'panel'));
+    const japanese = leaves(i18n.getResource('ja', 'notifications', 'panel'));
+    expect(english.length).toBeGreaterThan(0);
+    expect(japanese).toEqual(english);
   });
 });
