@@ -147,6 +147,44 @@ test('holding a message opens the action sheet', async ({ page, playwright }) =>
   }
 });
 
+test('holding message text opens only the sheet, which copies the text', async ({
+  page,
+  context,
+  playwright,
+}) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  const admin = await playwright.request.newContext({
+    extraHTTPHeaders: await authHeaders(await playwright.request.newContext(), 'admin@dev.local'),
+  });
+
+  try {
+    const { workspace, channel } = await seededChannel(admin);
+    const stamp = `copy-text ${Date.now()}`;
+    await admin.post(`${API}/channels/${channel.id}/messages`, { data: { content: `**hold** ${stamp}` } });
+
+    await login(page, 'admin@dev.local');
+    await page.goto(`/app/${workspace.id}/${channel.id}`);
+    const row = page.locator('[data-qa="message-row"]', { hasText: stamp }).last();
+    const words = row.getByText(stamp);
+    await expect(words).toBeVisible({ timeout: 20_000 });
+    await expect(row).toHaveCSS('user-select', 'none');
+
+    const box = await words.boundingBox();
+    const at = { clientX: box!.x + box!.width / 2, clientY: box!.y + box!.height / 2 };
+    await words.dispatchEvent('pointerdown', { pointerType: 'touch', isPrimary: true, ...at });
+    await page.waitForTimeout(600);
+    await words.dispatchEvent('pointerup', { pointerType: 'touch', isPrimary: true, ...at });
+
+    const sheet = page.locator('[data-qa="message-action-sheet"]');
+    await sheet.locator('[data-qa="sheet-action-copy-text"]').click();
+    await expect(sheet).toHaveCount(0);
+    await expect(page.getByText('Text copied to clipboard')).toBeVisible();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(`hold ${stamp}`);
+  } finally {
+    await admin.dispose();
+  }
+});
+
 test('the getting-started checklist starts folded on a phone', async ({ page, playwright }) => {
   const admin = await playwright.request.newContext({
     extraHTTPHeaders: await authHeaders(await playwright.request.newContext(), 'admin@dev.local'),

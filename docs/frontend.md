@@ -457,6 +457,13 @@ mutation hooks (`useEditMessage`, `useDeleteMessage`, `useReactToMessage`,
 A message with `metadata.poll` renders `PollCard` instead of its text and cannot be edited;
 digit keys 1–9 on the focused row vote for that option.
 
+On a touch device (`hover: none`) holding a row for 400 ms (`useLongPress`) opens
+`MessageActionSheet` in place of the toolbar. The row's text cannot be selected there, as in
+Slack, so a hold never also starts the system's selection and its Copy / Look Up menu; *Copy
+text* in the sheet puts the message on the clipboard as it reads (`lib/messageText.ts`: marks
+dropped, mentions as `@Name`, one line per paragraph or list item). Inputs and the edit box
+inside a row stay selectable. A mouse keeps ordinary selection.
+
 ---
 
 ### `polls/PollCard` and `polls/PollDialog`
