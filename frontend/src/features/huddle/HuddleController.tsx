@@ -17,6 +17,7 @@ import { HuddleWindow } from './components/HuddleWindow';
 import { IncomingCallRing } from './components/IncomingCallRing';
 import { drawBoard } from './lib/drawing';
 import { mirrorOnDesktop } from './lib/drawOverlay';
+import { useHuddleInBackground } from './hooks/useHuddleInBackground';
 
 export interface HuddleControls {
   toggleMute: () => void;
@@ -50,6 +51,8 @@ export function HuddleController() {
   const joinedRef = useRef(false);
   const rejoiningRef = useRef(false);
   const rejoinRef = useRef<(() => void) | null>(null);
+
+  useHuddleInBackground();
 
   const handlers = useMemo<TransportHandlers>(
     () => ({

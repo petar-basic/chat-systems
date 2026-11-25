@@ -25,6 +25,7 @@ import { useInviteToHuddle } from '@/features/huddle/hooks/useHuddle';
 import { useMediaDevices } from '../hooks/useMediaDevices';
 import type { HuddleControls } from '../HuddleController';
 import { Select } from '@/shared/components/Form/Select';
+import { canShareScreen } from '@/lib/media';
 
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '🎉', '👏', '🙌'];
 
@@ -50,7 +51,7 @@ export function HuddleControlBar({ controls, active, thread }: Props) {
   const background = useHuddleStore((s) => s.background);
 
   return (
-    <div className="flex items-center justify-center gap-1.5 pt-1">
+    <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1">
       <ControlButton
         active={!localMuted}
         onClick={controls.toggleMute}
@@ -66,14 +67,16 @@ export function HuddleControlBar({ controls, active, thread }: Props) {
         off={<VideoOff className="w-4 h-4" />}
         label={localCameraOn ? t('controls.cameraOff') : t('controls.cameraOn')}
       />
-      <ControlButton
-        active={localSharing}
-        onClick={() => void controls.toggleScreen()}
-        on={<ScreenShare className="w-4 h-4" />}
-        off={<ScreenShareOff className="w-4 h-4" />}
-        label={localSharing ? t('controls.stopSharing') : t('controls.share')}
-        highlight={localSharing}
-      />
+      {canShareScreen() && (
+        <ControlButton
+          active={localSharing}
+          onClick={() => void controls.toggleScreen()}
+          on={<ScreenShare className="w-4 h-4" />}
+          off={<ScreenShareOff className="w-4 h-4" />}
+          label={localSharing ? t('controls.stopSharing') : t('controls.share')}
+          highlight={localSharing}
+        />
+      )}
       {localSharing && (
         <ControlButton
           active={localDrawing}

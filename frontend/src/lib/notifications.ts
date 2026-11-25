@@ -1,8 +1,20 @@
 import { useNotificationPrefs } from '@/stores/notificationPrefs';
 import { NOTIFICATION_SOUND_THROTTLE_MS, NOTIFICATION_AUTO_CLOSE_MS } from '@/shared/constants';
+import {
+  createChannel,
+  Importance,
+  onAction,
+  sendNotification,
+  type Options as PhoneNotification,
+} from '@tauri-apps/plugin-notification';
 import { desktopShell, type DesktopShell } from '@/lib/desktopShell';
+import { inAndroidApp, inPhoneApp } from '@/lib/phoneApp';
+import { logger } from '@/lib/logger';
+import i18n from '@/lib/i18n';
 
 const MOST_PENDING_CLICKS = 50;
+const MESSAGES_CHANNEL = 'messages';
+const ANDROID_ICON = 'ic_notification';
 
 let permissionGranted = false;
 let audioCtx: AudioContext | null = null;
@@ -11,6 +23,9 @@ const pageKey = Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) =>
   b.toString(16).padStart(2, '0'),
 ).join('');
 let nextKey = 0;
+let nextPhoneId = crypto.getRandomValues(new Uint32Array(1))[0] >>> 1;
+let hearingTaps = false;
+let messagesChannel: Promise<boolean> | null = null;
 const pendingClicks = new Map<string, () => void>();
 const listening = new WeakSet<DesktopShell>();
 
@@ -103,6 +118,61 @@ function listenForClicks(shell: DesktopShell) {
   });
 }
 
+function remember(key: string, onClick: () => void) {
+  pendingClicks.set(key, onClick);
+  const oldest = pendingClicks.keys().next().value;
+  if (pendingClicks.size > MOST_PENDING_CLICKS && oldest !== undefined) pendingClicks.delete(oldest);
+}
+
+function hearTaps() {
+  if (hearingTaps) return;
+  hearingTaps = true;
+  onAction(({ notification }) => {
+    if (!notification) return;
+    const key = String(notification.id);
+    const onClick = pendingClicks.get(key);
+    pendingClicks.delete(key);
+    onClick?.();
+  }).catch((err: unknown) => {
+    hearingTaps = false;
+    logger.error('notifications', 'onAction', err);
+  });
+}
+
+function madeMessagesChannel(): Promise<boolean> {
+  messagesChannel ??= createChannel({
+    id: MESSAGES_CHANNEL,
+    name: i18n.t('notifications:phone.channel'),
+    importance: Importance.High,
+    vibration: true,
+  }).then(
+    () => true,
+    (err: unknown) => {
+      messagesChannel = null;
+      logger.error('notifications', 'createChannel', err);
+      return false;
+    },
+  );
+  return messagesChannel;
+}
+
+async function onAndroid(): Promise<Partial<PhoneNotification>> {
+  if (!inAndroidApp) return {};
+  const channel = await madeMessagesChannel();
+  return channel ? { icon: ANDROID_ICON, channelId: MESSAGES_CHANNEL } : { icon: ANDROID_ICON };
+}
+
+function notifyPhone(title: string, body: string, onClick?: () => void) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const id = nextPhoneId;
+  nextPhoneId = (nextPhoneId + 1) & 0x7fffffff;
+  if (onClick) {
+    hearTaps();
+    remember(String(id), onClick);
+  }
+  void onAndroid().then((android) => sendNotification({ id, title, body, ...android }));
+}
+
 export interface NotificationOrigin {
   place: string;
   workspaceId: string | null;
@@ -120,9 +190,7 @@ function notifyDesktop(
   const key = `${pageKey}-${(nextKey++).toString(16)}`;
   if (onClick) {
     listenForClicks(shell);
-    pendingClicks.set(key, onClick);
-    const oldest = pendingClicks.keys().next().value;
-    if (pendingClicks.size > MOST_PENDING_CLICKS && oldest !== undefined) pendingClicks.delete(oldest);
+    remember(key, onClick);
   }
   shell.notify({ key, title, subtitle: origin.place, body, workspace_id: origin.workspaceId });
 }
@@ -134,11 +202,16 @@ export function showNotification(
   onClick?: () => void,
   origin: NotificationOrigin = NOWHERE,
 ) {
-  if (document.hasFocus()) return;
+  if (document.hasFocus() && document.visibilityState === 'visible') return;
 
   const shell = desktopShell();
   if (shell) {
     notifyDesktop(shell, title, body, origin, onClick);
+    return;
+  }
+
+  if (inPhoneApp) {
+    notifyPhone(title, body, onClick);
     return;
   }
 

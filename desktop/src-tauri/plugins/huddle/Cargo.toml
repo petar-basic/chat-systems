@@ -1,0 +1,14 @@
+[package]
+name = "tauri-plugin-huddle"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.98"
+license = "MIT"
+publish = false
+links = "tauri-plugin-huddle"
+
+[dependencies]
+tauri = "2.12"
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }
