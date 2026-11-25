@@ -12,7 +12,10 @@
     }
   },
   "plugins": {
-    "deep-link": { "desktop": { "schemes": ["chat-systems"] } }
+    "deep-link": {
+      "desktop": { "schemes": ["chat-systems"] },
+      "mobile": [{ "scheme": ["chat-systems"], "host": "open", "appLink": false }]
+    }
   },
   "bundle": {
     "active": true,

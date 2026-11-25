@@ -4460,3 +4460,39 @@ keeps the server, its stored token and the user it had when the refresh cannot r
 and forgets them only when the server refuses the session. The workspace list no longer reads a
 server it cannot reach as one with no workspaces, so the app waits with the connection banner
 instead of saying the person is not in a workspace.
+
+### [CS-144c] The phone apps: SSO, passkeys and links into the app ✅ shipped
+On a phone, *Sign in with SSO* and *Sign in with a passkey* open the server's existing desktop
+pages in a sheet over the app, through `tauri-plugin-auth-session`: `ASWebAuthenticationSession`
+on iOS, a Custom Tab on Android. The server's page ends at `chat-systems://sso`, the sheet hands
+that back to the app instead of to the system, and `addInstanceInBrowser` exchanges the code for
+a session as the desktop app does. No server change. Closing the sheet leaves the sign-in page
+with no error. *Sign in with SSO* shows once the typed server says SSO is set up.
+
+`tauri-plugin-deep-link` registers `chat-systems://open?url=<link>`. `features/instance/AppLinks`
+reads the link the app was opened with and every one that arrives while it runs, and also takes
+a click on a link in a message: a link under `/app` of a server the app is signed in to opens in
+the app, switching server when it is another one (`lib/appLinks.ts`, `placeOf`); a link to a
+server it is not signed in to opens *Add a server* with it filled in. Other links still open in
+the system browser.
+
+On Android the deep-link plugin's build script copies its `host=open` filter into every
+activity in the manifest, the auth plugin's one included, which would make Android ask which
+screen should open a link. The auth plugin's activity is declared once more without a body, so
+the script skips it, and an `activity-alias` (`.SsoCallback`) carries the `host=sso` filter
+for it.
+
+Checked on the iOS 27.2 simulator and the Android 16 emulator against the local stack and its
+mock OIDC provider: SSO in the sheet signing in as `sso@dev.local` with the session in the
+Keychain or the Keystore, closing the sheet, the passkey page opening in it, signing in by
+emailed code, a message link tapped in a channel opening the message in the app, an outside
+link opening in the system browser, and `chat-systems://open` with the app open, in the
+background and closed. On Android no dialog asks which app opens either link. One gap stays: on
+iOS a link that starts the closed app opens it where it was left, because tao 0.37 drops the URL
+a scene is launched with. The fix is in tao 0.38, which Tauri 2.12 does not take yet; CS-146
+moves to it before the first release.
+
+QA found one bug in the change itself: following a link re-ran whenever the route changed,
+because React Router hands out a new `navigate` per path, so the app went back to the last link
+it had been opened with after every navigation. The link handlers now hold `navigate` in a ref
+and run once.

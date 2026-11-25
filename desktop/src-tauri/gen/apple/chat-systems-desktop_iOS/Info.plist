@@ -44,5 +44,16 @@
 	<string>Take a photo to send, or show your camera in a huddle.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Talk in huddles and record clips.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>chat-systems</string>
+			</array>
+			<key>CFBundleURLName</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER).chat-systems</string>
+		</dict>
+	</array>
 </dict>
 </plist>

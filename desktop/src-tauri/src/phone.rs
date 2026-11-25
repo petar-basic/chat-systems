@@ -13,6 +13,8 @@ const MAIN: &str = "main";
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_auth_session::init())
         .invoke_handler(tauri::generate_handler![
             session::load_session,
             session::save_session,

@@ -1,14 +1,23 @@
 {
   "$schema": "../gen/schemas/mobile-schema.json",
   "identifier": "phone",
-  "description": "On a phone the app's own copy of the web client may open a link in the browser, the mail app or the phone app, and keep each server's session in the Keychain or the Keystore, and nothing else.",
-  "platforms": ["iOS", "android"],
-  "windows": ["main"],
+  "description": "On a phone the app's own copy of the web client may open a link in the browser, the mail app or the phone app, keep each server's session in the Keychain or the Keystore, sign in on a server's page in the system's sign-in sheet, and read the chat-systems:// links that open it, and nothing else.",
+  "platforms": [
+    "iOS",
+    "android"
+  ],
+  "windows": [
+    "main"
+  ],
   "permissions": [
     "opener:allow-open-url",
     "opener:allow-default-urls",
     "allow-load-session",
     "allow-save-session",
-    "allow-forget-session"
+    "allow-forget-session",
+    "auth-session:default",
+    "deep-link:default",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten"
   ]
 }

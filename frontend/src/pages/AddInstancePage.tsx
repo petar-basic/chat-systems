@@ -1,7 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { Button } from '@/shared/components/Button/Button';
 import { TextInput } from '@/shared/components/Form/TextInput';
-import { Link, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Fingerprint, KeyRound, ServerCrash, LogIn } from 'lucide-react';
 import { useInstanceStore } from '@/stores/instances';
@@ -13,16 +13,37 @@ import { ssoStartUrl, startSsoInDesktop } from '@/features/instance/ssoStart';
 import { desktopShell } from '@/lib/desktopShell';
 import { inPhoneApp } from '@/lib/phoneApp';
 import { afterSignIn, SECOND_FACTOR_ANSWERS } from '@/lib/signIn';
+import type { BrowserSignIn } from '@/lib/browserSignIn';
+import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
+
+function offeredServer(state: unknown): string | null {
+  if (state && typeof state === 'object' && 'server' in state && typeof state.server === 'string')
+    return state.server;
+  return null;
+}
 
 export default function AddInstancePage() {
+  const location = useLocation();
+  return <AddInstanceForm key={location.key} offered={offeredServer(location.state)} />;
+}
+
+function AddInstanceForm({ offered }: { offered: string | null }) {
   const { t } = useTranslation('auth');
   const navigate = useNavigate();
-  const { addInstance, addInstanceWithPasskey, instances, hydrated, loading, error, clearError } =
-    useInstanceStore();
+  const {
+    addInstance,
+    addInstanceWithPasskey,
+    addInstanceInBrowser,
+    instances,
+    hydrated,
+    loading,
+    error,
+    clearError,
+  } = useInstanceStore();
 
   const { data: instance, isError } = useInstanceInfo(window.location.origin);
   const noServerHere = inPhoneApp || isError;
-  const [typedUrl, setUrl] = useState<string | null>(null);
+  const [typedUrl, setUrl] = useState<string | null>(offered);
   const url = typedUrl ?? (noServerHere ? '' : window.location.origin);
   const [wsUrl, setWsUrl] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -39,6 +60,15 @@ export default function AddInstancePage() {
   const sameOrigin = url.trim().replace(/\/$/, '') === window.location.origin;
   const offerPasskeys = sameOrigin && !inDesktop && passkeysSupported();
   const startPasskeyInDesktop = desktopShell()?.startPasskey;
+
+  const server = url.trim().replace(/\/$/, '');
+  const settledServer = useDebouncedValue(server, 400);
+  const { data: typedInstance } = useInstanceInfo(
+    inPhoneApp && /^https?:\/\/[^/]/.test(settledServer) ? settledServer : window.location.origin,
+  );
+  const inBrowser = inPhoneApp && server !== '';
+  const ssoHere = instance?.sso_enabled === true && sameOrigin;
+  const ssoInBrowser = inBrowser && settledServer === server && typedInstance?.sso_enabled === true;
 
   useEffect(() => {
     if (instance?.setup_required) navigate('/setup', { replace: true });
@@ -76,6 +106,21 @@ export default function AddInstancePage() {
     clearError();
     try {
       await addInstanceWithPasskey(url.trim(), afterPassword ? { email: email.trim(), password } : undefined);
+      navigate(afterSignIn(), { replace: true });
+    } catch {
+      return;
+    }
+  };
+
+  const signInElsewhere = async (way: BrowserSignIn) => {
+    clearError();
+    try {
+      await addInstanceInBrowser(
+        server,
+        way,
+        way === 'sso' ? sessionStorage.getItem(PENDING_INVITE_KEY) : null,
+      );
+      sessionStorage.removeItem(PENDING_INVITE_KEY);
       navigate(afterSignIn(), { replace: true });
     } catch {
       return;
@@ -250,12 +295,16 @@ export default function AddInstancePage() {
             {inDesktop ? t('signIn.desktopSubmit') : t('signIn.submit')}
           </Button>
 
-          {((offerPasskeys && !needsTotp && !needsPasskey) || startPasskeyInDesktop) && (
+          {((offerPasskeys && !needsTotp && !needsPasskey) || startPasskeyInDesktop || inBrowser) && (
             <Button
               variant="secondary"
               fullWidth
               onClick={() =>
-                startPasskeyInDesktop ? startPasskeyInDesktop() : void signInWithPasskey(false)
+                startPasskeyInDesktop
+                  ? startPasskeyInDesktop()
+                  : inBrowser
+                    ? void signInElsewhere('passkey')
+                    : void signInWithPasskey(false)
               }
               disabled={loading}
               icon={<Fingerprint className="h-4 w-4" />}
@@ -266,26 +315,38 @@ export default function AddInstancePage() {
             </Button>
           )}
 
-          {instance?.sso_enabled && sameOrigin && (
-            <>
-              <div className="flex items-center gap-3 my-6">
-                <div className="h-px flex-1 bg-raised" />
-                <span className="text-xs uppercase tracking-wide text-subtle">{t('signIn.or')}</span>
-                <div className="h-px flex-1 bg-raised" />
-              </div>
-              <a
-                href={ssoStartUrl(sessionStorage.getItem(PENDING_INVITE_KEY))}
-                onClick={(event) => {
-                  startSsoInDesktop(event, sessionStorage.getItem(PENDING_INVITE_KEY));
-                  sessionStorage.removeItem(PENDING_INVITE_KEY);
-                }}
-                data-qa="sso-start"
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-raised hover:bg-elevated text-fg font-medium rounded-lg transition"
-              >
-                <KeyRound className="w-4 h-4" />
-                {t('signIn.sso')}
-              </a>
-            </>
+          {(ssoHere || ssoInBrowser) && (
+            <div className="flex items-center gap-3 my-6">
+              <div className="h-px flex-1 bg-raised" />
+              <span className="text-xs uppercase tracking-wide text-subtle">{t('signIn.or')}</span>
+              <div className="h-px flex-1 bg-raised" />
+            </div>
+          )}
+          {ssoInBrowser && (
+            <Button
+              variant="secondary"
+              fullWidth
+              onClick={() => void signInElsewhere('sso')}
+              disabled={loading}
+              icon={<KeyRound className="h-4 w-4" />}
+              data-qa="sso-start"
+            >
+              {t('signIn.sso')}
+            </Button>
+          )}
+          {ssoHere && (
+            <a
+              href={ssoStartUrl(sessionStorage.getItem(PENDING_INVITE_KEY))}
+              onClick={(event) => {
+                startSsoInDesktop(event, sessionStorage.getItem(PENDING_INVITE_KEY));
+                sessionStorage.removeItem(PENDING_INVITE_KEY);
+              }}
+              data-qa="sso-start"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-raised hover:bg-elevated text-fg font-medium rounded-lg transition"
+            >
+              <KeyRound className="w-4 h-4" />
+              {t('signIn.sso')}
+            </a>
           )}
         </form>
 
