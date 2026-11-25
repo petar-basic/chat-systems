@@ -45,6 +45,7 @@ function isTokenExpiring(token: string): boolean {
 
 const MEDIA_RENEW_BEFORE_SECONDS = 300;
 const MEDIA_RETRY_MS = 30_000;
+const REFRESH_TIMEOUT_MS = 15_000;
 
 const VERSION_HEADER: Record<string, string> = clientVersion ? { 'X-Client-Version': clientVersion } : {};
 
@@ -139,7 +140,10 @@ export class ApiClient {
     if (this.memoryToken && !isTokenExpiring(this.memoryToken)) {
       return this.memoryToken;
     }
-    await this.refresh();
+    if (!(await this.refresh())) {
+      this.onSessionExpired?.();
+      return null;
+    }
     return this.memoryToken;
   }
 
@@ -213,31 +217,26 @@ export class ApiClient {
   }
 
   private async performRefresh(): Promise<RefreshData | null> {
-    try {
-      const res = await fetch(`${this.baseUrl}/auth/refresh`, {
-        method: 'POST',
-        credentials: this.credentials,
-        headers: {
-          ...VERSION_HEADER,
-          ...(this.isCrossOrigin && this.refreshToken
-            ? { Authorization: `Bearer ${this.refreshToken}` }
-            : {}),
-        },
-      });
-      if (res.status === 426) this.refused(await res.json().catch(() => null));
-      if (!res.ok) return null;
+    const res = await fetch(`${this.baseUrl}/auth/refresh`, {
+      method: 'POST',
+      credentials: this.credentials,
+      signal: AbortSignal.timeout(REFRESH_TIMEOUT_MS),
+      headers: {
+        ...VERSION_HEADER,
+        ...(this.isCrossOrigin && this.refreshToken ? { Authorization: `Bearer ${this.refreshToken}` } : {}),
+      },
+    });
+    if (res.status === 401) return null;
+    if (!res.ok) throw await this.failure(res.status, await res.json().catch(() => null), res);
 
-      const data = (await res.json().catch(() => null)) as RefreshData | null;
-      if (data?.access_token) {
-        this.setTokens(
-          data.access_token,
-          this.isCrossOrigin ? (data.refresh_token ?? this.refreshToken) : null,
-        );
-      }
-      return data;
-    } catch {
-      return null;
+    const data = (await res.json().catch(() => null)) as RefreshData | null;
+    if (data?.access_token) {
+      this.setTokens(
+        data.access_token,
+        this.isCrossOrigin ? (data.refresh_token ?? this.refreshToken) : null,
+      );
     }
+    return data;
   }
 
   async signOut(): Promise<void> {

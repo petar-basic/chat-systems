@@ -9,6 +9,16 @@ import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { QUERY_KEYS } from '@/shared/constants';
 import type { Workspace, Channel } from '@/stores/workspace';
 
+export async function fromEveryServer(
+  urls: string[],
+  load: (url: string) => Promise<Workspace[]>,
+): Promise<Workspace[]> {
+  const results = await Promise.allSettled(urls.map(load));
+  const failure = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+  if (failure && results.every((r) => r.status === 'rejected')) throw failure.reason;
+  return results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
+}
+
 export const useWorkspaces = () => {
   const instances = useInstanceStore((s) => s.instances);
   const instanceUrls = instances
@@ -18,17 +28,14 @@ export const useWorkspaces = () => {
 
   return useQuery({
     queryKey: QUERY_KEYS.workspacesList(instanceUrls),
-    queryFn: async (): Promise<Workspace[]> => {
-      const results = await Promise.allSettled(
-        instances.map(async (inst) => {
-          const res = await getApiForInstance(inst.url).typed((c) => c.GET('/workspaces'));
-          return res.data.map((ws) => ({ ...ws, instanceUrl: inst.url }));
-        }),
-      );
-      return results
-        .filter((r): r is PromiseFulfilledResult<Workspace[]> => r.status === 'fulfilled')
-        .flatMap((r) => r.value);
-    },
+    queryFn: () =>
+      fromEveryServer(
+        instances.map((i) => i.url),
+        async (url) => {
+          const res = await getApiForInstance(url).typed((c) => c.GET('/workspaces'));
+          return res.data.map((ws) => ({ ...ws, instanceUrl: url }));
+        },
+      ),
     enabled: instances.length > 0,
     staleTime: 1000 * 60 * 5,
   });
@@ -183,17 +190,14 @@ export const useDeletedWorkspaces = () => {
 
   return useQuery({
     queryKey: QUERY_KEYS.deletedWorkspacesList(instanceUrls),
-    queryFn: async (): Promise<Workspace[]> => {
-      const results = await Promise.allSettled(
-        instances.map(async (inst) => {
-          const res = await getApiForInstance(inst.url).typed((c) => c.GET('/workspaces/deleted'));
-          return res.data.map((ws) => ({ ...ws, instanceUrl: inst.url }));
-        }),
-      );
-      return results
-        .filter((r): r is PromiseFulfilledResult<Workspace[]> => r.status === 'fulfilled')
-        .flatMap((r) => r.value);
-    },
+    queryFn: () =>
+      fromEveryServer(
+        instances.map((i) => i.url),
+        async (url) => {
+          const res = await getApiForInstance(url).typed((c) => c.GET('/workspaces/deleted'));
+          return res.data.map((ws) => ({ ...ws, instanceUrl: url }));
+        },
+      ),
     enabled: instances.length > 0,
     staleTime: 1000 * 60 * 5,
   });
