@@ -4,7 +4,7 @@ import { useCurrentApi, getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { QUERY_KEYS, NOTIFICATIONS_PAGE_SIZE } from '@/shared/constants';
 import { toast } from '@/shared/components/Toast';
 import { logger } from '@/lib/logger';
-import { ErrorLabels } from '@/shared/constants';
+import i18n from '@/lib/i18n';
 import { useWorkspaceStore, type Workspace } from '@/stores/workspace';
 import type { NotificationData } from '../notificationText';
 
@@ -163,7 +163,7 @@ export const useSetDnd = () => {
     onError: (err, _vars, ctx) => {
       logger.error('useSetDnd', 'mutationFn', err);
       if (ctx) queryClient.setQueryData(key, ctx.previous);
-      toast.error(ErrorLabels.NotFound);
+      toast.error(i18n.t('notifications:menu.saveFailed'));
     },
   });
 };
@@ -202,7 +202,7 @@ export const useMarkNotificationsRead = (workspaceId: string | null) => {
       logger.error('useMarkNotificationsRead', 'mutationFn', err);
       if (ctx?.prevList) queryClient.setQueryData(listKey, ctx.prevList);
       if (ctx?.prevCount !== undefined) queryClient.setQueryData(countKey, ctx.prevCount);
-      toast.error(ErrorLabels.NotFound);
+      toast.error(i18n.t('notifications:panel.markReadFailed'));
     },
   });
 };
