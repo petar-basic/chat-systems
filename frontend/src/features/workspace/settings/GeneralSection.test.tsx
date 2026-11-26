@@ -3,15 +3,17 @@ import i18n from '@/lib/i18n';
 import type { ReactNode } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { toast } from '@/shared/components/Toast';
 import { GeneralSection } from './GeneralSection';
 import type { Workspace } from '@/stores/workspace';
 
 const patch = vi.fn();
 const upload = vi.fn();
+const { restore } = vi.hoisted(() => ({ restore: vi.fn() }));
 
 vi.mock('react-router', () => ({ useNavigate: () => vi.fn() }));
 vi.mock('@/features/workspace/hooks/useWorkspaces', () => ({
-  useRestoreWorkspace: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useRestoreWorkspace: () => ({ mutateAsync: restore, isPending: false }),
 }));
 vi.mock('@/shared/hooks/useCurrentApi', () => ({
   getApiForInstance: () => ({
@@ -189,5 +191,44 @@ describe('GeneralSection in Japanese', () => {
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'キャンセル' })).toBeInTheDocument();
     expect(document.querySelector('[onerror]')).toBeNull();
+  });
+});
+
+describe.each([
+  ['en', 'Restore workspace', "Couldn't restore the workspace"],
+  ['ja', 'ワークスペースを表示状態に戻す', 'ワークスペースを表示状態に戻せませんでした'],
+])('restoring a workspace that fails (%s)', (language, button, failed) => {
+  const hostile = '<img src=x onerror="alert(1)"> {{name}}';
+  const deleted = { ...workspace, deleted_at: '2026-11-17T09:00:00Z' };
+
+  beforeEach(async () => {
+    restore.mockReset();
+    await i18n.changeLanguage(language);
+  });
+
+  afterEach(async () => {
+    vi.restoreAllMocks();
+    await i18n.changeLanguage('en');
+  });
+
+  const restoreWith = async (error: unknown) => {
+    const toastError = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    restore.mockRejectedValue(error);
+    render(<GeneralSection workspace={deleted} onDeleted={vi.fn()} canDelete />, { wrapper });
+    fireEvent.click(screen.getByRole('button', { name: button }));
+    await waitFor(() => expect(toastError).toHaveBeenCalledTimes(1));
+    return toastError.mock.calls[0][0];
+  };
+
+  it('says so when the server gives no reason', async () => {
+    expect(await restoreWith(new Error(''))).toBe(failed);
+  });
+
+  it('says so when the error is not an Error', async () => {
+    expect(await restoreWith('offline')).toBe(failed);
+  });
+
+  it("gives the server's reason as it is", async () => {
+    expect(await restoreWith(new Error(hostile))).toBe(hostile);
   });
 });

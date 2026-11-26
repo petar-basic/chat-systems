@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { components } from '@/api/schema';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
-import { ErrorLabels, QUERY_KEYS } from '@/shared/constants';
+import { QUERY_KEYS } from '@/shared/constants';
 import { toast } from '@/shared/components/Toast';
 import { toUserMessage } from '@/lib/errors';
 import { logger } from '@/lib/logger';
+import i18n from '@/lib/i18n';
 import { forTab, hasFilters, type SearchFilters, type SearchTab } from './searchFilters';
 
 export type RecentSearch = components['schemas']['RecentSearch'];
@@ -53,7 +54,7 @@ export function useRecentSearchActions(workspaceId: string | undefined, instance
     );
   const failed = (where: string) => (err: unknown) => {
     logger.error('useRecentSearchActions', where, err);
-    toast.error(toUserMessage(err, ErrorLabels.RecentSearchesFailed));
+    toast.error(toUserMessage(err, i18n.t('search:recent.changeFailed')));
     refresh();
   };
 

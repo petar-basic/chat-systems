@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { components } from '@/api/schema';
 import { useCurrentApi } from '@/shared/hooks/useCurrentApi';
-import { QUERY_KEYS, ErrorLabels } from '@/shared/constants';
+import { QUERY_KEYS } from '@/shared/constants';
 import { toast } from '@/shared/components/Toast';
 import { toUserMessage } from '@/lib/errors';
 import { logger } from '@/lib/logger';
+import i18n from '@/lib/i18n';
 
 export type SidebarLayout = components['schemas']['SidebarLayout'];
 export type SidebarSectionData = components['schemas']['SidebarSection'];
@@ -33,7 +34,7 @@ export function useSidebarActions(workspaceId: string | undefined) {
 
   const failed = (where: string) => (err: unknown) => {
     logger.error('useSidebarActions', where, err);
-    toast.error(toUserMessage(err, ErrorLabels.SidebarSaveFailed));
+    toast.error(toUserMessage(err, i18n.t('sidebar:layoutSaveFailed')));
     void queryClient.invalidateQueries({ queryKey: key });
   };
 

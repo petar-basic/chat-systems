@@ -2,10 +2,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { components } from '@/api/schema';
 import { useCurrentApi } from '@/shared/hooks/useCurrentApi';
 import { useWorkspaceStore } from '@/stores/workspace';
-import { QUERY_KEYS, ErrorLabels } from '@/shared/constants';
+import { QUERY_KEYS } from '@/shared/constants';
 import { toast } from '@/shared/components/Toast';
 import { toUserMessage } from '@/lib/errors';
 import { logger } from '@/lib/logger';
+import i18n from '@/lib/i18n';
 import { rememberPendingConnect } from '@/lib/appConnect';
 
 export type AppStatus = components['schemas']['AppStatus'];
@@ -28,9 +29,9 @@ export function useAppActions(workspaceId: string | undefined) {
   const queryClient = useQueryClient();
   const ws = workspaceId ?? '';
   const refetch = () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.apps(ws) });
-  const failed = (where: string, label: string) => (err: unknown) => {
+  const failed = (where: string, label: 'saveFailed' | 'connectFailed') => (err: unknown) => {
     logger.error('useAppActions', where, err);
-    toast.error(toUserMessage(err, label));
+    toast.error(toUserMessage(err, i18n.t(`workspace:settings.apps.${label}`)));
   };
 
   const configure = useMutation({
@@ -53,7 +54,7 @@ export function useAppActions(workspaceId: string | undefined) {
         }),
       ),
     onSuccess: refetch,
-    onError: failed('configure', ErrorLabels.AppSaveFailed),
+    onError: failed('configure', 'saveFailed'),
   });
 
   const remove = useMutation({
@@ -62,7 +63,7 @@ export function useAppActions(workspaceId: string | undefined) {
         c.DELETE('/workspaces/{ws_id}/apps/{provider}', { params: { path: { ws_id: ws, provider } } }),
       ),
     onSuccess: refetch,
-    onError: failed('remove', ErrorLabels.AppSaveFailed),
+    onError: failed('remove', 'saveFailed'),
   });
 
   const connect = useMutation({
@@ -87,7 +88,7 @@ export function useAppActions(workspaceId: string | undefined) {
       });
       window.location.assign(response.authorize_url);
     },
-    onError: failed('connect', ErrorLabels.AppConnectFailed),
+    onError: failed('connect', 'connectFailed'),
   });
 
   const disconnect = useMutation({
@@ -98,7 +99,7 @@ export function useAppActions(workspaceId: string | undefined) {
         }),
       ),
     onSuccess: refetch,
-    onError: failed('disconnect', ErrorLabels.AppSaveFailed),
+    onError: failed('disconnect', 'saveFailed'),
   });
 
   const prompts = useMutation({
@@ -111,7 +112,7 @@ export function useAppActions(workspaceId: string | undefined) {
       );
     },
     onSuccess: refetch,
-    onError: failed('prompts', ErrorLabels.AppSaveFailed),
+    onError: failed('prompts', 'saveFailed'),
   });
 
   return { configure, remove, connect, disconnect, prompts };

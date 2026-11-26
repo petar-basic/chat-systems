@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { GENERIC_ERROR_MESSAGE } from '@/shared/constants';
 
 interface QueryStateProps {
   isLoading: boolean;
@@ -38,7 +37,7 @@ export function QueryState({
     return (
       <div className={centered} data-qa="query-error">
         <AlertCircle className="w-10 h-10 mb-3 text-danger/70" />
-        <p className="text-sm font-medium text-fg-dim">{errorMessage || GENERIC_ERROR_MESSAGE}</p>
+        <p className="text-sm font-medium text-fg-dim">{errorMessage || t('genericError')}</p>
         {onRetry && (
           <button
             onClick={onRetry}

@@ -83,6 +83,7 @@
   "recent": {
     "title": "最近の検索",
     "remove": "「{{search}}」を最近の検索から削除",
-    "clear": "すべて消去"
+    "clear": "すべて消去",
+    "changeFailed": "最近の検索を変更できませんでした"
   }
 }

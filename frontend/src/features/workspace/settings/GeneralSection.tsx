@@ -11,7 +11,7 @@ import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
 import { useRestoreWorkspace } from '@/features/workspace/hooks/useWorkspaces';
 import { logger } from '@/lib/logger';
 import { toast } from '@/shared/components/Toast';
-import { ErrorLabels, QUERY_KEYS } from '@/shared/constants';
+import { QUERY_KEYS } from '@/shared/constants';
 import { toUserMessage } from '@/lib/errors';
 import { Modal } from '@/shared/components/Modal/Modal';
 import { TextInput } from '@/shared/components/Form/TextInput';
@@ -130,7 +130,7 @@ export function GeneralSection({ workspace, onDeleted, canDelete }: Props) {
       await restoreMutation.mutateAsync({ workspaceId: workspace.id, instanceUrl: workspace.instanceUrl });
     } catch (err: unknown) {
       logger.error('GeneralSection', 'handleRestore', err);
-      toast.error(toUserMessage(err) || ErrorLabels.RestoreFailed);
+      toast.error(toUserMessage(err, t('settings.general.restoreFailed')));
     }
   };
 

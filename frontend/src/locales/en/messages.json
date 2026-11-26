@@ -198,7 +198,8 @@
   "tray": {
     "uploading": "Uploading {{name}}",
     "retry": "Retry uploading {{name}}",
-    "failed": "Upload failed"
+    "failed": "Upload failed",
+    "uploadFailed": "File upload failed"
   },
   "mentions": {
     "none": "No results",
