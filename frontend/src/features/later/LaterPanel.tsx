@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { useNavigate } from 'react-router';
 import {
   Archive,
@@ -25,17 +27,7 @@ import { useWorkspaceStore } from '@/stores/workspace';
 import { TextInput } from '@/shared/components/Form/TextInput';
 import { ROUTES } from '@/shared/constants';
 
-const TABS: { status: LaterStatus; label: string }[] = [
-  { status: 'in_progress', label: 'In progress' },
-  { status: 'archived', label: 'Archived' },
-  { status: 'completed', label: 'Completed' },
-];
-
-const EMPTY: Record<LaterStatus, string> = {
-  in_progress: 'Save a message or set a reminder and it waits here until you tick it off.',
-  archived: 'Nothing archived.',
-  completed: 'Nothing completed yet.',
-};
+const TABS: LaterStatus[] = ['in_progress', 'archived', 'completed'];
 
 interface Props {
   workspaceId: string;
@@ -54,6 +46,7 @@ export default function LaterPanel({
   onClose,
   onOpenMessage,
 }: Props) {
+  const { t } = useTranslation(['messages', 'sidebar']);
   const [status, setStatus] = useState<LaterStatus>('in_progress');
   const { data: items = [], isLoading } = useLater(workspaceId, status, instanceUrl);
   const { data: open = [] } = useLater(workspaceId, 'in_progress', instanceUrl);
@@ -74,22 +67,27 @@ export default function LaterPanel({
       className="w-full lg:w-80 max-lg:fixed max-lg:inset-0 max-lg:z-40 bg-surface border-l border-line/50 flex flex-col"
       data-qa="later-panel"
     >
-      <PanelHeader title="Later" icon={<Bookmark className="h-4 w-4 text-muted" />} onClose={onClose} />
+      <PanelHeader
+        title={t('sidebar:later')}
+        closeLabel={t('later.close')}
+        icon={<Bookmark className="h-4 w-4 text-muted" />}
+        onClose={onClose}
+      />
 
       <div className="flex gap-1 border-b border-line/50 px-3 py-2" role="tablist">
         {TABS.map((tab) => (
           <button
-            key={tab.status}
+            key={tab}
             role="tab"
-            aria-selected={status === tab.status}
-            data-qa={`later-tab-${tab.status}`}
-            onClick={() => setStatus(tab.status)}
+            aria-selected={status === tab}
+            data-qa={`later-tab-${tab}`}
+            onClick={() => setStatus(tab)}
             className={`rounded-full px-2.5 py-1 text-xs transition ${
-              status === tab.status ? 'bg-purple-600 text-white' : 'text-fg-dim hover:bg-raised'
+              status === tab ? 'bg-purple-600 text-white' : 'text-fg-dim hover:bg-raised'
             }`}
           >
-            {tab.label}
-            {tab.status === 'in_progress' && open.length > 0 && ` ${open.length}`}
+            {t(`later.tabs.${tab}`)}
+            {tab === 'in_progress' && open.length > 0 && ` ${open.length}`}
           </button>
         ))}
       </div>
@@ -97,18 +95,18 @@ export default function LaterPanel({
       {status === 'in_progress' && (
         <div className="flex items-center gap-1.5 border-b border-line/40 px-3 py-2">
           <TextInput
-            label="New reminder"
+            label={t('later.newReminder')}
             labelHidden
             compact
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Remind me to…"
+            placeholder={t('later.newPlaceholder')}
             dataQa="later-new-text"
             className="min-w-0 flex-1"
           />
           {text.trim() && (
             <RemindMenu
-              label="Pick when"
+              label={t('later.pickWhen')}
               dataQa="later-new-when"
               onPick={(at) =>
                 actions.remind.mutate({ text: text.trim(), remindAt: at }, { onSuccess: () => setText('') })
@@ -125,7 +123,7 @@ export default function LaterPanel({
           </div>
         ) : items.length === 0 ? (
           <p className="px-6 py-10 text-center text-sm text-muted" data-qa="later-empty">
-            {EMPTY[status]}
+            {t(`later.empty.${status}`)}
           </p>
         ) : (
           items.map((item) => (
@@ -158,7 +156,7 @@ export default function LaterPanel({
   );
 }
 
-function dueChip(item: LaterItem) {
+function dueChip(item: LaterItem, t: TFunction<'messages'>) {
   if (!item.remind_at || item.status !== 'in_progress') return null;
   const at = new Date(item.remind_at);
   const overdue = at.getTime() <= Date.now();
@@ -170,8 +168,7 @@ function dueChip(item: LaterItem) {
         overdue ? 'bg-red-500/15 text-danger' : 'bg-raised text-fg-dim'
       }`}
     >
-      {overdue ? 'Overdue · ' : 'Due '}
-      {formatScheduleHint(at)}
+      {t(overdue ? 'later.overdue' : 'later.due', { time: formatScheduleHint(at) })}
     </span>
   );
 }
@@ -199,6 +196,7 @@ function LaterRow({
   onClearReminder,
   onRemove,
 }: RowProps) {
+  const { t } = useTranslation('messages');
   const { getUser } = useUserCache();
   const currentUserId = useWorkspaceStore((s) => s.currentUserId);
   const message = item.message;
@@ -213,6 +211,7 @@ function LaterRow({
           conversations,
           currentUserId ?? undefined,
           (id) => getUser(id)?.display_name,
+          t('scheduled.leftChannel'),
         )
       : null;
   const isConversation = !!channelId && conversations.some((c) => c.id === channelId);
@@ -230,8 +229,8 @@ function LaterRow({
         type="button"
         role="checkbox"
         aria-checked={completed}
-        aria-label={completed ? 'Mark as not done' : 'Mark as done'}
-        data-tooltip={completed ? 'Mark as not done' : 'Mark as done'}
+        aria-label={completed ? t('later.markNotDone') : t('later.markDone')}
+        data-tooltip={completed ? t('later.markNotDone') : t('later.markDone')}
         data-qa="later-complete"
         onClick={onComplete}
         className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition ${
@@ -258,8 +257,8 @@ function LaterRow({
             </span>
           )}
           {message && <span>· {displayNameOf(getUser(message.author_id)?.display_name)}</span>}
-          {from && <span>· from {from}</span>}
-          {dueChip(item)}
+          {from && <span>· {t('later.from', { name: from })}</span>}
+          {dueChip(item, t)}
         </div>
         <button
           type="button"
@@ -287,7 +286,7 @@ function LaterRow({
           />
         )}
         <IconButton
-          label={item.status === 'archived' ? 'Move back to in progress' : 'Archive'}
+          label={item.status === 'archived' ? t('later.unarchive') : t('later.archive')}
           icon={
             item.status === 'archived' ? (
               <ArchiveRestore className="h-4 w-4" />
@@ -299,7 +298,7 @@ function LaterRow({
           data-qa="later-archive"
         />
         <IconButton
-          label="Remove"
+          label={t('later.remove')}
           icon={<Trash2 className="h-4 w-4" />}
           tone="danger"
           onClick={onRemove}

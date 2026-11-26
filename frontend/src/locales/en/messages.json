@@ -52,6 +52,35 @@
     "tomorrow": "Tomorrow at 9:00",
     "nextWeek": "Next week"
   },
+  "later": {
+    "close": "Close later",
+    "tabs": {
+      "in_progress": "In progress",
+      "archived": "Archived",
+      "completed": "Completed"
+    },
+    "empty": {
+      "in_progress": "Save a message or set a reminder and it waits here until you tick it off.",
+      "archived": "Nothing archived.",
+      "completed": "Nothing completed yet."
+    },
+    "newReminder": "New reminder",
+    "newPlaceholder": "Remind me to…",
+    "pickWhen": "Pick when",
+    "due": "Due {{time}}",
+    "overdue": "Overdue · {{time}}",
+    "markDone": "Mark as done",
+    "markNotDone": "Mark as not done",
+    "from": "from {{name}}",
+    "archive": "Archive",
+    "unarchive": "Move back to in progress",
+    "remove": "Remove",
+    "remindMe": "Remind me",
+    "customTime": "Custom reminder time",
+    "setCustom": "Set custom time",
+    "clearReminder": "Clear reminder",
+    "failed": "Couldn't update Later"
+  },
   "sheet": {
     "title": "Message actions",
     "moreReactions": "More reactions",

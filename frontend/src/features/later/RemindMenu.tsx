@@ -16,7 +16,7 @@ interface Props {
 const ITEM =
   'w-full px-3 py-1.5 flex items-center justify-between gap-3 text-left text-sm text-fg-dim hover:bg-raised';
 
-export function RemindMenu({ label = 'Remind me', onPick, onClear, dataQa }: Props) {
+export function RemindMenu({ label, onPick, onClear, dataQa }: Props) {
   const { t } = useTranslation('messages');
   const anchor = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
@@ -31,7 +31,7 @@ export function RemindMenu({ label = 'Remind me', onPick, onClear, dataQa }: Pro
     <>
       <IconButton
         ref={anchor}
-        label={label}
+        label={label ?? t('later.remindMe')}
         icon={<AlarmClock className="h-4 w-4" />}
         onClick={() => {
           setEarliest(toLocalInputValue(new Date(Date.now() + 60_000)));
@@ -54,7 +54,7 @@ export function RemindMenu({ label = 'Remind me', onPick, onClear, dataQa }: Pro
           ))}
           <div className="mt-1 border-t border-line/70 px-3 py-2">
             <TextInput
-              label="Custom reminder time"
+              label={t('later.customTime')}
               labelHidden
               compact
               type="datetime-local"
@@ -68,7 +68,7 @@ export function RemindMenu({ label = 'Remind me', onPick, onClear, dataQa }: Pro
               onClick={() => pick(new Date(custom))}
               className="mt-1.5 w-full text-xs text-accent hover:underline disabled:text-faint disabled:no-underline"
             >
-              Set custom time
+              {t('later.setCustom')}
             </button>
           </div>
           {onClear && (
@@ -80,7 +80,7 @@ export function RemindMenu({ label = 'Remind me', onPick, onClear, dataQa }: Pro
                 setOpen(false);
               }}
             >
-              Clear reminder
+              {t('later.clearReminder')}
             </button>
           )}
         </AnchoredPopover>

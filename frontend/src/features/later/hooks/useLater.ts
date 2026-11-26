@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { components } from '@/api/schema';
 import { getApiForInstance } from '@/shared/hooks/useCurrentApi';
-import { QUERY_KEYS, ErrorLabels } from '@/shared/constants';
+import { QUERY_KEYS } from '@/shared/constants';
+import i18n from '@/lib/i18n';
 import { toast } from '@/shared/components/Toast';
 import { toUserMessage } from '@/lib/errors';
 import { logger } from '@/lib/logger';
@@ -43,7 +44,7 @@ export function useLaterActions(workspaceId: string | undefined, instanceUrl?: s
   const refresh = () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.later(ws) });
   const failed = (where: string) => (err: unknown) => {
     logger.error('useLaterActions', where, err);
-    toast.error(toUserMessage(err, ErrorLabels.LaterFailed));
+    toast.error(toUserMessage(err, i18n.t('messages:later.failed')));
   };
 
   const save = useMutation({

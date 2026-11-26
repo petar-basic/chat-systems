@@ -2,7 +2,6 @@ export const ErrorLabels = {
   SidebarSaveFailed: "Couldn't save your sidebar",
   AppSaveFailed: "Couldn't save the app",
   CalendarSaveFailed: "Couldn't save the calendar settings",
-  LaterFailed: "Couldn't update Later",
   RecentSearchesFailed: "Couldn't change your recent searches",
   ListCellFailed: "Couldn't save that cell",
   ListItemFailed: "Couldn't change that item",
