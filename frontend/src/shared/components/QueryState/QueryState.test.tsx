@@ -58,4 +58,28 @@ describe('QueryState', () => {
     );
     expect(screen.getByText('child')).toBeInTheDocument();
   });
+
+  it.each([
+    ['en', 'Something went wrong. Please try again.'],
+    ['ja', '問題が発生しました。もう一度お試しください。'],
+  ])('says something went wrong when it has no message (%s)', async (language, generic) => {
+    await i18n.changeLanguage(language);
+    render(
+      <QueryState isLoading={false} isError>
+        <div>child</div>
+      </QueryState>,
+    );
+    expect(screen.getByTestId('query-error')).toHaveTextContent(generic);
+  });
+
+  it('shows the message it is given as text', () => {
+    const hostile = '<img src=x onerror="alert(1)"> {{name}}';
+    render(
+      <QueryState isLoading={false} isError errorMessage={hostile}>
+        <div>child</div>
+      </QueryState>,
+    );
+    expect(screen.getByText(hostile)).toBeInTheDocument();
+    expect(document.querySelector('[onerror]')).toBeNull();
+  });
 });

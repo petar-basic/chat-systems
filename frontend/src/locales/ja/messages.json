@@ -196,7 +196,8 @@
   "tray": {
     "uploading": "{{name}} をアップロード中",
     "retry": "{{name}} のアップロードを再試行",
-    "failed": "アップロードに失敗しました"
+    "failed": "アップロードに失敗しました",
+    "uploadFailed": "ファイルをアップロードできませんでした"
   },
   "mentions": {
     "none": "該当なし",

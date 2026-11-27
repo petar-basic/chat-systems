@@ -7,7 +7,6 @@ import { useWsStatusStore } from './wsStatus';
 import { backfillAfterReconnect } from '../lib/realtimeBackfill';
 import { giveUpOnAnswers } from '../lib/commandAnswers';
 import { toast } from '@/shared/components/Toast';
-import { ErrorLabels } from '@/shared/constants';
 import type { components } from '@/api/schema';
 
 export type InstanceRole = components['schemas']['InstanceRole'];
@@ -147,14 +146,14 @@ async function adoptSsoSession(
   try {
     const user = toInstanceUser(await clients.api.typed((c) => c.GET('/users/me')));
     clients.api.onSessionExpired = () => {
-      toast.error(ErrorLabels.SessionExpired);
+      toast.error(i18n.t('auth:session.expired'));
       store.removeInstance(origin);
     };
     clients.ws.onStatusChange = (status) => {
       useWsStatusStore.getState().setStatus(origin, status);
     };
     clients.ws.onSessionRevoked = () => {
-      toast.error(ErrorLabels.SessionRevoked);
+      toast.error(i18n.t('auth:session.revoked'));
       store.removeInstance(origin);
     };
     clients.ws.addReconnectListener(backfillAfterReconnect);
@@ -190,14 +189,14 @@ async function signInTo(
     }
     const clients = instanceManager.get(normalized);
     clients.api.onSessionExpired = () => {
-      toast.error(ErrorLabels.SessionExpired);
+      toast.error(i18n.t('auth:session.expired'));
       get().removeInstance(normalized);
     };
     clients.ws.onStatusChange = (status) => {
       useWsStatusStore.getState().setStatus(normalized, status);
     };
     clients.ws.onSessionRevoked = () => {
-      toast.error(ErrorLabels.SessionRevoked);
+      toast.error(i18n.t('auth:session.revoked'));
       get().removeInstance(normalized);
     };
     clients.ws.addReconnectListener(backfillAfterReconnect);
@@ -254,14 +253,14 @@ export const useInstanceStore = create<InstancesState>((set, get) => ({
         }
         const clients = instanceManager.get(config.url);
         clients.api.onSessionExpired = () => {
-          toast.error(ErrorLabels.SessionExpired);
+          toast.error(i18n.t('auth:session.expired'));
           get().removeInstance(config.url);
         };
         clients.ws.onStatusChange = (status) => {
           useWsStatusStore.getState().setStatus(config.url, status);
         };
         clients.ws.onSessionRevoked = () => {
-          toast.error(ErrorLabels.SessionRevoked);
+          toast.error(i18n.t('auth:session.revoked'));
           get().removeInstance(config.url);
         };
         clients.ws.addReconnectListener(backfillAfterReconnect);

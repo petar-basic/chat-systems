@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import i18n from '@/lib/i18n';
 import {
   acceptsPasskey,
   ApiError,
@@ -53,5 +54,33 @@ describe('refusalOr', () => {
     expect(refusalOr(new TypeError('Failed to fetch'), 'Message failed to send')).toBe(
       'Message failed to send',
     );
+  });
+});
+
+describe.each([
+  ['en', 'Something went wrong. Please try again.'],
+  ['ja', '問題が発生しました。もう一度お試しください。'],
+])('toUserMessage (%s)', (language, generic) => {
+  const hostile = '<img src=x onerror="alert(1)"> {{name}}';
+
+  beforeEach(async () => {
+    await i18n.changeLanguage(language);
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('says something went wrong when nothing says why', () => {
+    expect(toUserMessage(new Error(''))).toBe(generic);
+    expect(toUserMessage('offline')).toBe(generic);
+  });
+
+  it("prefers the caller's own words to the generic ones", () => {
+    expect(toUserMessage(new Error(''), 'Could not do it')).toBe('Could not do it');
+  });
+
+  it('gives the reason it was given as it is', () => {
+    expect(toUserMessage(new Error(hostile))).toBe(hostile);
   });
 });

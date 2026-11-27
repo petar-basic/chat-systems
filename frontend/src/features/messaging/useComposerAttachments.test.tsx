@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
+import i18n from '@/lib/i18n';
 import { useComposerAttachments, asAttachments } from './useComposerAttachments';
 
 const uploadWithProgress = vi.fn();
@@ -124,5 +125,53 @@ describe('useComposerAttachments', () => {
     await waitFor(() => expect(result.current.hasReady).toBe(true));
     expect(result.current.failed).toBe(false);
     expect(uploadWithProgress).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe.each([
+  ['en', 'File upload failed'],
+  ['ja', 'ファイルをアップロードできませんでした'],
+])('an upload that fails (%s)', (language, failed) => {
+  const hostile = '<img src=x onerror="alert(1)"> {{name}}';
+
+  beforeEach(async () => {
+    uploadWithProgress.mockReset();
+    toastError.mockReset();
+    await i18n.changeLanguage(language);
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  const uploadFailing = async (error: unknown, resetKey: string) => {
+    uploadWithProgress.mockRejectedValueOnce(error);
+    const { result } = renderHook(() =>
+      useComposerAttachments({ workspaceId: 'ws-1', instanceUrl: undefined, resetKey }),
+    );
+    act(() => result.current.add([file('d.txt')]));
+    await waitFor(() => expect(result.current.failed).toBe(true));
+    return { shown: result.current.items[0].error, toasts: toastError.mock.calls.map(([msg]) => msg) };
+  };
+
+  it('says so when the server gives no reason', async () => {
+    expect(await uploadFailing(new Error(''), `${language}-no-reason`)).toEqual({
+      shown: failed,
+      toasts: [failed],
+    });
+  });
+
+  it('says so when the error is not an Error', async () => {
+    expect(await uploadFailing('offline', `${language}-not-error`)).toEqual({
+      shown: failed,
+      toasts: [failed],
+    });
+  });
+
+  it("gives the server's reason as it is", async () => {
+    expect(await uploadFailing(new Error(hostile), `${language}-reason`)).toEqual({
+      shown: hostile,
+      toasts: [hostile],
+    });
   });
 });

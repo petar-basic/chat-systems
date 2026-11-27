@@ -1,4 +1,4 @@
-import { GENERIC_ERROR_MESSAGE } from '@/shared/constants';
+import i18n from '@/lib/i18n';
 
 export class HttpError extends Error {
   constructor(
@@ -59,7 +59,7 @@ export function isPasskeyRequired(error: unknown): boolean {
   return error instanceof ApiError && error.status === 409 && error.message === 'passkey_required';
 }
 
-export function toUserMessage(error: unknown, fallback = GENERIC_ERROR_MESSAGE): string {
+export function toUserMessage(error: unknown, fallback = i18n.t('common:genericError')): string {
   if (isRateLimited(error) && error.retryAfterSeconds) {
     return `${error.message} Try again in ${error.retryAfterSeconds}s.`;
   }

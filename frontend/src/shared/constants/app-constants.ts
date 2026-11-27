@@ -22,6 +22,4 @@ export const RELATIVE_TIME_TICK_MS = 30_000;
 
 export const TOAST_DEFAULT_DURATION_MS = 5000;
 
-export const GENERIC_ERROR_MESSAGE = 'Something went wrong. Please try again.';
-
 export const PENDING_INVITE_KEY = 'chat_pending_invite';

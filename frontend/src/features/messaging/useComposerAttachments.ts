@@ -6,8 +6,9 @@ import { useInstanceInfo } from '@/features/instance';
 import { toast } from '@/shared/components/Toast';
 import { toUserMessage } from '@/lib/errors';
 import { logger } from '@/lib/logger';
+import i18n from '@/lib/i18n';
 import { formatBytes } from '@/lib/fileSize';
-import { ErrorLabels, MAX_ATTACHMENTS } from '@/shared/constants';
+import { MAX_ATTACHMENTS } from '@/shared/constants';
 import type { RecordedClip } from '@/features/clips';
 
 type Uploaded = components['schemas']['FileUploadResponse'];
@@ -166,7 +167,7 @@ export function useComposerAttachments({ workspaceId, instanceUrl, resetKey }: A
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') return;
         logger.error('useComposerAttachments', 'upload', err);
-        const reason = toUserMessage(err, ErrorLabels.UploadFailed);
+        const reason = toUserMessage(err, i18n.t('messages:tray.uploadFailed'));
         patch(scope, localId, { status: 'failed', error: reason });
         toast.error(reason);
       } finally {

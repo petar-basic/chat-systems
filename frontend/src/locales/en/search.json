@@ -84,6 +84,7 @@
   "recent": {
     "title": "Recent",
     "remove": "Remove “{{search}}” from recent searches",
-    "clear": "Clear"
+    "clear": "Clear",
+    "changeFailed": "Couldn't change your recent searches"
   }
 }

@@ -90,5 +90,6 @@
     "nameTaken": "A channel with that name already exists.",
     "failed": "Could not create the channel.",
     "create": "Create"
-  }
+  },
+  "layoutSaveFailed": "Couldn't save your sidebar"
 }

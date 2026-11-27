@@ -270,7 +270,8 @@
       "softHint": "Hides the workspace from members. Its admins and instance admins still see it, and its owner or an instance admin can restore it.",
       "hard": "Delete permanently",
       "hardHint": "Permanently deletes everything: channels, messages, members. This cannot be undone.",
-      "deleteFailed": "Failed to delete workspace"
+      "deleteFailed": "Failed to delete workspace",
+      "restoreFailed": "Couldn't restore the workspace"
     },
     "members": {
       "invitePeople": "Invite people",
@@ -771,7 +772,9 @@
         "save": "Save steps",
         "saved": "Saved",
         "failed": "The steps could not be saved"
-      }
+      },
+      "saveFailed": "Couldn't save the app",
+      "connectFailed": "Couldn't start connecting the app"
     },
     "integrations": {
       "incoming": {

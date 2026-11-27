@@ -76,5 +76,6 @@
     "pending": "pending",
     "active": "active",
     "suspended": "suspended"
-  }
+  },
+  "genericError": "Something went wrong. Please try again."
 }
