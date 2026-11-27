@@ -396,5 +396,30 @@
     "markReadFailed": "Couldn't mark the channel read",
     "markAllReadFailed": "Couldn't mark everything read",
     "markedAllRead": "Everything is marked read"
+  },
+  "shortcuts": {
+    "title": "Keyboard shortcuts",
+    "groups": {
+      "gettingAround": "Getting around",
+      "reading": "Reading",
+      "writing": "Writing",
+      "messages": "Messages"
+    },
+    "jumpTo": "Jump to a conversation",
+    "channel": "Previous or next channel",
+    "unreadChannel": "Previous or next unread channel",
+    "markChannelRead": "Mark the channel read",
+    "markAllRead": "Mark everything read",
+    "send": "Send the message",
+    "newLine": "Start a new line",
+    "editLast": "Edit your last message",
+    "emptyComposer": "in an empty message box",
+    "move": "Move between messages",
+    "focusedMessage": "on a focused message",
+    "openThread": "Open the thread",
+    "addReaction": "Add a reaction",
+    "pin": "Pin or unpin",
+    "composer": "Back to the message box",
+    "or": "or"
   }
 }

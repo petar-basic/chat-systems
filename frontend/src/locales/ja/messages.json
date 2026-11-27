@@ -392,5 +392,30 @@
     "markReadFailed": "既読にできませんでした",
     "markAllReadFailed": "すべてを既読にできませんでした",
     "markedAllRead": "すべて既読にしました"
+  },
+  "shortcuts": {
+    "title": "キーボードショートカット",
+    "groups": {
+      "gettingAround": "移動",
+      "reading": "既読",
+      "writing": "入力",
+      "messages": "メッセージ"
+    },
+    "jumpTo": "チャンネルやメンバーに移動",
+    "channel": "前後のチャンネルに移動",
+    "unreadChannel": "前後の未読チャンネルに移動",
+    "markChannelRead": "チャンネルを既読にする",
+    "markAllRead": "すべて既読にする",
+    "send": "送信する",
+    "newLine": "改行する",
+    "editLast": "自分が最後に送ったメッセージを編集",
+    "emptyComposer": "メッセージの入力欄が空のとき",
+    "move": "前後のメッセージに移動",
+    "focusedMessage": "メッセージを選んでいるとき",
+    "openThread": "スレッドを開く",
+    "addReaction": "リアクションを追加",
+    "pin": "ピン留めする・外す",
+    "composer": "入力欄に戻る",
+    "or": "または"
   }
 }
