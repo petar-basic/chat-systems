@@ -152,6 +152,7 @@
   "panel": {
     "title": "Notifications",
     "markAllRead": "Mark all read",
+    "markReadFailed": "Couldn't mark the notifications read",
     "filters": {
       "all": "All",
       "unread": "Unread",

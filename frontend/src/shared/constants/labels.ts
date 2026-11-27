@@ -6,5 +6,4 @@ export const ErrorLabels = {
   ListFailed: "Couldn't change the list",
   ListViewFailed: "Couldn't change that view",
   ListCommentFailed: "Couldn't save the comment",
-  NotFound: "We couldn't find that.",
 } as const;

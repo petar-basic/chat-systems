@@ -152,6 +152,7 @@
   "panel": {
     "title": "通知",
     "markAllRead": "すべて既読にする",
+    "markReadFailed": "通知を既読にできませんでした",
     "filters": {
       "all": "すべて",
       "unread": "未読",
